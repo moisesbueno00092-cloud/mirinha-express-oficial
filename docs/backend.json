@@ -1,0 +1,79 @@
+{
+  "entities": {
+    "OrderItem": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "OrderItem",
+      "type": "object",
+      "description": "Represents an individual item ordered within the Mirinha's Tracker app.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the order item."
+        },
+        "itemName": {
+          "type": "string",
+          "description": "The name of the item ordered."
+        },
+        "itemPrice": {
+          "type": "number",
+          "description": "The price of the item.",
+          "format": "float"
+        },
+        "quantity": {
+          "type": "number",
+          "description": "The quantity of the item ordered. Defaults to 1 if not specified.",
+          "format": "integer"
+        },
+        "orderDateTime": {
+          "type": "string",
+          "description": "The date and time when the item was ordered.",
+          "format": "date-time"
+        },
+        "itemGroup": {
+          "type": "string",
+          "description": "The group to which the item belongs (e.g., Fiados salão, Fiados rua, Vendas rua, Vendas salão)."
+        },
+        "extrasValue": {
+          "type": "number",
+          "description": "The value of the 'EXTRAS' item, tracked separately.",
+          "format": "float"
+        }
+      },
+      "required": [
+        "id",
+        "itemName",
+        "itemPrice",
+        "quantity",
+        "orderDateTime",
+        "itemGroup"
+      ]
+    }
+  },
+  "auth": {
+    "providers": [
+      "password",
+      "anonymous"
+    ]
+  },
+  "firestore": {
+    "structure": [
+      {
+        "path": "/order_items/{orderItemId}",
+        "definition": {
+          "entityName": "OrderItem",
+          "schema": {
+            "$ref": "#/backend/entities/OrderItem"
+          },
+          "description": "Stores details about each order item, including name, price, quantity, date/time, item group, and extras value.",
+          "params": [
+            {
+              "name": "orderItemId",
+              "description": "Unique identifier for the order item."
+            }
+          ]
+        }
+      }
+    ],
+    "reasoning": "The Firestore data structure is designed to support Mirinha's Tracker app, focusing on real-time access and data persistence as requested.  The primary entity is `OrderItem`, which stores the details of each item ordered. To ensure authorization independence (CRITICAL), we rely solely on `request.auth.uid` and do not use `get()` calls in our security rules. This simplifies security and enables atomic operations.\n\nStructural Segregation (Homogeneous Security Posture):  All documents in the `order_items` collection share the same security requirements.  This ensures we can use simple rules without needing to filter data based on its content.\n\nAccess Modeling (Standardization and Consistency): The application utilizes a single collection for order items.\n\nData Clarity and Predictability: Each `OrderItem` document includes explicit fields like `itemGroup`, `orderDateTime`, and other item details. This allows for clear modeling and reporting.\n\nQAPs (Rules are not Filters): Since we are using a flat collection structure with all documents having the same security requirements, listing operations are inherently secure.  We're not relying on filtering data within the rules themselves.\n\nDenormalization Strategy:  While not explicitly denormalizing authorization data in this simple example, the structure is ready to accommodate it. If, in the future, access to order items needs to be restricted based on user roles or group memberships, we can easily add a `members` map or other denormalized authorization fields to each `OrderItem` document. This ensures that authorization can be determined without needing to retrieve parent documents, preserving authorization independence."
+  }
+}
