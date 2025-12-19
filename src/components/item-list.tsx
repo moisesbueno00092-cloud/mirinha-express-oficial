@@ -42,7 +42,6 @@ const formatTimestamp = (timestamp: string) => {
   }
 };
 
-// Define styles for each group
 const groupBadgeStyles: Record<Group, string> = {
   "Vendas salão": "bg-purple-600 hover:bg-purple-700 border-transparent text-white",
   "Fiados salão": "bg-red-600 hover:bg-red-700 border-transparent text-white",
@@ -107,8 +106,17 @@ export default function ItemList({ items, onEdit, onDelete, isLoading }: ItemLis
             <TableRow key={item.id} className={cn(item.group.includes('Fiados') && "text-destructive")}>
               <TableCell className="font-medium px-2 sm:px-4">
                 <Badge className={cn("whitespace-nowrap", getItemBadgeStyle(item.name))}>
-                  {item.name === 'KG' ? `kg ${item.price.toFixed(2).replace('.', ',')}` : item.name}
-                  {item.name !== 'KG' && item.quantity > 1 && ` (x${item.quantity})`}
+                  {item.name === 'KG' ? (
+                    `kg ${item.individualPrices 
+                        ? item.individualPrices.map(p => p.toFixed(2).replace('.', ',')).join(' | ') 
+                        : item.price.toFixed(2).replace('.', ',')
+                    }`
+                  ) : (
+                    <>
+                      {item.name}
+                      {item.quantity > 1 && ` (x${item.quantity})`}
+                    </>
+                  )}
                 </Badge>
               </TableCell>
               <TableCell className="px-2 sm:px-4">

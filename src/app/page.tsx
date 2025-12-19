@@ -89,7 +89,8 @@ export default function Home() {
       }
   
       const itemParts = mainInput.split(' ').filter(part => part.trim() !== '');
-      const itemsToSave: Omit<Item, 'id'>[] = [];
+      const itemsToSave: Omit<Item, 'id' | 'individualPrices' | 'deliveryFee' | 'total'>[] = [];
+      const kgPrices: number[] = [];
   
       let i = 0;
       while (i < itemParts.length) {
@@ -99,68 +100,87 @@ export default function Home() {
         const isPredefinedKey = Object.keys(PREDEFINED_PRICES).includes(part.toUpperCase());
         const isNumeric = (str: string) => !isNaN(parseFloat(str.replace(',', '.'))) && /^[0-9,.]+$/.test(str);
         
-        const deliveryFee = deliveryFeeApplicable ? DELIVERY_FEE : 0;
-  
         if (isPredefinedKey) {
           const itemName = part.toUpperCase();
           let itemPrice = PREDEFINED_PRICES[itemName];
   
           if (nextPart && isNumeric(nextPart)) {
             itemPrice = parseFloat(nextPart.replace(',', '.'));
-            i++; // Skip the price part as it's been consumed
+            i++; 
           }
           
-          const total = (itemPrice * baseQuantity) + (deliveryFee * baseQuantity);
           itemsToSave.push({
             name: itemName,
             quantity: baseQuantity,
             price: itemPrice * baseQuantity,
-            deliveryFee: deliveryFee * baseQuantity,
-            total,
             group,
             timestamp: new Date().toISOString()
           });
   
         } else if (isNumeric(part)) {
-          const itemPrice = parseFloat(part.replace(',', '.'));
-          const total = itemPrice + deliveryFee; // Delivery fee is not multiplied for KG items as they are qty 1
-          itemsToSave.push({
-            name: 'KG',
-            quantity: 1, // Each numeric value is one KG item
-            price: itemPrice,
-            deliveryFee: deliveryFee,
-            total,
-            group,
-            timestamp: new Date().toISOString()
-          });
+          kgPrices.push(parseFloat(part.replace(',', '.')));
         }
         i++;
       }
   
-      if (currentItem?.id) {
-        // For editing, we assume only one item is being edited.
+      const deliveryFee = deliveryFeeApplicable ? DELIVERY_FEE : 0;
+      
+      const allItemsToProcess = [...itemsToSave];
+
+      // Handle grouped KG items
+      if (kgPrices.length > 0) {
+        const totalKgPrice = kgPrices.reduce((sum, price) => sum + price, 0);
+        const kgItem = {
+            name: 'KG',
+            quantity: kgPrices.length,
+            price: totalKgPrice,
+            group,
+            timestamp: new Date().toISOString(),
+            individualPrices: kgPrices
+        };
+        
+        if (currentItem?.id) { // Editing a KG item
+            const docRef = doc(firestore, "order_items", currentItem.id);
+            const { timestamp, ...updatedData } = { ...kgItem, deliveryFee, total: totalKgPrice + deliveryFee };
+            setDocumentNonBlocking(docRef, updatedData, { merge: true });
+        } else {
+             const newItem: Item = {
+                id: '', // Firestore will generate
+                ...kgItem,
+                deliveryFee: deliveryFee,
+                total: totalKgPrice + deliveryFee
+            };
+            addDocumentNonBlocking(orderItemsRef, newItem);
+        }
+      }
+
+      if (currentItem?.id && !currentItem.name.includes('KG')) { // Editing a non-KG item
         const singleItem = itemsToSave[0];
         if (singleItem) {
           const docRef = doc(firestore, "order_items", currentItem.id);
-          // The timestamp is not updated on edit.
-          const { timestamp, ...updatedData } = singleItem;
+          const { timestamp, ...itemData } = singleItem;
+          const total = itemData.price + (deliveryFee * itemData.quantity);
+          const updatedData = { ...itemData, deliveryFee: deliveryFee * itemData.quantity, total };
           setDocumentNonBlocking(docRef, updatedData, { merge: true });
           setEditingItem(null);
           toast({ title: "Sucesso", description: "Item atualizado." });
         }
-      } else {
-        // For adding new items, save each one individually.
+      } else if (!currentItem) { // Adding new non-KG items
         for (const item of itemsToSave) {
-          addDocumentNonBlocking(orderItemsRef, item);
-        }
-        if (itemsToSave.length > 0) {
-            toast({
-                title: "Sucesso",
-                description: `${itemsToSave.length} item(s) adicionado(s).`,
-            });
+            const total = item.price + (deliveryFee * item.quantity);
+            const newItem = { ...item, deliveryFee: deliveryFee * item.quantity, total };
+            addDocumentNonBlocking(orderItemsRef, newItem);
         }
       }
-  
+      
+      const totalItemsAdded = itemsToSave.length + (kgPrices.length > 0 ? 1 : 0);
+      if (!currentItem && totalItemsAdded > 0) {
+        toast({
+            title: "Sucesso",
+            description: `${totalItemsAdded} lançamento(s) adicionado(s).`,
+        });
+      }
+
     } catch (error) {
       console.error("Error upserting item:", error);
       toast({
@@ -170,6 +190,7 @@ export default function Home() {
       });
     } finally {
       setIsProcessing(false);
+      if (editingItem) setEditingItem(null);
     }
   };
 
@@ -208,7 +229,7 @@ export default function Home() {
 
     let reconstructedInput = '';
     if(item.name === 'KG') {
-        reconstructedInput = (item.price).toString().replace('.', ',');
+        reconstructedInput = (item.individualPrices || [item.price]).join(' ').replace(/\./g, ',');
     } else {
         const predefinedPrice = PREDEFINED_PRICES[item.name.toUpperCase()];
         const unitPrice = item.price / item.quantity;
@@ -254,9 +275,15 @@ export default function Home() {
     
     const total = items.reduce((acc, item) => acc + item.total, 0);
     const deliveryItems = items.filter(item => item.deliveryFee > 0);
-    const deliveryCount = deliveryItems.reduce((acc, item) => acc + item.quantity, 0);
-    const totalDeliveryFee = deliveryItems.reduce((acc, item) => acc + item.deliveryFee, 0);
     
+    const deliveryCount = deliveryItems.reduce((acc, item) => {
+      // For KG items, delivery is counted once per launch, not per individual price
+      if (item.name === 'KG') return acc + 1;
+      return acc + item.quantity;
+    }, 0);
+    
+    const totalDeliveryFee = deliveryItems.reduce((acc, item) => acc + item.deliveryFee, 0);
+
     return { total, deliveryCount, totalDeliveryFee };
   }, [items]);
 
