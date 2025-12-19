@@ -73,45 +73,54 @@ const getItemBadgeStyle = (itemName: string) => {
 }
 
 const renderItemName = (item: Item) => {
-    if (item.name === 'KG' && item.individualPrices && item.individualPrices.length > 0) {
-        if (item.individualPrices.length > 1) {
-            const totalKgPrice = item.individualPrices.reduce((a, b) => a + b, 0);
-            return (
-              <Badge className={cn("whitespace-nowrap", getItemBadgeStyle('KG'))}>
-                {`kg ${formatCurrency(totalKgPrice)}`}
-              </Badge>
-            );
-        }
-        return (
-          <Badge className={cn("whitespace-nowrap", getItemBadgeStyle('KG'))}>
-            {`kg ${item.individualPrices[0].toFixed(2).replace('.', ',')}`}
+    const badges = [];
+
+    // Handle predefined items (P, M, G, etc.)
+    if (item.itemNames && item.itemNames.length > 0) {
+      item.itemNames.forEach((name, index) => {
+        badges.push(
+          <Badge key={`predefined-${index}`} className={cn("whitespace-nowrap", getItemBadgeStyle(name))}>
+            {name}
           </Badge>
         );
+      });
     }
 
-    if (item.name.includes(' ') && item.name !== 'Lançamento Misto') {
+    // Handle KG items
+    if (item.name === 'KG' || (item.name === 'Lançamento Misto' && item.individualPrices && item.individualPrices.length > 0)) {
+        if (item.individualPrices && item.individualPrices.length > 1) {
+            const displayPrices = item.individualPrices.map(p => p.toFixed(2).replace('.', ',')).join('] [');
+            badges.push(
+                <Badge key="kg-multi" className={cn("whitespace-nowrap", getItemBadgeStyle('KG'))}>
+                    kg [{displayPrices}]
+                </Badge>
+            );
+        } else if (item.individualPrices && item.individualPrices.length === 1) {
+            badges.push(
+                <Badge key="kg-single" className={cn("whitespace-nowrap", getItemBadgeStyle('KG'))}>
+                    kg {item.individualPrices[0].toFixed(2).replace('.', ',')}
+                </Badge>
+            );
+        }
+    }
+    
+    // Fallback for single, non-KG items stored in 'name'
+    if (badges.length === 0 && item.name && item.name !== 'Lançamento Misto') {
         const itemNames = item.name.split(' ');
-        return (
-            <div className="flex flex-wrap gap-1">
-                {itemNames.map((name, index) => (
-                    <Badge key={index} className={cn("whitespace-nowrap", getItemBadgeStyle(name))}>
-                        {name}
-                    </Badge>
-                ))}
-                {item.individualPrices && item.individualPrices.length > 0 && (
-                     <Badge className={cn("whitespace-nowrap", getItemBadgeStyle('KG'))}>
-                        {`kg ${formatCurrency(item.individualPrices.reduce((a,b) => a+b, 0))}`}
-                    </Badge>
-                )}
-            </div>
-        );
+        itemNames.forEach((name, index) => {
+            badges.push(
+                <Badge key={`fallback-${index}`} className={cn("whitespace-nowrap", getItemBadgeStyle(name))}>
+                    {name}
+                </Badge>
+            );
+        });
+    }
+    
+    if (badges.length === 0) {
+       return <Badge className={cn("whitespace-nowrap", getItemBadgeStyle(item.name))}>{item.name}</Badge>;
     }
 
-    return (
-        <Badge className={cn("whitespace-nowrap", getItemBadgeStyle(item.name))}>
-            {`${item.name}${item.quantity > 1 ? ` (x${item.quantity})` : ''}`}
-        </Badge>
-    );
+    return <div className="flex flex-wrap gap-1">{badges}</div>;
 }
 
 export default function ItemList({ items, onEdit, onDelete, isLoading }: ItemListProps) {
@@ -173,3 +182,5 @@ export default function ItemList({ items, onEdit, onDelete, isLoading }: ItemLis
     </div>
   );
 }
+
+    
