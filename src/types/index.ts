@@ -5,6 +5,20 @@ export interface PredefinedItem {
   price: number;
 }
 
+export interface BomboniereItem {
+    id: string;
+    name: string;
+    price: number;
+    imageUrl: string;
+    aiHint: string;
+}
+
+export interface SelectedBomboniereItem {
+  name: string;
+  price: number;
+  quantity: number;
+}
+
 export interface Item {
   id: string;
   name: string; // e.g., 'M P', 'KG', 'Lançamento Misto'
@@ -18,4 +32,5 @@ export interface Item {
   // To store details for complex entries
   individualPrices?: number[]; // For KG items
   predefinedItems?: PredefinedItem[]; // For items like M, P, G etc.
+  bomboniereItems?: SelectedBomboniereItem[];
 }

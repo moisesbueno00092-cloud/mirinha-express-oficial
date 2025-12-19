@@ -1,8 +1,8 @@
 
 "use client";
 
-import { useMemo, useState } from "react";
-import type { Item, Group, PredefinedItem } from "@/types";
+import { useMemo, useState, useRef } from "react";
+import type { Item, Group, PredefinedItem, BomboniereItem, SelectedBomboniereItem } from "@/types";
 import { PREDEFINED_PRICES, DELIVERY_FEE } from "@/lib/constants";
 import { useCollection, useFirestore, useMemoFirebase } from "@/firebase";
 import { collection, doc } from "firebase/firestore";
@@ -37,6 +37,7 @@ import ItemForm from "@/components/item-form";
 import ItemList from "@/components/item-list";
 import SummaryReport from "@/components/summary-report";
 import FinalReport from "@/components/final-report";
+import BomboniereModal from "@/components/bomboniere-modal";
 
 const formatCurrency = (value: number) => {
   return new Intl.NumberFormat("pt-BR", {
@@ -56,19 +57,22 @@ export default function Home() {
   const [editingItem, setEditingItem] = useState<Item | null>(null);
   const [editInputValue, setEditInputValue] = useState("");
   const [itemToDelete, setItemToDelete] = useState<string | null>(null);
+  const [isBomboniereModalOpen, setBomboniereModalOpen] = useState(false);
+  const [rawInput, setRawInput] = useState("");
+  const inputRef = useRef<HTMLInputElement>(null);
+
   const { toast } = useToast();
 
-  const handleUpsertItem = async (rawInput: string, currentItem?: Item | null) => {
+  const handleUpsertItem = async (rawInputToProcess: string, currentItem?: Item | null) => {
     setIsProcessing(true);
     try {
-        let mainInput = rawInput.trim();
+        let mainInput = rawInputToProcess.trim();
         if (!mainInput) return;
 
         let group: Group = 'Vendas salão';
         let deliveryFeeApplicable = false;
         let isTaxExempt = false;
         
-        // Check for 'E' exemption flag and remove it from the input string
         const partsWithExemption = mainInput.split(' ').filter(part => part.trim() !== '');
         if (partsWithExemption.map(p => p.toUpperCase()).includes('E')) {
           isTaxExempt = true;
@@ -96,6 +100,7 @@ export default function Home() {
         let totalPrice = 0;
         let individualPrices: number[] = [];
         let predefinedItems: PredefinedItem[] = [];
+        let bomboniereItems: SelectedBomboniereItem[] = [];
         let customDeliveryFee: number | null = null;
         
         let i = 0;
@@ -103,7 +108,7 @@ export default function Home() {
             const part = parts[i].toUpperCase();
 
             if (part === 'KG') {
-                i++; // move to the first price
+                i++; 
                 while(i < parts.length && isNumeric(parts[i])) {
                     const price = parseFloat(parts[i].replace(',', '.'));
                     individualPrices.push(price);
@@ -117,15 +122,15 @@ export default function Home() {
             if (part === 'TX') {
                 if (i + 1 < parts.length && isNumeric(parts[i+1])) {
                     customDeliveryFee = parseFloat(parts[i+1].replace(',', '.'));
-                    i += 2; // Skip 'TX' and the value
+                    i += 2;
                     continue;
                 }
             }
 
-            const quantityMatch = part.match(/^(\d+)([A-Z]+)$/i);
+            const quantityMatch = part.match(/^(\d+)([A-Z\d-]+)$/i);
             let baseQuantity = 1;
             let currentItemCode = part;
-
+            
             if (quantityMatch) {
                 baseQuantity = parseInt(quantityMatch[1], 10);
                 currentItemCode = quantityMatch[2].toUpperCase();
@@ -133,27 +138,38 @@ export default function Home() {
             
             if (PREDEFINED_PRICES[currentItemCode]) {
                 const defaultPrice = PREDEFINED_PRICES[currentItemCode];
-                // Check if next part is a custom price
                 if (i + 1 < parts.length && isNumeric(parts[i+1]) && !PREDEFINED_PRICES[parts[i+1].toUpperCase()]) {
                     const customPrice = parseFloat(parts[i+1].replace(',', '.'));
                     for(let j=0; j < baseQuantity; j++) {
                         predefinedItems.push({ name: currentItemCode, price: customPrice });
                         totalPrice += customPrice;
                     }
-                    totalQuantity += baseQuantity;
-                    i++; // increment to skip the price part
+                    i++;
                 } else {
                     for(let j=0; j < baseQuantity; j++) {
                         predefinedItems.push({ name: currentItemCode, price: defaultPrice });
                         totalPrice += defaultPrice;
                     }
-                    totalQuantity += baseQuantity;
                 }
+            } else {
+                 const bomboniereMatch = part.match(/^(\d+)([A-Z\d-]+)$/i);
+                 if (bomboniereMatch) {
+                    const qty = parseInt(bomboniereMatch[1], 10);
+                    const name = bomboniereMatch[2];
+                    
+                    if (i + 1 < parts.length && isNumeric(parts[i+1])) {
+                        const price = parseFloat(parts[i+1].replace(',', '.'));
+                        bomboniereItems.push({ name, quantity: qty, price });
+                        totalPrice += price * qty;
+                        i++;
+                    }
+                 }
             }
+            totalQuantity += baseQuantity;
             i++;
         }
         
-        if (totalQuantity === 0) {
+        if (predefinedItems.length === 0 && individualPrices.length === 0 && bomboniereItems.length === 0) {
             toast({ variant: "destructive", title: "Entrada inválida", description: "Nenhum item válido foi encontrado."});
             setIsProcessing(false);
             return;
@@ -165,15 +181,17 @@ export default function Home() {
         let consolidatedName: string;
         const hasKgItems = individualPrices.length > 0;
         const hasPredefinedItems = predefinedItems.length > 0;
+        const hasBomboniereItems = bomboniereItems.length > 0;
+
+        const nameParts = [];
+        if (hasPredefinedItems) nameParts.push(predefinedItems.map(p => p.name).join(' '));
+        if (hasKgItems) nameParts.push('KG');
+        if (hasBomboniereItems) nameParts.push('Bomboniere');
         
-        if (hasPredefinedItems && hasKgItems) {
-            consolidatedName = 'Lançamento Misto';
-        } else if (hasKgItems) {
-            consolidatedName = 'KG';
-        } else {
-             consolidatedName = predefinedItems.map(p => p.name).join(' ');
-        }
-        
+        consolidatedName = nameParts.join(' + ') || 'Lançamento';
+        if (consolidatedName.length > 50) consolidatedName = 'Lançamento Misto';
+
+
         const finalItem: Omit<Item, 'id' | 'total'> = {
             name: consolidatedName,
             quantity: totalQuantity,
@@ -183,6 +201,7 @@ export default function Home() {
             deliveryFee,
             ...(individualPrices.length > 0 ? { individualPrices } : {}),
             ...(predefinedItems.length > 0 ? { predefinedItems } : {}),
+            ...(bomboniereItems.length > 0 ? { bomboniereItems } : {}),
         };
 
 
@@ -194,6 +213,8 @@ export default function Home() {
             addDocumentNonBlocking(orderItemsRef, { ...finalItem, total });
             toast({ title: "Sucesso", description: "Lançamento adicionado." });
         }
+        setRawInput("");
+
 
     } catch (error) {
         console.error("Error upserting item:", error);
@@ -233,8 +254,6 @@ export default function Home() {
   const handleEditRequest = (item: Item) => {
     setEditingItem(item);
     
-    // This reconstruction is complex and might not be perfect.
-    // It's a simplified representation for editing.
     const groupPrefixMap: { [K in Item['group']]?: string } = {
         'Fiados rua': 'Fr ',
         'Fiados salão': 'F ',
@@ -269,6 +288,12 @@ export default function Home() {
       reconstructedParts.push(`kg ${item.individualPrices.map(p => String(p).replace('.', ',')).join(' ')}`);
     }
 
+    if(item.bomboniereItems && item.bomboniereItems.length > 0) {
+        item.bomboniereItems.forEach(bi => {
+            reconstructedParts.push(`${bi.quantity}${bi.name.toLowerCase()}`);
+        });
+    }
+
     if (item.deliveryFee > 0 && item.deliveryFee !== DELIVERY_FEE) {
         reconstructedParts.push(`tx ${String(item.deliveryFee).replace('.', ',')}`);
     } else if (item.deliveryFee === 0 && (item.group === 'Vendas rua' || item.group === 'Fiados rua')) {
@@ -301,6 +326,17 @@ export default function Home() {
       description: "Item removido.",
     });
     setItemToDelete(null);
+  };
+
+  const handleBomboniereAdd = (itemsToAdd: SelectedBomboniereItem[]) => {
+      const itemsString = itemsToAdd.map(item => `${item.quantity}${item.name.replace(/\s+/g, '-').toLowerCase()}`).join(' ');
+      setRawInput(prev => `${prev} ${itemsString}`.trim());
+      setBomboniereModalOpen(false);
+      inputRef.current?.focus();
+  }
+
+  const handleItemFormSubmit = (currentRawInput: string) => {
+    handleUpsertItem(currentRawInput);
   };
 
   const displayItems = items || [];
@@ -368,6 +404,13 @@ export default function Home() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+      
+      <BomboniereModal 
+        isOpen={isBomboniereModalOpen}
+        onClose={() => setBomboniereModalOpen(false)}
+        onAddItems={handleBomboniereAdd}
+      />
+
 
       <div className="container mx-auto max-w-4xl p-2 sm:p-4 lg:p-8 pb-28">
         <header className="mb-6 text-center">
@@ -379,8 +422,12 @@ export default function Home() {
 
         <main className="space-y-6">
           <ItemForm
-            onItemSubmit={handleUpsertItem}
+            rawInput={rawInput}
+            setRawInput={setRawInput}
+            onItemSubmit={handleItemFormSubmit}
+            onOpenBomboniere={() => setBomboniereModalOpen(true)}
             isProcessing={isProcessing}
+            inputRef={inputRef}
           />
 
           <Card>

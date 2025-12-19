@@ -1,0 +1,206 @@
+
+'use client';
+
+import { useState, useEffect } from 'react';
+import Image from 'next/image';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { ScrollArea } from '@/components/ui/scroll-area';
+import { PlusCircle, MinusCircle, Plus, Pencil, Trash2, Save, X } from 'lucide-react';
+import { Card, CardContent } from '@/components/ui/card';
+import usePersistentState from '@/hooks/use-persistent-state';
+import type { BomboniereItem, SelectedBomboniereItem } from '@/types';
+import { BOMBONIERE_ITEMS_DEFAULT } from '@/lib/constants';
+
+interface BomboniereModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  onAddItems: (items: SelectedBomboniereItem[]) => void;
+}
+
+const formatCurrency = (value: number) => {
+    return new Intl.NumberFormat("pt-BR", {
+      style: "currency",
+      currency: "BRL",
+    }).format(value);
+};
+
+
+export default function BomboniereModal({ isOpen, onClose, onAddItems }: BomboniereModalProps) {
+  const [bomboniereItems, setBomboniereItems] = usePersistentState<BomboniereItem[]>('bomboniereItems', BOMBONIERE_ITEMS_DEFAULT);
+  const [selectedItems, setSelectedItems] = useState<Record<string, number>>({});
+  const [isEditing, setIsEditing] = useState(false);
+  const [itemToEdit, setItemToEdit] = useState<BomboniereItem | null>(null);
+  const [isAdding, setIsAdding] = useState(false);
+
+  useEffect(() => {
+    // Reset quantities when modal is opened
+    if (isOpen) {
+      setSelectedItems({});
+      setIsEditing(false);
+      setIsAdding(false);
+      setItemToEdit(null);
+    }
+  }, [isOpen]);
+
+  const handleQuantityChange = (itemId: string, delta: number) => {
+    setSelectedItems(prev => {
+      const currentQuantity = prev[itemId] || 0;
+      const newQuantity = Math.max(0, currentQuantity + delta);
+      if (newQuantity === 0) {
+        const { [itemId]: _, ...rest } = prev;
+        return rest;
+      }
+      return { ...prev, [itemId]: newQuantity };
+    });
+  };
+
+  const handleAddClick = () => {
+    const itemsToAdd: SelectedBomboniereItem[] = Object.entries(selectedItems)
+      .map(([itemId, quantity]) => {
+        const item = bomboniereItems.find(i => i.id === itemId);
+        if (!item) return null;
+        return { name: item.name, price: item.price, quantity };
+      })
+      .filter((i): i is SelectedBomboniereItem => i !== null);
+    
+    onAddItems(itemsToAdd);
+  };
+  
+  const handleSaveItem = (formData: FormData) => {
+    const id = formData.get('id') as string;
+    const name = formData.get('name') as string;
+    const price = parseFloat(formData.get('price') as string);
+    
+    if (id && name && !isNaN(price)) {
+      if(isAdding) {
+         setBomboniereItems(prev => [...prev, { id, name, price, imageUrl: `https://picsum.photos/seed/${id}/200/200`, aiHint: 'new item' }]);
+      } else {
+         setBomboniereItems(prev => prev.map(item => item.id === id ? { ...item, name, price } : item));
+      }
+    }
+    setItemToEdit(null);
+    setIsAdding(false);
+    setIsEditing(false);
+  }
+
+  const handleDeleteItem = (id: string) => {
+    setBomboniereItems(prev => prev.filter(item => item.id !== id));
+  }
+  
+  const renderEditView = () => (
+    <div className="p-1">
+        <div className="flex justify-between items-center mb-4">
+            <DialogTitle className="text-lg">Gerenciar Itens</DialogTitle>
+             <Button variant="outline" size="sm" onClick={() => { setIsEditing(false); setItemToEdit(null); setIsAdding(false); }}>
+                <X className="h-4 w-4 mr-2" /> Voltar
+            </Button>
+        </div>
+        <ScrollArea className="h-96">
+        <div className="space-y-2 pr-4">
+        {bomboniereItems.map(item => (
+            itemToEdit?.id === item.id ? (
+             <form action={handleSaveItem} key={item.id} className="bg-muted/50 p-2 rounded-lg">
+                <input type="hidden" name="id" value={item.id} />
+                <div className="flex gap-2">
+                    <Input name="name" defaultValue={item.name} className="h-8" />
+                    <Input name="price" type="number" step="0.01" defaultValue={item.price} className="h-8 w-24" />
+                    <Button type="submit" size="icon" className="h-8 w-8 shrink-0">
+                        <Save className="h-4 w-4" />
+                    </Button>
+                </div>
+            </form>
+            ) : (
+            <Card key={item.id} className="flex items-center p-2">
+                <Image src={item.imageUrl} alt={item.name} width={40} height={40} className="rounded-md mr-4" data-ai-hint={item.aiHint} />
+                <div className="flex-grow">
+                    <p className="font-semibold">{item.name}</p>
+                    <p className="text-sm text-muted-foreground">{formatCurrency(item.price)}</p>
+                </div>
+                <Button variant="ghost" size="icon" onClick={() => setItemToEdit(item)}><Pencil className="h-4 w-4" /></Button>
+                <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive" onClick={() => handleDeleteItem(item.id)}><Trash2 className="h-4 w-4" /></Button>
+            </Card>
+            )
+        ))}
+        {isAdding && (
+            <form action={handleSaveItem} className="bg-muted/50 p-2 rounded-lg">
+                <input type="hidden" name="id" value={Date.now().toString()} />
+                <div className="flex gap-2">
+                    <Input name="name" placeholder="Nome do item" className="h-8" />
+                    <Input name="price" type="number" step="0.01" placeholder="Preço" className="h-8 w-24" />
+                    <Button type="submit" size="icon" className="h-8 w-8 shrink-0">
+                        <Save className="h-4 w-4" />
+                    </Button>
+                </div>
+            </form>
+        )}
+        </div>
+        </ScrollArea>
+        <Button variant="default" className="w-full mt-4" onClick={() => setIsAdding(true)}>
+            <Plus className="h-4 w-4 mr-2"/>
+            Adicionar Novo Item
+        </Button>
+    </div>
+  );
+
+  const renderSelectionView = () => (
+    <>
+        <DialogHeader>
+            <div className="flex justify-between items-center">
+                <DialogTitle>Bomboniere</DialogTitle>
+                <Button variant="outline" size="sm" onClick={() => setIsEditing(true)}>
+                    <Pencil className="h-4 w-4" />
+                </Button>
+            </div>
+        </DialogHeader>
+        <ScrollArea className="h-96 -mx-6">
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 px-6">
+            {bomboniereItems.map((item) => (
+                <Card key={item.id} className="flex flex-col items-center justify-center text-center p-2 relative">
+                <Image 
+                    src={item.imageUrl} 
+                    alt={item.name} 
+                    width={80} height={80} 
+                    className="rounded-md mb-2"
+                    data-ai-hint={item.aiHint}
+                />
+                <p className="text-sm font-semibold leading-tight">{item.name}</p>
+                <p className="text-xs text-muted-foreground">{formatCurrency(item.price)}</p>
+                
+                {selectedItems[item.id] > 0 ? (
+                    <div className="flex items-center justify-center gap-2 mt-2 bg-background absolute bottom-1 right-1 rounded-full p-0.5 border">
+                        <Button variant="ghost" size="icon" className="h-6 w-6 rounded-full" onClick={() => handleQuantityChange(item.id, -1)}>
+                            <MinusCircle className="h-5 w-5 text-destructive" />
+                        </Button>
+                        <span className="text-sm font-bold w-4 text-center">{selectedItems[item.id]}</span>
+                         <Button variant="ghost" size="icon" className="h-6 w-6 rounded-full" onClick={() => handleQuantityChange(item.id, 1)}>
+                            <PlusCircle className="h-5 w-5 text-primary" />
+                        </Button>
+                    </div>
+                ) : (
+                    <Button variant="ghost" size="icon" className="absolute bottom-1 right-1 h-8 w-8 rounded-full" onClick={() => handleQuantityChange(item.id, 1)}>
+                        <PlusCircle className="h-6 w-6 text-primary" />
+                    </Button>
+                )}
+                </Card>
+            ))}
+            </div>
+        </ScrollArea>
+        <DialogFooter>
+            <Button variant="outline" onClick={onClose}>Cancelar</Button>
+            <Button onClick={handleAddClick} disabled={Object.keys(selectedItems).length === 0}>
+                Adicionar Itens
+            </Button>
+        </DialogFooter>
+    </>
+  );
+
+  return (
+    <Dialog open={isOpen} onOpenChange={onClose}>
+      <DialogContent className="sm:max-w-lg">
+        {isEditing ? renderEditView() : renderSelectionView()}
+      </DialogContent>
+    </Dialog>
+  );
+}

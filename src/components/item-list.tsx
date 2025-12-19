@@ -1,7 +1,7 @@
 
 "use client";
 
-import type { Item, Group, PredefinedItem } from "@/types";
+import type { Item, Group, PredefinedItem, SelectedBomboniereItem } from "@/types";
 import { DELIVERY_FEE } from "@/lib/constants";
 import {
   Table,
@@ -65,6 +65,7 @@ const itemBadgeStyles: { [key: string]: string } = {
   S: "bg-amber-600",
   KG: "bg-gray-400",
   "LANÇAMENTO MISTO": "bg-gray-700",
+  BOMBONIERE: "bg-rose-500"
 };
 
 const getItemBadgeStyle = (itemName: string) => {
@@ -73,6 +74,10 @@ const getItemBadgeStyle = (itemName: string) => {
   if (style) {
     return `text-white border-transparent ${style}`;
   }
+  
+  // Fallback for bomboniere items
+  if(itemName.includes('-')) return `text-white border-transparent ${itemBadgeStyles['BOMBONIERE']}`;
+  
   return "bg-gray-500 text-white border-transparent";
 }
 
@@ -90,7 +95,6 @@ const renderItemName = (item: Item) => {
         itemCounts[key].count++;
       });
       
-      // Sort to keep a consistent order
       const sortedItems = Object.entries(itemCounts).sort((a,b) => a[0].localeCompare(b[0]));
       
       sortedItems.forEach(([key, { count, price }]) => {
@@ -101,7 +105,7 @@ const renderItemName = (item: Item) => {
                 <Badge className={cn("whitespace-nowrap", getItemBadgeStyle(name))}>
                     {badgeLabel}
                 </Badge>
-                <span className="text-muted-foreground mt-0.5" style={{ fontSize: '0.48rem', letterSpacing: '-0.05em' }}>
+                <span className="text-muted-foreground mt-0.5" style={{ fontSize: '0.6rem', letterSpacing: '-0.1em' }}>
                     {formatCurrency(price)}
                 </span>
             </div>
@@ -109,7 +113,7 @@ const renderItemName = (item: Item) => {
       });
     }
 
-    // Handle KG items, which are stored in individualPrices, one by one
+    // Handle KG items
     if (item.individualPrices && item.individualPrices.length > 0) {
         item.individualPrices.forEach((price, index) => {
             itemElements.push(
@@ -117,7 +121,7 @@ const renderItemName = (item: Item) => {
                     <Badge className={cn("whitespace-nowrap", getItemBadgeStyle('KG'))}>
                         KG
                     </Badge>
-                    <span className="text-muted-foreground mt-0.5" style={{ fontSize: '0.48rem', letterSpacing: '-0.05em' }}>
+                    <span className="text-muted-foreground mt-0.5" style={{ fontSize: '0.6rem', letterSpacing: '-0.1em' }}>
                         {formatCurrency(price)}
                     </span>
                 </div>
@@ -125,7 +129,23 @@ const renderItemName = (item: Item) => {
         });
     }
     
-    // Fallback for simple items that might not have been caught by the structures above
+    // Handle bomboniere items
+    if (item.bomboniereItems && item.bomboniereItems.length > 0) {
+        item.bomboniereItems.forEach((bItem, index) => {
+            const badgeLabel = bItem.quantity > 1 ? `${bItem.quantity}${bItem.name}` : bItem.name;
+            itemElements.push(
+                <div key={`bomboniere-group-${index}`} className="flex flex-col items-center">
+                    <Badge className={cn("whitespace-nowrap", getItemBadgeStyle(bItem.name))}>
+                        {badgeLabel}
+                    </Badge>
+                     <span className="text-muted-foreground mt-0.5" style={{ fontSize: '0.6rem', letterSpacing: '-0.1em' }}>
+                        {formatCurrency(bItem.price)}
+                    </span>
+                </div>
+            );
+        });
+    }
+
     if (itemElements.length === 0 && item.name) {
        return <Badge className={cn("whitespace-nowrap", getItemBadgeStyle(item.name))}>{item.name}</Badge>;
     }

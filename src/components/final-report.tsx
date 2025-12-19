@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { PieChart, Pie, Cell, ResponsiveContainer, Legend, Tooltip } from "recharts";
 import { Share, FileText, BrainCircuit } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { BOMBONIERE_ITEMS_DEFAULT } from "@/lib/constants";
 
 interface FinalReportProps {
   items: Item[];
@@ -41,57 +42,78 @@ export default function FinalReport({ items }: FinalReportProps) {
       'Fiados rua': 0,
     };
     
+    let totalBomboniereValue = 0;
     const itemCounts: { [key: string]: { total: number; rua: number } } = {};
+    const bomboniereItemCounts: { [key: string]: { quantity: number; total: number } } = {};
+    
     let totalRuaItems = 0;
     let totalGeralItems = 0;
-
-    const deliveryItems = items.filter(item => item.deliveryFee > 0);
-    const deliveryCount = deliveryItems.reduce((acc, item) => acc + item.quantity, 0);
-    const totalDeliveryFee = deliveryItems.reduce((acc, item) => acc + (item.deliveryFee * item.quantity), 0);
+    
+    const bomboniereItemNames = new Set(BOMBONIERE_ITEMS_DEFAULT.map(i => i.name.toUpperCase().replace(/\s+/g, '-')));
 
     items.forEach((item) => {
       totals[item.group] += item.total;
       
-      const itemName = item.name.toUpperCase();
-      const isKgItem = itemName === 'KG';
+      let currentItemBomboniereValue = 0;
 
-      // Increment total item counts
-      const count = isKgItem ? 1 : item.quantity;
-      totalGeralItems += count;
-      if (item.group.includes('rua')) {
-        totalRuaItems += count;
+      if(item.bomboniereItems){
+        item.bomboniereItems.forEach(bItem => {
+            const bomboniereValue = bItem.price * bItem.quantity;
+            totalBomboniereValue += bomboniereValue;
+            currentItemBomboniereValue += bomboniereValue;
+
+            if(!bomboniereItemCounts[bItem.name]){
+                bomboniereItemCounts[bItem.name] = { quantity: 0, total: 0 };
+            }
+            bomboniereItemCounts[bItem.name].quantity += bItem.quantity;
+            bomboniereItemCounts[bItem.name].total += bomboniereValue;
+        });
       }
       
-      // Group items for "Contagem de Itens" table
-      if (!itemCounts[itemName]) {
-        itemCounts[itemName] = { total: 0, rua: 0 };
+      const isRua = item.group.includes('rua');
+      const mealValue = item.total - currentItemBomboniereValue;
+      
+      if(item.predefinedItems){
+        item.predefinedItems.forEach(pItem => {
+          if (!itemCounts[pItem.name]) {
+            itemCounts[pItem.name] = { total: 0, rua: 0 };
+          }
+          itemCounts[pItem.name].total += 1;
+          if (isRua) itemCounts[pItem.name].rua += 1;
+          totalGeralItems += 1;
+          if(isRua) totalRuaItems += 1;
+        });
       }
       
-      itemCounts[itemName].total += count;
-      if (item.group.includes('rua')) {
-          itemCounts[itemName].rua += count;
+      if(item.individualPrices){
+        const kgCount = item.individualPrices.length;
+        if (!itemCounts['KG']) {
+          itemCounts['KG'] = { total: 0, rua: 0 };
+        }
+        itemCounts['KG'].total += kgCount;
+        if(isRua) itemCounts['KG'].rua += kgCount;
+        totalGeralItems += kgCount;
+        if(isRua) totalRuaItems += kgCount;
       }
     });
     
     const totalFaturamento = Object.values(totals).reduce((acc, val) => acc + val, 0);
-    
-    const pieData = Object.entries(totals)
-        .filter(([, value]) => value > 0)
-        .map(([name, value]) => ({
-            name,
-            value,
-            percent: totalFaturamento > 0 ? ((value / totalFaturamento) * 100).toFixed(0) : 0,
-        }));
+    const totalMealValue = totalFaturamento - totalBomboniereValue;
+
+    const pieData = [
+      { name: 'Refeições', value: totalMealValue, percent: totalFaturamento > 0 ? ((totalMealValue / totalFaturamento) * 100).toFixed(0) : 0 },
+      { name: 'Bomboniere', value: totalBomboniereValue, percent: totalFaturamento > 0 ? ((totalBomboniereValue / totalFaturamento) * 100).toFixed(0) : 0 },
+    ].filter(d => d.value > 0);
         
     const COLORS = {
-        'Vendas salão': '#d92550',
-        'Vendas rua': '#3498db',
+        'Refeições': '#d92550',
+        'Bomboniere': '#3498db',
         'Fiados salão': '#f1c40f',
         'Fiados rua': '#2ecc71',
     };
 
-    const sortedItemCounts = Object.entries(itemCounts)
-                                .sort(([, a], [, b]) => b.total - a.total);
+    const sortedItemCounts = Object.entries(itemCounts).sort(([, a], [, b]) => b.total - a.total);
+    const sortedBomboniereCounts = Object.entries(bomboniereItemCounts).sort(([, a], [, b]) => b.total - a.total);
 
     return { 
         totals,
@@ -99,10 +121,11 @@ export default function FinalReport({ items }: FinalReportProps) {
         totalGeralItems,
         totalRuaItems,
         itemCounts: sortedItemCounts,
+        bomboniereItemCounts: sortedBomboniereCounts,
         pieData,
         COLORS,
-        totalDeliveryFee,
-        deliveryCount,
+        totalBomboniereValue,
+        totalMealValue,
     };
   }, [items]);
   
@@ -145,17 +168,22 @@ export default function FinalReport({ items }: FinalReportProps) {
                                 <span className="font-mono font-medium">{formatCurrency(total)}</span>
                             </div>
                         ))}
-                        {reportData.totalDeliveryFee > 0 && (
-                            <div className="flex justify-between pt-2 border-t mt-2 text-muted-foreground">
-                                <span>Taxa de Entrega ({reportData.deliveryCount}x):</span>
-                                <span className="font-mono font-medium">{formatCurrency(reportData.totalDeliveryFee)}</span>
-                            </div>
-                        )}
+                    </div>
+                     <Separator />
+                     <div className="space-y-2 text-xs sm:text-sm">
+                        <div className="flex justify-between font-bold">
+                            <span>Total Refeições:</span>
+                            <span className="font-mono">{formatCurrency(reportData.totalMealValue)}</span>
+                        </div>
+                         <div className="flex justify-between font-bold">
+                            <span>Total Bomboniere:</span>
+                            <span className="font-mono">{formatCurrency(reportData.totalBomboniereValue)}</span>
+                        </div>
                     </div>
                      <Separator />
                      <div className="space-y-2 text-xs sm:text-sm">
                         <div className="flex justify-between">
-                            <span>Total Geral (Itens):</span>
+                            <span>Total Itens (Refeições):</span>
                             <span className="font-mono font-medium">{reportData.totalGeralItems}</span>
                         </div>
                          <div className="flex justify-between">
@@ -166,35 +194,7 @@ export default function FinalReport({ items }: FinalReportProps) {
                 </div>
 
                 <div className="space-y-4 sm:space-y-6">
-                    <div>
-                        <h3 className="font-semibold text-base sm:text-lg mb-2">Contagem de Itens</h3>
-                        <div className="grid grid-cols-2 gap-4 text-xs sm:text-sm">
-                             <div>
-                                <h4 className="font-medium mb-1">Total</h4>
-                                <ul className="space-y-1">
-                                    {reportData.itemCounts.map(([name, count]) => (
-                                        <li key={name} className="flex justify-between">
-                                            <span>{name}:</span>
-                                            <span className="font-mono">{count.total}</span>
-                                        </li>
-
-                                    ))}
-                                </ul>
-                            </div>
-                             <div>
-                                <h4 className="font-medium mb-1">Rua</h4>
-                                 <ul className="space-y-1">
-                                    {reportData.itemCounts.filter(([, count]) => count.rua > 0).map(([name, count]) => (
-                                        <li key={name} className="flex justify-between">
-                                            <span>{name}:</span>
-                                            <span className="font-mono">{count.rua}</span>
-                                        </li>
-                                    ))}
-                                </ul>
-                            </div>
-                        </div>
-                    </div>
-                    <div>
+                     <div>
                         <h3 className="font-semibold text-base sm:text-lg mb-2">Proporção de Vendas</h3>
                         <div style={{ width: '100%', height: 180 }}>
                             <ResponsiveContainer>
@@ -225,6 +225,55 @@ export default function FinalReport({ items }: FinalReportProps) {
                 </div>
             </CardContent>
         </Card>
+        
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
+            <Card>
+                <CardHeader>
+                    <CardTitle className="text-base sm:text-lg">Contagem de Refeições</CardTitle>
+                </CardHeader>
+                <CardContent className="text-xs sm:text-sm">
+                    <div className="grid grid-cols-2 gap-x-4">
+                        <div>
+                            <h4 className="font-medium mb-1 border-b pb-1">Total</h4>
+                            <ul className="space-y-1 mt-2">
+                                {reportData.itemCounts.map(([name, count]) => (
+                                    <li key={name} className="flex justify-between">
+                                        <span>{name}:</span>
+                                        <span className="font-mono">{count.total}</span>
+                                    </li>
+                                ))}
+                            </ul>
+                        </div>
+                        <div>
+                            <h4 className="font-medium mb-1 border-b pb-1">Rua</h4>
+                            <ul className="space-y-1 mt-2">
+                                {reportData.itemCounts.filter(([, count]) => count.rua > 0).map(([name, count]) => (
+                                    <li key={name} className="flex justify-between">
+                                        <span>{name}:</span>
+                                        <span className="font-mono">{count.rua}</span>
+                                    </li>
+                                ))}
+                            </ul>
+                        </div>
+                    </div>
+                </CardContent>
+            </Card>
+            <Card>
+                 <CardHeader>
+                    <CardTitle className="text-base sm:text-lg">Contagem de Bomboniere</CardTitle>
+                </CardHeader>
+                <CardContent className="text-xs sm:text-sm">
+                     <ul className="space-y-1">
+                        {reportData.bomboniereItemCounts.map(([name, data]) => (
+                            <li key={name} className="flex justify-between">
+                                <span>{data.quantity}x {name}</span>
+                                <span className="font-mono">{formatCurrency(data.total)}</span>
+                            </li>
+                        ))}
+                    </ul>
+                </CardContent>
+            </Card>
+        </div>
         
         <div>
             <h3 className="font-semibold text-base sm:text-lg mb-2">Ações</h3>
