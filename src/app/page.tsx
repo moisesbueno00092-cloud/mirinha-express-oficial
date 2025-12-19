@@ -99,7 +99,9 @@ export default function Home() {
         let quantity = baseQuantity;
 
         const predefinedKey = input.replace(/\s+/g, '').toUpperCase();
+        const numericValue = parseFloat(input.replace(',', '.'));
 
+        // Check if it's a predefined key
         if (Object.prototype.hasOwnProperty.call(PREDEFINED_PRICES, predefinedKey)) {
           finalName = predefinedKey;
           // Check if next part is a price override
@@ -117,18 +119,16 @@ export default function Home() {
             price = PREDEFINED_PRICES[predefinedKey];
             i++; // Consume just item key
           }
-        } else {
-          // It's not a predefined key. Check if it's a number.
-          const numericValue = parseFloat(input.replace(',', '.'));
-          if (!isNaN(numericValue) && /^[0-9,.]+$/.test(input)) {
+        } else if (!isNaN(numericValue) && /^[0-9,.]+$/.test(input)) {
+            // It's a number, so it's a KG item
             price = numericValue;
             finalName = "KG";
             quantity = 1; // KG items always have quantity 1
             i++; // Move to next input part
-          } else {
-            // Not a predefined key, not a number, treat as a custom item with AI parsing
-             const aiResult = await parseCustomItemPrice({
-                itemName: input.replace(",", "."),
+        } else {
+          // Not a predefined key, not a standalone number, treat as a custom item with AI parsing
+            const aiResult = await parseCustomItemPrice({
+              itemName: input.replace(",", "."),
             });
 
             if (aiResult.customPrice !== undefined && aiResult.customPrice !== null) {
@@ -139,7 +139,6 @@ export default function Home() {
                 price = 0; // Or handle as an error
             }
             i++;
-          }
         }
         
         if (!finalName) {
@@ -383,5 +382,3 @@ export default function Home() {
     </>
   );
 }
-
-    
