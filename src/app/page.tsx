@@ -20,8 +20,17 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+  DialogClose,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
-import { Trash2 } from "lucide-react";
+import { Trash2, Save } from "lucide-react";
 import { addDocumentNonBlocking, deleteDocumentNonBlocking, setDocumentNonBlocking } from "@/firebase/non-blocking-updates";
 
 import ItemForm from "@/components/item-form";
@@ -45,11 +54,12 @@ export default function Home() {
   const { data: items, isLoading, error: firestoreError } = useCollection<Item>(orderItemsRef);
   
   const [isProcessing, setIsProcessing] = useState(false);
-  const [editingItemId, setEditingItemId] = useState<string | null>(null);
+  const [editingItem, setEditingItem] = useState<Item | null>(null);
+  const [editInputValue, setEditInputValue] = useState("");
   const [itemToDelete, setItemToDelete] = useState<string | null>(null);
   const { toast } = useToast();
 
-  const handleUpsertItem = async (rawInput: string) => {
+  const handleUpsertItem = async (rawInput: string, currentItem?: Item | null) => {
     setIsProcessing(true);
     try {
         let input = rawInput.trim();
@@ -121,11 +131,11 @@ export default function Home() {
             group,
         };
 
-        if (editingItemId) {
-            const docRef = doc(firestore, "order_items", editingItemId);
+        if (currentItem?.id) {
+            const docRef = doc(firestore, "order_items", currentItem.id);
             setDocumentNonBlocking(docRef, itemData, { merge: true });
             toast({ title: "Sucesso", description: "Item atualizado." });
-            setEditingItemId(null);
+            setEditingItem(null);
         } else {
             const newItem = { ...itemData, timestamp: new Date().toISOString() };
             addDocumentNonBlocking(orderItemsRef, newItem);
@@ -165,10 +175,31 @@ export default function Home() {
     }
   };
 
-  const handleEditItem = (id: string) => {
-    setEditingItemId(id);
-    window.scrollTo({ top: 0, behavior: "smooth" });
+  const handleEditRequest = (item: Item) => {
+    setEditingItem(item);
+    let reconstructedInput = `${item.name}`;
+      
+    const groupPrefixMap: { [K in Item['group']]?: string } = {
+        'Fiados rua': 'Fr ',
+        'Fiados salão': 'F ',
+        'Vendas rua': 'R ',
+        'Vendas salão': '',
+    };
+    const prefix = groupPrefixMap[item.group] || '';
+    reconstructedInput = prefix + reconstructedInput;
+    
+    if(item.quantity > 1) {
+        reconstructedInput = `${item.quantity}x ` + reconstructedInput;
+    }
+    setEditInputValue(reconstructedInput);
   };
+
+  const handleSaveEdit = () => {
+    if(editingItem && editInputValue) {
+      handleUpsertItem(editInputValue, editingItem)
+    }
+  }
+
 
   const handleDeleteRequest = (id: string) => {
     setItemToDelete(id);
@@ -184,19 +215,15 @@ export default function Home() {
     setItemToDelete(null);
   };
 
-  const handleCancelEdit = () => {
-    setEditingItemId(null);
-  };
-
-  const itemToEdit = items?.find(item => item.id === editingItemId) || null;
   const displayItems = items || [];
   
   const summary = useMemo(() => {
     if (!items) return { total: 0, deliveryCount: 0, totalDeliveryFee: 0 };
     
     const total = items.reduce((acc, item) => acc + item.total, 0);
-    const deliveryCount = items.reduce((acc, item) => item.deliveryFee > 0 ? acc + item.quantity : acc, 0);
-    const totalDeliveryFee = items.reduce((acc, item) => acc + item.deliveryFee, 0);
+    const deliveryItems = items.filter(item => item.deliveryFee > 0);
+    const deliveryCount = deliveryItems.reduce((acc, item) => acc + item.quantity, 0);
+    const totalDeliveryFee = deliveryItems.reduce((acc, item) => acc + (item.deliveryFee * item.quantity), 0);
     
     return { total, deliveryCount, totalDeliveryFee };
   }, [items]);
@@ -228,6 +255,30 @@ export default function Home() {
         </AlertDialogContent>
       </AlertDialog>
 
+      <Dialog open={!!editingItem} onOpenChange={(open) => !open && setEditingItem(null)}>
+        <DialogContent className="sm:max-w-[425px]">
+          <DialogHeader>
+            <DialogTitle>Editar Item</DialogTitle>
+          </DialogHeader>
+          <div className="py-4">
+            <Input
+              value={editInputValue}
+              onChange={(e) => setEditInputValue(e.target.value)}
+              placeholder="Ex: 2p ou M 12,50 Coca"
+              className="h-10 flex-1 sm:h-12 text-base"
+            />
+          </div>
+          <DialogFooter>
+            <DialogClose asChild>
+                <Button type="button" variant="secondary">Cancelar</Button>
+            </DialogClose>
+            <Button type="submit" onClick={handleSaveEdit} disabled={isProcessing}>
+                <Save className="mr-2 h-4 w-4" /> Salvar
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       <div className="container mx-auto max-w-4xl p-2 sm:p-4 lg:p-8 pb-28">
         <header className="mb-6 text-center">
           <h1 className="text-3xl font-headline font-bold text-primary sm:text-5xl">
@@ -240,8 +291,6 @@ export default function Home() {
           <ItemForm
             onItemSubmit={handleUpsertItem}
             isProcessing={isProcessing}
-            editingItem={itemToEdit}
-            onCancelEdit={handleCancelEdit}
           />
 
           <Card>
@@ -256,7 +305,7 @@ export default function Home() {
                   <TabsContent value="pedidos">
                     <ItemList
                       items={displayItems}
-                      onEdit={handleEditItem}
+                      onEdit={handleEditRequest}
                       onDelete={handleDeleteRequest}
                       isLoading={isLoading}
                     />

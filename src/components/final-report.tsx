@@ -42,8 +42,10 @@ export default function FinalReport({ items }: FinalReportProps) {
     
     const itemCounts: { [key: string]: { total: number; rua: number } } = {};
     let totalRuaItems = 0;
-    let totalDeliveryFee = 0;
-    let deliveryCount = 0;
+
+    const deliveryItems = items.filter(item => item.deliveryFee > 0);
+    const deliveryCount = deliveryItems.reduce((acc, item) => acc + item.quantity, 0);
+    const totalDeliveryFee = deliveryItems.reduce((acc, item) => acc + (item.deliveryFee * item.quantity), 0);
 
     items.forEach((item) => {
       totals[item.group] += item.total;
@@ -57,11 +59,6 @@ export default function FinalReport({ items }: FinalReportProps) {
       if (item.group.includes('rua')) {
         itemCounts[itemName].rua += item.quantity;
         totalRuaItems += item.quantity;
-      }
-      
-      if (item.deliveryFee > 0) {
-        totalDeliveryFee += item.deliveryFee;
-        deliveryCount += item.quantity;
       }
     });
     
@@ -139,7 +136,7 @@ export default function FinalReport({ items }: FinalReportProps) {
                             </div>
                         ))}
                         {reportData.totalDeliveryFee > 0 && (
-                            <div className="flex justify-between text-muted-foreground">
+                            <div className="flex justify-between pt-2 border-t mt-2 text-muted-foreground">
                                 <span>Taxa de Entrega ({reportData.deliveryCount}x):</span>
                                 <span className="font-mono font-medium">{formatCurrency(reportData.totalDeliveryFee)}</span>
                             </div>
