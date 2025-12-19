@@ -1,7 +1,7 @@
 
 "use client";
 
-import type { Item, Group } from "@/types";
+import type { Item, Group, PredefinedItem } from "@/types";
 import {
   Table,
   TableBody,
@@ -14,7 +14,6 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Pencil, Trash2, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { PREDEFINED_PRICES } from "@/lib/constants";
 
 
 interface ItemListProps {
@@ -80,28 +79,30 @@ const renderItemName = (item: Item) => {
     const itemElements = [];
 
     // Handle predefined items by counting them
-    if (item.itemNames && item.itemNames.length > 0) {
-      const itemCounts: Record<string, number> = {};
-      item.itemNames.forEach(name => {
-        itemCounts[name] = (itemCounts[name] || 0) + 1;
+    if (item.predefinedItems && item.predefinedItems.length > 0) {
+      const itemCounts: Record<string, { count: number; price: number }> = {};
+      item.predefinedItems.forEach(pItem => {
+        const key = `${pItem.name}-${pItem.price}`;
+        if (!itemCounts[key]) {
+          itemCounts[key] = { count: 0, price: pItem.price };
+        }
+        itemCounts[key].count++;
       });
-
+      
       // Sort to keep a consistent order
       const sortedItems = Object.entries(itemCounts).sort((a,b) => a[0].localeCompare(b[0]));
       
-      sortedItems.forEach(([name, count]) => {
-        const price = PREDEFINED_PRICES[name.toUpperCase()];
+      sortedItems.forEach(([key, { count, price }]) => {
+        const name = key.split('-')[0];
         const badgeLabel = count > 1 ? `${count}${name}` : name;
         itemElements.push(
-            <div key={`predefined-group-${name}`} className="flex flex-col items-center">
+            <div key={`predefined-group-${key}`} className="flex flex-col items-center">
                 <Badge className={cn("whitespace-nowrap", getItemBadgeStyle(name))}>
                     {badgeLabel}
                 </Badge>
-                {price !== undefined && (
-                    <span className="text-muted-foreground mt-0.5" style={{ fontSize: '0.48rem', letterSpacing: '-0.05em' }}>
-                        {formatCurrency(price)}
-                    </span>
-                )}
+                <span className="text-muted-foreground mt-0.5" style={{ fontSize: '0.48rem', letterSpacing: '-0.05em' }}>
+                    {formatCurrency(price)}
+                </span>
             </div>
         );
       });
@@ -123,24 +124,7 @@ const renderItemName = (item: Item) => {
         });
     }
     
-    // Fallback for single, non-KG items stored in 'name' that were not caught
-    if (itemElements.length === 0 && item.name && !['LANÇAMENTO MISTO', 'KG'].includes(item.name.toUpperCase())) {
-        const price = PREDEFINED_PRICES[item.name.toUpperCase()];
-        const badgeLabel = item.quantity > 1 ? `${item.quantity}${item.name}` : item.name;
-        itemElements.push(
-            <div key={`fallback-${item.name}`} className="flex flex-col items-center">
-                <Badge className={cn("whitespace-nowrap", getItemBadgeStyle(item.name))}>
-                    {badgeLabel}
-                </Badge>
-                 {price !== undefined && (
-                    <span className="text-muted-foreground mt-0.5" style={{ fontSize: '0.48rem', letterSpacing: '-0.05em' }}>
-                        {formatCurrency(price)}
-                    </span>
-                )}
-            </div>
-        );
-    }
-    
+    // Fallback for simple items that might not have been caught by the structures above
     if (itemElements.length === 0 && item.name) {
        return <Badge className={cn("whitespace-nowrap", getItemBadgeStyle(item.name))}>{item.name}</Badge>;
     }

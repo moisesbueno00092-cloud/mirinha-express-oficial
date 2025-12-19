@@ -2,7 +2,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import type { Item, Group } from "@/types";
+import type { Item, Group, PredefinedItem } from "@/types";
 import { PREDEFINED_PRICES } from "@/lib/constants";
 import { useCollection, useFirestore, useMemoFirebase } from "@/firebase";
 import { collection, doc } from "firebase/firestore";
@@ -47,6 +47,7 @@ const formatCurrency = (value: number) => {
   }).format(value);
 };
 
+const isNumeric = (str: string) => !isNaN(parseFloat(str.replace(',', '.'))) && /^[0-9,.]+$/.test(str);
 
 export default function Home() {
   const firestore = useFirestore();
@@ -87,16 +88,14 @@ export default function Home() {
         let totalQuantity = 0;
         let totalPrice = 0;
         let individualPrices: number[] = [];
-        let itemNames: string[] = [];
+        let predefinedItems: PredefinedItem[] = [];
         
         let i = 0;
-        const isNumeric = (str: string) => !isNaN(parseFloat(str.replace(',', '.'))) && /^[0-9,.]+$/.test(str);
-
         while (i < parts.length) {
             const part = parts[i].toUpperCase();
-            
+
             if (part === 'KG') {
-                i++; // move to the number part
+                i++; // move to the first price
                 while(i < parts.length && isNumeric(parts[i])) {
                     const price = parseFloat(parts[i].replace(',', '.'));
                     individualPrices.push(price);
@@ -104,8 +103,7 @@ export default function Home() {
                     totalQuantity += 1;
                     i++;
                 }
-                // if KG was found, we don't want the outer loop to increment i again
-                continue; 
+                continue; // Continue to next main part, skipping the i++ at the end
             }
 
             const quantityMatch = part.match(/^(\d+)([A-Z]+)$/i);
@@ -118,17 +116,26 @@ export default function Home() {
             }
             
             if (PREDEFINED_PRICES[currentItemCode]) {
-                const itemPrice = PREDEFINED_PRICES[currentItemCode];
-                for(let j=0; j < baseQuantity; j++) {
+                const defaultPrice = PREDEFINED_PRICES[currentItemCode];
+                // Check if next part is a custom price
+                if (i + 1 < parts.length && isNumeric(parts[i+1]) && !quantityMatch) {
+                    const customPrice = parseFloat(parts[i+1].replace(',', '.'));
+                    predefinedItems.push({ name: currentItemCode, price: customPrice });
+                    totalPrice += customPrice;
                     totalQuantity += 1;
-                    totalPrice += itemPrice;
-                    itemNames.push(currentItemCode);
+                    i++; // increment to skip the price part
+                } else {
+                    for(let j=0; j < baseQuantity; j++) {
+                        predefinedItems.push({ name: currentItemCode, price: defaultPrice });
+                        totalPrice += defaultPrice;
+                        totalQuantity += 1;
+                    }
                 }
             }
             i++;
         }
         
-        if (totalQuantity === 0 && individualPrices.length === 0) {
+        if (totalQuantity === 0) {
             toast({ variant: "destructive", title: "Entrada inválida", description: "Nenhum item válido foi encontrado."});
             setIsProcessing(false);
             return;
@@ -139,14 +146,14 @@ export default function Home() {
         
         let consolidatedName: string;
         const hasKgItems = individualPrices.length > 0;
-        const hasPredefinedItems = itemNames.length > 0;
-
+        const hasPredefinedItems = predefinedItems.length > 0;
+        
         if (hasPredefinedItems && hasKgItems) {
             consolidatedName = 'Lançamento Misto';
         } else if (hasKgItems) {
             consolidatedName = 'KG';
         } else {
-            consolidatedName = itemNames.join(' ');
+            consolidatedName = predefinedItems.map(p => p.name).join(' ');
         }
         
         const finalItem: Omit<Item, 'id' | 'total'> = {
@@ -157,7 +164,7 @@ export default function Home() {
             timestamp: new Date().toISOString(),
             deliveryFee,
             ...(individualPrices.length > 0 ? { individualPrices } : {}),
-            ...(itemNames.length > 0 ? { itemNames } : {}),
+            ...(predefinedItems.length > 0 ? { predefinedItems } : {}),
         };
 
 
@@ -218,26 +225,37 @@ export default function Home() {
     };
     const prefix = groupPrefixMap[item.group] || '';
 
-    let reconstructedInput = '';
-    if (item.itemNames && item.itemNames.length > 0) {
-        const itemCounts: Record<string, number> = {};
-        item.itemNames.forEach(name => {
-          itemCounts[name] = (itemCounts[name] || 0) + 1;
-        });
-        reconstructedInput += Object.entries(itemCounts).map(([name, count]) => `${count}${name.toLowerCase()}`).join(' ');
+    let reconstructedParts: string[] = [];
+
+    if (item.predefinedItems && item.predefinedItems.length > 0) {
+      const itemCounts: Record<string, number> = {};
+      const customPriceItems: string[] = [];
+      
+      item.predefinedItems.forEach(pi => {
+        const defaultPrice = PREDEFINED_PRICES[pi.name.toUpperCase()];
+        if (pi.price !== defaultPrice) {
+          customPriceItems.push(`${pi.name.toLowerCase()} ${String(pi.price).replace('.', ',')}`);
+        } else {
+          itemCounts[pi.name] = (itemCounts[pi.name] || 0) + 1;
+        }
+      });
+      
+      Object.entries(itemCounts).forEach(([name, count]) => {
+          reconstructedParts.push(count > 1 ? `${count}${name.toLowerCase()}` : name.toLowerCase());
+      });
+
+      reconstructedParts = reconstructedParts.concat(customPriceItems);
     }
     
     if (item.individualPrices && item.individualPrices.length > 0) {
-      if(reconstructedInput.length > 0) reconstructedInput += ' ';
-      reconstructedInput += `kg ${item.individualPrices.join(' ').replace(/\./g, ',')}`;
+      reconstructedParts.push(`kg ${item.individualPrices.map(p => String(p).replace('.', ',')).join(' ')}`);
     }
 
-    if (!reconstructedInput && item.name) {
-       reconstructedInput = item.name;
+    if (reconstructedParts.length === 0 && item.name) {
+       reconstructedParts.push(item.name);
     }
 
-
-    setEditInputValue(prefix + reconstructedInput);
+    setEditInputValue(prefix + reconstructedParts.join(' '));
   };
 
   const handleSaveEdit = () => {
@@ -269,7 +287,11 @@ export default function Home() {
     const total = items.reduce((acc, item) => acc + item.total, 0);
     const deliveryItems = items.filter(item => item.deliveryFee > 0);
     
-    const deliveryCount = deliveryItems.reduce((acc, item) => acc + item.quantity, 0);
+    let deliveryCount = 0;
+    deliveryItems.forEach(item => {
+      // For mixed items, count can't be based on quantity. Let's assume 1 delivery per entry.
+      deliveryCount += 1; 
+    });
     
     const totalDeliveryFee = deliveryItems.reduce((acc, item) => acc + (item.deliveryFee || 0), 0);
 

@@ -1,16 +1,21 @@
 export type Group = 'Vendas salão' | 'Fiados salão' | 'Fiados rua' | 'Vendas rua';
 
+export interface PredefinedItem {
+  name: string;
+  price: number;
+}
+
 export interface Item {
   id: string;
-  name: string;
-  quantity: number;
+  name: string; // e.g., 'M P', 'KG', 'Lançamento Misto'
+  quantity: number; // total count of individual items
   price: number; // For single items, this is the price. For grouped KG items, this is the SUM of individualPrices.
   deliveryFee: number;
   total: number; // price + deliveryFee
   group: Group;
   timestamp: string; // ISO string for date
-  individualPrices?: number[]; // Optional: To store individual prices for grouped KG items
-  itemNames?: string[]; // Optional: To store names of predefined items in a mixed entry
+  
+  // To store details for complex entries
+  individualPrices?: number[]; // For KG items
+  predefinedItems?: PredefinedItem[]; // For items like M, P, G etc.
 }
-
-    
