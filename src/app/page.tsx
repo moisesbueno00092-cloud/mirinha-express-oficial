@@ -164,15 +164,15 @@ export default function Home() {
   const displayItems = items || [];
 
   return (
-    <div className="container mx-auto max-w-4xl p-4 sm:p-6 lg:p-8">
-      <header className="mb-8 text-center">
-        <h1 className="text-4xl font-headline font-bold text-primary sm:text-5xl">
+    <div className="container mx-auto max-w-4xl p-2 sm:p-4 lg:p-8">
+      <header className="mb-6 text-center">
+        <h1 className="text-3xl font-headline font-bold text-primary sm:text-5xl">
           Restaurante da Mirinha
         </h1>
-        <p className="text-muted-foreground mt-2">Controle de Pedidos</p>
+        <p className="text-muted-foreground mt-2 text-sm sm:text-base">Controle de Pedidos</p>
       </header>
 
-      <main className="space-y-8">
+      <main className="space-y-6">
         <ItemForm
           onItemSubmit={handleUpsertItem}
           isProcessing={isProcessing}
@@ -188,7 +188,7 @@ export default function Home() {
                 <TabsTrigger value="resumo">Resumo</TabsTrigger>
                 <TabsTrigger value="relatorio">Relatório Final</TabsTrigger>
               </TabsList>
-              <div className="p-6">
+              <div className="p-2 sm:p-6">
                 <TabsContent value="pedidos">
                   <ItemList items={displayItems} onEdit={handleEditItem} onDelete={handleDeleteItem} isLoading={isLoading} />
                 </TabsContent>
@@ -204,7 +204,7 @@ export default function Home() {
         </Card>
         
         <div className="flex justify-center">
-          <Button variant="destructive" onClick={handleClearData} size="lg">
+          <Button variant="destructive" onClick={handleClearData}>
             <Trash2 className="mr-2 h-4 w-4" />
             Limpar Todos os Dados
           </Button>

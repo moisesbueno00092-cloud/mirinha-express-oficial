@@ -54,12 +54,12 @@ export default function ItemForm({ onItemSubmit, isProcessing, editingItem, onCa
 
   return (
     <Card className={isEditing ? "border-primary ring-2 ring-primary" : ""}>
-      <CardHeader>
-        <CardTitle>{isEditing ? 'Editar Item' : 'Adicionar Novo Item'}</CardTitle>
+      <CardHeader className="p-4 sm:p-6">
+        <CardTitle className="text-xl sm:text-2xl">{isEditing ? 'Editar Item' : 'Adicionar Novo Item'}</CardTitle>
         {isEditing && <CardDescription>Você está editando o item: <span className="font-bold text-foreground">{editingItem.name}</span></CardDescription>}
       </CardHeader>
-      <CardContent>
-        <form onSubmit={handleSubmit} className="grid sm:grid-cols-12 gap-4">
+      <CardContent className="p-4 sm:p-6 pt-0">
+        <form onSubmit={handleSubmit} className="grid sm:grid-cols-12 gap-2">
           <div className="sm:col-span-8">
             <Input
               type="text"
@@ -67,7 +67,7 @@ export default function ItemForm({ onItemSubmit, isProcessing, editingItem, onCa
               value={itemName}
               onChange={(e) => setItemName(e.target.value)}
               required
-              className="h-12 text-lg"
+              className="h-10 sm:h-12 text-base"
             />
           </div>
           <div className="sm:col-span-2">
@@ -77,22 +77,22 @@ export default function ItemForm({ onItemSubmit, isProcessing, editingItem, onCa
               onChange={(e) => setQuantity(e.target.value)}
               min="1"
               required
-              className="h-12 text-lg text-center"
+              className="h-10 sm:h-12 text-base text-center"
             />
           </div>
           <div className="sm:col-span-2 flex gap-2">
             {isEditing && (
-               <Button type="button" variant="outline" className="w-full h-12" onClick={handleCancel}>
+               <Button type="button" variant="outline" className="w-full h-10 sm:h-12" onClick={handleCancel}>
                 <XCircle />
               </Button>
             )}
-            <Button type="submit" className="w-full h-12" disabled={isProcessing}>
+            <Button type="submit" className="w-full h-10 sm:h-12 text-sm" disabled={isProcessing}>
               {isProcessing ? (
                 <Loader2 className="animate-spin" />
               ) : (
                 isEditing ? <Save /> : <PlusCircle /> 
               )}
-              {isEditing ? 'Salvar' : 'Adicionar'}
+              <span className="hidden sm:inline">{isEditing ? 'Salvar' : 'Adicionar'}</span>
             </Button>
           </div>
         </form>

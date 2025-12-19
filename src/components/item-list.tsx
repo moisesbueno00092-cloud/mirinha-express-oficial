@@ -62,29 +62,29 @@ export default function ItemList({ items, onEdit, onDelete, isLoading }: ItemLis
       <Table>
         <TableHeader>
           <TableRow>
-            <TableHead>Item</TableHead>
-            <TableHead>Grupo</TableHead>
-            <TableHead className="text-right">Qtd.</TableHead>
-            <TableHead className="text-right">Preço Unit.</TableHead>
-            <TableHead className="text-right">Total</TableHead>
-            <TableHead className="text-right">Hora</TableHead>
-            <TableHead className="text-right">Ações</TableHead>
+            <TableHead className="px-2 sm:px-4">Item</TableHead>
+            <TableHead className="px-2 sm:px-4">Grupo</TableHead>
+            <TableHead className="text-right px-2 sm:px-4">Qtd.</TableHead>
+            <TableHead className="text-right px-2 sm:px-4">Preço Unit.</TableHead>
+            <TableHead className="text-right px-2 sm:px-4">Total</TableHead>
+            <TableHead className="text-right px-2 sm:px-4">Hora</TableHead>
+            <TableHead className="text-right px-2 sm:px-4">Ações</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
           {[...items].sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()).map((item) => (
             <TableRow key={item.id} className={cn(item.group.includes('Fiados') && "text-destructive")}>
-              <TableCell className="font-medium">{item.name}</TableCell>
-              <TableCell>
-                <Badge variant={item.group.includes('Fiados') ? "destructive" : "secondary"}>
+              <TableCell className="font-medium px-2 sm:px-4">{item.name}</TableCell>
+              <TableCell className="px-2 sm:px-4">
+                <Badge variant={item.group.includes('Fiados') ? "destructive" : "secondary"} className="whitespace-nowrap">
                   {item.group}
                 </Badge>
               </TableCell>
-              <TableCell className="text-right">{item.quantity}</TableCell>
-              <TableCell className="text-right">{formatCurrency(item.price)}</TableCell>
-              <TableCell className="text-right font-semibold">{formatCurrency(item.total)}</TableCell>
-              <TableCell className="text-right">{formatTimestamp(item.timestamp)}</TableCell>
-              <TableCell className="flex justify-end gap-2">
+              <TableCell className="text-right px-2 sm:px-4">{item.quantity}</TableCell>
+              <TableCell className="text-right px-2 sm:px-4">{formatCurrency(item.price)}</TableCell>
+              <TableCell className="text-right font-semibold px-2 sm:px-4">{formatCurrency(item.total)}</TableCell>
+              <TableCell className="text-right px-2 sm:px-4">{formatTimestamp(item.timestamp)}</TableCell>
+              <TableCell className="flex justify-end gap-0 sm:gap-2 px-2 sm:px-4">
                 <Button variant="ghost" size="icon" onClick={() => onEdit(item.id)}>
                   <Pencil className="h-4 w-4" />
                 </Button>
