@@ -68,17 +68,27 @@ export default function Home() {
 
         let group: Group = 'Vendas salão';
         let deliveryFeeApplicable = false;
+        let isTaxExempt = false;
         const upperCaseInput = mainInput.toUpperCase();
+        
+        // Check for 'E' exemption flag and remove it from the input string
+        const partsWithExemption = mainInput.split(' ').filter(part => part.trim() !== '');
+        if (partsWithExemption.map(p => p.toUpperCase()).includes('E')) {
+          isTaxExempt = true;
+          mainInput = partsWithExemption.filter(p => p.toUpperCase() !== 'E').join(' ');
+        }
 
-        if (upperCaseInput.startsWith("R ")) {
+        const upperCaseProcessedInput = mainInput.toUpperCase();
+
+        if (upperCaseProcessedInput.startsWith("R ")) {
             group = 'Vendas rua';
             deliveryFeeApplicable = true;
             mainInput = mainInput.substring(2).trim();
-        } else if (upperCaseInput.startsWith("FR ")) {
+        } else if (upperCaseProcessedInput.startsWith("FR ")) {
             group = 'Fiados rua';
             deliveryFeeApplicable = true;
             mainInput = mainInput.substring(3).trim();
-        } else if (upperCaseInput.startsWith("F ")) {
+        } else if (upperCaseProcessedInput.startsWith("F ")) {
             group = 'Fiados salão';
             mainInput = mainInput.substring(2).trim();
         }
@@ -129,16 +139,18 @@ export default function Home() {
                 // Check if next part is a custom price
                 if (i + 1 < parts.length && isNumeric(parts[i+1]) && !PREDEFINED_PRICES[parts[i+1].toUpperCase()]) {
                     const customPrice = parseFloat(parts[i+1].replace(',', '.'));
-                    predefinedItems.push({ name: currentItemCode, price: customPrice });
-                    totalPrice += customPrice;
-                    totalQuantity += 1;
+                    for(let j=0; j < baseQuantity; j++) {
+                        predefinedItems.push({ name: currentItemCode, price: customPrice });
+                        totalPrice += customPrice;
+                    }
+                    totalQuantity += baseQuantity;
                     i++; // increment to skip the price part
                 } else {
                     for(let j=0; j < baseQuantity; j++) {
                         predefinedItems.push({ name: currentItemCode, price: defaultPrice });
                         totalPrice += defaultPrice;
-                        totalQuantity += 1;
                     }
+                    totalQuantity += baseQuantity;
                 }
             }
             i++;
@@ -150,7 +162,7 @@ export default function Home() {
             return;
         };
 
-        const deliveryFee = customDeliveryFee !== null ? customDeliveryFee : (deliveryFeeApplicable ? DELIVERY_FEE : 0);
+        const deliveryFee = isTaxExempt ? 0 : (customDeliveryFee !== null ? customDeliveryFee : (deliveryFeeApplicable ? DELIVERY_FEE : 0));
         const total = totalPrice + deliveryFee;
         
         let consolidatedName: string;
@@ -262,6 +274,8 @@ export default function Home() {
 
     if (item.deliveryFee > 0 && item.deliveryFee !== DELIVERY_FEE) {
         reconstructedParts.push(`tx ${String(item.deliveryFee).replace('.', ',')}`);
+    } else if (item.deliveryFee === 0 && (item.group === 'Vendas rua' || item.group === 'Fiados rua')) {
+        reconstructedParts.push('e');
     }
 
     if (reconstructedParts.length === 0 && item.name) {
@@ -422,3 +436,5 @@ export default function Home() {
     </>
   );
 }
+
+    
