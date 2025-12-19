@@ -35,7 +35,7 @@ export default function ItemForm({ onItemSubmit, isProcessing }: ItemFormProps) 
             <Input
               ref={inputRef}
               type="text"
-              placeholder="Ex: 2p ou M 12,50 Coca"
+              placeholder=""
               value={rawInput}
               onChange={(e) => setRawInput(e.target.value)}
               required

@@ -280,7 +280,7 @@ export default function Home() {
             <Input
               value={editInputValue}
               onChange={(e) => setEditInputValue(e.target.value)}
-              placeholder="Ex: 2p ou M 12,50 Coca"
+              placeholder=""
               className="h-10 flex-1 sm:h-12 text-base"
             />
           </div>
