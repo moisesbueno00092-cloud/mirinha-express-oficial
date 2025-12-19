@@ -57,7 +57,7 @@ const itemBadgeStyles: { [key: string]: string } = {
   GG: "bg-teal-500",
   KITM: "bg-cyan-500",
   KITG: "bg-sky-500",
-  PF: "bg-lime-500 text-black",
+  PF: "bg-orange-400 text-black",
   SL: "bg-emerald-500",
   SLKIT: "bg-fuchsia-500",
   S: "bg-amber-600",
@@ -78,17 +78,23 @@ const renderItemName = (item: Item) => {
 
     // Handle predefined items (P, M, G, etc.)
     if (item.itemNames && item.itemNames.length > 0) {
-      item.itemNames.forEach((name, index) => {
-        badges.push(
-          <Badge key={`predefined-${index}`} className={cn("whitespace-nowrap", getItemBadgeStyle(name))}>
+      const nameCounts: { [key: string]: number } = {};
+      item.itemNames.forEach(name => {
+        nameCounts[name] = (nameCounts[name] || 0) + 1;
+      });
+
+      Object.entries(nameCounts).forEach(([name, count]) => {
+         badges.push(
+          <Badge key={`predefined-${name}`} className={cn("whitespace-nowrap", getItemBadgeStyle(name))}>
             {name}
           </Badge>
         );
-      });
+      })
+
     }
 
     // Handle KG items
-    if (item.name === 'KG' || (item.name === 'Lançamento Misto' && item.individualPrices && item.individualPrices.length > 0)) {
+    if (item.name.toUpperCase() === 'KG' || (item.name.toUpperCase() === 'LANÇAMENTO MISTO' && item.individualPrices && item.individualPrices.length > 0)) {
         if (item.individualPrices && item.individualPrices.length > 1) {
             const displayPrices = item.individualPrices.map(p => p.toFixed(2).replace('.', ',')).join('] [');
             badges.push(
@@ -102,11 +108,17 @@ const renderItemName = (item: Item) => {
                     kg {item.individualPrices[0].toFixed(2).replace('.', ',')}
                 </Badge>
             );
+        } else if (item.price > 0 && (!item.individualPrices || item.individualPrices.length === 0)) {
+           badges.push(
+                <Badge key="kg-single-price" className={cn("whitespace-nowrap", getItemBadgeStyle('KG'))}>
+                    kg {item.price.toFixed(2).replace('.', ',')}
+                </Badge>
+            );
         }
     }
     
     // Fallback for single, non-KG items stored in 'name'
-    if (badges.length === 0 && item.name && item.name !== 'Lançamento Misto' && item.name.toUpperCase() !== 'KG') {
+    if (badges.length === 0 && item.name && item.name.toUpperCase() !== 'LANÇAMENTO MISTO' && item.name.toUpperCase() !== 'KG') {
         const itemNames = item.name.split(' ');
         itemNames.forEach((name, index) => {
             if (name.trim()) {
