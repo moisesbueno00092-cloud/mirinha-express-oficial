@@ -3,7 +3,7 @@
 
 import { useMemo, useState } from "react";
 import type { Item, Group, PredefinedItem } from "@/types";
-import { PREDEFINED_PRICES } from "@/lib/constants";
+import { PREDEFINED_PRICES, DELIVERY_FEE } from "@/lib/constants";
 import { useCollection, useFirestore, useMemoFirebase } from "@/firebase";
 import { collection, doc } from "firebase/firestore";
 
@@ -37,8 +37,6 @@ import ItemForm from "@/components/item-form";
 import ItemList from "@/components/item-list";
 import SummaryReport from "@/components/summary-report";
 import FinalReport from "@/components/final-report";
-
-const DELIVERY_FEE = 6.00;
 
 const formatCurrency = (value: number) => {
   return new Intl.NumberFormat("pt-BR", {

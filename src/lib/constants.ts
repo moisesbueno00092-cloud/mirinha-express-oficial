@@ -11,3 +11,5 @@ export const PREDEFINED_PRICES: { [key: string]: number } = {
   SLKIT: 15.00,
   S: 42.90,
 };
+
+export const DELIVERY_FEE = 6.00;

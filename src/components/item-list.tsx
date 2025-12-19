@@ -2,6 +2,7 @@
 "use client";
 
 import type { Item, Group, PredefinedItem } from "@/types";
+import { DELIVERY_FEE } from "@/lib/constants";
 import {
   Table,
   TableBody,
@@ -172,7 +173,15 @@ export default function ItemList({ items, onEdit, onDelete, isLoading }: ItemLis
                   {item.group}
                 </Badge>
               </TableCell>
-              <TableCell className="text-right font-semibold px-2 sm:px-4 align-top">{formatCurrency(item.total)}</TableCell>
+              <TableCell className="text-right font-semibold px-2 sm:px-4 align-top">
+                <div>{formatCurrency(item.total)}</div>
+                {item.group.includes('rua') && item.deliveryFee === 0 && (
+                   <div className="text-muted-foreground font-light" style={{ fontSize: '0.6rem' }}>(Isento)</div>
+                )}
+                {item.deliveryFee > 0 && item.deliveryFee !== DELIVERY_FEE && (
+                    <div className="text-muted-foreground font-light" style={{ fontSize: '0.6rem' }}>(Taxa Manual)</div>
+                )}
+              </TableCell>
               <TableCell className="text-right px-2 sm:px-4 align-top">{formatTimestamp(item.timestamp)}</TableCell>
               <TableCell className="p-0 align-top">
                 <div className="flex justify-end">
