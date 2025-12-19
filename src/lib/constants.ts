@@ -1,3 +1,4 @@
+
 import { BomboniereItem } from '@/types';
 
 export const PREDEFINED_PRICES: { [key: string]: number } = {
@@ -66,5 +67,30 @@ export const BOMBONIERE_ITEMS_DEFAULT: BomboniereItem[] = [
       "id": "chiclete",
       "name": "Chiclete",
       "price": 1
+    },
+    {
+      "id": "coca-lata-zero",
+      "name": "Coca Lata Zero",
+      "price": 5
+    },
+    {
+      "id": "coca-600",
+      "name": "Coca 600",
+      "price": 8
+    },
+    {
+      "id": "coca-zero-600",
+      "name": "Coca Zero 600",
+      "price": 8
+    },
+    {
+      "id": "coquinha-200ml",
+      "name": "Coquinha 200ml",
+      "price": 3
+    },
+    {
+      "id": "coquinha-200ml-zero",
+      "name": "Coquinha 200ml Zero",
+      "price": 3
     }
   ];
