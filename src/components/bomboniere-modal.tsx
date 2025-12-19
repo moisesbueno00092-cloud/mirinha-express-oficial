@@ -135,7 +135,7 @@ export default function BomboniereModal({ isOpen, onClose, onAddItems }: Bomboni
         )}
         </div>
         </ScrollArea>
-        <Button variant="default" className="w-full mt-4" onClick={() => setIsAdding(true)}>
+        <Button variant="default" className="w-full mt-4" onClick={() => setIsAdding(true)} disabled={isAdding}>
             <Plus className="h-4 w-4 mr-2"/>
             Adicionar Novo Item
         </Button>
