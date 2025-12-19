@@ -69,7 +69,7 @@ export default function Home() {
       let price = 0;
       let finalName = nameWithoutGroupPrefix;
 
-      // 3. Find price
+      // 3. Find price in predefined list first
       if (PREDEFINED_PRICES[itemLookupKey]) {
           price = PREDEFINED_PRICES[itemLookupKey];
           finalName = itemLookupKey;
