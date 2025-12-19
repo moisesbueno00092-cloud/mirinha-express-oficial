@@ -1,14 +1,12 @@
 /**
- * Core Philosophy: This ruleset enforces a simple, authentication-based security model. It is designed for a single-user application (like a personal tracker) where the primary goal is to sync data across the user's devices. Any user who is signed in has full permission to read and write any data in the database.
+ * Core Philosophy: This ruleset enforces a public access model. It is designed for a single-user application (like a personal tracker) where the primary goal is to sync data across devices without requiring user login. Any client can read and write data.
  *
  * Data Structure: The data is organized in a single, flat top-level collection named `order_items`. Each document within this collection represents a specific order item.
  *
  * Key Security Decisions:
- * - Authenticated Access Only: All operations (read, write, delete) on any data are restricted to authenticated users. Unauthenticated or anonymous users are denied all access. This prevents public data exposure and unauthorized modification.
- * - No User-Specific Ownership: The rules do not enforce per-document ownership. This is a deliberate choice for a single-user app model, allowing for maximum flexibility during prototyping. If the app evolves into a multi-tenant system, an ownership field (e.g., `userId`) should be added to the data model and these rules updated accordingly.
- * - Flexible Data Schema: In line with the prototyping philosophy, these rules do not validate the shape or data types of the documents being written. The focus is strictly on *who* can access the data, not *what* the data looks like.
+ * - Public Access: All operations (read, write, delete) on any data are permitted. This is a deliberate choice for a single-user app model where ease of access is prioritized over security.
  *
- * Denormalization for Authorization: This model is simple and does not currently require denormalization. However, it is designed to be easily extensible. If future requirements involve shared access or roles, authorization data (like a `members` map) can be denormalized directly onto `order_items` documents to maintain performant and secure access checks.
+ * Denormalization for Authorization: This model is simple and does not currently require denormalization.
  *
  * Structural Segregation: Not applicable, as all data resides in a single collection (`order_items`) with a uniform security posture.
  */
@@ -16,38 +14,14 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // Helper functions for clarity and reusability
-    
     /**
-     * Checks if the user is authenticated.
-     */
-    function isSignedIn() {
-      return request.auth != null;
-    }
-    
-    /**
-     * Verifies that a document already exists. Used for safe updates and deletes.
-     */
-    function isExistingDoc() {
-      return resource != null;
-    }
-
-    /**
-     * @description Allows any authenticated user to create, read, update, and delete order items. This rule is designed for a single-user application where data needs to be synced across devices.
+     * @description Allows public read and write access to order items.
      * @path        /order_items/{orderItemId}
-     * @allow       (create) An authenticated user can create a new order item document.
-     * @deny        (get) An unauthenticated (logged-out) user's attempt to read a document is rejected.
-     * @principle   Secures the entire collection by requiring user authentication for all access, suitable for personal or single-user applications.
+     * @allow       (read, write) Any client can create, read, update, and delete order items.
+     * @principle   Provides open access for a simple, single-user application.
      */
     match /order_items/{orderItemId} {
-      // READ permissions: Authenticated users can read individual documents or list the entire collection.
-      allow get: if isSignedIn();
-      allow list: if isSignedIn();
-
-      // WRITE permissions: Authenticated users can create, update, and delete documents.
-      allow create: if isSignedIn();
-      allow update: if isSignedIn() && isExistingDoc();
-      allow delete: if isSignedIn() && isExistingDoc();
+      allow read, write: if true;
     }
   }
 }
