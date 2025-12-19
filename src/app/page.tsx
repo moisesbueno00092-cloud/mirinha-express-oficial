@@ -254,7 +254,7 @@ export default function Home() {
             addDocumentNonBlocking(orderItemsRef, { ...finalItem, total });
             toast({ title: "Sucesso", description: "Lançamento adicionado." });
         }
-        setRawInput("");
+        
 
 
     } catch (error) {
@@ -266,7 +266,11 @@ export default function Home() {
         });
     } finally {
         setIsProcessing(false);
-        if (editingItem) setEditingItem(null);
+        if (editingItem) {
+          setEditingItem(null);
+        } else {
+          setRawInput("");
+        }
     }
   };
 
@@ -380,10 +384,10 @@ export default function Home() {
       inputRef.current?.focus();
   }
 
-  const handleItemFormSubmit = (e: React.FormEvent) => {
+  const handleItemFormSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!rawInput.trim()) return;
-    handleUpsertItem(rawInput);
+    await handleUpsertItem(rawInput);
     inputRef.current?.focus();
   };
 
