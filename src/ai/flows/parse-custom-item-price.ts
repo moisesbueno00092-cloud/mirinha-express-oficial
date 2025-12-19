@@ -33,20 +33,17 @@ const parseCustomItemPricePrompt = ai.definePrompt({
   output: {schema: ParseCustomItemPriceOutputSchema},
   prompt: `You are an expert at parsing item names and prices from a text string.
 
-  If the item name starts with 'M ', 'F ', 'Fr ', or 'R ' followed by a number, extract the number as the custom price and return the item name without the price.
-  If the item name does not contain a custom price, return the original item name and leave the customPrice field empty.
-
-  Here are some examples:
-  - Input: 'M 12.00 Item Name', Output: { itemName: 'Item Name', customPrice: 12.00 }
-  - Input: 'F 15.50 Another Item', Output: { itemName: 'Another Item', customPrice: 15.50 }
-  - Input: 'Fr 20.00 Yet Another Item', Output: { itemName: 'Yet Another Item', customPrice: 20.00 }
-  - Input: 'R 25.00 A Final Item', Output: { itemName: 'A Final Item', customPrice: 25.00 }
-  - Input: 'Regular Item', Output: { itemName: 'Regular Item', customPrice: null }
+  If the item name starts with a number followed by a non-numeric string, and then another number, extract the second number as the custom price.
+  The item name should be the text part.
+  For example, if the input is '2bala 0.50', the item name is 'bala' and the custom price is 0.50.
+  If the input is '1chocolate 4.50', the item name is 'chocolate' and the custom price is 4.50.
+  If the input does not contain a custom price at the end, return the original item name and leave the customPrice field empty.
 
   Parse the following item name:
   Item Name: {{{itemName}}}
   `,
 });
+
 
 const parseCustomItemPriceFlow = ai.defineFlow(
   {

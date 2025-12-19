@@ -2,10 +2,12 @@
 "use client";
 
 import { useMemo, useState, useRef } from "react";
-import type { Item, Group, PredefinedItem, BomboniereItem, SelectedBomboniereItem } from "@/types";
+import type { Item, Group, PredefinedItem, SelectedBomboniereItem } from "@/types";
 import { PREDEFINED_PRICES, DELIVERY_FEE } from "@/lib/constants";
 import { useCollection, useFirestore, useMemoFirebase } from "@/firebase";
 import { collection, doc } from "firebase/firestore";
+import { parseCustomItemPrice } from "@/ai/flows/parse-custom-item-price";
+
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -30,7 +32,7 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
-import { Trash2, Save } from "lucide-react";
+import { Trash2, Save, Plus } from "lucide-react";
 import { addDocumentNonBlocking, deleteDocumentNonBlocking, setDocumentNonBlocking } from "@/firebase/non-blocking-updates";
 
 import ItemForm from "@/components/item-form";
@@ -103,11 +105,11 @@ export default function Home() {
         let bomboniereItems: SelectedBomboniereItem[] = [];
         let customDeliveryFee: number | null = null;
         
-        let i = 0;
-        while (i < parts.length) {
-            const part = parts[i].toUpperCase();
+        for (let i = 0; i < parts.length; i++) {
+            const part = parts[i];
+            const upperPart = part.toUpperCase();
 
-            if (part === 'KG') {
+            if (upperPart === 'KG') {
                 i++; 
                 while(i < parts.length && isNumeric(parts[i])) {
                     const price = parseFloat(parts[i].replace(',', '.'));
@@ -115,62 +117,76 @@ export default function Home() {
                     totalPrice += price;
                     i++;
                 }
+                i--; // Decrement because the outer loop will increment
                 totalQuantity += individualPrices.length;
                 continue;
             }
 
-            if (part === 'TX') {
+            if (upperPart === 'TX') {
                 if (i + 1 < parts.length && isNumeric(parts[i+1])) {
                     customDeliveryFee = parseFloat(parts[i+1].replace(',', '.'));
-                    i += 2;
-                    continue;
+                    i++; // Consume the fee value
                 }
+                continue;
             }
-
+            
             const quantityMatch = part.match(/^(\d+)([A-Z\d-]+)$/i);
             let baseQuantity = 1;
-            let currentItemCode = part;
-            
+            let currentItemCode = upperPart;
+
             if (quantityMatch) {
                 baseQuantity = parseInt(quantityMatch[1], 10);
                 currentItemCode = quantityMatch[2].toUpperCase();
             }
-            
-            const isPredefined = PREDEFINED_PRICES[currentItemCode.toUpperCase()];
-            const isBomboniere = !isPredefined; // Simplified logic, assumes not predefined is bomboniere for this block
 
+            const isPredefined = PREDEFINED_PRICES[currentItemCode];
+            
             if (isPredefined) {
-                const defaultPrice = PREDEFINED_PRICES[currentItemCode.toUpperCase()];
+                const defaultPrice = PREDEFINED_PRICES[currentItemCode];
                 let priceToUse = defaultPrice;
 
                 // Check for a custom price immediately following the item code
-                if (i + 1 < parts.length && isNumeric(parts[i + 1]) && !PREDEFINED_PRICES[parts[i+1].toUpperCase()]) {
+                if (i + 1 < parts.length && isNumeric(parts[i + 1])) {
                     priceToUse = parseFloat(parts[i + 1].replace(',', '.'));
                     i++; // Consume the price part
                 }
                 
                 for(let j=0; j < baseQuantity; j++) {
-                    predefinedItems.push({ name: currentItemCode.toUpperCase(), price: priceToUse });
+                    predefinedItems.push({ name: currentItemCode, price: priceToUse });
                     totalPrice += priceToUse;
                 }
-                 totalQuantity += baseQuantity;
-
-            } else { // Handle bomboniere items
-                 const bomboniereMatch = part.match(/^(\d+)([A-Z\d-]+)$/i);
-                 if (bomboniereMatch) {
-                    const qty = parseInt(bomboniereMatch[1], 10);
-                    const name = bomboniereMatch[2];
+                totalQuantity += baseQuantity;
+            } else { // Potentially bomboniere item
+                try {
+                    const potentialPricePart = (i + 1 < parts.length && isNumeric(parts[i+1])) ? parts[i+1] : '';
+                    const { itemName, customPrice } = await parseCustomItemPrice({ itemName: `${part} ${potentialPricePart}`.trim() });
                     
-                    if (i + 1 < parts.length && isNumeric(parts[i+1])) {
-                        const price = parseFloat(parts[i+1].replace(',', '.'));
-                        bomboniereItems.push({ name, quantity: qty, price });
-                        totalPrice += price * qty;
-                        i++; // consume price
+                    const bomboniereMatch = itemName.match(/^(\d*)([A-Z\d-]+)$/i);
+
+                    if (bomboniereMatch) {
+                        const qty = bomboniereMatch[1] ? parseInt(bomboniereMatch[1], 10) : 1;
+                        const name = bomboniereMatch[2];
+
+                        if (customPrice !== undefined) {
+                            bomboniereItems.push({ name, quantity: qty, price: customPrice });
+                            totalPrice += customPrice * qty;
+                            if (potentialPricePart) i++; // consume price part
+                            totalQuantity += qty;
+                        } else if (i + 1 < parts.length && isNumeric(parts[i+1])) {
+                            // Fallback for simple cases not caught by AI (e.g. no space)
+                            const price = parseFloat(parts[i+1].replace(',', '.'));
+                            bomboniereItems.push({ name, quantity: qty, price });
+                            totalPrice += price * qty;
+                            i++; // consume price part
+                            totalQuantity += qty;
+                        } else {
+                            // This part is not a valid bomboniere item with price, may be part of a name
+                        }
                     }
-                    totalQuantity += qty;
-                 }
+                } catch(e) {
+                    console.error("AI parsing failed, skipping part:", part, e);
+                }
             }
-            i++;
         }
         
         if (predefinedItems.length === 0 && individualPrices.length === 0 && bomboniereItems.length === 0) {
@@ -341,9 +357,13 @@ export default function Home() {
       inputRef.current?.focus();
   }
 
-  const handleItemFormSubmit = (currentRawInput: string) => {
-    handleUpsertItem(currentRawInput);
+  const handleItemFormSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!rawInput.trim()) return;
+    handleUpsertItem(rawInput);
+    inputRef.current?.focus();
   };
+
 
   const displayItems = items || [];
   
@@ -398,6 +418,11 @@ export default function Home() {
               onChange={(e) => setEditInputValue(e.target.value)}
               placeholder="Ex: F m p"
               className="h-10 flex-1 sm:h-12 text-base"
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  handleSaveEdit();
+                }
+              }}
             />
           </div>
           <DialogFooter>
@@ -486,5 +511,3 @@ export default function Home() {
     </>
   );
 }
-
-    
