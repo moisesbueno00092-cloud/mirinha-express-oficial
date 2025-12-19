@@ -24,7 +24,7 @@ const DELIVERY_FEE = 6.00;
 export default function Home() {
   const firestore = useFirestore();
   const orderItemsRef = useMemoFirebase(() => collection(firestore, "order_items"), [firestore]);
-  const { data: items, isLoading } = useCollection<Item>(orderItemsRef);
+  const { data: items, isLoading, error: firestoreError } = useCollection<Item>(orderItemsRef);
   
   const [isProcessing, setIsProcessing] = useState(false);
   const [editingItemId, setEditingItemId] = useState<string | null>(null);
@@ -43,7 +43,6 @@ export default function Home() {
             input = quantityMatch[2].trim();
         }
 
-        // 2. Determine group and clean item code based on prefixes
         let group: Group = 'Vendas salão';
         let deliveryFee = 0;
         const upperCaseInput = input.toUpperCase();
@@ -66,7 +65,7 @@ export default function Home() {
         
         // 3. Check for predefined price keys
         const predefinedKey = input.replace(/\s+/g, '').toUpperCase();
-        if (PREDEFINED_PRICES[predefinedKey]) {
+        if (Object.prototype.hasOwnProperty.call(PREDEFINED_PRICES, predefinedKey)) {
             price = PREDEFINED_PRICES[predefinedKey];
             finalName = predefinedKey;
         } else {
@@ -80,6 +79,7 @@ export default function Home() {
                 finalName = aiResult.itemName;
             } else {
                 finalName = input; // If AI finds no price, the whole string is the name
+                price = 0; // Ensure price is 0 if not found
             }
         }
         
@@ -93,13 +93,14 @@ export default function Home() {
             return;
         }
 
-        const total = (price + deliveryFee) * quantity;
+        // Calculate total: (item price * quantity) + total delivery fee for all quantities
+        const total = (price * quantity) + (deliveryFee > 0 ? deliveryFee * quantity : 0);
 
-        // 5. Upsert item
         const itemData = {
             name: finalName,
             quantity,
-            price: price + deliveryFee,
+            price: price,
+            deliveryFee: deliveryFee > 0 ? deliveryFee * quantity : 0, // Store total delivery fee
             total,
             group,
         };
@@ -128,10 +129,13 @@ export default function Home() {
 
 
   const handleClearData = async () => {
-    if (!items) return;
+    if (!items || !firestore) return;
     try {
-      const promises = items.map(item => deleteDoc(doc(firestore, "order_items", item.id)));
-      await Promise.all(promises);
+      // Use non-blocking deletes
+      items.forEach(item => {
+        const docRef = doc(firestore, "order_items", item.id);
+        deleteDocumentNonBlocking(docRef);
+      });
       toast({
         title: "Sucesso",
         description: "Todos os dados foram apagados.",
@@ -152,6 +156,7 @@ export default function Home() {
   };
   
   const handleDeleteItem = (id: string) => {
+    if(!firestore) return;
     deleteDocumentNonBlocking(doc(firestore, "order_items", id));
     toast({
       title: "Sucesso",
@@ -165,6 +170,16 @@ export default function Home() {
 
   const itemToEdit = items?.find(item => item.id === editingItemId) || null;
   const displayItems = items || [];
+  
+  if (firestoreError) {
+    return (
+      <div className="container mx-auto max-w-4xl p-8 text-center text-destructive">
+        <h1 className="text-2xl font-bold">Erro de Conexão</h1>
+        <p>Não foi possível conectar ao banco de dados.</p>
+        <p className="text-sm text-muted-foreground mt-2">Por favor, verifique sua conexão com a internet e as configurações do Firebase.</p>
+      </div>
+    );
+  }
 
   return (
     <div className="container mx-auto max-w-4xl p-2 sm:p-4 lg:p-8">
@@ -207,7 +222,7 @@ export default function Home() {
         </Card>
         
         <div className="flex justify-center">
-          <Button variant="destructive" onClick={handleClearData}>
+          <Button variant="destructive" onClick={handleClearData} disabled={!items || items.length === 0}>
             <Trash2 className="mr-2 h-4 w-4" />
             Limpar Todos os Dados
           </Button>

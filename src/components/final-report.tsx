@@ -2,13 +2,12 @@
 
 import { useMemo } from "react";
 import type { Item, Group } from "@/types";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { Button } from "@/components/ui/button";
 import { PieChart, Pie, Cell, ResponsiveContainer, Legend, Tooltip } from "recharts";
 import { Share, FileText, BrainCircuit } from "lucide-react";
 import { cn } from "@/lib/utils";
-
 
 interface FinalReportProps {
   items: Item[];
@@ -21,7 +20,6 @@ const formatCurrency = (value: number) => {
   }).format(value);
 };
 
-// Custom Tooltip for the Pie Chart
 const CustomTooltip = ({ active, payload }: any) => {
   if (active && payload && payload.length) {
     return (
@@ -32,7 +30,6 @@ const CustomTooltip = ({ active, payload }: any) => {
   }
   return null;
 };
-
 
 export default function FinalReport({ items }: FinalReportProps) {
   const reportData = useMemo(() => {
@@ -45,21 +42,26 @@ export default function FinalReport({ items }: FinalReportProps) {
     
     const itemCounts: { [key: string]: { total: number; rua: number } } = {};
     let totalRuaItems = 0;
-    
+    let totalDeliveryFee = 0;
+    let deliveryCount = 0;
+
     items.forEach((item) => {
-      // Sum group totals
       totals[item.group] += item.total;
 
-      // Count items
       const itemName = item.name.toUpperCase();
       if (!itemCounts[itemName]) {
         itemCounts[itemName] = { total: 0, rua: 0 };
       }
       itemCounts[itemName].total += item.quantity;
 
-      if(item.group.includes('rua')) {
+      if (item.group.includes('rua')) {
         itemCounts[itemName].rua += item.quantity;
         totalRuaItems += item.quantity;
+      }
+      
+      if (item.deliveryFee > 0) {
+        totalDeliveryFee += item.deliveryFee;
+        deliveryCount += item.quantity;
       }
     });
     
@@ -67,7 +69,7 @@ export default function FinalReport({ items }: FinalReportProps) {
     const totalGeralItems = items.reduce((acc, item) => acc + item.quantity, 0);
     
     const pieData = Object.entries(totals)
-        .filter(([, value]) => value > 0) // Filter out groups with zero value
+        .filter(([, value]) => value > 0)
         .map(([name, value]) => ({
             name,
             value,
@@ -75,10 +77,10 @@ export default function FinalReport({ items }: FinalReportProps) {
         }));
         
     const COLORS = {
-        'Vendas salão': '#d92550', // Red
-        'Vendas rua': '#3498db',   // Blue
-        'Fiados salão': '#f1c40f', // Yellow
-        'Fiados rua': '#2ecc71',   // Green
+        'Vendas salão': '#d92550',
+        'Vendas rua': '#3498db',
+        'Fiados salão': '#f1c40f',
+        'Fiados rua': '#2ecc71',
     };
 
     const sortedItemCounts = Object.entries(itemCounts)
@@ -91,7 +93,9 @@ export default function FinalReport({ items }: FinalReportProps) {
         totalRuaItems,
         itemCounts: sortedItemCounts,
         pieData,
-        COLORS
+        COLORS,
+        totalDeliveryFee,
+        deliveryCount,
     };
   }, [items]);
   
@@ -125,7 +129,6 @@ export default function FinalReport({ items }: FinalReportProps) {
                 </CardDescription>
             </CardHeader>
             <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-8 px-3 pb-3 sm:px-6 sm:pb-6">
-                {/* Left Column */}
                 <div className="space-y-3 sm:space-y-4">
                     <h3 className="font-semibold text-base sm:text-lg">Resumo Financeiro</h3>
                     <div className="space-y-2 text-xs sm:text-sm">
@@ -135,6 +138,12 @@ export default function FinalReport({ items }: FinalReportProps) {
                                 <span className="font-mono font-medium">{formatCurrency(total)}</span>
                             </div>
                         ))}
+                        {reportData.totalDeliveryFee > 0 && (
+                            <div className="flex justify-between text-muted-foreground">
+                                <span>Taxa de Entrega ({reportData.deliveryCount}x):</span>
+                                <span className="font-mono font-medium">{formatCurrency(reportData.totalDeliveryFee)}</span>
+                            </div>
+                        )}
                     </div>
                      <Separator />
                      <div className="space-y-2 text-xs sm:text-sm">
@@ -149,7 +158,6 @@ export default function FinalReport({ items }: FinalReportProps) {
                     </div>
                 </div>
 
-                {/* Right Column */}
                 <div className="space-y-4 sm:space-y-6">
                     <div>
                         <h3 className="font-semibold text-base sm:text-lg mb-2">Contagem de Itens</h3>
