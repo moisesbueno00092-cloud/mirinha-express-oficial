@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { parseCustomItemPrice } from "@/ai/flows/parse-custom-item-price";
 import type { Item, Group } from "@/types";
 import { PREDEFINED_PRICES } from "@/lib/constants";
@@ -20,6 +20,14 @@ import SummaryReport from "@/components/summary-report";
 import FinalReport from "@/components/final-report";
 
 const DELIVERY_FEE = 6.00;
+
+const formatCurrency = (value: number) => {
+  return new Intl.NumberFormat("pt-BR", {
+    style: "currency",
+    currency: "BRL",
+  }).format(value);
+};
+
 
 export default function Home() {
   const firestore = useFirestore();
@@ -58,18 +66,20 @@ export default function Home() {
         } else if (upperCaseInput.startsWith("F ")) {
             group = 'Fiados salão';
             input = input.substring(2).trim();
+        } else if (upperCaseInput.startsWith("M ")) {
+            // This is a custom price item for "Vendas salão"
+            group = 'Vendas salão';
+            // We keep the input as is for the AI to parse
         }
         
         let price = 0;
         let finalName = "";
         
-        // 3. Check for predefined price keys
         const predefinedKey = input.replace(/\s+/g, '').toUpperCase();
         if (Object.prototype.hasOwnProperty.call(PREDEFINED_PRICES, predefinedKey)) {
             price = PREDEFINED_PRICES[predefinedKey];
             finalName = predefinedKey;
         } else {
-            // 4. If not predefined, use AI to parse custom price and name
             const aiResult = await parseCustomItemPrice({
                 itemName: input.replace(",", "."),
             });
@@ -78,8 +88,8 @@ export default function Home() {
                 price = aiResult.customPrice;
                 finalName = aiResult.itemName;
             } else {
-                finalName = input; // If AI finds no price, the whole string is the name
-                price = 0; // Ensure price is 0 if not found
+                finalName = input; 
+                price = 0; 
             }
         }
         
@@ -93,14 +103,14 @@ export default function Home() {
             return;
         }
 
-        // Calculate total: (item price * quantity) + total delivery fee for all quantities
-        const total = (price * quantity) + (deliveryFee > 0 ? deliveryFee * quantity : 0);
+        const totalDeliveryFee = deliveryFee > 0 ? deliveryFee * quantity : 0;
+        const total = (price * quantity) + totalDeliveryFee;
 
         const itemData = {
             name: finalName,
             quantity,
             price: price,
-            deliveryFee: deliveryFee > 0 ? deliveryFee * quantity : 0, // Store total delivery fee
+            deliveryFee: totalDeliveryFee, 
             total,
             group,
         };
@@ -131,7 +141,6 @@ export default function Home() {
   const handleClearData = async () => {
     if (!items || !firestore) return;
     try {
-      // Use non-blocking deletes
       items.forEach(item => {
         const docRef = doc(firestore, "order_items", item.id);
         deleteDocumentNonBlocking(docRef);
@@ -171,6 +180,16 @@ export default function Home() {
   const itemToEdit = items?.find(item => item.id === editingItemId) || null;
   const displayItems = items || [];
   
+  const summary = useMemo(() => {
+    if (!items) return { total: 0, deliveryCount: 0, totalDeliveryFee: 0 };
+    
+    const total = items.reduce((acc, item) => acc + item.total, 0);
+    const deliveryCount = items.reduce((acc, item) => item.deliveryFee > 0 ? acc + item.quantity : acc, 0);
+    const totalDeliveryFee = items.reduce((acc, item) => acc + item.deliveryFee, 0);
+    
+    return { total, deliveryCount, totalDeliveryFee };
+  }, [items]);
+
   if (firestoreError) {
     return (
       <div className="container mx-auto max-w-4xl p-8 text-center text-destructive">
@@ -182,7 +201,8 @@ export default function Home() {
   }
 
   return (
-    <div className="container mx-auto max-w-4xl p-2 sm:p-4 lg:p-8">
+    <>
+    <div className="container mx-auto max-w-4xl p-2 sm:p-4 lg:p-8 pb-28">
       <header className="mb-6 text-center">
         <h1 className="text-3xl font-headline font-bold text-primary sm:text-5xl">
           Restaurante da Mirinha
@@ -229,5 +249,17 @@ export default function Home() {
         </div>
       </main>
     </div>
+      <footer className="fixed bottom-0 left-0 right-0 z-10 border-t bg-background/95 backdrop-blur-sm">
+        <div className="container mx-auto max-w-4xl flex justify-between items-center p-3 text-xs sm:text-sm">
+          <div className="flex flex-col sm:flex-row sm:gap-4">
+             <div className="text-muted-foreground">Entregas: <span className="font-bold text-foreground">{summary.deliveryCount} ({formatCurrency(summary.totalDeliveryFee)})</span></div>
+          </div>
+          <div className="text-right">
+            <span className="text-muted-foreground">Faturamento Total:</span>
+            <p className="text-lg sm:text-xl font-bold text-primary">{formatCurrency(summary.total)}</p>
+          </div>
+        </div>
+      </footer>
+    </>
   );
 }
