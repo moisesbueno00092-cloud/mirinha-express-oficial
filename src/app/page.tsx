@@ -89,111 +89,78 @@ export default function Home() {
       }
   
       const itemParts = mainInput.split(' ').filter(part => part.trim() !== '');
-      const identifiedItems: { name: string; price: number; quantity: number }[] = [];
-      let i = 0;
+      const itemsToSave: Omit<Item, 'id'>[] = [];
   
+      let i = 0;
       while (i < itemParts.length) {
-        const part = itemParts[i].toUpperCase();
+        const part = itemParts[i];
         const nextPart = i + 1 < itemParts.length ? itemParts[i + 1] : null;
+        
+        const isPredefinedKey = Object.keys(PREDEFINED_PRICES).includes(part.toUpperCase());
         const isNumeric = (str: string) => !isNaN(parseFloat(str.replace(',', '.'))) && /^[0-9,.]+$/.test(str);
         
-        const isPredefined = Object.keys(PREDEFINED_PRICES).includes(part);
+        const deliveryFee = deliveryFeeApplicable ? DELIVERY_FEE : 0;
   
-        if (isPredefined) {
-          let itemPrice = PREDEFINED_PRICES[part];
+        if (isPredefinedKey) {
+          const itemName = part.toUpperCase();
+          let itemPrice = PREDEFINED_PRICES[itemName];
+  
           if (nextPart && isNumeric(nextPart)) {
             itemPrice = parseFloat(nextPart.replace(',', '.'));
-            i++; // Pula o preço
+            i++; // Skip the price part as it's been consumed
           }
-          identifiedItems.push({ name: part, price: itemPrice, quantity: 1 });
+          
+          const total = (itemPrice * baseQuantity) + (deliveryFee * baseQuantity);
+          itemsToSave.push({
+            name: itemName,
+            quantity: baseQuantity,
+            price: itemPrice * baseQuantity,
+            deliveryFee: deliveryFee * baseQuantity,
+            total,
+            group,
+            timestamp: new Date().toISOString()
+          });
+  
         } else if (isNumeric(part)) {
-          identifiedItems.push({ name: 'KG', price: parseFloat(part.replace(',', '.')), quantity: 1 });
+          const itemPrice = parseFloat(part.replace(',', '.'));
+          const total = itemPrice + deliveryFee; // Delivery fee is not multiplied for KG items as they are qty 1
+          itemsToSave.push({
+            name: 'KG',
+            quantity: 1, // Each numeric value is one KG item
+            price: itemPrice,
+            deliveryFee: deliveryFee,
+            total,
+            group,
+            timestamp: new Date().toISOString()
+          });
         }
         i++;
       }
-
-      const groupedItems: { [key: string]: { quantity: number, price: number } } = {};
-      
-      for(const item of identifiedItems) {
-        const key = item.name;
-        if (!groupedItems[key]) {
-          groupedItems[key] = { quantity: 0, price: 0 };
-        }
-        groupedItems[key].quantity += item.quantity;
-        groupedItems[key].price += item.price;
-      }
-      
-      const finalGroupedItems = Object.entries(groupedItems).map(([name, data]) => ({
-        name,
-        quantity: data.quantity * baseQuantity,
-        price: data.price * baseQuantity,
-      }));
-
-
-      const deliveryFee = deliveryFeeApplicable ? DELIVERY_FEE : 0;
-
+  
       if (currentItem?.id) {
-        const singleItem = finalGroupedItems[0];
+        // For editing, we assume only one item is being edited.
+        const singleItem = itemsToSave[0];
         if (singleItem) {
-            const total = singleItem.price + (deliveryFee * singleItem.quantity);
-            const updatedData: Omit<Item, 'id' | 'timestamp'> = {
-                name: singleItem.name,
-                quantity: singleItem.quantity,
-                price: singleItem.price,
-                deliveryFee: deliveryFee * singleItem.quantity,
-                total,
-                group,
-            };
-            const docRef = doc(firestore, "order_items", currentItem.id);
-            setDocumentNonBlocking(docRef, updatedData, { merge: true });
-            setEditingItem(null);
-            toast({ title: "Sucesso", description: "Item atualizado." });
+          const docRef = doc(firestore, "order_items", currentItem.id);
+          // The timestamp is not updated on edit.
+          const { timestamp, ...updatedData } = singleItem;
+          setDocumentNonBlocking(docRef, updatedData, { merge: true });
+          setEditingItem(null);
+          toast({ title: "Sucesso", description: "Item atualizado." });
         }
       } else {
-        const itemsToSave: Omit<Item, 'id' | 'timestamp'>[] = [];
-        
-        // Agrupar todos por grupo
-        const itemsByGroup: {[key in Group]?: {name: string, quantity: number, price: number, deliveryFee: number}[]} = {}
-
-        for(const item of finalGroupedItems) {
-           const total = item.price + (deliveryFee * item.quantity);
-           const finalItemData = {
-            name: item.name,
-            quantity: item.quantity,
-            price: item.price,
-            deliveryFee: deliveryFee * item.quantity,
-            total,
-            group,
-          };
-          
-          if (!itemsByGroup[group]) {
-              itemsByGroup[group] = [];
-          }
-          itemsByGroup[group]!.push(finalItemData);
+        // For adding new items, save each one individually.
+        for (const item of itemsToSave) {
+          addDocumentNonBlocking(orderItemsRef, item);
         }
-
-        // Salvar um doc por tipo de item dentro do grupo
-        for (const groupKey in itemsByGroup) {
-            const currentGroup = itemsByGroup[groupKey as Group]!;
-            const aggregatedItems: {[key: string]: Omit<Item, 'id' | 'timestamp'>} = {};
-
-            for (const item of currentGroup) {
-                if(!aggregatedItems[item.name]) {
-                    aggregatedItems[item.name] = {...item};
-                } else {
-                    aggregatedItems[item.name].quantity += item.quantity;
-                    aggregatedItems[item.name].price += item.price;
-                    aggregatedItems[item.name].deliveryFee += item.deliveryFee;
-                    aggregatedItems[item.name].total += item.total;
-                }
-            }
-            
-            for (const itemName in aggregatedItems) {
-                addDocumentNonBlocking(orderItemsRef, { ...aggregatedItems[itemName], timestamp: new Date().toISOString() });
-            }
+        if (itemsToSave.length > 0) {
+            toast({
+                title: "Sucesso",
+                description: `${itemsToSave.length} item(s) adicionado(s).`,
+            });
         }
       }
-
+  
     } catch (error) {
       console.error("Error upserting item:", error);
       toast({
@@ -241,11 +208,12 @@ export default function Home() {
 
     let reconstructedInput = '';
     if(item.name === 'KG') {
-        reconstructedInput = (item.price / item.quantity).toString().replace('.', ',');
+        reconstructedInput = (item.price).toString().replace('.', ',');
     } else {
         const predefinedPrice = PREDEFINED_PRICES[item.name.toUpperCase()];
         const unitPrice = item.price / item.quantity;
         reconstructedInput = item.name;
+        // Only add price if it's different from the predefined one
         if (predefinedPrice !== unitPrice) {
             reconstructedInput += ` ${unitPrice.toString().replace('.', ',')}`;
         }
@@ -287,7 +255,7 @@ export default function Home() {
     const total = items.reduce((acc, item) => acc + item.total, 0);
     const deliveryItems = items.filter(item => item.deliveryFee > 0);
     const deliveryCount = deliveryItems.reduce((acc, item) => acc + item.quantity, 0);
-    const totalDeliveryFee = deliveryItems.reduce((acc, item) => acc + (item.deliveryFee * item.quantity), 0);
+    const totalDeliveryFee = deliveryItems.reduce((acc, item) => acc + item.deliveryFee, 0);
     
     return { total, deliveryCount, totalDeliveryFee };
   }, [items]);
