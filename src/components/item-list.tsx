@@ -11,13 +11,14 @@ import {
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Pencil, Trash2 } from "lucide-react";
+import { Pencil, Trash2, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface ItemListProps {
   items: Item[];
   onEdit: (id: string) => void;
   onDelete: (id: string) => void;
+  isLoading: boolean;
 }
 
 const formatCurrency = (value: number) => {
@@ -28,13 +29,26 @@ const formatCurrency = (value: number) => {
 };
 
 const formatTimestamp = (timestamp: string) => {
-  return new Date(timestamp).toLocaleTimeString("pt-BR", {
-    hour: '2-digit',
-    minute: '2-digit'
-  });
+  if (!timestamp) return '-';
+  try {
+    return new Date(timestamp).toLocaleTimeString("pt-BR", {
+      hour: '2-digit',
+      minute: '2-digit'
+    });
+  } catch (e) {
+    return '-';
+  }
 };
 
-export default function ItemList({ items, onEdit, onDelete }: ItemListProps) {
+export default function ItemList({ items, onEdit, onDelete, isLoading }: ItemListProps) {
+  if (isLoading) {
+    return (
+      <div className="flex justify-center items-center py-10">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    );
+  }
+
   if (items.length === 0) {
     return (
       <div className="text-center text-muted-foreground py-10">
@@ -58,7 +72,7 @@ export default function ItemList({ items, onEdit, onDelete }: ItemListProps) {
           </TableRow>
         </TableHeader>
         <TableBody>
-          {[...items].reverse().map((item) => (
+          {[...items].sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()).map((item) => (
             <TableRow key={item.id} className={cn(item.group.includes('Fiados') && "text-destructive")}>
               <TableCell className="font-medium">{item.name}</TableCell>
               <TableCell>

@@ -2,15 +2,17 @@
 
 import { useState } from "react";
 import { parseCustomItemPrice } from "@/ai/flows/parse-custom-item-price";
-import usePersistentState from "@/hooks/use-persistent-state";
 import type { Item, Group } from "@/types";
 import { PREDEFINED_PRICES } from "@/lib/constants";
+import { useCollection, useFirestore, useMemoFirebase } from "@/firebase";
+import { collection, doc, deleteDoc, setDoc } from "firebase/firestore";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
 import { Trash2 } from "lucide-react";
+import { addDocumentNonBlocking, deleteDocumentNonBlocking, setDocumentNonBlocking } from "@/firebase/non-blocking-updates";
 
 import ItemForm from "@/components/item-form";
 import ItemList from "@/components/item-list";
@@ -18,7 +20,10 @@ import SummaryReport from "@/components/summary-report";
 import FinalReport from "@/components/final-report";
 
 export default function Home() {
-  const [items, setItems] = usePersistentState<Item[]>("mirinhas-tracker-items", []);
+  const firestore = useFirestore();
+  const orderItemsRef = useMemoFirebase(() => collection(firestore, "order_items"), [firestore]);
+  const { data: items, isLoading } = useCollection<Item>(orderItemsRef);
+  
   const [isProcessing, setIsProcessing] = useState(false);
   const [editingItemId, setEditingItemId] = useState<string | null>(null);
   const { toast } = useToast();
@@ -33,33 +38,40 @@ export default function Home() {
 
       const upperCaseName = nameForProcessing.toUpperCase();
 
-      let nameWithoutGroupPrefix = nameForProcessing;
-      if (upperCaseName.startsWith("FR ")) {
-        group = "Fiados rua";
-        nameWithoutGroupPrefix = nameForProcessing.substring(3).trim();
-      } else if (upperCaseName.startsWith("F ")) {
-        group = "Fiados salão";
-        nameWithoutGroupPrefix = nameForProcessing.substring(2).trim();
-      } else if (upperCaseName.startsWith("R ")) {
-        group = "Vendas rua";
-        nameWithoutGroupPrefix = nameForProcessing.substring(2).trim();
-      }
+      const predefinedPriceKey = Object.keys(PREDEFINED_PRICES).find(key => upperCaseName === key);
 
-      const itemLookupKey = nameWithoutGroupPrefix.toUpperCase();
-
-      if (PREDEFINED_PRICES[itemLookupKey]) {
-        price = PREDEFINED_PRICES[itemLookupKey];
-        finalName = itemLookupKey;
+      if (predefinedPriceKey) {
+          price = PREDEFINED_PRICES[predefinedPriceKey];
+          finalName = predefinedPriceKey;
       } else {
-        const aiResult = await parseCustomItemPrice({
-          itemName: nameWithoutGroupPrefix.replace(",", "."),
-        });
+        let nameWithoutGroupPrefix = nameForProcessing;
+        if (upperCaseName.startsWith("FR ")) {
+          group = "Fiados rua";
+          nameWithoutGroupPrefix = nameForProcessing.substring(3).trim();
+        } else if (upperCaseName.startsWith("F ")) {
+          group = "Fiados salão";
+          nameWithoutGroupPrefix = nameForProcessing.substring(2).trim();
+        } else if (upperCaseName.startsWith("R ")) {
+          group = "Vendas rua";
+          nameWithoutGroupPrefix = nameForProcessing.substring(2).trim();
+        }
 
-        if (aiResult.customPrice !== undefined && aiResult.customPrice !== null) {
-          price = aiResult.customPrice;
-          finalName = aiResult.itemName;
+        const itemLookupKey = nameWithoutGroupPrefix.toUpperCase();
+
+        if (PREDEFINED_PRICES[itemLookupKey]) {
+          price = PREDEFINED_PRICES[itemLookupKey];
+          finalName = itemLookupKey;
         } else {
-          finalName = nameWithoutGroupPrefix;
+          const aiResult = await parseCustomItemPrice({
+            itemName: nameWithoutGroupPrefix.replace(",", "."),
+          });
+
+          if (aiResult.customPrice !== undefined && aiResult.customPrice !== null) {
+            price = aiResult.customPrice;
+            finalName = aiResult.itemName;
+          } else {
+            finalName = nameWithoutGroupPrefix;
+          }
         }
       }
       
@@ -74,27 +86,22 @@ export default function Home() {
       }
 
       if (editingItemId) {
-        // Update existing item
-        setItems(prevItems =>
-          prevItems.map(item =>
-            item.id === editingItemId
-              ? {
-                  ...item,
-                  name: finalName,
-                  quantity,
-                  price,
-                  total: price * quantity,
-                  group,
-                }
-              : item
-          )
-        );
+        const docRef = doc(firestore, "order_items", editingItemId);
+        const updatedItem: Partial<Item> = {
+          name: finalName,
+          quantity,
+          price,
+          total: price * quantity,
+          group,
+        };
+        setDocumentNonBlocking(docRef, updatedItem, { merge: true });
         toast({ title: "Sucesso", description: "Item atualizado." });
         setEditingItemId(null);
       } else {
-        // Add new item
+        const id = crypto.randomUUID();
+        const docRef = doc(firestore, "order_items", id);
         const newItem: Item = {
-          id: crypto.randomUUID(),
+          id,
           name: finalName,
           quantity,
           price,
@@ -102,7 +109,7 @@ export default function Home() {
           group,
           timestamp: new Date().toISOString(),
         };
-        setItems(prevItems => [...prevItems, newItem]);
+        setDocumentNonBlocking(docRef, newItem, { merge: false });
       }
 
     } catch (error) {
@@ -117,12 +124,23 @@ export default function Home() {
     }
   };
 
-  const handleClearData = () => {
-    setItems([]);
-    toast({
-      title: "Sucesso",
-      description: "Todos os dados foram apagados.",
-    });
+  const handleClearData = async () => {
+    if (!items) return;
+    try {
+      // Not a non-blocking update.
+      await Promise.all(items.map(item => deleteDoc(doc(firestore, "order_items", item.id))));
+      toast({
+        title: "Sucesso",
+        description: "Todos os dados foram apagados.",
+      });
+    } catch (error) {
+      console.error("Error clearing data:", error);
+      toast({
+        variant: "destructive",
+        title: "Erro ao limpar dados",
+        description: "Ocorreu um problema ao apagar os itens.",
+      });
+    }
   };
 
   const handleEditItem = (id: string) => {
@@ -131,7 +149,7 @@ export default function Home() {
   };
   
   const handleDeleteItem = (id: string) => {
-    setItems(prevItems => prevItems.filter(item => item.id !== id));
+    deleteDocumentNonBlocking(doc(firestore, "order_items", id));
     toast({
       title: "Sucesso",
       description: "Item removido.",
@@ -142,7 +160,8 @@ export default function Home() {
     setEditingItemId(null);
   };
 
-  const itemToEdit = items.find(item => item.id === editingItemId) || null;
+  const itemToEdit = items?.find(item => item.id === editingItemId) || null;
+  const displayItems = items || [];
 
   return (
     <div className="container mx-auto max-w-4xl p-4 sm:p-6 lg:p-8">
@@ -171,13 +190,13 @@ export default function Home() {
               </TabsList>
               <div className="p-6">
                 <TabsContent value="pedidos">
-                  <ItemList items={items} onEdit={handleEditItem} onDelete={handleDeleteItem} />
+                  <ItemList items={displayItems} onEdit={handleEditItem} onDelete={handleDeleteItem} isLoading={isLoading} />
                 </TabsContent>
                 <TabsContent value="resumo">
-                  <SummaryReport items={items} />
+                  <SummaryReport items={displayItems} />
                 </TabsContent>
                 <TabsContent value="relatorio">
-                  <FinalReport items={items} />
+                  <FinalReport items={displayItems} />
                 </TabsContent>
               </div>
             </Tabs>
