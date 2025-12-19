@@ -120,7 +120,7 @@ export default function ItemList({ items, onEdit, onDelete, isLoading }: ItemLis
               <TableCell className="text-right px-2 sm:px-4">{formatCurrency(item.price)}</TableCell>
               <TableCell className="text-right font-semibold px-2 sm:px-4">{formatCurrency(item.total)}</TableCell>
               <TableCell className="text-right px-2 sm:px-4">{formatTimestamp(item.timestamp)}</TableCell>
-              <TableCell className="flex justify-end gap-0 sm:gap-2 px-2 sm:px-4">
+              <TableCell className="flex justify-end px-2 sm:px-4">
                 <Button variant="ghost" size="icon" onClick={() => onEdit(item.id)}>
                   <Pencil className="h-4 w-4" />
                 </Button>
