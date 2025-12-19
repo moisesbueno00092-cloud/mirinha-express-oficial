@@ -5,7 +5,7 @@ import { parseCustomItemPrice } from "@/ai/flows/parse-custom-item-price";
 import type { Item, Group } from "@/types";
 import { PREDEFINED_PRICES } from "@/lib/constants";
 import { useCollection, useFirestore, useMemoFirebase } from "@/firebase";
-import { collection, doc, deleteDoc } from "firebase/firestore";
+import { collection, doc } from "firebase/firestore";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -31,12 +31,11 @@ export default function Home() {
   const handleUpsertItem = async (rawInput: string) => {
     setIsProcessing(true);
     try {
-      let group: Group = "Vendas salão";
       let quantity = 1;
       let nameForProcessing = rawInput.trim();
 
-      // 1. Extract quantity from the start of the string
-      const quantityMatch = nameForProcessing.match(/^(\d+)\s*(.*)/);
+      // 1. Extract quantity from the start of the string (e.g., "2x", "2 ", "2")
+      const quantityMatch = nameForProcessing.match(/^(\d+)\s*x?\s*(.*)/i);
       if (quantityMatch) {
         quantity = parseInt(quantityMatch[1], 10);
         nameForProcessing = quantityMatch[2].trim();
@@ -45,62 +44,62 @@ export default function Home() {
       // 2. Check for predefined price keys first
       const upperCaseName = nameForProcessing.toUpperCase();
       if (PREDEFINED_PRICES[upperCaseName]) {
-          const price = PREDEFINED_PRICES[upperCaseName];
-          const finalName = upperCaseName;
-          
-          if (editingItemId) {
-              const docRef = doc(firestore, "order_items", editingItemId);
-              const updatedItem: Partial<Item> = { name: finalName, quantity, price, total: price * quantity };
-              setDocumentNonBlocking(docRef, updatedItem, { merge: true });
-              setEditingItemId(null);
-          } else {
-              const newItem: Omit<Item, 'id'> = {
-                  name: finalName,
-                  quantity,
-                  price,
-                  total: price * quantity,
-                  group: 'Vendas salão',
-                  timestamp: new Date().toISOString(),
-              };
-              addDocumentNonBlocking(orderItemsRef, newItem);
-          }
-          setIsProcessing(false);
-          return;
+        const price = PREDEFINED_PRICES[upperCaseName];
+        const finalName = upperCaseName;
+        const group: Group = 'Vendas salão';
+
+        if (editingItemId) {
+          const docRef = doc(firestore, "order_items", editingItemId);
+          const updatedItem: Partial<Item> = { name: finalName, quantity, price, total: price * quantity, group };
+          setDocumentNonBlocking(docRef, updatedItem, { merge: true });
+          setEditingItemId(null);
+        } else {
+          const newItem: Omit<Item, 'id'> = {
+            name: finalName,
+            quantity,
+            price,
+            total: price * quantity,
+            group: group,
+            timestamp: new Date().toISOString(),
+          };
+          addDocumentNonBlocking(orderItemsRef, newItem);
+        }
+        setIsProcessing(false);
+        return;
       }
       
-      // 3. Determine group and clean name (if not a predefined price key)
-      let nameWithoutGroupPrefix = nameForProcessing;
+      // 3. If not a predefined price, determine group and the string to be processed by AI
+      let group: Group = "Vendas salão";
+      let nameForAi = nameForProcessing;
 
       if (upperCaseName.startsWith("FR ")) {
         group = "Fiados rua";
-        nameWithoutGroupPrefix = nameForProcessing.substring(3).trim();
+        nameForAi = nameForProcessing.substring(3).trim();
       } else if (upperCaseName.startsWith("F ")) {
         group = "Fiados salão";
-        nameWithoutGroupPrefix = nameForProcessing.substring(2).trim();
+        nameForAi = nameForProcessing.substring(2).trim();
       } else if (upperCaseName.startsWith("R ")) {
         group = "Vendas rua";
-        nameWithoutGroupPrefix = nameForProcessing.substring(2).trim();
+        nameForAi = nameForProcessing.substring(2).trim();
       } else if (upperCaseName.startsWith("M ")) {
-        const potentialPriceMatch = nameForProcessing.match(/^M\s+([0-9,.]+)/);
-        if(!potentialPriceMatch) {
-             group = "Vendas salão";
-             nameWithoutGroupPrefix = nameForProcessing.substring(2).trim();
-        }
+        group = "Vendas salão";
+        nameForAi = nameForProcessing.substring(2).trim();
       }
       
+      // 4. Use AI to parse custom price and name
       let price = 0;
-      let finalName = nameWithoutGroupPrefix;
+      let finalName = "";
 
-      // 4. If not a predefined price, use AI for custom prices
       const aiResult = await parseCustomItemPrice({
-        itemName: nameWithoutGroupPrefix.replace(",", "."),
+        itemName: nameForAi.replace(",", "."),
       });
 
       if (aiResult.customPrice !== undefined && aiResult.customPrice !== null) {
         price = aiResult.customPrice;
         finalName = aiResult.itemName;
       } else {
-        finalName = nameWithoutGroupPrefix;
+        // If AI doesn't find a price, the whole string is the name and price is 0
+        finalName = nameForAi;
       }
       
       if (!finalName) {
