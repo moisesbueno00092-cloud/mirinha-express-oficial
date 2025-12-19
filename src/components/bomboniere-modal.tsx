@@ -36,7 +36,7 @@ const formatCurrency = (value: number) => {
     }).format(value);
 };
 
-const STOCK_PASSWORD = "1234";
+const STOCK_PASSWORD = "jujubb3110";
 
 export default function BomboniereModal({ isOpen, onClose, onAddItems, bomboniereItems, setBomboniereItems }: BomboniereModalProps) {
   const [selectedItems, setSelectedItems] = useState<Record<string, number>>({});
@@ -413,6 +413,8 @@ export default function BomboniereModal({ isOpen, onClose, onAddItems, bombonier
     </Dialog>
   );
 }
+    
+
     
 
     
