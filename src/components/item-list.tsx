@@ -68,7 +68,8 @@ const itemBadgeStyles: { [key: string]: string } = {
 };
 
 const getItemBadgeStyle = (itemName: string) => {
-  const style = itemBadgeStyles[itemName.toUpperCase()];
+  const normalizedItemName = itemName.replace(/^\d+/, '').toUpperCase();
+  const style = itemBadgeStyles[normalizedItemName];
   if (style) {
     return `text-white border-transparent ${style}`;
   }
@@ -78,14 +79,23 @@ const getItemBadgeStyle = (itemName: string) => {
 const renderItemName = (item: Item) => {
     const itemElements = [];
 
-    // Handle predefined items (P, M, G, etc.)
+    // Handle predefined items by counting them
     if (item.itemNames && item.itemNames.length > 0) {
-      item.itemNames.forEach((name, index) => {
+      const itemCounts: Record<string, number> = {};
+      item.itemNames.forEach(name => {
+        itemCounts[name] = (itemCounts[name] || 0) + 1;
+      });
+
+      // Sort to keep a consistent order
+      const sortedItems = Object.entries(itemCounts).sort((a,b) => a[0].localeCompare(b[0]));
+      
+      sortedItems.forEach(([name, count]) => {
         const price = PREDEFINED_PRICES[name.toUpperCase()];
+        const badgeLabel = count > 1 ? `${count}${name}` : name;
         itemElements.push(
-            <div key={`predefined-${name}-${index}`} className="flex flex-col items-center">
+            <div key={`predefined-group-${name}`} className="flex flex-col items-center">
                 <Badge className={cn("whitespace-nowrap", getItemBadgeStyle(name))}>
-                    {name}
+                    {badgeLabel}
                 </Badge>
                 {price !== undefined && (
                     <span className="text-muted-foreground mt-0.5" style={{ fontSize: '0.48rem', letterSpacing: '-0.05em' }}>
@@ -97,7 +107,7 @@ const renderItemName = (item: Item) => {
       });
     }
 
-    // Handle KG items, which are stored in individualPrices
+    // Handle KG items, which are stored in individualPrices, one by one
     if (item.individualPrices && item.individualPrices.length > 0) {
         item.individualPrices.forEach((price, index) => {
             itemElements.push(
@@ -116,10 +126,11 @@ const renderItemName = (item: Item) => {
     // Fallback for single, non-KG items stored in 'name' that were not caught
     if (itemElements.length === 0 && item.name && !['LANÇAMENTO MISTO', 'KG'].includes(item.name.toUpperCase())) {
         const price = PREDEFINED_PRICES[item.name.toUpperCase()];
+        const badgeLabel = item.quantity > 1 ? `${item.quantity}${item.name}` : item.name;
         itemElements.push(
             <div key={`fallback-${item.name}`} className="flex flex-col items-center">
                 <Badge className={cn("whitespace-nowrap", getItemBadgeStyle(item.name))}>
-                    {item.name}
+                    {badgeLabel}
                 </Badge>
                  {price !== undefined && (
                     <span className="text-muted-foreground mt-0.5" style={{ fontSize: '0.48rem', letterSpacing: '-0.05em' }}>
@@ -130,7 +141,7 @@ const renderItemName = (item: Item) => {
         );
     }
     
-    if (itemElements.length === 0) {
+    if (itemElements.length === 0 && item.name) {
        return <Badge className={cn("whitespace-nowrap", getItemBadgeStyle(item.name))}>{item.name}</Badge>;
     }
 
@@ -196,5 +207,3 @@ export default function ItemList({ items, onEdit, onDelete, isLoading }: ItemLis
     </div>
   );
 }
-
-    
