@@ -2,7 +2,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogClose } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -35,7 +35,6 @@ export default function BomboniereModal({ isOpen, onClose, onAddItems }: Bomboni
   const [isAdding, setIsAdding] = useState(false);
 
   useEffect(() => {
-    // Reset quantities when modal is opened
     if (isOpen) {
       setSelectedItems({});
       setIsEditing(false);
@@ -69,20 +68,38 @@ export default function BomboniereModal({ isOpen, onClose, onAddItems }: Bomboni
   };
   
   const handleSaveItem = (formData: FormData) => {
-    const id = formData.get('id') as string;
-    const name = formData.get('name') as string;
-    const price = parseFloat((formData.get('price') as string).replace(',', '.'));
-    
-    if (id && name && !isNaN(price)) {
-      if(isAdding) {
-         setBomboniereItems(prev => [...prev, { id, name, price }]);
-      } else {
-         setBomboniereItems(prev => prev.map(item => item.id === id ? { ...item, name, price } : item));
-      }
+    if(isAdding) {
+        const newItemInput = formData.get('newItemInput') as string;
+        if(!newItemInput) {
+            setIsAdding(false);
+            return;
+        }
+
+        const parts = newItemInput.trim().split(' ');
+        const priceString = parts.pop()?.replace(',', '.');
+        const name = parts.join(' ');
+        const price = parseFloat(priceString || '');
+
+        if (name && !isNaN(price) && price > 0) {
+            const newItem: BomboniereItem = {
+                id: name.toLowerCase().replace(/\s+/g, '-') + '-' + Date.now(),
+                name: name,
+                price: price
+            };
+            setBomboniereItems(prev => [...prev, newItem]);
+        }
+    } else if (itemToEdit) {
+        const id = formData.get('id') as string;
+        const name = formData.get('name') as string;
+        const price = parseFloat((formData.get('price') as string).replace(',', '.'));
+        if (id && name && !isNaN(price)) {
+            setBomboniereItems(prev => prev.map(item => item.id === id ? { ...item, name, price } : item));
+        }
     }
+    
     setItemToEdit(null);
     setIsAdding(false);
-    setIsEditing(false);
+    setIsEditing(true);
   }
 
   const handleDeleteItem = (id: string) => {
@@ -124,10 +141,8 @@ export default function BomboniereModal({ isOpen, onClose, onAddItems }: Bomboni
         ))}
         {isAdding && (
             <form action={handleSaveItem} className="bg-muted/50 p-2 rounded-lg">
-                <input type="hidden" name="id" value={Date.now().toString()} />
                 <div className="flex gap-2">
-                    <Input name="name" placeholder="Nome do item" className="h-8" />
-                    <Input name="price" type="text" placeholder="Preço" className="h-8 w-24" />
+                    <Input name="newItemInput" placeholder="Nome do item e preço (Ex: Trident 2.50)" autoFocus className="h-8" />
                     <Button type="submit" size="icon" className="h-8 w-8 shrink-0">
                         <Save className="h-4 w-4" />
                     </Button>
@@ -154,29 +169,29 @@ export default function BomboniereModal({ isOpen, onClose, onAddItems }: Bomboni
         </div>
       </DialogHeader>
       <ScrollArea className="h-96 -mx-6">
-        <div className="space-y-2 px-6">
+        <div className="divide-y divide-border px-6">
           {bomboniereItems.map((item) => (
-            <div key={item.id} className={cn("flex items-center p-3 rounded-lg", selectedItems[item.id] > 0 && "bg-muted/50")}>
-              <div className="flex-grow">
+            <div key={item.id} className="flex items-center py-3">
+              <div className="flex-grow pr-4">
                 <p className="font-semibold text-base">{item.name}</p>
                 <p className="text-sm text-muted-foreground">{formatCurrency(item.price)}</p>
               </div>
-              <div className="flex items-center justify-center gap-2">
+              <div className="flex items-center justify-end gap-2">
                 {selectedItems[item.id] > 0 ? (
                   <>
                     <Button
                       variant="ghost"
                       size="icon"
-                      className="h-8 w-8 rounded-full"
+                      className="h-9 w-9 rounded-full"
                       onClick={() => handleQuantityChange(item.id, -1)}
                     >
                       <MinusCircle className="h-6 w-6 text-destructive" />
                     </Button>
-                    <span className="text-lg font-bold w-6 text-center">{selectedItems[item.id]}</span>
+                    <span className="text-lg font-bold w-6 text-center tabular-nums">{selectedItems[item.id]}</span>
                     <Button
                       variant="ghost"
                       size="icon"
-                      className="h-8 w-8 rounded-full"
+                      className="h-9 w-9 rounded-full"
                       onClick={() => handleQuantityChange(item.id, 1)}
                     >
                       <PlusCircle className="h-6 w-6 text-primary" />
@@ -197,10 +212,10 @@ export default function BomboniereModal({ isOpen, onClose, onAddItems }: Bomboni
           ))}
         </div>
       </ScrollArea>
-      <DialogFooter>
-        <Button variant="outline" onClick={onClose}>
-          Cancelar
-        </Button>
+      <DialogFooter className="mt-4">
+        <DialogClose asChild>
+            <Button variant="outline">Cancelar</Button>
+        </DialogClose>
         <Button onClick={handleAddClick} disabled={Object.keys(selectedItems).length === 0}>
           Adicionar Itens
         </Button>
@@ -216,5 +231,4 @@ export default function BomboniereModal({ isOpen, onClose, onAddItems }: Bomboni
     </Dialog>
   );
 }
-
     
