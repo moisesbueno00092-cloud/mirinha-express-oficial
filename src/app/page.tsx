@@ -74,16 +74,16 @@ export default function Home() {
   
       // 2. Extrair grupo (F, R, FR)
       let group: Group = 'Vendas salão';
-      let deliveryFee = 0;
+      let deliveryFeeApplicable = false;
       const upperCaseInput = mainInput.toUpperCase();
   
       if (upperCaseInput.startsWith("R ")) {
         group = 'Vendas rua';
-        deliveryFee = DELIVERY_FEE;
+        deliveryFeeApplicable = true;
         mainInput = mainInput.substring(2).trim();
       } else if (upperCaseInput.startsWith("FR ")) {
         group = 'Fiados rua';
-        deliveryFee = DELIVERY_FEE;
+        deliveryFeeApplicable = true;
         mainInput = mainInput.substring(3).trim();
       } else if (upperCaseInput.startsWith("F ")) {
         group = 'Fiados salão';
@@ -92,71 +92,90 @@ export default function Home() {
   
       // 3. Processar itens
       const itemParts = mainInput.split(' ').filter(part => part.trim() !== '');
+      const identifiedItems: Omit<Item, 'id' | 'timestamp' | 'group' | 'deliveryFee' | 'total'>[] = [];
       let i = 0;
   
       while (i < itemParts.length) {
         const part = itemParts[i].toUpperCase();
         const nextPart = itemParts[i + 1];
+        const isNumeric = (str: string) => !isNaN(parseFloat(str.replace(',', '.'))) && /^[0-9,.]+$/.test(str);
         
         let itemName = '';
         let itemPrice = 0;
-        let itemQuantity = baseQuantity;
         
         const isPredefined = Object.keys(PREDEFINED_PRICES).includes(part);
-        const isNumeric = (str: string) => !isNaN(parseFloat(str.replace(',', '.'))) && /^[0-9,.]+$/.test(str);
   
         if (isPredefined) {
           itemName = part;
-          // Verifica se o próximo item é um número para sobrescrever o preço
           if (nextPart && isNumeric(nextPart)) {
             itemPrice = parseFloat(nextPart.replace(',', '.'));
-            i += 2; // Avança duas posições (item + preço)
+            i += 2;
           } else {
             itemPrice = PREDEFINED_PRICES[part];
-            i += 1; // Avança uma posição (só o item)
+            i += 1;
           }
+          identifiedItems.push({ name: itemName, price: itemPrice, quantity: baseQuantity });
         } else if (isNumeric(part)) {
           itemName = 'KG';
           itemPrice = parseFloat(part.replace(',', '.'));
-          itemQuantity = 1; // Quantidade para KG é sempre 1
-          i += 1; // Avança uma posição
-        } else {
-          // Se não for pré-definido nem numérico, ignora e avança
           i += 1;
-          continue;
-        }
-  
-        // Se um item foi identificado, cria o documento
-        if (itemName) {
-          // Loop para criar a quantidade de itens, se for maior que 1
-          for (let q = 0; q < itemQuantity; q++) {
-            const total = itemPrice + (deliveryFee > 0 ? DELIVERY_FEE : 0);
-  
-            const itemData: Omit<Item, 'id' | 'timestamp'> = {
-              name: itemName,
-              quantity: 1, // Sempre 1 por documento
-              price: itemPrice,
-              deliveryFee: deliveryFee > 0 ? DELIVERY_FEE : 0,
-              total,
-              group,
-            };
-  
-            if (currentItem?.id) {
-              // No modo de edição, substitui o item existente e sai
-              const docRef = doc(firestore, "order_items", currentItem.id);
-              setDocumentNonBlocking(docRef, itemData, { merge: true });
-              setEditingItem(null);
-              q = itemQuantity; // para o loop de quantidade
-              i = itemParts.length; // para o loop de partes
-            } else {
-              addDocumentNonBlocking(orderItemsRef, { ...itemData, timestamp: new Date().toISOString() });
-            }
-          }
+          identifiedItems.push({ name: itemName, price: itemPrice, quantity: 1 });
+        } else {
+          // Palavra desconhecida, ignorar
+          i += 1;
         }
       }
+
+      // 4. Agrupar itens identificados
+      const groupedItems: { [key: string]: { quantity: number, price: number } } = {};
       
-      if(currentItem) {
-        toast({ title: "Sucesso", description: "Item atualizado." });
+      for(const item of identifiedItems) {
+        if (!groupedItems[item.name]) {
+          groupedItems[item.name] = { quantity: 0, price: 0 };
+        }
+        groupedItems[item.name].quantity += item.quantity;
+        groupedItems[item.name].price += item.price * item.quantity;
+      }
+
+      // 5. Criar/Atualizar documentos no Firestore
+      const deliveryFee = deliveryFeeApplicable ? DELIVERY_FEE : 0;
+
+      if (currentItem?.id) {
+        // Modo de edição: só pode haver um tipo de item
+        const singleItemKey = Object.keys(groupedItems)[0];
+        if (singleItemKey) {
+            const itemData = groupedItems[singleItemKey];
+            const total = itemData.price + deliveryFee;
+
+            const updatedData: Omit<Item, 'id' | 'timestamp'> = {
+                name: singleItemKey,
+                quantity: itemData.quantity,
+                price: itemData.price, // Armazena o preço total do grupo
+                deliveryFee,
+                total,
+                group,
+            };
+            const docRef = doc(firestore, "order_items", currentItem.id);
+            setDocumentNonBlocking(docRef, updatedData, { merge: true });
+            setEditingItem(null);
+            toast({ title: "Sucesso", description: "Item atualizado." });
+        }
+      } else {
+        // Modo de criação
+        for(const itemName in groupedItems) {
+          const itemData = groupedItems[itemName];
+          const total = itemData.price + (deliveryFee > 0 ? deliveryFee * itemData.quantity : 0);
+
+          const finalItemData: Omit<Item, 'id' | 'timestamp'> = {
+            name: itemName,
+            quantity: itemData.quantity,
+            price: itemData.price, // Armazena o preço total do grupo
+            deliveryFee: deliveryFee > 0 ? deliveryFee * itemData.quantity : 0,
+            total,
+            group,
+          };
+          addDocumentNonBlocking(orderItemsRef, { ...finalItemData, timestamp: new Date().toISOString() });
+        }
       }
 
     } catch (error) {
@@ -195,8 +214,7 @@ export default function Home() {
 
   const handleEditRequest = (item: Item) => {
     setEditingItem(item);
-    let reconstructedInput = `${item.name}`;
-      
+    
     const groupPrefixMap: { [K in Item['group']]?: string } = {
         'Fiados rua': 'Fr ',
         'Fiados salão': 'F ',
@@ -205,22 +223,28 @@ export default function Home() {
     };
     const prefix = groupPrefixMap[item.group] || '';
 
-    if (item.name === 'KG') {
-        reconstructedInput = item.price.toString().replace('.', ',');
+    // Reconstruir a string de entrada para edição
+    // Para itens agrupados (KG), o preço é o total, então dividimos pela quantidade
+    // Para itens pré-definidos, verificamos se o preço diverge do padrão
+    let reconstructedInput = '';
+    if(item.name === 'KG') {
+        // Se a quantidade for 1, mostramos só o preço total.
+        // Se for > 1, não é um cenário de edição simples, então mostramos um valor representativo.
+        reconstructedInput = (item.price / item.quantity).toString().replace('.', ',');
     } else {
         const predefinedPrice = PREDEFINED_PRICES[item.name.toUpperCase()];
-        if (predefinedPrice !== item.price) {
-            reconstructedInput += ` ${item.price.toString().replace('.', ',')}`;
+        const unitPrice = item.price / item.quantity;
+        reconstructedInput = item.name;
+        if (predefinedPrice !== unitPrice) {
+            reconstructedInput += ` ${unitPrice.toString().replace('.', ',')}`;
         }
     }
 
-
-    reconstructedInput = prefix + reconstructedInput;
-    
-    if(item.quantity > 1) {
-        reconstructedInput = `${item.quantity}x ` + reconstructedInput;
+    if (item.quantity > 1 && item.name !== 'KG') {
+        reconstructedInput = `${item.quantity}x ${reconstructedInput}`;
     }
-    setEditInputValue(reconstructedInput);
+
+    setEditInputValue(prefix + reconstructedInput);
   };
 
   const handleSaveEdit = () => {
@@ -372,5 +396,3 @@ export default function Home() {
     </>
   );
 }
-
-    

@@ -118,7 +118,7 @@ export default function ItemList({ items, onEdit, onDelete, isLoading }: ItemLis
                 </Badge>
               </TableCell>
               <TableCell className="text-right px-2 sm:px-4">{item.quantity}</TableCell>
-              <TableCell className="text-right px-2 sm:px-4">{formatCurrency(item.price)}</TableCell>
+              <TableCell className="text-right px-2 sm:px-4">{formatCurrency(item.price / item.quantity)}</TableCell>
               <TableCell className="text-right font-semibold px-2 sm:px-4">{formatCurrency(item.total)}</TableCell>
               <TableCell className="text-right px-2 sm:px-4">{formatTimestamp(item.timestamp)}</TableCell>
               <TableCell className="p-0">
