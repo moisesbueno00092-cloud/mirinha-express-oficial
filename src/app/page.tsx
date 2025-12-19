@@ -92,49 +92,48 @@ export default function Home() {
         let i = 0;
         const isNumeric = (str: string) => !isNaN(parseFloat(str.replace(',', '.'))) && /^[0-9,.]+$/.test(str);
 
-        if (parts[0].toUpperCase() === 'KG') {
-            for (let j = 1; j < parts.length; j++) {
-                if (isNumeric(parts[j])) {
-                    const price = parseFloat(parts[j].replace(',', '.'));
+        while (i < parts.length) {
+            const part = parts[i].toUpperCase();
+            
+            if (part === 'KG') {
+                i++; // move to the number part
+                while(i < parts.length && isNumeric(parts[i])) {
+                    const price = parseFloat(parts[i].replace(',', '.'));
                     individualPrices.push(price);
                     totalPrice += price;
                     totalQuantity += 1;
+                    i++;
                 }
+                // if KG was found, we don't want the outer loop to increment i again
+                continue; 
             }
-            if (individualPrices.length > 0) {
-              itemNames.push('KG');
-            }
-        } else {
-            while (i < parts.length) {
-                const part = parts[i].toUpperCase();
-                
-                let baseQuantity = 1;
-                const quantityMatch = part.match(/^(\d+)X$/i);
-                if (quantityMatch) {
-                    baseQuantity = parseInt(quantityMatch[1], 10);
-                    i++; 
-                    if (i >= parts.length) continue;
-                }
-                
-                const currentPartForPriceCheck = parts[i].toUpperCase();
-                const nextPartForPriceCheck = i + 1 < parts.length ? parts[i + 1] : null;
 
-                if (PREDEFINED_PRICES[currentPartForPriceCheck]) { // Predefined item
-                    let itemPrice = PREDEFINED_PRICES[currentPartForPriceCheck];
-                    
-                    if (nextPartForPriceCheck && isNumeric(nextPartForPriceCheck)) {
-                        itemPrice = parseFloat(nextPartForPriceCheck.replace(',', '.'));
-                        i++; // Skip next part as it's a price
-                    }
-                    
-                    for(let j=0; j < baseQuantity; j++) {
-                        totalQuantity += 1;
-                        totalPrice += itemPrice;
-                        itemNames.push(currentPartForPriceCheck);
-                    }
-                }
-                i++;
+            let baseQuantity = 1;
+            const quantityMatch = part.match(/^(\d+)X$/i);
+            if (quantityMatch) {
+                baseQuantity = parseInt(quantityMatch[1], 10);
+                i++; 
+                if (i >= parts.length) continue;
             }
+            
+            const currentPartForPriceCheck = parts[i].toUpperCase();
+            const nextPartForPriceCheck = i + 1 < parts.length ? parts[i + 1] : null;
+
+            if (PREDEFINED_PRICES[currentPartForPriceCheck]) {
+                let itemPrice = PREDEFINED_PRICES[currentPartForPriceCheck];
+                
+                if (nextPartForPriceCheck && isNumeric(nextPartForPriceCheck)) {
+                    itemPrice = parseFloat(nextPartForPriceCheck.replace(',', '.'));
+                    i++; // Skip next part as it's a price
+                }
+                
+                for(let j=0; j < baseQuantity; j++) {
+                    totalQuantity += 1;
+                    totalPrice += itemPrice;
+                    itemNames.push(currentPartForPriceCheck);
+                }
+            }
+            i++;
         }
         
         if (totalQuantity === 0) {
@@ -148,7 +147,7 @@ export default function Home() {
         
         let consolidatedName: string;
         const hasKgItems = individualPrices.length > 0;
-        const hasPredefinedItems = itemNames.some(name => name !== 'KG');
+        const hasPredefinedItems = itemNames.length > 0;
 
         if (hasPredefinedItems && hasKgItems) {
             consolidatedName = 'Lançamento Misto';
@@ -166,7 +165,7 @@ export default function Home() {
             timestamp: new Date().toISOString(),
             deliveryFee,
             ...(individualPrices.length > 0 ? { individualPrices } : {}),
-            itemNames: itemNames.filter(name => name !== 'KG'),
+            ...(itemNames.length > 0 ? { itemNames } : {}),
         };
 
 
@@ -228,16 +227,17 @@ export default function Home() {
     const prefix = groupPrefixMap[item.group] || '';
 
     let reconstructedInput = '';
-    if (item.name === 'KG' && item.individualPrices && item.individualPrices.length > 0) {
-        reconstructedInput = `kg ${item.individualPrices.join(' ').replace(/\./g, ',')}`;
-    } else if (item.itemNames && item.itemNames.length > 0) {
-        // Simplified reconstruction for mixed/predefined items
-        reconstructedInput = item.itemNames.join(' ');
-        if(item.individualPrices && item.individualPrices.length > 0) {
-            reconstructedInput += ` kg ${item.individualPrices.join(' ').replace(/\./g, ',')}`;
-        }
-    } else {
-      reconstructedInput = item.name;
+    if (item.itemNames && item.itemNames.length > 0) {
+        reconstructedInput += item.itemNames.join(' ');
+    }
+    
+    if (item.individualPrices && item.individualPrices.length > 0) {
+      if(reconstructedInput.length > 0) reconstructedInput += ' ';
+      reconstructedInput += `kg ${item.individualPrices.join(' ').replace(/\./g, ',')}`;
+    }
+
+    if (!reconstructedInput && item.name) {
+       reconstructedInput = item.name;
     }
 
 
@@ -395,5 +395,7 @@ export default function Home() {
     </>
   );
 }
+
+    
 
     

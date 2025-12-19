@@ -88,7 +88,7 @@ const renderItemName = (item: Item) => {
                     {name}
                 </Badge>
                 {price !== undefined && (
-                    <span className="text-[0.48rem] text-muted-foreground mt-0.5">
+                    <span className="text-[0.48rem] text-muted-foreground mt-0.5" style={{ fontSize: '60%' }}>
                         {formatCurrency(price)}
                     </span>
                 )}
@@ -105,7 +105,7 @@ const renderItemName = (item: Item) => {
                     <Badge className={cn("whitespace-nowrap", getItemBadgeStyle('KG'))}>
                         KG
                     </Badge>
-                    <span className="text-[0.48rem] text-muted-foreground mt-0.5">
+                    <span className="text-[0.48rem] text-muted-foreground mt-0.5" style={{ fontSize: '60%' }}>
                         {formatCurrency(price)}
                     </span>
                 </div>
@@ -114,7 +114,7 @@ const renderItemName = (item: Item) => {
     }
     
     // Fallback for single, non-KG items stored in 'name' that were not caught
-    if (itemElements.length === 0 && item.name && item.name.toUpperCase() !== 'LANÇAMENTO MISTO' && item.name.toUpperCase() !== 'KG') {
+    if (itemElements.length === 0 && item.name && !['LANÇAMENTO MISTO', 'KG'].includes(item.name.toUpperCase())) {
         const price = PREDEFINED_PRICES[item.name.toUpperCase()];
         itemElements.push(
             <div key={`fallback-${item.name}`} className="flex flex-col items-center">
@@ -122,7 +122,7 @@ const renderItemName = (item: Item) => {
                     {item.name}
                 </Badge>
                  {price !== undefined && (
-                    <span className="text-[0.48rem] text-muted-foreground mt-0.5">
+                    <span className="text-[0.48rem] text-muted-foreground mt-0.5" style={{ fontSize: '60%' }}>
                         {formatCurrency(price)}
                     </span>
                 )}
@@ -196,3 +196,5 @@ export default function ItemList({ items, onEdit, onDelete, isLoading }: ItemLis
     </div>
   );
 }
+
+    
