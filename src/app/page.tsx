@@ -10,6 +10,16 @@ import { collection, doc } from "firebase/firestore";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { useToast } from "@/hooks/use-toast";
 import { Trash2 } from "lucide-react";
 import { addDocumentNonBlocking, deleteDocumentNonBlocking, setDocumentNonBlocking } from "@/firebase/non-blocking-updates";
@@ -36,14 +46,13 @@ export default function Home() {
   
   const [isProcessing, setIsProcessing] = useState(false);
   const [editingItemId, setEditingItemId] = useState<string | null>(null);
+  const [itemToDelete, setItemToDelete] = useState<string | null>(null);
   const { toast } = useToast();
 
   const handleUpsertItem = async (rawInput: string) => {
     setIsProcessing(true);
     try {
         let input = rawInput.trim();
-
-        // 1. Extract quantity (e.g., "2x", "2 ")
         let quantity = 1;
         const quantityMatch = input.match(/^(\d+)\s*x?\s*(.*)/i);
         if (quantityMatch) {
@@ -55,32 +64,30 @@ export default function Home() {
         let deliveryFee = 0;
         const upperCaseInput = input.toUpperCase();
 
-        if (upperCaseInput.startsWith("FR ")) {
-            group = 'Fiados rua';
-            deliveryFee = DELIVERY_FEE;
-            input = input.substring(3).trim();
-        } else if (upperCaseInput.startsWith("R ")) {
+        if (upperCaseInput.startsWith("R ")) {
             group = 'Vendas rua';
             deliveryFee = DELIVERY_FEE;
             input = input.substring(2).trim();
+        } else if (upperCaseInput.startsWith("FR ")) {
+            group = 'Fiados rua';
+            deliveryFee = DELIVERY_FEE;
+            input = input.substring(3).trim();
         } else if (upperCaseInput.startsWith("F ")) {
             group = 'Fiados salão';
             input = input.substring(2).trim();
-        } else if (upperCaseInput.startsWith("M ")) {
-            // This is a custom price item for "Vendas salão"
+        } else {
             group = 'Vendas salão';
-            // We keep the input as is for the AI to parse
         }
         
+        const predefinedKey = input.replace(/\s+/g, '').toUpperCase();
         let price = 0;
         let finalName = "";
-        
-        const predefinedKey = input.replace(/\s+/g, '').toUpperCase();
+
         if (Object.prototype.hasOwnProperty.call(PREDEFINED_PRICES, predefinedKey)) {
             price = PREDEFINED_PRICES[predefinedKey];
             finalName = predefinedKey;
         } else {
-            const aiResult = await parseCustomItemPrice({
+             const aiResult = await parseCustomItemPrice({
                 itemName: input.replace(",", "."),
             });
 
@@ -88,8 +95,8 @@ export default function Home() {
                 price = aiResult.customPrice;
                 finalName = aiResult.itemName;
             } else {
-                finalName = input; 
-                price = 0; 
+                finalName = input;
+                price = 0;
             }
         }
         
@@ -103,14 +110,13 @@ export default function Home() {
             return;
         }
 
-        const totalDeliveryFee = deliveryFee > 0 ? deliveryFee * quantity : 0;
-        const total = (price * quantity) + totalDeliveryFee;
+        const total = (price * quantity) + (deliveryFee > 0 ? deliveryFee : 0);
 
         const itemData = {
             name: finalName,
             quantity,
             price: price,
-            deliveryFee: totalDeliveryFee, 
+            deliveryFee: deliveryFee > 0 ? deliveryFee : 0, 
             total,
             group,
         };
@@ -163,14 +169,19 @@ export default function Home() {
     setEditingItemId(id);
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
+
+  const handleDeleteRequest = (id: string) => {
+    setItemToDelete(id);
+  };
   
-  const handleDeleteItem = (id: string) => {
-    if(!firestore) return;
-    deleteDocumentNonBlocking(doc(firestore, "order_items", id));
+  const confirmDelete = () => {
+    if(!firestore || !itemToDelete) return;
+    deleteDocumentNonBlocking(doc(firestore, "order_items", itemToDelete));
     toast({
       title: "Sucesso",
       description: "Item removido.",
     });
+    setItemToDelete(null);
   };
 
   const handleCancelEdit = () => {
@@ -202,53 +213,73 @@ export default function Home() {
 
   return (
     <>
-    <div className="container mx-auto max-w-4xl p-2 sm:p-4 lg:p-8 pb-28">
-      <header className="mb-6 text-center">
-        <h1 className="text-3xl font-headline font-bold text-primary sm:text-5xl">
-          Restaurante da Mirinha
-        </h1>
-        <p className="text-muted-foreground mt-2 text-sm sm:text-base">Controle de Pedidos</p>
-      </header>
+      <AlertDialog open={!!itemToDelete} onOpenChange={(open) => !open && setItemToDelete(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Você tem certeza?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Essa ação não pode ser desfeita. Isso excluirá permanentemente o item.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmDelete}>Confirmar</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
-      <main className="space-y-6">
-        <ItemForm
-          onItemSubmit={handleUpsertItem}
-          isProcessing={isProcessing}
-          editingItem={itemToEdit}
-          onCancelEdit={handleCancelEdit}
-        />
+      <div className="container mx-auto max-w-4xl p-2 sm:p-4 lg:p-8 pb-28">
+        <header className="mb-6 text-center">
+          <h1 className="text-3xl font-headline font-bold text-primary sm:text-5xl">
+            Restaurante da Mirinha
+          </h1>
+          <p className="text-muted-foreground mt-2 text-sm sm:text-base">Controle de Pedidos</p>
+        </header>
 
-        <Card>
-          <CardContent className="p-0">
-            <Tabs defaultValue="pedidos" className="w-full">
-              <TabsList className="rounded-t-lg rounded-b-none w-full justify-start border-b">
-                <TabsTrigger value="pedidos">Pedidos</TabsTrigger>
-                <TabsTrigger value="resumo">Resumo</TabsTrigger>
-                <TabsTrigger value="relatorio">Relatório Final</TabsTrigger>
-              </TabsList>
-              <div className="p-2 sm:p-6">
-                <TabsContent value="pedidos">
-                  <ItemList items={displayItems} onEdit={handleEditItem} onDelete={handleDeleteItem} isLoading={isLoading} />
-                </TabsContent>
-                <TabsContent value="resumo">
-                  <SummaryReport items={displayItems} />
-                </TabsContent>
-                <TabsContent value="relatorio">
-                  <FinalReport items={displayItems} />
-                </TabsContent>
-              </div>
-            </Tabs>
-          </CardContent>
-        </Card>
-        
-        <div className="flex justify-center">
-          <Button variant="destructive" onClick={handleClearData} disabled={!items || items.length === 0}>
-            <Trash2 className="mr-2 h-4 w-4" />
-            Limpar Todos os Dados
-          </Button>
-        </div>
-      </main>
-    </div>
+        <main className="space-y-6">
+          <ItemForm
+            onItemSubmit={handleUpsertItem}
+            isProcessing={isProcessing}
+            editingItem={itemToEdit}
+            onCancelEdit={handleCancelEdit}
+          />
+
+          <Card>
+            <CardContent className="p-0">
+              <Tabs defaultValue="pedidos" className="w-full">
+                <TabsList className="rounded-t-lg rounded-b-none w-full justify-start border-b">
+                  <TabsTrigger value="pedidos">Pedidos</TabsTrigger>
+                  <TabsTrigger value="resumo">Resumo</TabsTrigger>
+                  <TabsTrigger value="relatorio">Relatório Final</TabsTrigger>
+                </TabsList>
+                <div className="p-2 sm:p-6">
+                  <TabsContent value="pedidos">
+                    <ItemList
+                      items={displayItems}
+                      onEdit={handleEditItem}
+                      onDelete={handleDeleteRequest}
+                      isLoading={isLoading}
+                    />
+                  </TabsContent>
+                  <TabsContent value="resumo">
+                    <SummaryReport items={displayItems} />
+                  </TabsContent>
+                  <TabsContent value="relatorio">
+                    <FinalReport items={displayItems} />
+                  </TabsContent>
+                </div>
+              </Tabs>
+            </CardContent>
+          </Card>
+          
+          <div className="flex justify-center">
+            <Button variant="destructive" onClick={handleClearData} disabled={!items || items.length === 0}>
+              <Trash2 className="mr-2 h-4 w-4" />
+              Limpar Todos os Dados
+            </Button>
+          </div>
+        </main>
+      </div>
       <footer className="fixed bottom-0 left-0 right-0 z-10 border-t bg-background/95 backdrop-blur-sm">
         <div className="container mx-auto max-w-4xl flex justify-between items-center p-3 text-xs sm:text-sm">
           <div className="flex flex-col sm:flex-row sm:gap-4">
