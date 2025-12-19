@@ -88,7 +88,7 @@ const renderItemName = (item: Item) => {
                     {name}
                 </Badge>
                 {price !== undefined && (
-                    <span className="text-[0.48rem] text-muted-foreground mt-0.5" style={{ fontSize: '60%' }}>
+                    <span className="text-muted-foreground mt-0.5" style={{ fontSize: '0.48rem', letterSpacing: '-0.05em' }}>
                         {formatCurrency(price)}
                     </span>
                 )}
@@ -105,7 +105,7 @@ const renderItemName = (item: Item) => {
                     <Badge className={cn("whitespace-nowrap", getItemBadgeStyle('KG'))}>
                         KG
                     </Badge>
-                    <span className="text-[0.48rem] text-muted-foreground mt-0.5" style={{ fontSize: '60%' }}>
+                    <span className="text-muted-foreground mt-0.5" style={{ fontSize: '0.48rem', letterSpacing: '-0.05em' }}>
                         {formatCurrency(price)}
                     </span>
                 </div>
@@ -122,7 +122,7 @@ const renderItemName = (item: Item) => {
                     {item.name}
                 </Badge>
                  {price !== undefined && (
-                    <span className="text-[0.48rem] text-muted-foreground mt-0.5" style={{ fontSize: '60%' }}>
+                    <span className="text-muted-foreground mt-0.5" style={{ fontSize: '0.48rem', letterSpacing: '-0.05em' }}>
                         {formatCurrency(price)}
                     </span>
                 )}
