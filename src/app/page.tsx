@@ -88,38 +88,41 @@ export default function Home() {
         let totalPrice = 0;
         let individualPrices: number[] = [];
         let itemNames: string[] = [];
-        let baseQuantity = 1;
-
-        const quantityMatch = parts[0].match(/^(\d+)x$/i);
-        if (quantityMatch) {
-            baseQuantity = parseInt(quantityMatch[1], 10);
-            parts.shift(); // Remove the quantity part
-        }
-
+        
         let i = 0;
         while (i < parts.length) {
             const part = parts[i].toUpperCase();
             const nextPart = i + 1 < parts.length ? parts[i + 1] : null;
             const isNumeric = (str: string) => !isNaN(parseFloat(str.replace(',', '.'))) && /^[0-9,.]+$/.test(str);
+            
+            let baseQuantity = 1;
+            const quantityMatch = part.match(/^(\d+)X$/i);
+            if(quantityMatch) {
+                baseQuantity = parseInt(quantityMatch[1], 10);
+                i++; // move to next part, which should be the item code
+                if (i >= parts.length) continue; // safety check
+            }
+            
+            const currentPartForPriceCheck = parts[i].toUpperCase();
+            const nextPartForPriceCheck = i + 1 < parts.length ? parts[i + 1] : null;
 
-            if (PREDEFINED_PRICES[part]) { // Predefined item
-                let itemPrice = PREDEFINED_PRICES[part];
-                if (nextPart && isNumeric(nextPart)) {
-                    itemPrice = parseFloat(nextPart.replace(',', '.'));
+            if (PREDEFINED_PRICES[currentPartForPriceCheck]) { // Predefined item
+                let itemPrice = PREDEFINED_PRICES[currentPartForPriceCheck];
+                if (nextPartForPriceCheck && isNumeric(nextPartForPriceCheck)) {
+                    itemPrice = parseFloat(nextPartForPriceCheck.replace(',', '.'));
                     i++; // Skip next part as it's a price
                 }
-                totalQuantity += baseQuantity;
-                totalPrice += itemPrice * baseQuantity;
+                
                 for(let j=0; j < baseQuantity; j++) {
-                    itemNames.push(part);
+                    totalQuantity += 1;
+                    totalPrice += itemPrice;
+                    itemNames.push(currentPartForPriceCheck);
                 }
-                baseQuantity = 1; // Reset base quantity
-            } else if (isNumeric(part)) { // KG item
-                const price = parseFloat(part.replace(',', '.'));
+            } else if (isNumeric(currentPartForPriceCheck)) { // KG item
+                const price = parseFloat(currentPartForPriceCheck.replace(',', '.'));
                 totalQuantity += 1;
                 totalPrice += price;
                 individualPrices.push(price);
-                itemNames.push('KG');
             }
             i++;
         }
@@ -134,17 +137,19 @@ export default function Home() {
         
         // Determine the name for the consolidated item
         let consolidatedName: string;
-        const kgItemsCount = itemNames.filter(name => name === 'KG').length;
-        const predefinedItems = itemNames.filter(name => name !== 'KG');
+        const kgItemsCount = individualPrices.length;
+        const predefinedItems = itemNames;
 
         if (predefinedItems.length === 0 && kgItemsCount > 0) {
             consolidatedName = 'KG';
         } else if (predefinedItems.length > 0 && kgItemsCount > 0) {
             consolidatedName = 'Lançamento Misto';
-        } else if (predefinedItems.length > 1) {
+        } else if (predefinedItems.length > 0) {
             consolidatedName = predefinedItems.join(' ');
         } else {
-            consolidatedName = itemNames[0] || 'Item';
+             toast({ variant: "destructive", title: "Entrada inválida", description: "Nenhum item válido foi encontrado."});
+             setIsProcessing(false);
+             return;
         }
         
         const finalItem: Omit<Item, 'id' | 'total'> = {
@@ -216,7 +221,7 @@ export default function Home() {
     const prefix = groupPrefixMap[item.group] || '';
 
     let reconstructedInput = '';
-    if(item.name === 'KG' && item.individualPrices) {
+    if(item.individualPrices && item.individualPrices.length > 0) {
         reconstructedInput = item.individualPrices.join(' ').replace(/\./g, ',');
     } else {
         reconstructedInput = `${item.quantity > 1 ? `${item.quantity}x ` : ''}${item.name} ${item.price.toFixed(2).replace('.', ',')}`;
@@ -254,11 +259,7 @@ export default function Home() {
     const total = items.reduce((acc, item) => acc + item.total, 0);
     const deliveryItems = items.filter(item => item.deliveryFee > 0);
     
-    const deliveryCount = deliveryItems.reduce((acc, item) => {
-      // For KG items, delivery is counted once per launch, not per individual price
-      if (item.name === 'KG') return acc + 1;
-      return acc + item.quantity;
-    }, 0);
+    const deliveryCount = deliveryItems.reduce((acc, item) => acc + item.quantity, 0);
     
     const totalDeliveryFee = deliveryItems.reduce((acc, item) => acc + item.deliveryFee, 0);
 

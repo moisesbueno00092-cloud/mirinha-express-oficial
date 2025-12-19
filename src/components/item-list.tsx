@@ -76,16 +76,42 @@ const renderItemName = (item: Item) => {
     if (item.name === 'KG' && item.individualPrices && item.individualPrices.length > 0) {
         if (item.individualPrices.length > 1) {
             const totalKgPrice = item.individualPrices.reduce((a, b) => a + b, 0);
-            return `kg ${formatCurrency(totalKgPrice)}`;
+            return (
+              <Badge className={cn("whitespace-nowrap", getItemBadgeStyle('KG'))}>
+                {`kg ${formatCurrency(totalKgPrice)}`}
+              </Badge>
+            );
         }
-        return `kg ${item.individualPrices[0].toFixed(2).replace('.', ',')}`;
-    }
-    
-    if(item.name === 'Lançamento Misto'){
-        return `${item.name} (x${item.quantity})`
+        return (
+          <Badge className={cn("whitespace-nowrap", getItemBadgeStyle('KG'))}>
+            {`kg ${item.individualPrices[0].toFixed(2).replace('.', ',')}`}
+          </Badge>
+        );
     }
 
-    return `${item.name}${item.quantity > 1 ? ` (x${item.quantity})` : ''}`;
+    if (item.name.includes(' ') && item.name !== 'Lançamento Misto') {
+        const itemNames = item.name.split(' ');
+        return (
+            <div className="flex flex-wrap gap-1">
+                {itemNames.map((name, index) => (
+                    <Badge key={index} className={cn("whitespace-nowrap", getItemBadgeStyle(name))}>
+                        {name}
+                    </Badge>
+                ))}
+                {item.individualPrices && item.individualPrices.length > 0 && (
+                     <Badge className={cn("whitespace-nowrap", getItemBadgeStyle('KG'))}>
+                        {`kg ${formatCurrency(item.individualPrices.reduce((a,b) => a+b, 0))}`}
+                    </Badge>
+                )}
+            </div>
+        );
+    }
+
+    return (
+        <Badge className={cn("whitespace-nowrap", getItemBadgeStyle(item.name))}>
+            {`${item.name}${item.quantity > 1 ? ` (x${item.quantity})` : ''}`}
+        </Badge>
+    );
 }
 
 export default function ItemList({ items, onEdit, onDelete, isLoading }: ItemListProps) {
@@ -121,9 +147,7 @@ export default function ItemList({ items, onEdit, onDelete, isLoading }: ItemLis
           {[...items].sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()).map((item) => (
             <TableRow key={item.id} className={cn(item.group.includes('Fiados') && "text-destructive")}>
               <TableCell className="font-medium px-2 sm:px-4">
-                <Badge className={cn("whitespace-nowrap", getItemBadgeStyle(item.name))}>
-                  {renderItemName(item)}
-                </Badge>
+                {renderItemName(item)}
               </TableCell>
               <TableCell className="px-2 sm:px-4">
                 <Badge className={cn("whitespace-nowrap", groupBadgeStyles[item.group] || "bg-gray-500")}>
