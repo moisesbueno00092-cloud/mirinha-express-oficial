@@ -64,7 +64,6 @@ export default function Home() {
     try {
       let mainInput = rawInput.trim();
   
-      // 1. Extrair quantidade base (ex: "2x ...")
       let baseQuantity = 1;
       const quantityMatch = mainInput.match(/^(\d+)\s*x\s*/i);
       if (quantityMatch) {
@@ -72,7 +71,6 @@ export default function Home() {
         mainInput = mainInput.substring(quantityMatch[0].length).trim();
       }
   
-      // 2. Extrair grupo (F, R, FR)
       let group: Group = 'Vendas salão';
       let deliveryFeeApplicable = false;
       const upperCaseInput = mainInput.toUpperCase();
@@ -90,68 +88,59 @@ export default function Home() {
         mainInput = mainInput.substring(2).trim();
       }
   
-      // 3. Processar itens
       const itemParts = mainInput.split(' ').filter(part => part.trim() !== '');
-      const identifiedItems: Omit<Item, 'id' | 'timestamp' | 'group' | 'deliveryFee' | 'total'>[] = [];
+      const identifiedItems: { name: string; price: number; quantity: number }[] = [];
       let i = 0;
   
       while (i < itemParts.length) {
         const part = itemParts[i].toUpperCase();
-        const nextPart = itemParts[i + 1];
+        const nextPart = i + 1 < itemParts.length ? itemParts[i + 1] : null;
         const isNumeric = (str: string) => !isNaN(parseFloat(str.replace(',', '.'))) && /^[0-9,.]+$/.test(str);
-        
-        let itemName = '';
-        let itemPrice = 0;
         
         const isPredefined = Object.keys(PREDEFINED_PRICES).includes(part);
   
         if (isPredefined) {
-          itemName = part;
+          let itemPrice = PREDEFINED_PRICES[part];
           if (nextPart && isNumeric(nextPart)) {
             itemPrice = parseFloat(nextPart.replace(',', '.'));
-            i += 2;
-          } else {
-            itemPrice = PREDEFINED_PRICES[part];
-            i += 1;
+            i++; // Pula o preço
           }
-          identifiedItems.push({ name: itemName, price: itemPrice, quantity: baseQuantity });
+          identifiedItems.push({ name: part, price: itemPrice, quantity: 1 });
         } else if (isNumeric(part)) {
-          itemName = 'KG';
-          itemPrice = parseFloat(part.replace(',', '.'));
-          i += 1;
-          identifiedItems.push({ name: itemName, price: itemPrice, quantity: 1 });
-        } else {
-          // Palavra desconhecida, ignorar
-          i += 1;
+          identifiedItems.push({ name: 'KG', price: parseFloat(part.replace(',', '.')), quantity: 1 });
         }
+        i++;
       }
 
-      // 4. Agrupar itens identificados
       const groupedItems: { [key: string]: { quantity: number, price: number } } = {};
       
       for(const item of identifiedItems) {
-        if (!groupedItems[item.name]) {
-          groupedItems[item.name] = { quantity: 0, price: 0 };
+        const key = item.name;
+        if (!groupedItems[key]) {
+          groupedItems[key] = { quantity: 0, price: 0 };
         }
-        groupedItems[item.name].quantity += item.quantity;
-        groupedItems[item.name].price += item.price * item.quantity;
+        groupedItems[key].quantity += item.quantity;
+        groupedItems[key].price += item.price;
       }
+      
+      const finalGroupedItems = Object.entries(groupedItems).map(([name, data]) => ({
+        name,
+        quantity: data.quantity * baseQuantity,
+        price: data.price * baseQuantity,
+      }));
 
-      // 5. Criar/Atualizar documentos no Firestore
+
       const deliveryFee = deliveryFeeApplicable ? DELIVERY_FEE : 0;
 
       if (currentItem?.id) {
-        // Modo de edição: só pode haver um tipo de item
-        const singleItemKey = Object.keys(groupedItems)[0];
-        if (singleItemKey) {
-            const itemData = groupedItems[singleItemKey];
-            const total = itemData.price + deliveryFee;
-
+        const singleItem = finalGroupedItems[0];
+        if (singleItem) {
+            const total = singleItem.price + (deliveryFee * singleItem.quantity);
             const updatedData: Omit<Item, 'id' | 'timestamp'> = {
-                name: singleItemKey,
-                quantity: itemData.quantity,
-                price: itemData.price, // Armazena o preço total do grupo
-                deliveryFee,
+                name: singleItem.name,
+                quantity: singleItem.quantity,
+                price: singleItem.price,
+                deliveryFee: deliveryFee * singleItem.quantity,
                 total,
                 group,
             };
@@ -161,20 +150,47 @@ export default function Home() {
             toast({ title: "Sucesso", description: "Item atualizado." });
         }
       } else {
-        // Modo de criação
-        for(const itemName in groupedItems) {
-          const itemData = groupedItems[itemName];
-          const total = itemData.price + (deliveryFee > 0 ? deliveryFee * itemData.quantity : 0);
+        const itemsToSave: Omit<Item, 'id' | 'timestamp'>[] = [];
+        
+        // Agrupar todos por grupo
+        const itemsByGroup: {[key in Group]?: {name: string, quantity: number, price: number, deliveryFee: number}[]} = {}
 
-          const finalItemData: Omit<Item, 'id' | 'timestamp'> = {
-            name: itemName,
-            quantity: itemData.quantity,
-            price: itemData.price, // Armazena o preço total do grupo
-            deliveryFee: deliveryFee > 0 ? deliveryFee * itemData.quantity : 0,
+        for(const item of finalGroupedItems) {
+           const total = item.price + (deliveryFee * item.quantity);
+           const finalItemData = {
+            name: item.name,
+            quantity: item.quantity,
+            price: item.price,
+            deliveryFee: deliveryFee * item.quantity,
             total,
             group,
           };
-          addDocumentNonBlocking(orderItemsRef, { ...finalItemData, timestamp: new Date().toISOString() });
+          
+          if (!itemsByGroup[group]) {
+              itemsByGroup[group] = [];
+          }
+          itemsByGroup[group]!.push(finalItemData);
+        }
+
+        // Salvar um doc por tipo de item dentro do grupo
+        for (const groupKey in itemsByGroup) {
+            const currentGroup = itemsByGroup[groupKey as Group]!;
+            const aggregatedItems: {[key: string]: Omit<Item, 'id' | 'timestamp'>} = {};
+
+            for (const item of currentGroup) {
+                if(!aggregatedItems[item.name]) {
+                    aggregatedItems[item.name] = {...item};
+                } else {
+                    aggregatedItems[item.name].quantity += item.quantity;
+                    aggregatedItems[item.name].price += item.price;
+                    aggregatedItems[item.name].deliveryFee += item.deliveryFee;
+                    aggregatedItems[item.name].total += item.total;
+                }
+            }
+            
+            for (const itemName in aggregatedItems) {
+                addDocumentNonBlocking(orderItemsRef, { ...aggregatedItems[itemName], timestamp: new Date().toISOString() });
+            }
         }
       }
 
@@ -223,13 +239,8 @@ export default function Home() {
     };
     const prefix = groupPrefixMap[item.group] || '';
 
-    // Reconstruir a string de entrada para edição
-    // Para itens agrupados (KG), o preço é o total, então dividimos pela quantidade
-    // Para itens pré-definidos, verificamos se o preço diverge do padrão
     let reconstructedInput = '';
     if(item.name === 'KG') {
-        // Se a quantidade for 1, mostramos só o preço total.
-        // Se for > 1, não é um cenário de edição simples, então mostramos um valor representativo.
         reconstructedInput = (item.price / item.quantity).toString().replace('.', ',');
     } else {
         const predefinedPrice = PREDEFINED_PRICES[item.name.toUpperCase()];

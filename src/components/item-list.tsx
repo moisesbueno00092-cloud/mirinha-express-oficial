@@ -97,8 +97,6 @@ export default function ItemList({ items, onEdit, onDelete, isLoading }: ItemLis
           <TableRow>
             <TableHead className="px-2 sm:px-4">Item</TableHead>
             <TableHead className="px-2 sm:px-4">Grupo</TableHead>
-            <TableHead className="text-right px-2 sm:px-4">Qtd.</TableHead>
-            <TableHead className="text-right px-2 sm:px-4">Preço Unit.</TableHead>
             <TableHead className="text-right px-2 sm:px-4">Total</TableHead>
             <TableHead className="text-right px-2 sm:px-4">Hora</TableHead>
             <TableHead className="text-right px-2 sm:px-4">Ações</TableHead>
@@ -109,7 +107,7 @@ export default function ItemList({ items, onEdit, onDelete, isLoading }: ItemLis
             <TableRow key={item.id} className={cn(item.group.includes('Fiados') && "text-destructive")}>
               <TableCell className="font-medium px-2 sm:px-4">
                 <Badge className={cn("whitespace-nowrap", getItemBadgeStyle(item.name))}>
-                  {item.name}
+                  {item.name}{item.quantity > 1 && ` (x${item.quantity})`}
                 </Badge>
               </TableCell>
               <TableCell className="px-2 sm:px-4">
@@ -117,8 +115,6 @@ export default function ItemList({ items, onEdit, onDelete, isLoading }: ItemLis
                   {item.group}
                 </Badge>
               </TableCell>
-              <TableCell className="text-right px-2 sm:px-4">{item.quantity}</TableCell>
-              <TableCell className="text-right px-2 sm:px-4">{formatCurrency(item.price / item.quantity)}</TableCell>
               <TableCell className="text-right font-semibold px-2 sm:px-4">{formatCurrency(item.total)}</TableCell>
               <TableCell className="text-right px-2 sm:px-4">{formatTimestamp(item.timestamp)}</TableCell>
               <TableCell className="p-0">
