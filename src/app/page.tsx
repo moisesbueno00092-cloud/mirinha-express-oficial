@@ -136,22 +136,26 @@ export default function Home() {
                 currentItemCode = quantityMatch[2].toUpperCase();
             }
             
-            if (PREDEFINED_PRICES[currentItemCode]) {
-                const defaultPrice = PREDEFINED_PRICES[currentItemCode];
-                if (i + 1 < parts.length && isNumeric(parts[i+1]) && !PREDEFINED_PRICES[parts[i+1].toUpperCase()]) {
-                    const customPrice = parseFloat(parts[i+1].replace(',', '.'));
-                    for(let j=0; j < baseQuantity; j++) {
-                        predefinedItems.push({ name: currentItemCode, price: customPrice });
-                        totalPrice += customPrice;
-                    }
-                    i++;
-                } else {
-                    for(let j=0; j < baseQuantity; j++) {
-                        predefinedItems.push({ name: currentItemCode, price: defaultPrice });
-                        totalPrice += defaultPrice;
-                    }
+            const isPredefined = PREDEFINED_PRICES[currentItemCode.toUpperCase()];
+            const isBomboniere = !isPredefined; // Simplified logic, assumes not predefined is bomboniere for this block
+
+            if (isPredefined) {
+                const defaultPrice = PREDEFINED_PRICES[currentItemCode.toUpperCase()];
+                let priceToUse = defaultPrice;
+
+                // Check for a custom price immediately following the item code
+                if (i + 1 < parts.length && isNumeric(parts[i + 1]) && !PREDEFINED_PRICES[parts[i+1].toUpperCase()]) {
+                    priceToUse = parseFloat(parts[i + 1].replace(',', '.'));
+                    i++; // Consume the price part
                 }
-            } else {
+                
+                for(let j=0; j < baseQuantity; j++) {
+                    predefinedItems.push({ name: currentItemCode.toUpperCase(), price: priceToUse });
+                    totalPrice += priceToUse;
+                }
+                 totalQuantity += baseQuantity;
+
+            } else { // Handle bomboniere items
                  const bomboniereMatch = part.match(/^(\d+)([A-Z\d-]+)$/i);
                  if (bomboniereMatch) {
                     const qty = parseInt(bomboniereMatch[1], 10);
@@ -161,11 +165,11 @@ export default function Home() {
                         const price = parseFloat(parts[i+1].replace(',', '.'));
                         bomboniereItems.push({ name, quantity: qty, price });
                         totalPrice += price * qty;
-                        i++;
+                        i++; // consume price
                     }
+                    totalQuantity += qty;
                  }
             }
-            totalQuantity += baseQuantity;
             i++;
         }
         
@@ -265,23 +269,25 @@ export default function Home() {
     let reconstructedParts: string[] = [];
 
     if (item.predefinedItems && item.predefinedItems.length > 0) {
-      const itemCounts: Record<string, number> = {};
-      const customPriceItems: string[] = [];
+      const itemGroups: Record<string, {count: number, price: number}> = {};
       
       item.predefinedItems.forEach(pi => {
-        const defaultPrice = PREDEFINED_PRICES[pi.name.toUpperCase()];
-        if (pi.price !== defaultPrice) {
-          customPriceItems.push(`${pi.name.toLowerCase()} ${String(pi.price).replace('.', ',')}`);
-        } else {
-          itemCounts[pi.name] = (itemCounts[pi.name] || 0) + 1;
+        const key = `${pi.name}-${pi.price}`;
+        if (!itemGroups[key]) {
+          itemGroups[key] = { count: 0, price: pi.price };
         }
+        itemGroups[key].count++;
       });
       
-      Object.entries(itemCounts).forEach(([name, count]) => {
-          reconstructedParts.push(count > 1 ? `${count}${name.toLowerCase()}` : name.toLowerCase());
+      Object.entries(itemGroups).forEach(([key, {count, price}]) => {
+          const name = key.split('-')[0];
+          const defaultPrice = PREDEFINED_PRICES[name.toUpperCase()];
+          let part = count > 1 ? `${count}${name.toLowerCase()}` : name.toLowerCase();
+          if (price !== defaultPrice) {
+            part += ` ${String(price).replace('.', ',')}`;
+          }
+          reconstructedParts.push(part);
       });
-
-      reconstructedParts = reconstructedParts.concat(customPriceItems);
     }
     
     if (item.individualPrices && item.individualPrices.length > 0) {
@@ -290,7 +296,7 @@ export default function Home() {
 
     if(item.bomboniereItems && item.bomboniereItems.length > 0) {
         item.bomboniereItems.forEach(bi => {
-            reconstructedParts.push(`${bi.quantity}${bi.name.toLowerCase()}`);
+            reconstructedParts.push(`${bi.quantity}${bi.name.toLowerCase()} ${String(bi.price).replace('.', ',')}`);
         });
     }
 
@@ -329,7 +335,7 @@ export default function Home() {
   };
 
   const handleBomboniereAdd = (itemsToAdd: SelectedBomboniereItem[]) => {
-      const itemsString = itemsToAdd.map(item => `${item.quantity}${item.name.replace(/\s+/g, '-').toLowerCase()}`).join(' ');
+      const itemsString = itemsToAdd.map(item => `${item.quantity}${item.name.replace(/\s+/g, '-').toLowerCase()} ${String(item.price).replace('.', ',')}`).join(' ');
       setRawInput(prev => `${prev} ${itemsString}`.trim());
       setBomboniereModalOpen(false);
       inputRef.current?.focus();
@@ -480,3 +486,5 @@ export default function Home() {
     </>
   );
 }
+
+    

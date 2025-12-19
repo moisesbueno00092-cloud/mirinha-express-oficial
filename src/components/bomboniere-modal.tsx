@@ -7,10 +7,11 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { PlusCircle, MinusCircle, Plus, Pencil, Trash2, Save, X } from 'lucide-react';
-import { Card, CardContent } from '@/components/ui/card';
+import { Card } from '@/components/ui/card';
 import usePersistentState from '@/hooks/use-persistent-state';
 import type { BomboniereItem, SelectedBomboniereItem } from '@/types';
 import { BOMBONIERE_ITEMS_DEFAULT } from '@/lib/constants';
+import { cn } from '@/lib/utils';
 
 interface BomboniereModalProps {
   isOpen: boolean;
@@ -70,7 +71,7 @@ export default function BomboniereModal({ isOpen, onClose, onAddItems }: Bomboni
   const handleSaveItem = (formData: FormData) => {
     const id = formData.get('id') as string;
     const name = formData.get('name') as string;
-    const price = parseFloat(formData.get('price') as string);
+    const price = parseFloat((formData.get('price') as string).replace(',', '.'));
     
     if (id && name && !isNaN(price)) {
       if(isAdding) {
@@ -104,7 +105,7 @@ export default function BomboniereModal({ isOpen, onClose, onAddItems }: Bomboni
                 <input type="hidden" name="id" value={item.id} />
                 <div className="flex gap-2">
                     <Input name="name" defaultValue={item.name} className="h-8" />
-                    <Input name="price" type="number" step="0.01" defaultValue={item.price} className="h-8 w-24" />
+                    <Input name="price" type="text" defaultValue={String(item.price).replace('.',',')} className="h-8 w-24" />
                     <Button type="submit" size="icon" className="h-8 w-8 shrink-0">
                         <Save className="h-4 w-4" />
                     </Button>
@@ -126,7 +127,7 @@ export default function BomboniereModal({ isOpen, onClose, onAddItems }: Bomboni
                 <input type="hidden" name="id" value={Date.now().toString()} />
                 <div className="flex gap-2">
                     <Input name="name" placeholder="Nome do item" className="h-8" />
-                    <Input name="price" type="number" step="0.01" placeholder="Preço" className="h-8 w-24" />
+                    <Input name="price" type="text" placeholder="Preço" className="h-8 w-24" />
                     <Button type="submit" size="icon" className="h-8 w-8 shrink-0">
                         <Save className="h-4 w-4" />
                     </Button>
@@ -153,11 +154,11 @@ export default function BomboniereModal({ isOpen, onClose, onAddItems }: Bomboni
         </div>
       </DialogHeader>
       <ScrollArea className="h-96 -mx-6">
-        <div className="space-y-2 px-4">
+        <div className="space-y-2 px-6">
           {bomboniereItems.map((item) => (
-            <Card key={item.id} className="flex items-center p-3">
+            <div key={item.id} className={cn("flex items-center p-3 rounded-lg", selectedItems[item.id] > 0 && "bg-muted/50")}>
               <div className="flex-grow">
-                <p className="font-semibold">{item.name}</p>
+                <p className="font-semibold text-base">{item.name}</p>
                 <p className="text-sm text-muted-foreground">{formatCurrency(item.price)}</p>
               </div>
               <div className="flex items-center justify-center gap-2">
@@ -166,33 +167,33 @@ export default function BomboniereModal({ isOpen, onClose, onAddItems }: Bomboni
                     <Button
                       variant="ghost"
                       size="icon"
-                      className="h-7 w-7 rounded-full"
+                      className="h-8 w-8 rounded-full"
                       onClick={() => handleQuantityChange(item.id, -1)}
                     >
-                      <MinusCircle className="h-5 w-5 text-destructive" />
+                      <MinusCircle className="h-6 w-6 text-destructive" />
                     </Button>
-                    <span className="text-base font-bold w-5 text-center">{selectedItems[item.id]}</span>
+                    <span className="text-lg font-bold w-6 text-center">{selectedItems[item.id]}</span>
                     <Button
                       variant="ghost"
                       size="icon"
-                      className="h-7 w-7 rounded-full"
+                      className="h-8 w-8 rounded-full"
                       onClick={() => handleQuantityChange(item.id, 1)}
                     >
-                      <PlusCircle className="h-5 w-5 text-primary" />
+                      <PlusCircle className="h-6 w-6 text-primary" />
                     </Button>
                   </>
                 ) : (
                   <Button
-                    variant="ghost"
+                    variant="outline"
                     size="icon"
-                    className="h-8 w-8 rounded-full"
+                    className="h-9 w-9 rounded-full"
                     onClick={() => handleQuantityChange(item.id, 1)}
                   >
-                    <PlusCircle className="h-6 w-6 text-primary" />
+                    <Plus className="h-5 w-5" />
                   </Button>
                 )}
               </div>
-            </Card>
+            </div>
           ))}
         </div>
       </ScrollArea>
@@ -209,9 +210,11 @@ export default function BomboniereModal({ isOpen, onClose, onAddItems }: Bomboni
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-lg">
+      <DialogContent className="sm:max-w-md">
         {isEditing ? renderEditView() : renderSelectionView()}
       </DialogContent>
     </Dialog>
   );
 }
+
+    
