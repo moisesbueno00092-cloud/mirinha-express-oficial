@@ -108,35 +108,27 @@ export default function Home() {
                 continue; 
             }
 
+            const quantityMatch = part.match(/^(\d+)([A-Z]+)$/i);
             let baseQuantity = 1;
-            const quantityMatch = part.match(/^(\d+)X$/i);
+            let currentItemCode = part;
+
             if (quantityMatch) {
                 baseQuantity = parseInt(quantityMatch[1], 10);
-                i++; 
-                if (i >= parts.length) continue;
+                currentItemCode = quantityMatch[2].toUpperCase();
             }
             
-            const currentPartForPriceCheck = parts[i].toUpperCase();
-            const nextPartForPriceCheck = i + 1 < parts.length ? parts[i + 1] : null;
-
-            if (PREDEFINED_PRICES[currentPartForPriceCheck]) {
-                let itemPrice = PREDEFINED_PRICES[currentPartForPriceCheck];
-                
-                if (nextPartForPriceCheck && isNumeric(nextPartForPriceCheck)) {
-                    itemPrice = parseFloat(nextPartForPriceCheck.replace(',', '.'));
-                    i++; // Skip next part as it's a price
-                }
-                
+            if (PREDEFINED_PRICES[currentItemCode]) {
+                const itemPrice = PREDEFINED_PRICES[currentItemCode];
                 for(let j=0; j < baseQuantity; j++) {
                     totalQuantity += 1;
                     totalPrice += itemPrice;
-                    itemNames.push(currentPartForPriceCheck);
+                    itemNames.push(currentItemCode);
                 }
             }
             i++;
         }
         
-        if (totalQuantity === 0) {
+        if (totalQuantity === 0 && individualPrices.length === 0) {
             toast({ variant: "destructive", title: "Entrada inválida", description: "Nenhum item válido foi encontrado."});
             setIsProcessing(false);
             return;
@@ -228,7 +220,11 @@ export default function Home() {
 
     let reconstructedInput = '';
     if (item.itemNames && item.itemNames.length > 0) {
-        reconstructedInput += item.itemNames.join(' ');
+        const itemCounts: Record<string, number> = {};
+        item.itemNames.forEach(name => {
+          itemCounts[name] = (itemCounts[name] || 0) + 1;
+        });
+        reconstructedInput += Object.entries(itemCounts).map(([name, count]) => `${count}${name.toLowerCase()}`).join(' ');
     }
     
     if (item.individualPrices && item.individualPrices.length > 0) {
@@ -395,7 +391,3 @@ export default function Home() {
     </>
   );
 }
-
-    
-
-    
