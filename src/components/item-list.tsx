@@ -14,6 +14,8 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Pencil, Trash2, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { PREDEFINED_PRICES } from "@/lib/constants";
+
 
 interface ItemListProps {
   items: Item[];
@@ -74,68 +76,65 @@ const getItemBadgeStyle = (itemName: string) => {
 }
 
 const renderItemName = (item: Item) => {
-    const badges = [];
+    const itemElements = [];
 
     // Handle predefined items (P, M, G, etc.)
     if (item.itemNames && item.itemNames.length > 0) {
-      const nameCounts: { [key: string]: number } = {};
-      item.itemNames.forEach(name => {
-        nameCounts[name] = (nameCounts[name] || 0) + 1;
-      });
-
-      Object.entries(nameCounts).forEach(([name, count]) => {
-         badges.push(
-          <Badge key={`predefined-${name}`} className={cn("whitespace-nowrap", getItemBadgeStyle(name))}>
-            {name}
-          </Badge>
+      item.itemNames.forEach((name, index) => {
+        const price = PREDEFINED_PRICES[name.toUpperCase()];
+        itemElements.push(
+            <div key={`predefined-${name}-${index}`} className="flex flex-col items-center">
+                <Badge className={cn("whitespace-nowrap", getItemBadgeStyle(name))}>
+                    {name}
+                </Badge>
+                {price !== undefined && (
+                    <span className="text-xs text-muted-foreground mt-0.5">
+                        {formatCurrency(price)}
+                    </span>
+                )}
+            </div>
         );
-      })
-
+      });
     }
 
-    // Handle KG items
-    if (item.name.toUpperCase() === 'KG' || (item.name.toUpperCase() === 'LANÇAMENTO MISTO' && item.individualPrices && item.individualPrices.length > 0)) {
-        if (item.individualPrices && item.individualPrices.length > 1) {
-            const displayPrices = item.individualPrices.map(p => p.toFixed(2).replace('.', ',')).join('] [');
-            badges.push(
-                <Badge key="kg-multi" className={cn("whitespace-nowrap", getItemBadgeStyle('KG'))}>
-                    kg [{displayPrices}]
-                </Badge>
-            );
-        } else if (item.individualPrices && item.individualPrices.length === 1) {
-            badges.push(
-                <Badge key="kg-single" className={cn("whitespace-nowrap", getItemBadgeStyle('KG'))}>
-                    kg {item.individualPrices[0].toFixed(2).replace('.', ',')}
-                </Badge>
-            );
-        } else if (item.price > 0 && (!item.individualPrices || item.individualPrices.length === 0)) {
-           badges.push(
-                <Badge key="kg-single-price" className={cn("whitespace-nowrap", getItemBadgeStyle('KG'))}>
-                    kg {item.price.toFixed(2).replace('.', ',')}
-                </Badge>
-            );
-        }
-    }
-    
-    // Fallback for single, non-KG items stored in 'name'
-    if (badges.length === 0 && item.name && item.name.toUpperCase() !== 'LANÇAMENTO MISTO' && item.name.toUpperCase() !== 'KG') {
-        const itemNames = item.name.split(' ');
-        itemNames.forEach((name, index) => {
-            if (name.trim()) {
-                badges.push(
-                    <Badge key={`fallback-${index}`} className={cn("whitespace-nowrap", getItemBadgeStyle(name))}>
-                        {name}
+    // Handle KG items, which are stored in individualPrices
+    if (item.individualPrices && item.individualPrices.length > 0) {
+        item.individualPrices.forEach((price, index) => {
+            itemElements.push(
+                <div key={`kg-${index}`} className="flex flex-col items-center">
+                    <Badge className={cn("whitespace-nowrap", getItemBadgeStyle('KG'))}>
+                        KG
                     </Badge>
-                );
-            }
+                    <span className="text-xs text-muted-foreground mt-0.5">
+                        {formatCurrency(price)}
+                    </span>
+                </div>
+            );
         });
     }
     
-    if (badges.length === 0) {
+    // Fallback for single, non-KG items stored in 'name' that were not caught
+    if (itemElements.length === 0 && item.name && item.name.toUpperCase() !== 'LANÇAMENTO MISTO' && item.name.toUpperCase() !== 'KG') {
+        const price = PREDEFINED_PRICES[item.name.toUpperCase()];
+        itemElements.push(
+            <div key={`fallback-${item.name}`} className="flex flex-col items-center">
+                <Badge className={cn("whitespace-nowrap", getItemBadgeStyle(item.name))}>
+                    {item.name}
+                </Badge>
+                 {price !== undefined && (
+                    <span className="text-xs text-muted-foreground mt-0.5">
+                        {formatCurrency(price)}
+                    </span>
+                )}
+            </div>
+        );
+    }
+    
+    if (itemElements.length === 0) {
        return <Badge className={cn("whitespace-nowrap", getItemBadgeStyle(item.name))}>{item.name}</Badge>;
     }
 
-    return <div className="flex flex-wrap gap-1">{badges}</div>;
+    return <div className="flex flex-wrap gap-2 items-start">{itemElements}</div>;
 }
 
 export default function ItemList({ items, onEdit, onDelete, isLoading }: ItemListProps) {
@@ -170,17 +169,17 @@ export default function ItemList({ items, onEdit, onDelete, isLoading }: ItemLis
         <TableBody>
           {[...items].sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()).map((item) => (
             <TableRow key={item.id} className={cn(item.group.includes('Fiados') && "text-destructive")}>
-              <TableCell className="font-medium px-2 sm:px-4">
+              <TableCell className="font-medium px-2 sm:px-4 align-top">
                 {renderItemName(item)}
               </TableCell>
-              <TableCell className="px-2 sm:px-4">
+              <TableCell className="px-2 sm:px-4 align-top">
                 <Badge className={cn("whitespace-nowrap", groupBadgeStyles[item.group] || "bg-gray-500")}>
                   {item.group}
                 </Badge>
               </TableCell>
-              <TableCell className="text-right font-semibold px-2 sm:px-4">{formatCurrency(item.total)}</TableCell>
-              <TableCell className="text-right px-2 sm:px-4">{formatTimestamp(item.timestamp)}</TableCell>
-              <TableCell className="p-0">
+              <TableCell className="text-right font-semibold px-2 sm:px-4 align-top">{formatCurrency(item.total)}</TableCell>
+              <TableCell className="text-right px-2 sm:px-4 align-top">{formatTimestamp(item.timestamp)}</TableCell>
+              <TableCell className="p-0 align-top">
                 <div className="flex justify-end">
                   <Button variant="ghost" size="icon" onClick={() => onEdit(item)}>
                     <Pencil className="h-4 w-4" />
