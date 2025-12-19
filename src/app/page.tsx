@@ -62,135 +62,115 @@ export default function Home() {
   const handleUpsertItem = async (rawInput: string, currentItem?: Item | null) => {
     setIsProcessing(true);
     try {
-      let mainInput = rawInput.trim();
-  
-      let baseQuantity = 1;
-      const quantityMatch = mainInput.match(/^(\d+)\s*x\s*/i);
-      if (quantityMatch) {
-        baseQuantity = parseInt(quantityMatch[1], 10);
-        mainInput = mainInput.substring(quantityMatch[0].length).trim();
-      }
-  
-      let group: Group = 'Vendas salão';
-      let deliveryFeeApplicable = false;
-      const upperCaseInput = mainInput.toUpperCase();
-  
-      if (upperCaseInput.startsWith("R ")) {
-        group = 'Vendas rua';
-        deliveryFeeApplicable = true;
-        mainInput = mainInput.substring(2).trim();
-      } else if (upperCaseInput.startsWith("FR ")) {
-        group = 'Fiados rua';
-        deliveryFeeApplicable = true;
-        mainInput = mainInput.substring(3).trim();
-      } else if (upperCaseInput.startsWith("F ")) {
-        group = 'Fiados salão';
-        mainInput = mainInput.substring(2).trim();
-      }
-  
-      const itemParts = mainInput.split(' ').filter(part => part.trim() !== '');
-      const itemsToSave: Omit<Item, 'id' | 'individualPrices' | 'deliveryFee' | 'total'>[] = [];
-      const kgPrices: number[] = [];
-  
-      let i = 0;
-      while (i < itemParts.length) {
-        const part = itemParts[i];
-        const nextPart = i + 1 < itemParts.length ? itemParts[i + 1] : null;
-        
-        const isPredefinedKey = Object.keys(PREDEFINED_PRICES).includes(part.toUpperCase());
-        const isNumeric = (str: string) => !isNaN(parseFloat(str.replace(',', '.'))) && /^[0-9,.]+$/.test(str);
-        
-        if (isPredefinedKey) {
-          const itemName = part.toUpperCase();
-          let itemPrice = PREDEFINED_PRICES[itemName];
-  
-          if (nextPart && isNumeric(nextPart)) {
-            itemPrice = parseFloat(nextPart.replace(',', '.'));
-            i++; 
-          }
-          
-          itemsToSave.push({
-            name: itemName,
-            quantity: baseQuantity,
-            price: itemPrice * baseQuantity,
-            group,
-            timestamp: new Date().toISOString()
-          });
-  
-        } else if (isNumeric(part)) {
-          kgPrices.push(parseFloat(part.replace(',', '.')));
-        }
-        i++;
-      }
-  
-      const deliveryFee = deliveryFeeApplicable ? DELIVERY_FEE : 0;
-      
-      const allItemsToProcess = [...itemsToSave];
+        let mainInput = rawInput.trim();
+        if (!mainInput) return;
 
-      // Handle grouped KG items
-      if (kgPrices.length > 0) {
-        const totalKgPrice = kgPrices.reduce((sum, price) => sum + price, 0);
-        const kgItem = {
-            name: 'KG',
-            quantity: kgPrices.length,
-            price: totalKgPrice,
+        let group: Group = 'Vendas salão';
+        let deliveryFeeApplicable = false;
+        const upperCaseInput = mainInput.toUpperCase();
+
+        if (upperCaseInput.startsWith("R ")) {
+            group = 'Vendas rua';
+            deliveryFeeApplicable = true;
+            mainInput = mainInput.substring(2).trim();
+        } else if (upperCaseInput.startsWith("FR ")) {
+            group = 'Fiados rua';
+            deliveryFeeApplicable = true;
+            mainInput = mainInput.substring(3).trim();
+        } else if (upperCaseInput.startsWith("F ")) {
+            group = 'Fiados salão';
+            mainInput = mainInput.substring(2).trim();
+        }
+
+        const parts = mainInput.split(' ').filter(part => part.trim() !== '');
+        
+        let totalQuantity = 0;
+        let totalPrice = 0;
+        let individualPrices: number[] = [];
+        let itemNames: string[] = [];
+        let baseQuantity = 1;
+
+        const quantityMatch = parts[0].match(/^(\d+)x$/i);
+        if (quantityMatch) {
+            baseQuantity = parseInt(quantityMatch[1], 10);
+            parts.shift(); // Remove the quantity part
+        }
+
+        let i = 0;
+        while (i < parts.length) {
+            const part = parts[i].toUpperCase();
+            const nextPart = i + 1 < parts.length ? parts[i + 1] : null;
+            const isNumeric = (str: string) => !isNaN(parseFloat(str.replace(',', '.'))) && /^[0-9,.]+$/.test(str);
+
+            if (PREDEFINED_PRICES[part]) { // Predefined item
+                let itemPrice = PREDEFINED_PRICES[part];
+                if (nextPart && isNumeric(nextPart)) {
+                    itemPrice = parseFloat(nextPart.replace(',', '.'));
+                    i++; // Skip next part as it's a price
+                }
+                totalQuantity += baseQuantity;
+                totalPrice += itemPrice * baseQuantity;
+                for(let j=0; j < baseQuantity; j++) {
+                    itemNames.push(part);
+                }
+                baseQuantity = 1; // Reset base quantity
+            } else if (isNumeric(part)) { // KG item
+                const price = parseFloat(part.replace(',', '.'));
+                totalQuantity += 1;
+                totalPrice += price;
+                individualPrices.push(price);
+                itemNames.push('KG');
+            }
+            i++;
+        }
+        
+        if (totalQuantity === 0) {
+            toast({ variant: "destructive", title: "Entrada inválida", description: "Nenhum item válido foi encontrado."});
+            return;
+        };
+
+        const deliveryFee = deliveryFeeApplicable ? DELIVERY_FEE : 0;
+        const total = totalPrice + deliveryFee;
+        
+        // Determine the name for the consolidated item
+        let consolidatedName: string;
+        if (itemNames.every(name => name === 'KG')) {
+             consolidatedName = 'KG';
+        } else if (itemNames.length === 1) {
+            consolidatedName = itemNames[0];
+        } else {
+            consolidatedName = 'Lançamento Misto';
+        }
+        
+        const finalItem: Omit<Item, 'id' | 'total'> = {
+            name: consolidatedName,
+            quantity: totalQuantity,
+            price: totalPrice,
             group,
             timestamp: new Date().toISOString(),
-            individualPrices: kgPrices
+            deliveryFee,
+            individualPrices: individualPrices.length > 0 ? individualPrices : undefined,
         };
-        
-        if (currentItem?.id) { // Editing a KG item
-            const docRef = doc(firestore, "order_items", currentItem.id);
-            const { timestamp, ...updatedData } = { ...kgItem, deliveryFee, total: totalKgPrice + deliveryFee };
-            setDocumentNonBlocking(docRef, updatedData, { merge: true });
-        } else {
-             const newItem: Item = {
-                id: '', // Firestore will generate
-                ...kgItem,
-                deliveryFee: deliveryFee,
-                total: totalKgPrice + deliveryFee
-            };
-            addDocumentNonBlocking(orderItemsRef, newItem);
-        }
-      }
 
-      if (currentItem?.id && !currentItem.name.includes('KG')) { // Editing a non-KG item
-        const singleItem = itemsToSave[0];
-        if (singleItem) {
-          const docRef = doc(firestore, "order_items", currentItem.id);
-          const { timestamp, ...itemData } = singleItem;
-          const total = itemData.price + (deliveryFee * itemData.quantity);
-          const updatedData = { ...itemData, deliveryFee: deliveryFee * itemData.quantity, total };
-          setDocumentNonBlocking(docRef, updatedData, { merge: true });
-          setEditingItem(null);
-          toast({ title: "Sucesso", description: "Item atualizado." });
+        if (currentItem?.id) {
+            const docRef = doc(firestore, "order_items", currentItem.id);
+            setDocumentNonBlocking(docRef, { ...finalItem, total }, { merge: true });
+            toast({ title: "Sucesso", description: "Lançamento atualizado." });
+        } else {
+            addDocumentNonBlocking(orderItemsRef, { ...finalItem, total });
+            toast({ title: "Sucesso", description: "Lançamento adicionado." });
         }
-      } else if (!currentItem) { // Adding new non-KG items
-        for (const item of itemsToSave) {
-            const total = item.price + (deliveryFee * item.quantity);
-            const newItem = { ...item, deliveryFee: deliveryFee * item.quantity, total };
-            addDocumentNonBlocking(orderItemsRef, newItem);
-        }
-      }
-      
-      const totalItemsAdded = itemsToSave.length + (kgPrices.length > 0 ? 1 : 0);
-      if (!currentItem && totalItemsAdded > 0) {
-        toast({
-            title: "Sucesso",
-            description: `${totalItemsAdded} lançamento(s) adicionado(s).`,
-        });
-      }
 
     } catch (error) {
-      console.error("Error upserting item:", error);
-      toast({
-        variant: "destructive",
-        title: "Erro ao processar item",
-        description: "Ocorreu um problema ao processar o item.",
-      });
+        console.error("Error upserting item:", error);
+        toast({
+            variant: "destructive",
+            title: "Erro ao processar item",
+            description: "Ocorreu um problema ao processar o lançamento.",
+        });
     } finally {
-      setIsProcessing(false);
-      if (editingItem) setEditingItem(null);
+        setIsProcessing(false);
+        if (editingItem) setEditingItem(null);
     }
   };
 
@@ -219,6 +199,8 @@ export default function Home() {
   const handleEditRequest = (item: Item) => {
     setEditingItem(item);
     
+    // This reconstruction is complex and might not be perfect for mixed types.
+    // For now, it reconstructs a simplified version.
     const groupPrefixMap: { [K in Item['group']]?: string } = {
         'Fiados rua': 'Fr ',
         'Fiados salão': 'F ',
@@ -228,20 +210,10 @@ export default function Home() {
     const prefix = groupPrefixMap[item.group] || '';
 
     let reconstructedInput = '';
-    if(item.name === 'KG') {
-        reconstructedInput = (item.individualPrices || [item.price]).join(' ').replace(/\./g, ',');
+    if(item.name === 'KG' && item.individualPrices) {
+        reconstructedInput = item.individualPrices.join(' ').replace(/\./g, ',');
     } else {
-        const predefinedPrice = PREDEFINED_PRICES[item.name.toUpperCase()];
-        const unitPrice = item.price / item.quantity;
-        reconstructedInput = item.name;
-        // Only add price if it's different from the predefined one
-        if (predefinedPrice !== unitPrice) {
-            reconstructedInput += ` ${unitPrice.toString().replace('.', ',')}`;
-        }
-    }
-
-    if (item.quantity > 1 && item.name !== 'KG') {
-        reconstructedInput = `${item.quantity}x ${reconstructedInput}`;
+        reconstructedInput = `${item.quantity > 1 ? `${item.quantity}x ` : ''}${item.name} ${item.price.toFixed(2).replace('.', ',')}`;
     }
 
     setEditInputValue(prefix + reconstructedInput);
@@ -317,13 +289,13 @@ export default function Home() {
       <Dialog open={!!editingItem} onOpenChange={(open) => !open && setEditingItem(null)}>
         <DialogContent className="sm:max-w-[425px]">
           <DialogHeader>
-            <DialogTitle>Editar Item</DialogTitle>
+            <DialogTitle>Editar Lançamento</DialogTitle>
           </DialogHeader>
           <div className="py-4">
             <Input
               value={editInputValue}
               onChange={(e) => setEditInputValue(e.target.value)}
-              placeholder=""
+              placeholder="Ex: F 2x p 12,50"
               className="h-10 flex-1 sm:h-12 text-base"
             />
           </div>

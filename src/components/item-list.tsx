@@ -61,6 +61,7 @@ const itemBadgeStyles: { [key: string]: string } = {
   SL: "bg-emerald-500",
   SLKIT: "bg-fuchsia-500",
   KG: "bg-gray-400",
+  "LANÇAMENTO MISTO": "bg-gray-700",
 };
 
 const getItemBadgeStyle = (itemName: string) => {
@@ -68,9 +69,24 @@ const getItemBadgeStyle = (itemName: string) => {
   if (style) {
     return `text-white border-transparent ${style}`;
   }
-  return "bg-gray-400 text-white border-transparent";
+  return "bg-gray-500 text-white border-transparent";
 }
 
+const renderItemName = (item: Item) => {
+    if (item.name === 'KG' && item.individualPrices && item.individualPrices.length > 0) {
+        if (item.individualPrices.length > 1) {
+            const totalKgPrice = item.individualPrices.reduce((a, b) => a + b, 0);
+            return `kg ${formatCurrency(totalKgPrice)}`;
+        }
+        return `kg ${item.individualPrices[0].toFixed(2).replace('.', ',')}`;
+    }
+    
+    if(item.name === 'Lançamento Misto'){
+        return `${item.name} (x${item.quantity})`
+    }
+
+    return `${item.name}${item.quantity > 1 ? ` (x${item.quantity})` : ''}`;
+}
 
 export default function ItemList({ items, onEdit, onDelete, isLoading }: ItemListProps) {
   if (isLoading) {
@@ -106,17 +122,7 @@ export default function ItemList({ items, onEdit, onDelete, isLoading }: ItemLis
             <TableRow key={item.id} className={cn(item.group.includes('Fiados') && "text-destructive")}>
               <TableCell className="font-medium px-2 sm:px-4">
                 <Badge className={cn("whitespace-nowrap", getItemBadgeStyle(item.name))}>
-                  {item.name === 'KG' ? (
-                    `kg ${item.individualPrices 
-                        ? item.individualPrices.map(p => p.toFixed(2).replace('.', ',')).join(' | ') 
-                        : item.price.toFixed(2).replace('.', ',')
-                    }`
-                  ) : (
-                    <>
-                      {item.name}
-                      {item.quantity > 1 && ` (x${item.quantity})`}
-                    </>
-                  )}
+                  {renderItemName(item)}
                 </Badge>
               </TableCell>
               <TableCell className="px-2 sm:px-4">
