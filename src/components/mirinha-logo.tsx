@@ -10,76 +10,37 @@ export default function MirinhaLogo({ className }: { className?: string }) {
     >
       <style>
         {`
+          @import url('https://fonts.googleapis.com/css2?family=Dancing+Script:wght@700&display=swap');
           .restaurante-script {
             font-family: 'Inter', 'sans-serif';
             font-size: 16px;
             font-weight: 500;
-            fill: currentColor;
-            letter-spacing: 0.5px;
+            fill: hsl(var(--foreground));
             text-anchor: middle;
           }
-          .mirinha-path {
-            stroke-width: 5;
-            stroke: currentColor;
-            fill: none;
-            stroke-linecap: round;
-            stroke-linejoin: round;
+          .mirinha-cursive {
+            font-family: 'Dancing Script', cursive;
+            font-size: 48px;
+            font-weight: 700;
+            fill: hsl(var(--primary));
+            text-anchor: middle;
           }
-          .cloche-path {
-            stroke-width: 1.5;
-            stroke: currentColor;
-            fill: none;
-            stroke-linecap: round;
-            stroke-linejoin: round;
-          }
-          .cloche-dome {
-            fill: currentColor;
-          }
-          .i-dot {
-            fill: currentColor;
+          .cloche-icon {
+            fill: hsl(var(--primary));
           }
         `}
       </style>
       
       <text x="110" y="22" className="restaurante-script">Restaurante da</text>
-      <line x1="55" y1="28" x2="165" y2="28" stroke="currentColor" strokeWidth="1.5" />
-
-      {/* Cloche */}
-      <g transform="translate(18 42)">
-        <path className="cloche-dome" d="M12.5,0 C19.9,0 25,5.8 25,12 L0,12 C0,5.8 5.1,0 12.5,0 Z" />
-        <rect x="10" y="-3" width="5" height="2" rx="1" className="cloche-dome"/>
-        <line x1="-2" y1="12" x2="27" y2="12" stroke="currentColor" strokeWidth="1.5" />
+      
+      {/* Cloche Icon */}
+      <g transform="translate(45, 28) scale(0.8)">
+        <path className="cloche-icon" d="M20.34,6.83A9.2,9.2,0,0,0,12.5,4.5a9.2,9.2,0,0,0-7.84,2.33,1,1,0,0,0,1.42,1.42A7.2,7.2,0,0,1,12.5,6.5a7.2,7.2,0,0,1,6.42,1.75,1,1,0,0,0,1.42-1.42Z M25,17.5H0a1,1,0,0,0,0,2H25a1,1,0,0,0,0-2Z M14.5,2.5h-4a1.5,1.5,0,0,0,0,3h4a1.5,1.5,0,0,0,0-3Z"/>
+        <path className="cloche-icon" d="M23.5,16.5h-22a1,1,0,0,0-1,1v0a1,1,0,0,0,1,1h22a1,1,0,0,0,1-1v0A1,1,0,0,0,23.5,16.5Z" style={{ display: 'none' }}/>
       </g>
-
-      {/* Mirinha */}
-      <g transform="translate(20, 40)">
-        <path className="mirinha-path" d="
-          M 25 15 
-          C 30 25, 40 35, 45 35 
-          S 50 30, 55 25 
-          L 60 15 
-          C 65 25, 70 35, 75 35 
-          S 80 30, 85 25
-        "/>
-        <path className="mirinha-path" d="
-          M 83 26
-          C 85 23, 88 20, 92 20
-          S 100 22, 102 25
-          L 105 30
-          C 110 20, 120 20, 125 30
-          L 130 35
-          C 135 25, 145 25, 150 35
-          L 155 35
-          C 160 30, 165 25, 170 30
-          C 175 35, 178 35, 180 35
-        "/>
-        
-        {/* Dots for the 'i's */}
-        <circle className="i-dot" cx="60" cy="10" r="4" />
-        <circle className="i-dot" cx="97" cy="13" r="4" />
-      </g>
+      
+      <text x="110" y="70" className="mirinha-cursive">Mirinha</text>
       
     </svg>
   );
 }
-
