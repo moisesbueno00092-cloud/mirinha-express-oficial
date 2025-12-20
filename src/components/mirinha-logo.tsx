@@ -29,7 +29,7 @@ export default function MirinhaLogo({ className }: { className?: string }) {
         `}
       </style>
       
-      <text x="5" y="22" className="restaurante-script">Restaurante da</text>
+      <text x="45" y="22" className="restaurante-script">Restaurante da</text>
 
       <text x="40" y="62" className="mirinha-script">
         <tspan>M</tspan>
