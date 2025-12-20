@@ -1,9 +1,9 @@
 
 "use client";
 
-import { useMemo, useState, useRef } from "react";
+import { useMemo, useState, useRef, useEffect } from "react";
 import type { Item, Group, PredefinedItem, SelectedBomboniereItem, BomboniereItem, FavoriteClient } from "@/types";
-import { PREDEFINED_PRICES, DELIVERY_FEE } from "@/lib/constants";
+import { PREDEFINED_PRICES, DELIVERY_FEE, BOMBONIERE_ITEMS_DEFAULT } from "@/lib/constants";
 import { useCollection, useFirestore, useMemoFirebase } from "@/firebase";
 import { collection, doc } from "firebase/firestore";
 import { parseCustomItemPrice } from "@/ai/flows/parse-custom-item-price";
@@ -76,6 +76,17 @@ export default function Home() {
   const inputRef = useRef<HTMLInputElement>(null);
 
   const { toast } = useToast();
+  
+  useEffect(() => {
+    // Seed bomboniere items if the collection is empty
+    if (firestore && !isLoadingBomboniere && bomboniereItems && bomboniereItems.length === 0) {
+      BOMBONIERE_ITEMS_DEFAULT.forEach(item => {
+        const { id, ...itemData } = item;
+        const docRef = doc(firestore, 'bomboniere_items', id);
+        setDocumentNonBlocking(docRef, itemData, { merge: true });
+      });
+    }
+  }, [firestore, bomboniereItems, isLoadingBomboniere]);
 
   const handleUpsertItem = async (rawInputToProcess: string, currentItem?: Item | null) => {
     setIsProcessing(true);
@@ -525,21 +536,6 @@ export default function Home() {
         </AlertDialogContent>
       </AlertDialog>
 
-      <AlertDialog open={clearAllDataRequest} onOpenChange={setClearAllDataRequest}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Você tem certeza?</AlertDialogTitle>
-            <AlertDialogDescription>
-              Essa ação não pode ser desfeita e excluirá permanentemente todos os lançamentos do dia atual. Salve o relatório antes, se necessário.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancelar</AlertDialogCancel>
-            <AlertDialogAction onClick={confirmClearData}>Confirmar Exclusão</AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-
       <Dialog open={!!editingItem} onOpenChange={(open) => !open && setEditingItem(null)}>
         <DialogContent className="sm:max-w-[425px]">
           <DialogHeader>
@@ -661,3 +657,5 @@ export default function Home() {
     </>
   );
 }
+
+    
