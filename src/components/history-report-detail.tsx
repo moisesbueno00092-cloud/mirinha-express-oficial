@@ -5,12 +5,13 @@ import { DailyReport, Group } from '@/types';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
-import { ArrowLeft } from 'lucide-react';
+import { ArrowLeft, Trash2 } from 'lucide-react';
 import { PieChart, Pie, Cell, ResponsiveContainer, Legend, Tooltip } from 'recharts';
 
 interface HistoryReportDetailProps {
   report: DailyReport;
   onBack: () => void;
+  onDelete: () => void;
 }
 
 const formatCurrency = (value: number) => {
@@ -44,7 +45,7 @@ const PIE_CHART_COLORS: Record<string, string> = {
     'Entregas': 'hsl(var(--chart-3))',
 };
 
-export default function HistoryReportDetail({ report, onBack }: HistoryReportDetailProps) {
+export default function HistoryReportDetail({ report, onBack, onDelete }: HistoryReportDetailProps) {
   const { reportData } = report;
 
     // Re-create chart data from saved report data
@@ -126,15 +127,21 @@ export default function HistoryReportDetail({ report, onBack }: HistoryReportDet
 
   return (
     <div className="container mx-auto max-w-4xl p-2 sm:p-6 space-y-4 sm:space-y-6">
-        <div className="flex justify-between items-center">
+        <div className="flex flex-wrap gap-2 justify-between items-center">
             <div>
                 <h2 className="text-xl sm:text-2xl font-bold">Relatório Salvo</h2>
                 <p className="text-xs sm:text-sm text-muted-foreground">{new Date(report.timestamp).toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' })}</p>
             </div>
-            <Button variant="outline" size="sm" onClick={onBack}>
-                <ArrowLeft className="mr-2 h-4 w-4" />
-                Voltar
-            </Button>
+            <div className="flex items-center gap-2">
+              <Button variant="destructive" size="sm" onClick={onDelete}>
+                  <Trash2 className="mr-2 h-4 w-4" />
+                  Excluir
+              </Button>
+              <Button variant="outline" size="sm" onClick={onBack}>
+                  <ArrowLeft className="mr-2 h-4 w-4" />
+                  Voltar
+              </Button>
+            </div>
         </div>
 
         <Card className="bg-background/50">
