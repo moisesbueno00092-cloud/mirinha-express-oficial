@@ -25,27 +25,31 @@ export default function MirinhaLogo({ className }: { className?: string }) {
         `}
       </style>
       
-      <text x="18" y="20" className="restaurante-script">Restaurante da</text>
-      <line x1="18" y1="24" x2="135" y2="24" stroke="currentColor" strokeWidth="0.8" />
+      <text x="5" y="22" className="restaurante-script">Restaurante da</text>
       
-      {/* Cloche Icon */}
-      <path
-        d="M23,53 C23,49 27,46 32,46 C37,46 41,49 41,53"
+      {/* "M" stylized as a cloche */}
+      <path 
+        d="M20 60 L20 45 C20 42, 22 40, 25 40 L45 40 C48 40, 50 42, 50 45 L50 60"
         fill="none"
         stroke="currentColor"
-        strokeWidth="2.5"
+        strokeWidth="2.2"
         strokeLinecap="round"
+        strokeLinejoin="round"
       />
-      <rect x="20" y="53" width="24" height="2" fill="currentColor" rx="1" />
-      <circle cx="32" cy="44" r="2" fill="currentColor" />
+      <line x1="35" y1="40" x2="35" y2="35" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" />
+      <circle cx="35" cy="33" r="1.8" fill="currentColor" />
 
-      <text x="45" y="60" className="mirinha-script">
-        <tspan>i</tspan>
-        <tspan>r</tspan>
-        <tspan>i</tspan>
-        <tspan>n</tspan>
-        <tspan>h</tspan>
-        <tspan>a</tspan>
+      {/* Sparkle/star element */}
+      <path 
+        d="M52 38 L54 40 L52 42 L50 40 Z"
+        fill="currentColor"
+      />
+       <line x1="52" y1="36" x2="52" y2="44" stroke="currentColor" strokeWidth="0.8" />
+       <line x1="49" y1="40" x2="55" y2="40" stroke="currentColor" strokeWidth="0.8" />
+
+
+      <text x="55" y="60" className="mirinha-script">
+        <tspan>irinha</tspan>
       </text>
     </svg>
   );
