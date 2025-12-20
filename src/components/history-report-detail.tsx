@@ -198,7 +198,7 @@ export default function HistoryReportDetail({ report, onBack }: HistoryReportDet
                 </CardHeader>
                 <CardContent className="text-xs sm:text-sm">
                     <ul className="space-y-1 mt-2">
-                        {reportData.itemCounts.map(([name, count]) => (
+                        {Object.entries(reportData.itemCounts).map(([name, count]) => (
                             <li key={name} className="flex items-baseline justify-between gap-2">
                                 <span className="font-medium">{name}:</span>
                                 <span className="font-mono">{count.total}</span>
@@ -213,7 +213,7 @@ export default function HistoryReportDetail({ report, onBack }: HistoryReportDet
                 </CardHeader>
                 <CardContent className="text-xs sm:text-sm">
                      <ul className="space-y-1">
-                        {reportData.bomboniereItemCounts.map(([name, data]) => (
+                        {Object.entries(reportData.bomboniereItemCounts).map(([name, data]) => (
                             <li key={name} className="flex items-baseline justify-between gap-2">
                                 <div className="flex items-baseline gap-2">
                                     <span className="font-medium">{data.quantity}x</span>
@@ -229,4 +229,3 @@ export default function HistoryReportDetail({ report, onBack }: HistoryReportDet
     </div>
   );
 }
-    

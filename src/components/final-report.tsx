@@ -196,6 +196,10 @@ export default function FinalReport({ items }: FinalReportProps) {
     
     const reportDocRef = doc(firestore, "daily_reports", reportId);
 
+    // Convert arrays of entries to objects to avoid nested arrays in Firestore
+    const itemCountsAsObject = Object.fromEntries(reportData.itemCounts);
+    const bomboniereItemCountsAsObject = Object.fromEntries(reportData.bomboniereItemCounts);
+
     const reportToSave = {
       id: reportId,
       timestamp: new Date().toISOString(),
@@ -209,8 +213,8 @@ export default function FinalReport({ items }: FinalReportProps) {
         totalBomboniereValue: reportData.totalBomboniereValue,
         totalBomboniereQuantity: reportData.totalBomboniereQuantity,
         totalsByGroup: reportData.totalsByGroup,
-        itemCounts: reportData.itemCounts,
-        bomboniereItemCounts: reportData.bomboniereItemCounts,
+        itemCounts: itemCountsAsObject, // Saving as object
+        bomboniereItemCounts: bomboniereItemCountsAsObject, // Saving as object
         totalMealValue: reportData.totalMealValue,
       },
       rawItems: items,
@@ -455,5 +459,3 @@ export default function FinalReport({ items }: FinalReportProps) {
     </div>
   );
 }
-
-    

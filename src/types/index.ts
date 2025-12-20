@@ -1,3 +1,4 @@
+
 export type Group = 'Vendas salão' | 'Fiados salão' | 'Fiados rua' | 'Vendas rua';
 
 export interface PredefinedItem {
@@ -49,11 +50,9 @@ export interface DailyReport {
     totalBomboniereValue: number;
     totalBomboniereQuantity: number;
     totalsByGroup: Record<Group, number>;
-    itemCounts: [string, { total: number; rua: number }][];
-    bomboniereItemCounts: [string, { quantity: number; total: number }][];
+    itemCounts: Record<string, { total: number; rua: number }>;
+    bomboniereItemCounts: Record<string, { quantity: number; total: number }>;
     totalMealValue: number;
   };
   rawItems: Item[];
 }
-
-    
