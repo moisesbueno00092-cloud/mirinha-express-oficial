@@ -520,7 +520,7 @@ export default function Home() {
       />
 
 
-      <div className="container mx-auto max-w-4xl p-2 sm:p-4 lg:p-8 pb-28">
+      <div className="container mx-auto max-w-4xl p-2 sm:p-4 lg:p-8 pb-40">
         <header className="mb-6 flex flex-col items-center justify-center text-center">
           <MirinhaLogo className="w-64 sm:w-80 h-auto text-primary" />
           <p className="text-muted-foreground -mt-2 text-sm sm:text-base">Controle de Pedidos</p>
@@ -593,5 +593,3 @@ export default function Home() {
     </>
   );
 }
-
-    
