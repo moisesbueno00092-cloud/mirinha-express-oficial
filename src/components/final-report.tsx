@@ -24,8 +24,8 @@ const formatCurrency = (value: number) => {
 const CustomTooltip = ({ active, payload }: any) => {
   if (active && payload && payload.length) {
     const data = payload[0].payload;
-    const value = data.isCurrency ? formatCurrency(data.value) : data.value;
-    const percent = data.percent ? ` (${data.percent}%)` : '';
+    const value = data.isCurrency ? formatCurrency(data.value) : data.value.toLocaleString('pt-BR');
+    const percent = data.percent ? ` (${data.percent.toFixed(0)}%)` : '';
     return (
       <div className="bg-background border border-border p-2 rounded-lg shadow-lg text-xs">
         <p className="label">{`${data.name} : ${value}${percent}`}</p>
@@ -35,15 +35,19 @@ const CustomTooltip = ({ active, payload }: any) => {
   return null;
 };
 
-const PIE_CHART_COLORS = {
+
+const PIE_CHART_COLORS: Record<string, string> = {
+    // Faturamento por Grupo
     'Vendas salão': 'hsl(var(--chart-1))',
     'Fiados salão': 'hsl(var(--destructive))',
     'Vendas rua': 'hsl(var(--chart-2))',
     'Fiados rua': 'hsl(var(--chart-5))',
+    // Proporção de Vendas
     'Refeições': 'hsl(var(--chart-1))',
     'Bomboniere': 'hsl(var(--chart-2))',
     'Entregas': 'hsl(var(--chart-3))',
 };
+
 
 export default function FinalReport({ items }: FinalReportProps) {
   const reportData = useMemo(() => {
@@ -65,6 +69,8 @@ export default function FinalReport({ items }: FinalReportProps) {
     let totalDeliveryFee = 0;
 
     items.forEach((item) => {
+      // item.total já inclui a deliveryFee. Para a análise, separamos.
+      const itemValue = item.price;
       totalsByGroup[item.group] += item.total;
       
       if (item.deliveryFee > 0) {
@@ -111,29 +117,46 @@ export default function FinalReport({ items }: FinalReportProps) {
     });
     
     const totalFaturamento = Object.values(totalsByGroup).reduce((acc, val) => acc + val, 0);
-    const totalMealValue = totalFaturamento - totalBomboniereValue; // Fee is part of faturamento, but not a separate category for this chart
+    const totalMealValue = totalFaturamento - totalBomboniereValue - totalDeliveryFee;
     const totalAVista = totalsByGroup['Vendas salão'] + totalsByGroup['Vendas rua'];
     const totalFiado = totalsByGroup['Fiados salão'] + totalsByGroup['Fiados rua'];
 
+    // Lógica para os Gráficos
+    
+    // 1. Faturamento por Grupo
+    const faturamentoByGroupData = Object.entries(totalsByGroup)
+        .map(([name, value]) => ({
+            name: name as Group,
+            value: value,
+            percent: totalFaturamento > 0 ? (value / totalFaturamento) * 100 : 0,
+            isCurrency: true
+        }))
+        .filter(d => d.value > 0);
+
+    // 2. Proporção de Vendas (Receita)
     const salesTotalForProportion = totalMealValue + totalBomboniereValue + totalDeliveryFee;
     const salesProportionData = [
-      { name: 'Refeições', value: totalMealValue, percent: salesTotalForProportion > 0 ? ((totalMealValue / salesTotalForProportion) * 100).toFixed(0) : 0, isCurrency: true },
-      { name: 'Bomboniere', value: totalBomboniereValue, percent: salesTotalForProportion > 0 ? ((totalBomboniereValue / salesTotalForProportion) * 100).toFixed(0) : 0, isCurrency: true },
-      { name: 'Entregas', value: totalDeliveryFee, percent: salesTotalForProportion > 0 ? ((totalDeliveryFee / salesTotalForProportion) * 100).toFixed(0) : 0, isCurrency: true },
-    ].filter(d => d.value > 0);
+      { name: 'Refeições', value: totalMealValue, isCurrency: true },
+      { name: 'Bomboniere', value: totalBomboniereValue, isCurrency: true },
+      { name: 'Entregas', value: totalDeliveryFee, isCurrency: true },
+    ]
+    .map(d => ({
+        ...d,
+        percent: salesTotalForProportion > 0 ? (d.value / salesTotalForProportion) * 100 : 0,
+    }))
+    .filter(d => d.value > 0);
     
-    const faturamentoByGroupData = Object.entries(totalsByGroup).map(([name, value]) => ({
-      name: name as Group,
-      value: value,
-      percent: totalFaturamento > 0 ? ((value / totalFaturamento) * 100).toFixed(0) : 0,
-      isCurrency: true
-    })).filter(d => d.value > 0);
-    
+    // 3. Contagem de Itens
     const totalItemsCount = totalMealItems + totalBomboniereQuantity;
     const itemsCountData = [
-      { name: 'Refeições', value: totalMealItems, percent: totalItemsCount > 0 ? ((totalMealItems / totalItemsCount) * 100).toFixed(0) : 0 },
-      { name: 'Bomboniere', value: totalBomboniereQuantity, percent: totalItemsCount > 0 ? ((totalBomboniereQuantity / totalItemsCount) * 100).toFixed(0) : 0 },
-    ].filter(d => d.value > 0);
+      { name: 'Refeições', value: totalMealItems },
+      { name: 'Bomboniere', value: totalBomboniereQuantity },
+    ]
+    .map(d => ({
+        ...d,
+        percent: totalItemsCount > 0 ? (d.value / totalItemsCount) * 100 : 0
+    }))
+    .filter(d => d.value > 0);
 
     const sortedItemCounts = Object.entries(itemCounts).sort(([, a], [, b]) => b.total - a.total);
     const sortedBomboniereCounts = Object.entries(bomboniereItemCounts).sort(([, a], [, b]) => b.total - a.total);
@@ -183,11 +206,11 @@ export default function FinalReport({ items }: FinalReportProps) {
                         fill="#8884d8"
                         dataKey="value"
                         nameKey="name"
-                        label={({ percent }) => `${(percent * 100).toFixed(0)}%`}
+                        label={({ percent }) => `${percent.toFixed(0)}%`}
                         className="text-xs focus:outline-none"
                     >
                         {data.map((entry, index) => (
-                            <Cell key={`cell-${index}`} fill={PIE_CHART_COLORS[entry.name as keyof typeof PIE_CHART_COLORS]} stroke={entry.name.includes('Fiado') ? 'hsl(var(--destructive))' : 'hsl(var(--border))'} />
+                            <Cell key={`cell-${index}`} fill={PIE_CHART_COLORS[entry.name as keyof typeof PIE_CHART_COLORS] || 'hsl(var(--muted))'} stroke={'hsl(var(--background))'} />
                         ))}
                     </Pie>
                     <Tooltip content={<CustomTooltip />} />
@@ -273,8 +296,8 @@ export default function FinalReport({ items }: FinalReportProps) {
                 </div>
 
                 <div className="flex flex-wrap justify-around items-start gap-4">
-                  {renderPieChart(reportData.salesProportionData, 'Proporção de Vendas')}
                   {renderPieChart(reportData.faturamentoByGroupData, 'Faturamento por Grupo')}
+                  {renderPieChart(reportData.salesProportionData, 'Proporção de Vendas')}
                   {renderPieChart(reportData.itemsCountData, 'Contagem de Itens')}
                 </div>
             </CardContent>
@@ -355,5 +378,7 @@ export default function FinalReport({ items }: FinalReportProps) {
     </div>
   );
 }
+
+    
 
     
