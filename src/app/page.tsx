@@ -393,9 +393,16 @@ export default function Home() {
 
   const handleBomboniereAdd = (itemsToAdd: SelectedBomboniereItem[]) => {
       const itemsString = itemsToAdd.map(item => `${item.quantity}${item.name.replace(/\s+/g, '-').toLowerCase()} ${String(item.price).replace('.', ',')}`).join(' ');
-      setRawInput(prev => `${prev} ${itemsString}`.trim());
       setBomboniereModalOpen(false);
-      inputRef.current?.focus();
+
+      if (rawInput.trim() === '') {
+        // If main input is empty, process bomboniere items directly as a "Vendas salão"
+        handleUpsertItem(itemsString);
+      } else {
+        // If main input has content, append bomboniere items and let user confirm
+        setRawInput(prev => `${prev} ${itemsString}`.trim());
+        inputRef.current?.focus();
+      }
   }
 
   const handleItemFormSubmit = async (e: React.FormEvent) => {
