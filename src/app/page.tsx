@@ -174,24 +174,19 @@ export default function Home() {
                 processedBomboniereItems.push({ id: bomboniereItemDef.id, name: bomboniereItemDef.name, quantity: baseQuantity, price: priceToUse });
                 totalPrice += priceToUse * baseQuantity;
                 totalQuantity += baseQuantity;
-            } else if (!isNumeric(part) && i + 1 < parts.length && isNumeric(parts[i+1])) {
-                // It's a text part followed by a number, potentially a custom bomboniere item with a price.
-                // Let's try parsing this without AI first.
-                const name = part.toLowerCase();
-                const price = parseFloat(parts[i+1].replace(',', '.'));
-
-                const bomboniereMatch = name.match(/^(\d*)([A-Z\d\s-]+)$/i);
+            } else if (!isNumeric(part) && /^\d*[a-zA-Z-]+$/.test(part) && (i + 1 < parts.length) && isNumeric(parts[i+1])) {
+                const bomboniereMatch = part.match(/^(\d*)([a-zA-Z\d\s-]+)$/i);
                 const qty = bomboniereMatch && bomboniereMatch[1] ? parseInt(bomboniereMatch[1], 10) : 1;
-                const namePart = bomboniereMatch ? bomboniereMatch[2] : name;
+                const namePart = bomboniereMatch ? bomboniereMatch[2] : part;
+                const price = parseFloat(parts[i+1].replace(',', '.'));
                 
                 const existingItemDef = bomboniereItems.find(bi => bi.name.toUpperCase().replace(/\s+/g, '-') === namePart.toUpperCase());
 
-                processedBomboniereItems.push({ id: existingItemDef?.id || name, name: namePart, quantity: qty, price: price });
+                processedBomboniereItems.push({ id: existingItemDef?.id || namePart, name: namePart, quantity: qty, price: price });
                 totalPrice += price * qty;
                 totalQuantity += qty;
                 i++; // consume price part
-
-            } else if (!isNumeric(part) && /^\d+[a-zA-Z]+/.test(part) && isNumeric(parts[i + 1])) {
+            } else if (part.match(/^\d+[a-zA-Z]+/) && i + 1 < parts.length && isNumeric(parts[i+1])) {
                 // Fallback to AI for complex cases like '2bala 0.50'
                 try {
                     const { itemName, customPrice } = await parseCustomItemPrice({ itemName: `${part} ${parts[i+1]}`.trim() });
@@ -418,7 +413,7 @@ export default function Home() {
         handleUpsertItem(itemsString);
       } else {
         setRawInput(prev => `${prev} ${itemsString}`.trim());
-        inputRef.current?.focus();
+        setTimeout(() => inputRef.current?.focus(), 0);
       }
   }
 
