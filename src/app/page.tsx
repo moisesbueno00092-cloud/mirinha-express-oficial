@@ -138,7 +138,7 @@ export default function Home() {
                 continue;
             }
             
-            const quantityMatch = part.match(/^(\d+)([A-Z\d-]+)$/i);
+            const quantityMatch = part.match(/^(\d+)([\w\d-]+)$/i);
             let baseQuantity = 1;
             let currentItemCode = upperPart;
 
@@ -148,6 +148,7 @@ export default function Home() {
             }
 
             const isPredefined = PREDEFINED_PRICES[currentItemCode];
+            const bomboniereItemDef = bomboniereItems.find(bi => bi.name.toUpperCase().replace(/\s+/g, '-') === currentItemCode);
             
             if (isPredefined) {
                 const defaultPrice = PREDEFINED_PRICES[currentItemCode];
@@ -164,33 +165,46 @@ export default function Home() {
                     totalPrice += priceToUse;
                 }
                 totalQuantity += baseQuantity;
-            } else { // Potentially bomboniere item
+            } else if (bomboniereItemDef) {
+                let priceToUse = bomboniereItemDef.price;
+                 if (i + 1 < parts.length && isNumeric(parts[i + 1])) {
+                    priceToUse = parseFloat(parts[i + 1].replace(',', '.'));
+                    i++; // Consume the price part
+                }
+                processedBomboniereItems.push({ id: bomboniereItemDef.id, name: bomboniereItemDef.name, quantity: baseQuantity, price: priceToUse });
+                totalPrice += priceToUse * baseQuantity;
+                totalQuantity += baseQuantity;
+            } else if (!isNumeric(part) && i + 1 < parts.length && isNumeric(parts[i+1])) {
+                // It's a text part followed by a number, potentially a custom bomboniere item with a price.
+                // Let's try parsing this without AI first.
+                const name = part.toLowerCase();
+                const price = parseFloat(parts[i+1].replace(',', '.'));
+
+                const bomboniereMatch = name.match(/^(\d*)([A-Z\d\s-]+)$/i);
+                const qty = bomboniereMatch && bomboniereMatch[1] ? parseInt(bomboniereMatch[1], 10) : 1;
+                const namePart = bomboniereMatch ? bomboniereMatch[2] : name;
+                
+                const existingItemDef = bomboniereItems.find(bi => bi.name.toUpperCase().replace(/\s+/g, '-') === namePart.toUpperCase());
+
+                processedBomboniereItems.push({ id: existingItemDef?.id || name, name: namePart, quantity: qty, price: price });
+                totalPrice += price * qty;
+                totalQuantity += qty;
+                i++; // consume price part
+
+            } else if (!isNumeric(part) && /^\d+[a-zA-Z]+/.test(part) && isNumeric(parts[i + 1])) {
+                // Fallback to AI for complex cases like '2bala 0.50'
                 try {
-                    const potentialPricePart = (i + 1 < parts.length && isNumeric(parts[i+1])) ? parts[i+1] : '';
-                    const { itemName, customPrice } = await parseCustomItemPrice({ itemName: `${part} ${potentialPricePart}`.trim() });
-                    
-                    const bomboniereMatch = itemName.match(/^(\d*)([A-Z\d-]+)$/i);
+                    const { itemName, customPrice } = await parseCustomItemPrice({ itemName: `${part} ${parts[i+1]}`.trim() });
+                    if (customPrice !== undefined) {
+                        const bomboniereMatch = itemName.match(/^(\d*)([A-Z\d\s-]+)$/i);
+                        const qty = bomboniereMatch && bomboniereMatch[1] ? parseInt(bomboniereMatch[1], 10) : 1;
+                        const name = bomboniereMatch ? bomboniereMatch[2] : itemName;
+                        const existingItemDef = bomboniereItems.find(bi => bi.name.toUpperCase().replace(/\s+/g, '-') === name.toUpperCase());
 
-                    if (bomboniereMatch) {
-                        const qty = bomboniereMatch[1] ? parseInt(bomboniereMatch[1], 10) : 1;
-                        const name = bomboniereMatch[2];
-                        const bomboniereItemDef = bomboniereItems.find(bi => bi.name.toUpperCase().replace(/\s+/g, '-') === name.toUpperCase());
-
-                        if (customPrice !== undefined) {
-                            processedBomboniereItems.push({ id: bomboniereItemDef?.id || name, name, quantity: qty, price: customPrice });
-                            totalPrice += customPrice * qty;
-                            if (potentialPricePart) i++; // consume price part
-                            totalQuantity += qty;
-                        } else if (i + 1 < parts.length && isNumeric(parts[i+1])) {
-                            // Fallback for simple cases not caught by AI (e.g. no space)
-                            const price = parseFloat(parts[i+1].replace(',', '.'));
-                            processedBomboniereItems.push({ id: bomboniereItemDef?.id || name, name, quantity: qty, price });
-                            totalPrice += price * qty;
-                            i++; // consume price part
-                            totalQuantity += qty;
-                        } else {
-                            // This part is not a valid bomboniere item with price, may be part of a name
-                        }
+                        processedBomboniereItems.push({ id: existingItemDef?.id || name, name, quantity: qty, price: customPrice });
+                        totalPrice += customPrice * qty;
+                        totalQuantity += qty;
+                        i++; // consume price part
                     }
                 } catch(e) {
                     console.error("AI parsing failed, skipping part:", part, e);
@@ -204,20 +218,19 @@ export default function Home() {
             return;
         };
 
-        // If only bomboniere items are present and no group was explicitly set, it's 'Vendas salão'.
         if (originalGroup === null && predefinedItems.length === 0 && individualPrices.length === 0 && processedBomboniereItems.length > 0) {
             group = 'Vendas salão';
             deliveryFeeApplicable = false;
         }
 
-        // Decrement stock for bomboniere items
         if (!currentItem) { // Only decrement stock for new items, not for edits
           setBomboniereItems(prevBomboniereItems => {
               const newBomboniereItems = [...prevBomboniereItems];
               processedBomboniereItems.forEach(soldItem => {
                   const itemIndex = newBomboniereItems.findIndex(i => i.id === soldItem.id);
                   if (itemIndex !== -1) {
-                      newBomboniereItems[itemIndex].stock -= soldItem.quantity;
+                      const currentStock = newBomboniereItems[itemIndex].stock;
+                      newBomboniereItems[itemIndex].stock = currentStock - soldItem.quantity;
                   }
               });
               return newBomboniereItems;
@@ -256,7 +269,6 @@ export default function Home() {
 
 
         if (currentItem?.id) {
-            // Note: Editing an item does not currently adjust stock. This might be a desired future feature.
             const docRef = doc(firestore, "order_items", currentItem.id);
             setDocumentNonBlocking(docRef, { ...finalItem, total }, { merge: true });
             toast({ title: "Sucesso", description: "Lançamento atualizado." });
@@ -351,7 +363,11 @@ export default function Home() {
 
     if(item.bomboniereItems && item.bomboniereItems.length > 0) {
         item.bomboniereItems.forEach(bi => {
-            reconstructedParts.push(`${bi.quantity}${bi.name.toLowerCase()} ${String(bi.price).replace('.', ',')}`);
+            const qtyPart = bi.quantity > 1 ? `${bi.quantity}` : '';
+            const bomboniereDef = bomboniereItems.find(item => item.id === bi.id);
+            const namePart = bomboniereDef ? bomboniereDef.name.toLowerCase().replace(/\s+/g, '-') : bi.name.toLowerCase();
+
+            reconstructedParts.push(`${qtyPart}${namePart} ${String(bi.price).replace('.', ',')}`);
         });
     }
 
@@ -370,7 +386,6 @@ export default function Home() {
 
   const handleSaveEdit = () => {
     if(editingItem && editInputValue) {
-      // Stock is not adjusted on edit, only on new entry.
       handleUpsertItem(editInputValue, editingItem)
     }
   }
@@ -382,7 +397,6 @@ export default function Home() {
   
   const confirmDelete = () => {
     if(!firestore || !itemToDelete) return;
-    // Note: Deleting an item does not currently return stock. This might be a desired future feature.
     deleteDocumentNonBlocking(doc(firestore, "order_items", itemToDelete));
     toast({
       title: "Sucesso",
@@ -392,14 +406,17 @@ export default function Home() {
   };
 
   const handleBomboniereAdd = (itemsToAdd: SelectedBomboniereItem[]) => {
-      const itemsString = itemsToAdd.map(item => `${item.quantity}${item.name.replace(/\s+/g, '-').toLowerCase()} ${String(item.price).replace('.', ',')}`).join(' ');
+      const itemsString = itemsToAdd.map(item => {
+        const qtyPart = item.quantity > 1 ? item.quantity : '';
+        const namePart = bomboniereItems.find(bi => bi.id === item.id)?.name.replace(/\s+/g, '-').toLowerCase() || item.name;
+        return `${qtyPart}${namePart} ${String(item.price).replace('.', ',')}`;
+      }).join(' ');
+
       setBomboniereModalOpen(false);
 
       if (rawInput.trim() === '') {
-        // If main input is empty, process bomboniere items directly as a "Vendas salão"
         handleUpsertItem(itemsString);
       } else {
-        // If main input has content, append bomboniere items and let user confirm
         setRawInput(prev => `${prev} ${itemsString}`.trim());
         inputRef.current?.focus();
       }
