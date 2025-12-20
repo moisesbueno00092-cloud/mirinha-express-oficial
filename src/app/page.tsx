@@ -42,6 +42,7 @@ import FinalReport from "@/components/final-report";
 import BomboniereModal from "@/components/bomboniere-modal";
 import usePersistentState from "@/hooks/use-persistent-state";
 import { BOMBONIERE_ITEMS_DEFAULT } from "@/lib/constants";
+import MirinhaLogo from "@/components/mirinha-logo";
 
 const formatCurrency = (value: number) => {
   return new Intl.NumberFormat("pt-BR", {
@@ -519,11 +520,9 @@ export default function Home() {
 
 
       <div className="container mx-auto max-w-4xl p-2 sm:p-4 lg:p-8 pb-28">
-        <header className="mb-6 text-center">
-          <h1 className="text-3xl font-headline font-bold text-primary sm:text-5xl">
-            Restaurante da Mirinha
-          </h1>
-          <p className="text-muted-foreground mt-2 text-sm sm:text-base">Controle de Pedidos</p>
+        <header className="mb-6 flex flex-col items-center justify-center text-center">
+          <MirinhaLogo className="w-64 sm:w-80 h-auto text-primary" />
+          <p className="text-muted-foreground -mt-2 text-sm sm:text-base">Controle de Pedidos</p>
         </header>
 
         <main className="space-y-6">
