@@ -7,12 +7,13 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Separator } from "@/components/ui/separator";
 import { Button } from "@/components/ui/button";
 import { PieChart, Pie, Cell, ResponsiveContainer, Legend, Tooltip } from "recharts";
-import { Share, FileText, BrainCircuit, Save } from "lucide-react";
+import { Share, FileText, BrainCircuit, Save, History } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useFirestore } from "@/firebase";
-import { doc, setDoc } from "firebase/firestore";
+import { doc } from "firebase/firestore";
 import { useToast } from "@/hooks/use-toast";
 import { setDocumentNonBlocking } from "@/firebase/non-blocking-updates";
+import Link from "next/link";
 
 
 interface FinalReportProps {
@@ -215,26 +216,24 @@ export default function FinalReport({ items }: FinalReportProps) {
       rawItems: items,
     };
     
-    try {
-      await setDoc(reportDocRef, reportToSave);
-      toast({
-        title: "Relatório Salvo!",
-        description: `O relatório do dia ${currentDateFormatted} foi salvo com sucesso.`,
-      });
-    } catch (error) {
-      console.error("Error saving report:", error);
-      toast({
-        variant: "destructive",
-        title: "Erro ao Salvar",
-        description: "Não foi possível salvar o relatório.",
-      });
-    }
+    setDocumentNonBlocking(reportDocRef, reportToSave, { merge: true });
+
+    toast({
+      title: "Relatório Salvo!",
+      description: `O relatório do dia ${currentDateFormatted} foi salvo com sucesso.`,
+    });
   };
 
   if (items.length === 0) {
     return (
       <div className="text-center text-muted-foreground py-10">
         <p>Nenhum dado para exibir no relatório.</p>
+        <Link href="/history" passHref>
+          <Button variant="outline" className="mt-4">
+            <History className="mr-2 h-4 w-4" />
+            Ver Histórico de Relatórios
+          </Button>
+        </Link>
       </div>
     );
   }
@@ -272,7 +271,7 @@ export default function FinalReport({ items }: FinalReportProps) {
                         labelLine={false}
                         label={renderCustomizedLabel}
                         outerRadius={60}
-                        innerRadius={30}
+                        innerRadius={0}
                         fill="#8884d8"
                         dataKey="value"
                         nameKey="name"
@@ -298,15 +297,23 @@ export default function FinalReport({ items }: FinalReportProps) {
 
   return (
     <div className="bg-card text-card-foreground rounded-lg p-2 sm:p-6 space-y-4 sm:space-y-6">
-        <div className="flex justify-between items-center">
+        <div className="flex flex-wrap gap-2 justify-between items-center">
             <div>
                 <h2 className="text-xl sm:text-2xl font-bold">Relatório do Dia</h2>
                 <p className="text-xs sm:text-sm text-muted-foreground">{currentDateFormatted}</p>
             </div>
-            <Button variant="destructive" size="sm" className="text-xs sm:text-sm" onClick={handleSaveReport}>
-                <Save className="mr-2 h-4 w-4" />
-                Salvar Relatório Final
-            </Button>
+            <div className="flex gap-2">
+                <Link href="/history" passHref>
+                    <Button variant="outline" size="sm" className="text-xs sm:text-sm">
+                        <History className="mr-2 h-4 w-4" />
+                        Histórico
+                    </Button>
+                </Link>
+                <Button variant="destructive" size="sm" className="text-xs sm:text-sm" onClick={handleSaveReport}>
+                    <Save className="mr-2 h-4 w-4" />
+                    Salvar Relatório
+                </Button>
+            </div>
         </div>
 
         <Card className="bg-background/50">
@@ -366,9 +373,9 @@ export default function FinalReport({ items }: FinalReportProps) {
                 </div>
 
                 <div className="flex flex-wrap justify-around items-start gap-4">
-                  {renderPieChart(reportData.faturamentoByGroupData, 'Faturamento por Grupo')}
-                  {renderPieChart(reportData.salesProportionData, 'Proporção de Vendas')}
-                  {renderPieChart(reportData.itemsCountData, 'Contagem de Itens')}
+                  {reportData.faturamentoByGroupData.length > 0 && renderPieChart(reportData.faturamentoByGroupData, 'Faturamento por Grupo')}
+                  {reportData.salesProportionData.length > 0 && renderPieChart(reportData.salesProportionData, 'Proporção de Vendas')}
+                  {reportData.itemsCountData.length > 0 && renderPieChart(reportData.itemsCountData, 'Contagem de Itens')}
                 </div>
             </CardContent>
         </Card>
