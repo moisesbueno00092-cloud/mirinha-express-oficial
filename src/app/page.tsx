@@ -34,7 +34,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
 import { Trash2, Save, History, Star } from "lucide-react";
-import { addDocumentNonBlocking, deleteDocumentNonBlocking, setDocumentNonBlocking } from "@/firebase/non-blocking-updates";
+import { addDocumentNonBlocking, deleteDocumentNonBlocking, setDocumentNonBlocking, updateDocumentNonBlocking } from "@/firebase/non-blocking-updates";
 
 import ItemForm from "@/components/item-form";
 import ItemList from "@/components/item-list";
@@ -43,7 +43,6 @@ import FinalReport from "@/components/final-report";
 import BomboniereModal from "@/components/bomboniere-modal";
 import ManageFavoritesModal from "@/components/manage-favorites-modal";
 import usePersistentState from "@/hooks/use-persistent-state";
-import { BOMBONIERE_ITEMS_DEFAULT } from "@/lib/constants";
 import MirinhaLogo from "@/components/mirinha-logo";
 import FavoritesMenu from "@/components/favorites-menu";
 
@@ -60,7 +59,10 @@ export default function Home() {
   const firestore = useFirestore();
   const orderItemsRef = useMemoFirebase(() => collection(firestore, "order_items"), [firestore]);
   const clientAccountsRef = useMemoFirebase(() => collection(firestore, "client_accounts"), [firestore]);
+  const bomboniereItemsRef = useMemoFirebase(() => collection(firestore, "bomboniere_items"), [firestore]);
+
   const { data: items, isLoading, error: firestoreError } = useCollection<Item>(orderItemsRef);
+  const { data: bomboniereItems, isLoading: isLoadingBomboniere } = useCollection<BomboniereItem>(bomboniereItemsRef);
   
   const [isProcessing, setIsProcessing] = useState(false);
   const [editingItem, setEditingItem] = useState<Item | null>(null);
@@ -72,7 +74,6 @@ export default function Home() {
   const [rawInput, setRawInput] = useState("");
   const inputRef = useRef<HTMLInputElement>(null);
 
-  const [bomboniereItems, setBomboniereItems] = usePersistentState<BomboniereItem[]>('bomboniereItems', BOMBONIERE_ITEMS_DEFAULT);
   const [favoriteClients, setFavoriteClients] = usePersistentState<FavoriteClient[]>('favoriteClients', []);
 
   const { toast } = useToast();
@@ -156,7 +157,7 @@ export default function Home() {
             }
 
             const isPredefined = PREDEFINED_PRICES[currentItemCode];
-            const bomboniereItemDef = bomboniereItems.find(bi => bi.name.toUpperCase().replace(/\s+/g, '-') === currentItemCode);
+            const bomboniereItemDef = bomboniereItems?.find(bi => bi.name.toUpperCase().replace(/\s+/g, '-') === currentItemCode);
             
             if (isPredefined) {
                 const defaultPrice = PREDEFINED_PRICES[currentItemCode];
@@ -188,7 +189,7 @@ export default function Home() {
                 const namePart = bomboniereMatch ? bomboniereMatch[2] : part;
                 const price = parseFloat(parts[i+1].replace(',', '.'));
                 
-                const existingItemDef = bomboniereItems.find(bi => bi.name.toUpperCase().replace(/\s+/g, '-') === namePart.toUpperCase());
+                const existingItemDef = bomboniereItems?.find(bi => bi.name.toUpperCase().replace(/\s+/g, '-') === namePart.toUpperCase());
 
                 processedBomboniereItems.push({ id: existingItemDef?.id || namePart, name: namePart, quantity: qty, price: price });
                 totalPrice += price * qty;
@@ -202,7 +203,7 @@ export default function Home() {
                         const bomboniereMatch = itemName.match(/^(\d*)([A-Z\d\s-]+)$/i);
                         const qty = bomboniereMatch && bomboniereMatch[1] ? parseInt(bomboniereMatch[1], 10) : 1;
                         const name = bomboniereMatch ? bomboniereMatch[2] : itemName;
-                        const existingItemDef = bomboniereItems.find(bi => bi.name.toUpperCase().replace(/\s+/g, '-') === name.toUpperCase());
+                        const existingItemDef = bomboniereItems?.find(bi => bi.name.toUpperCase().replace(/\s+/g, '-') === name.toUpperCase());
 
                         processedBomboniereItems.push({ id: existingItemDef?.id || name, name, quantity: qty, price: customPrice });
                         totalPrice += customPrice * qty;
@@ -226,17 +227,14 @@ export default function Home() {
             deliveryFeeApplicable = false;
         }
 
-        if (!currentItem) { // Only decrement stock for new items, not for edits
-          setBomboniereItems(prevBomboniereItems => {
-              const newBomboniereItems = [...prevBomboniereItems];
-              processedBomboniereItems.forEach(soldItem => {
-                  const itemIndex = newBomboniereItems.findIndex(i => i.id === soldItem.id);
-                  if (itemIndex !== -1) {
-                      const currentStock = newBomboniereItems[itemIndex].stock;
-                      newBomboniereItems[itemIndex].stock = currentStock - soldItem.quantity;
-                  }
-              });
-              return newBomboniereItems;
+        if (!currentItem && bomboniereItems && firestore) { // Only decrement stock for new items, not for edits
+          processedBomboniereItems.forEach(soldItem => {
+              const itemDef = bomboniereItems.find(i => i.id === soldItem.id);
+              if (itemDef) {
+                  const newStock = itemDef.stock - soldItem.quantity;
+                  const docRef = doc(firestore, "bomboniere_items", itemDef.id);
+                  updateDocumentNonBlocking(docRef, { stock: newStock });
+              }
           });
         }
 
@@ -403,7 +401,7 @@ export default function Home() {
       reconstructedParts.push(`kg ${item.individualPrices.map(p => String(p).replace('.', ',')).join(' ')}`);
     }
 
-    if(item.bomboniereItems && item.bomboniereItems.length > 0) {
+    if(item.bomboniereItems && item.bomboniereItems.length > 0 && bomboniereItems) {
         item.bomboniereItems.forEach(bi => {
             const qtyPart = bi.quantity > 1 ? `${bi.quantity}` : '';
             const bomboniereDef = bomboniereItems.find(item => item.id === bi.id);
@@ -448,6 +446,7 @@ export default function Home() {
   };
 
   const handleBomboniereAdd = (itemsToAdd: SelectedBomboniereItem[]) => {
+      if (!bomboniereItems) return;
       const itemsString = itemsToAdd.map(item => {
         const qtyPart = item.quantity > 1 ? item.quantity : '';
         const namePart = bomboniereItems.find(bi => bi.id === item.id)?.name.replace(/\s+/g, '-').toLowerCase() || item.name;
@@ -581,8 +580,7 @@ export default function Home() {
         isOpen={isBomboniereModalOpen}
         onClose={() => setBomboniereModalOpen(false)}
         onAddItems={handleBomboniereAdd}
-        bomboniereItems={bomboniereItems}
-        setBomboniereItems={setBomboniereItems}
+        bomboniereItems={bomboniereItems || []}
       />
       
       <ManageFavoritesModal

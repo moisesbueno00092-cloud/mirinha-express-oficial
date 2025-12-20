@@ -1,34 +1,32 @@
+
 "use client";
 
 import { useState, useEffect, Dispatch, SetStateAction } from 'react';
 
 function usePersistentState<T>(key: string, initialState: T): [T, Dispatch<SetStateAction<T>>] {
+  const [state, setState] = useState<T>(initialState);
   const [isInitialized, setIsInitialized] = useState(false);
 
-  const [state, setState] = useState<T>(() => {
-    if (typeof window === 'undefined') {
-      return initialState;
-    }
+  useEffect(() => {
+    let storedValue: T;
     try {
-      const storedValue = window.localStorage.getItem(key);
-      return storedValue ? JSON.parse(storedValue) : initialState;
+      const item = window.localStorage.getItem(key);
+      storedValue = item ? JSON.parse(item) : initialState;
     } catch (error) {
       console.error(error);
-      return initialState;
+      storedValue = initialState;
     }
-  });
-
+    setState(storedValue);
+    setIsInitialized(true);
+  }, [key, initialState]);
 
   useEffect(() => {
-    if (!isInitialized) {
-      setIsInitialized(true);
-      return;
-    }
-
-    try {
-      window.localStorage.setItem(key, JSON.stringify(state));
-    } catch (error) {
-      console.error(`Error setting localStorage key “${key}”:`, error);
+    if (isInitialized) {
+      try {
+        window.localStorage.setItem(key, JSON.stringify(state));
+      } catch (error) {
+        console.error(`Error setting localStorage key “${key}”:`, error);
+      }
     }
   }, [key, state, isInitialized]);
 

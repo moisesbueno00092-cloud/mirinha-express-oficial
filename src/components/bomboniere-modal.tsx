@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useState, useEffect, useRef, useMemo, Dispatch, SetStateAction } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogClose } from '@/components/ui/dialog';
 import { 
     AlertDialog,
@@ -16,17 +16,19 @@ import {
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { PlusCircle, MinusCircle, Plus, Pencil, Trash2, Save, X, Package, KeyRound } from 'lucide-react';
+import { PlusCircle, MinusCircle, Plus, Pencil, Trash2, Save, X, Package } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import type { BomboniereItem, SelectedBomboniereItem } from '@/types';
 import { cn } from '@/lib/utils';
+import { useFirestore } from '@/firebase';
+import { addDocumentNonBlocking, deleteDocumentNonBlocking, setDocumentNonBlocking, updateDocumentNonBlocking } from '@/firebase/non-blocking-updates';
+import { collection, doc } from 'firebase/firestore';
 
 interface BomboniereModalProps {
   isOpen: boolean;
   onClose: () => void;
   onAddItems: (items: SelectedBomboniereItem[]) => void;
   bomboniereItems: BomboniereItem[];
-  setBomboniereItems: Dispatch<SetStateAction<BomboniereItem[]>>;
 }
 
 const formatCurrency = (value: number) => {
@@ -38,7 +40,10 @@ const formatCurrency = (value: number) => {
 
 const STOCK_PASSWORD = "jujubb3110";
 
-export default function BomboniereModal({ isOpen, onClose, onAddItems, bomboniereItems, setBomboniereItems }: BomboniereModalProps) {
+export default function BomboniereModal({ isOpen, onClose, onAddItems, bomboniereItems }: BomboniereModalProps) {
+  const firestore = useFirestore();
+  const bomboniereItemsRef = useMemo(() => collection(firestore, "bomboniere_items"), [firestore]);
+
   const [selectedItems, setSelectedItems] = useState<Record<string, number>>({});
   const [view, setView] = useState<'select' | 'edit' | 'stock' | 'password'>('select');
   const [itemToEdit, setItemToEdit] = useState<BomboniereItem | null>(null);
@@ -95,6 +100,7 @@ export default function BomboniereModal({ isOpen, onClose, onAddItems, bombonier
   
   const handleSaveItem = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
+    if (!firestore) return;
     const formData = new FormData(e.currentTarget);
 
     if(isAdding) {
@@ -107,13 +113,12 @@ export default function BomboniereModal({ isOpen, onClose, onAddItems, bombonier
         const price = parseFloat(priceString || '');
 
         if (name && !isNaN(price) && price > 0) {
-            const newItem: BomboniereItem = {
-                id: name.toLowerCase().replace(/\s+/g, '-') + '-' + Date.now(),
+            const newItem: Omit<BomboniereItem, 'id'> = {
                 name: name,
                 price: price,
                 stock: 0
             };
-            setBomboniereItems(prev => [...prev, newItem].sort((a,b) => a.name.localeCompare(b.name)));
+            addDocumentNonBlocking(bomboniereItemsRef, newItem);
         }
         if (addFormRef.current) addFormRef.current.reset();
         
@@ -121,9 +126,10 @@ export default function BomboniereModal({ isOpen, onClose, onAddItems, bombonier
         const id = formData.get('id') as string;
         const name = formData.get('name') as string;
         const price = parseFloat((formData.get('price') as string).replace(',', '.'));
-        const stock = parseInt(formData.get('stock') as string, 10);
+        const docRef = doc(firestore, 'bomboniere_items', id);
+        
         if (id && name && !isNaN(price)) {
-            setBomboniereItems(prev => prev.map(item => item.id === id ? { ...item, name, price, stock: isNaN(stock) ? item.stock : stock } : item).sort((a,b) => a.name.localeCompare(b.name)));
+            updateDocumentNonBlocking(docRef, { name, price });
         }
         setItemToEdit(null);
     } else {
@@ -137,8 +143,9 @@ export default function BomboniereModal({ isOpen, onClose, onAddItems, bombonier
   }
 
   const confirmDelete = () => {
-    if (itemToDelete) {
-      setBomboniereItems(prev => prev.filter(item => item.id !== itemToDelete));
+    if (itemToDelete && firestore) {
+      const docRef = doc(firestore, 'bomboniere_items', itemToDelete);
+      deleteDocumentNonBlocking(docRef);
       setItemToDelete(null);
     }
   };
@@ -158,15 +165,13 @@ export default function BomboniereModal({ isOpen, onClose, onAddItems, bombonier
   };
 
   const saveStockChanges = () => {
-      setBomboniereItems(prevItems => {
-          return prevItems.map(item => {
-              const newStockStr = stockEditValues[item.id];
-              if (newStockStr !== undefined) {
-                  const newStock = parseInt(newStockStr, 10);
-                  return isNaN(newStock) ? item : { ...item, stock: newStock };
-              }
-              return item;
-          });
+      if (!firestore) return;
+      Object.entries(stockEditValues).forEach(([itemId, newStockStr]) => {
+          const newStock = parseInt(newStockStr, 10);
+          if (!isNaN(newStock)) {
+              const docRef = doc(firestore, 'bomboniere_items', itemId);
+              updateDocumentNonBlocking(docRef, { stock: newStock });
+          }
       });
       setStockEditValues({});
   };
@@ -424,12 +429,3 @@ export default function BomboniereModal({ isOpen, onClose, onAddItems, bombonier
     </Dialog>
   );
 }
-    
-
-    
-
-    
-
-    
-
-    

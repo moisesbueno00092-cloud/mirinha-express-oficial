@@ -17,6 +17,8 @@ export const PREDEFINED_PRICES: { [key: string]: number } = {
 
 export const DELIVERY_FEE = 6.00;
 
+// This is now only a fallback for the very first time the app runs.
+// After that, bomboniere items are managed in Firestore.
 export const BOMBONIERE_ITEMS_DEFAULT: BomboniereItem[] = [
     {
       "id": "coca-lata",

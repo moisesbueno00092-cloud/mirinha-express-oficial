@@ -1,3 +1,4 @@
+
 {
   "entities": {
     "OrderItem": {
@@ -107,6 +108,31 @@
         }
       },
       "required": ["id", "customerId", "customerName", "description", "price", "timestamp"]
+    },
+    "BomboniereItem": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "BomboniereItem",
+      "type": "object",
+      "description": "Represents an item available for sale in the bomboniere.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the bomboniere item."
+        },
+        "name": {
+          "type": "string",
+          "description": "The name of the item."
+        },
+        "price": {
+          "type": "number",
+          "description": "The price of the item."
+        },
+        "stock": {
+          "type": "number",
+          "description": "The current stock quantity of the item."
+        }
+      },
+      "required": ["id", "name", "price", "stock"]
     }
   },
   "auth": {
@@ -164,8 +190,24 @@
             }
           ]
         }
+      },
+      {
+        "path": "/bomboniere_items/{bomboniereItemId}",
+        "definition": {
+          "entityName": "BomboniereItem",
+          "schema": {
+            "$ref": "#/backend/entities/BomboniereItem"
+          },
+          "description": "Stores the list of all available bomboniere items, their prices, and stock.",
+          "params": [
+            {
+              "name": "bomboniereItemId",
+              "description": "Unique identifier for the bomboniere item."
+            }
+          ]
+        }
       }
     ],
-    "reasoning": "The Firestore data structure is designed to support Mirinha's Tracker app, focusing on real-time access and data persistence. The primary entity `OrderItem` stores details of each order. A new collection `daily_reports` is added to store historical end-of-day summaries. A `client_accounts` collection is added to track individual transactions for favorite clients for monthly billing. This allows for long-term analysis without needing to query the entire `order_items` collection. To ensure authorization independence (CRITICAL), we rely solely on `request.auth.uid` and do not use `get()` calls in our security rules. This simplifies security and enables atomic operations.\n\nStructural Segregation (Homogeneous Security Posture):  All documents in the `order_items`, `daily_reports`, and `client_accounts` collections share the same public security requirements. This ensures we can use simple rules without needing to filter data based on its content.\n\nData Clarity and Predictability: Each document schema is clear and explicit.\n\nQAPs (Rules are not Filters): Since we are using a flat collection structure with all documents having the same security requirements, listing operations are inherently secure."
+    "reasoning": "The Firestore data structure is designed to support Mirinha's Tracker app, focusing on real-time access and data persistence. The primary entity `OrderItem` stores details of each order. A new collection `daily_reports` is added to store historical end-of-day summaries. A `client_accounts` collection is added to track individual transactions for favorite clients for monthly billing. A `bomboniere_items` collection is added to store the list of bomboniere items, ensuring the data is synchronized across all devices. This allows for long-term analysis without needing to query the entire `order_items` collection. To ensure authorization independence (CRITICAL), we rely solely on `request.auth.uid` and do not use `get()` calls in our security rules. This simplifies security and enables atomic operations.\n\nStructural Segregation (Homogeneous Security Posture):  All documents in the `order_items`, `daily_reports`, `client_accounts`, and `bomboniere_items` collections share the same public security requirements. This ensures we can use simple rules without needing to filter data based on its content.\n\nData Clarity and Predictability: Each document schema is clear and explicit.\n\nQAPs (Rules are not Filters): Since we are using a flat collection structure with all documents having the same security requirements, listing operations are inherently secure."
   }
 }
