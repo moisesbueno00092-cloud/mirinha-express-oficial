@@ -23,13 +23,26 @@ const formatCurrency = (value: number) => {
 
 const CustomTooltip = ({ active, payload }: any) => {
   if (active && payload && payload.length) {
+    const data = payload[0].payload;
+    const value = data.isCurrency ? formatCurrency(data.value) : data.value;
+    const percent = data.percent ? ` (${data.percent}%)` : '';
     return (
       <div className="bg-background border border-border p-2 rounded-lg shadow-lg text-xs">
-        <p className="label">{`${payload[0].name} : ${formatCurrency(payload[0].value)} (${payload[0].payload.percent}%)`}</p>
+        <p className="label">{`${data.name} : ${value}${percent}`}</p>
       </div>
     );
   }
   return null;
+};
+
+const PIE_CHART_COLORS = {
+    'Vendas salão': 'hsl(var(--chart-1))',
+    'Fiados salão': 'hsl(var(--destructive))',
+    'Vendas rua': 'hsl(var(--chart-2))',
+    'Fiados rua': 'hsl(var(--chart-5))',
+    'Refeições': 'hsl(var(--chart-1))',
+    'Bomboniere': 'hsl(var(--chart-2))',
+    'Entregas': 'hsl(var(--chart-3))',
 };
 
 export default function FinalReport({ items }: FinalReportProps) {
@@ -42,11 +55,11 @@ export default function FinalReport({ items }: FinalReportProps) {
     };
     
     let totalBomboniereValue = 0;
+    let totalBomboniereQuantity = 0;
     const itemCounts: { [key: string]: { total: number; rua: number } } = {};
     const bomboniereItemCounts: { [key: string]: { quantity: number; total: number } } = {};
     
-    let totalRuaItems = 0;
-    let totalGeralItems = 0;
+    let totalMealItems = 0;
     
     let deliveryCount = 0;
     let totalDeliveryFee = 0;
@@ -59,13 +72,11 @@ export default function FinalReport({ items }: FinalReportProps) {
         totalDeliveryFee += item.deliveryFee;
       }
       
-      let currentItemBomboniereValue = 0;
-
       if(item.bomboniereItems){
         item.bomboniereItems.forEach(bItem => {
             const bomboniereValue = bItem.price * bItem.quantity;
             totalBomboniereValue += bomboniereValue;
-            currentItemBomboniereValue += bomboniereValue;
+            totalBomboniereQuantity += bItem.quantity;
 
             if(!bomboniereItemCounts[bItem.name]){
                 bomboniereItemCounts[bItem.name] = { quantity: 0, total: 0 };
@@ -84,8 +95,7 @@ export default function FinalReport({ items }: FinalReportProps) {
           }
           itemCounts[pItem.name].total += 1;
           if (isRua) itemCounts[pItem.name].rua += 1;
-          totalGeralItems += 1;
-          if(isRua) totalRuaItems += 1;
+          totalMealItems += 1;
         });
       }
       
@@ -96,28 +106,33 @@ export default function FinalReport({ items }: FinalReportProps) {
         }
         itemCounts['KG'].total += kgCount;
         if(isRua) itemCounts['KG'].rua += kgCount;
-        totalGeralItems += kgCount;
-        if(isRua) totalRuaItems += kgCount;
+        totalMealItems += kgCount;
       }
     });
     
     const totalFaturamento = Object.values(totalsByGroup).reduce((acc, val) => acc + val, 0);
-    // Subtrai o valor das entregas do total de refeições, já que o faturamento do grupo já inclui a taxa.
     const totalMealValue = totalFaturamento - totalBomboniereValue - totalDeliveryFee;
     const totalAVista = totalsByGroup['Vendas salão'] + totalsByGroup['Vendas rua'];
     const totalFiado = totalsByGroup['Fiados salão'] + totalsByGroup['Fiados rua'];
 
-    const pieData = [
-      { name: 'Refeições', value: totalMealValue, percent: totalFaturamento > 0 ? ((totalMealValue / totalFaturamento) * 100).toFixed(0) : 0 },
-      { name: 'Bomboniere', value: totalBomboniereValue, percent: totalFaturamento > 0 ? ((totalBomboniereValue / totalFaturamento) * 100).toFixed(0) : 0 },
-      { name: 'Entregas', value: totalDeliveryFee, percent: totalFaturamento > 0 ? ((totalDeliveryFee / totalFaturamento) * 100).toFixed(0) : 0 },
+    const salesProportionData = [
+      { name: 'Refeições', value: totalMealValue, percent: totalFaturamento > 0 ? ((totalMealValue / totalFaturamento) * 100).toFixed(0) : 0, isCurrency: true },
+      { name: 'Bomboniere', value: totalBomboniereValue, percent: totalFaturamento > 0 ? ((totalBomboniereValue / totalFaturamento) * 100).toFixed(0) : 0, isCurrency: true },
+      { name: 'Entregas', value: totalDeliveryFee, percent: totalFaturamento > 0 ? ((totalDeliveryFee / totalFaturamento) * 100).toFixed(0) : 0, isCurrency: true },
     ].filter(d => d.value > 0);
-        
-    const COLORS = {
-        'Refeições': 'hsl(var(--destructive))',
-        'Bomboniere': '#3498db',
-        'Entregas': '#f1c40f',
-    };
+    
+    const faturamentoByGroupData = Object.entries(totalsByGroup).map(([name, value]) => ({
+      name: name as Group,
+      value: value,
+      percent: totalFaturamento > 0 ? ((value / totalFaturamento) * 100).toFixed(0) : 0,
+      isCurrency: true
+    })).filter(d => d.value > 0);
+    
+    const totalItemsCount = totalMealItems + totalBomboniereQuantity;
+    const itemsCountData = [
+      { name: 'Refeições', value: totalMealItems, percent: totalItemsCount > 0 ? ((totalMealItems / totalItemsCount) * 100).toFixed(0) : 0 },
+      { name: 'Bomboniere', value: totalBomboniereQuantity, percent: totalItemsCount > 0 ? ((totalBomboniereQuantity / totalItemsCount) * 100).toFixed(0) : 0 },
+    ].filter(d => d.value > 0);
 
     const sortedItemCounts = Object.entries(itemCounts).sort(([, a], [, b]) => b.total - a.total);
     const sortedBomboniereCounts = Object.entries(bomboniereItemCounts).sort(([, a], [, b]) => b.total - a.total);
@@ -129,12 +144,13 @@ export default function FinalReport({ items }: FinalReportProps) {
         totalFiado,
         deliveryCount,
         totalDeliveryFee,
-        totalGeralItems,
-        totalRuaItems,
+        totalMealItems,
+        totalRuaItems: items.filter(i => i.group.includes('rua')).reduce((acc, i) => acc + i.quantity, 0),
         itemCounts: sortedItemCounts,
         bomboniereItemCounts: sortedBomboniereCounts,
-        pieData,
-        COLORS,
+        salesProportionData,
+        faturamentoByGroupData,
+        itemsCountData,
         totalBomboniereValue,
         totalMealValue,
     };
@@ -149,6 +165,37 @@ export default function FinalReport({ items }: FinalReportProps) {
       </div>
     );
   }
+
+  const renderPieChart = (data: any[], title: string) => (
+    <div className="flex-1 min-w-[200px]">
+        <h3 className="font-semibold text-base sm:text-lg mb-2 text-center">{title}</h3>
+        <div style={{ width: '100%', height: 180 }}>
+            <ResponsiveContainer>
+                <PieChart>
+                    <Pie
+                        data={data}
+                        cx="50%"
+                        cy="50%"
+                        labelLine={false}
+                        outerRadius={60}
+                        innerRadius={25}
+                        fill="#8884d8"
+                        dataKey="value"
+                        nameKey="name"
+                        label={({ percent, name }) => name.length > 10 ? `${percent}%` : `${name}: ${percent}%`}
+                        className="text-xs"
+                    >
+                        {data.map((entry, index) => (
+                            <Cell key={`cell-${index}`} fill={PIE_CHART_COLORS[entry.name as keyof typeof PIE_CHART_COLORS]} />
+                        ))}
+                    </Pie>
+                    <Tooltip content={<CustomTooltip />} />
+                    <Legend wrapperStyle={{fontSize: "10px", marginTop: "10px"}} iconSize={8} />
+                </PieChart>
+            </ResponsiveContainer>
+        </div>
+    </div>
+  );
 
   return (
     <div className="bg-card text-card-foreground rounded-lg p-2 sm:p-6 space-y-4 sm:space-y-6">
@@ -169,7 +216,7 @@ export default function FinalReport({ items }: FinalReportProps) {
                     {formatCurrency(reportData.totalFaturamento)}
                 </CardDescription>
             </CardHeader>
-            <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-8 px-3 pb-3 sm:px-6 sm:pb-6">
+            <CardContent className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-8 px-3 pb-3 sm:px-6 sm:pb-6">
                 <div className="space-y-3 sm:space-y-4">
                     <h3 className="font-semibold text-base sm:text-lg">Resumo Financeiro</h3>
                     <div className="space-y-2 text-xs sm:text-sm">
@@ -189,9 +236,9 @@ export default function FinalReport({ items }: FinalReportProps) {
                             <span>Fiado (Rua):</span>
                             <span className="font-mono font-medium">{formatCurrency(reportData.totalsByGroup['Fiados rua'])}</span>
                         </div>
-                        <div className="flex justify-between text-destructive">
+                        <div className="flex justify-between text-yellow-500">
                            <span>Entregas ({reportData.deliveryCount}):</span>
-                           <span className="font-mono font-medium">-{formatCurrency(reportData.totalDeliveryFee)}</span>
+                           <span className="font-mono font-medium">{formatCurrency(reportData.totalDeliveryFee)}</span>
                         </div>
                     </div>
                      <Separator />
@@ -209,7 +256,7 @@ export default function FinalReport({ items }: FinalReportProps) {
                      <div className="space-y-2 text-xs sm:text-sm">
                         <div className="flex justify-between">
                             <span>Total Itens (Refeições):</span>
-                            <span className="font-mono font-medium">{reportData.totalGeralItems}</span>
+                            <span className="font-mono font-medium">{reportData.totalMealItems}</span>
                         </div>
                          <div className="flex justify-between">
                             <span>Total Itens (Rua):</span>
@@ -218,35 +265,10 @@ export default function FinalReport({ items }: FinalReportProps) {
                     </div>
                 </div>
 
-                <div className="space-y-4 sm:space-y-6">
-                     <div>
-                        <h3 className="font-semibold text-base sm:text-lg mb-2">Proporção de Vendas</h3>
-                        <div style={{ width: '100%', height: 180 }}>
-                            <ResponsiveContainer>
-                                <PieChart>
-                                    <Pie
-                                        data={reportData.pieData}
-                                        cx="50%"
-                                        cy="50%"
-                                        labelLine={false}
-                                        outerRadius={60}
-                                        innerRadius={25}
-                                        fill="#8884d8"
-                                        dataKey="value"
-                                        nameKey="name"
-                                        label={({ percent, name }) => name === 'Entregas' ? '' : `${percent}%`}
-                                        className="text-xs"
-                                    >
-                                        {reportData.pieData.map((entry, index) => (
-                                            <Cell key={`cell-${index}`} fill={reportData.COLORS[entry.name as keyof typeof reportData.COLORS]} />
-                                        ))}
-                                    </Pie>
-                                    <Tooltip content={<CustomTooltip />} />
-                                    <Legend wrapperStyle={{fontSize: "10px"}} iconSize={8} />
-                                </PieChart>
-                            </ResponsiveContainer>
-                        </div>
-                    </div>
+                <div className="flex flex-wrap justify-around items-start gap-4">
+                  {renderPieChart(reportData.salesProportionData, 'Proporção de Vendas')}
+                  {renderPieChart(reportData.faturamentoByGroupData, 'Faturamento por Grupo')}
+                  {renderPieChart(reportData.itemsCountData, 'Contagem de Itens')}
                 </div>
             </CardContent>
         </Card>
@@ -326,3 +348,5 @@ export default function FinalReport({ items }: FinalReportProps) {
     </div>
   );
 }
+
+    
