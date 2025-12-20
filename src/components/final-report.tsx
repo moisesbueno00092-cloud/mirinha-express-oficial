@@ -25,7 +25,7 @@ const CustomTooltip = ({ active, payload }: any) => {
   if (active && payload && payload.length) {
     const data = payload[0].payload;
     const value = data.isCurrency ? formatCurrency(data.value) : data.value.toLocaleString('pt-BR');
-    const percent = data.percent ? ` (${data.percent.toFixed(0)}%)` : '';
+    const percent = data.percent ? ` (${(data.percent * 100).toFixed(0)}%)` : '';
     return (
       <div className="bg-background border border-border p-2 rounded-lg shadow-lg text-xs">
         <p className="label">{`${data.name} : ${value}${percent}`}</p>
@@ -129,7 +129,7 @@ export default function FinalReport({ items }: FinalReportProps) {
         }))
         .filter(d => d.value > 0);
     const totalFaturamentoForPercent = faturamentoByGroupData.reduce((sum, item) => sum + item.value, 0);
-    const faturamentoByGroupDataWithPercent = faturamentoByGroupData.map(item => ({...item, percent: totalFaturamentoForPercent > 0 ? (item.value / totalFaturamentoForPercent) * 100 : 0, isCurrency: true}));
+    const faturamentoByGroupDataWithPercent = faturamentoByGroupData.map(item => ({...item, percent: totalFaturamentoForPercent > 0 ? (item.value / totalFaturamentoForPercent) : 0, isCurrency: true}));
 
 
     // 2. Proporção de Vendas (Receita)
@@ -141,7 +141,7 @@ export default function FinalReport({ items }: FinalReportProps) {
     const salesTotalForProportion = salesProportionData.reduce((sum, item) => sum + item.value, 0);
     const salesProportionDataWithPercent = salesProportionData.map(d => ({
         ...d,
-        percent: salesTotalForProportion > 0 ? (d.value / salesTotalForProportion) * 100 : 0,
+        percent: salesTotalForProportion > 0 ? (d.value / salesTotalForProportion) : 0,
     }));
     
     // 3. Contagem de Itens
@@ -152,7 +152,7 @@ export default function FinalReport({ items }: FinalReportProps) {
     const totalItemsCount = itemsCountData.reduce((sum, item) => sum + item.value, 0);
     const itemsCountDataWithPercent = itemsCountData.map(d => ({
         ...d,
-        percent: totalItemsCount > 0 ? (d.value / totalItemsCount) * 100 : 0
+        percent: totalItemsCount > 0 ? (d.value / totalItemsCount) : 0
     }));
 
     const sortedItemCounts = Object.entries(itemCounts).sort(([, a], [, b]) => b.total - a.total);
@@ -187,10 +187,30 @@ export default function FinalReport({ items }: FinalReportProps) {
     );
   }
   
+  const RADIAN = Math.PI / 180;
+  const renderCustomizedLabel = ({ cx, cy, midAngle, outerRadius, percent }: any) => {
+    const radius = outerRadius + 12;
+    const x = cx + radius * Math.cos(-midAngle * RADIAN);
+    const y = cy + radius * Math.sin(-midAngle * RADIAN);
+
+    return (
+      <text
+        x={x}
+        y={y}
+        fill="currentColor"
+        textAnchor={x > cx ? 'start' : 'end'}
+        dominantBaseline="central"
+        className="text-xs text-foreground"
+      >
+        {`${(percent * 100).toFixed(0)}%`}
+      </text>
+    );
+  };
+  
   const renderPieChart = (data: any[], title: string) => (
     <div className="flex-1 min-w-[200px] flex flex-col">
         <h3 className="font-semibold text-base sm:text-lg mb-2 text-center">{title}</h3>
-        <div style={{ width: '100%', height: 180 }}>
+        <div style={{ width: '100%', height: 200 }}>
             <ResponsiveContainer>
                 <PieChart>
                     <Pie
@@ -198,6 +218,7 @@ export default function FinalReport({ items }: FinalReportProps) {
                         cx="50%"
                         cy="50%"
                         labelLine={false}
+                        label={renderCustomizedLabel}
                         outerRadius={60}
                         innerRadius={30}
                         fill="#8884d8"
@@ -211,7 +232,7 @@ export default function FinalReport({ items }: FinalReportProps) {
                     </Pie>
                     <Tooltip content={<CustomTooltip />} />
                     <Legend 
-                      wrapperStyle={{fontSize: "12px", paddingTop: "10px"}} 
+                      wrapperStyle={{fontSize: "12px", paddingTop: "10px", marginTop: "10px"}} 
                       iconSize={10} 
                       layout="horizontal" 
                       verticalAlign="bottom" 
