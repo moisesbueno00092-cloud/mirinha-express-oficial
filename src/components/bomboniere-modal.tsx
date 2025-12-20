@@ -102,6 +102,7 @@ export default function BomboniereModal({ isOpen, onClose, onAddItems, bombonier
     e.preventDefault();
     if (!firestore) return;
     const formData = new FormData(e.currentTarget);
+    const id = formData.get('id') as string;
 
     if(isAdding) {
         const newItemInput = formData.get('newItemInput') as string;
@@ -122,13 +123,12 @@ export default function BomboniereModal({ isOpen, onClose, onAddItems, bombonier
         }
         if (addFormRef.current) addFormRef.current.reset();
         
-    } else if (itemToEdit) {
-        const id = formData.get('id') as string;
+    } else if (itemToEdit && id) {
         const name = formData.get('name') as string;
         const price = parseFloat((formData.get('price') as string).replace(',', '.'));
         const docRef = doc(firestore, 'bomboniere_items', id);
         
-        if (id && name && !isNaN(price)) {
+        if (name && !isNaN(price)) {
             updateDocumentNonBlocking(docRef, { name, price });
         }
         setItemToEdit(null);
