@@ -46,7 +46,7 @@ const formatTimestamp = (timestamp: string) => {
 
 const groupBadgeStyles: Record<Group, string> = {
   "Vendas salão": "bg-purple-600 hover:bg-purple-700 border-transparent text-white",
-  "Fiados salão": "bg-red-600 hover:bg-red-700 border-transparent text-white",
+  "Fiados salão": "bg-destructive hover:bg-destructive/90 border-transparent text-destructive-foreground",
   "Vendas rua": "bg-blue-600 hover:bg-blue-700 border-transparent text-white",
   "Fiados rua": "bg-orange-500 hover:bg-orange-600 border-transparent text-white",
 };

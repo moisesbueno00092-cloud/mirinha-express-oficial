@@ -114,7 +114,7 @@ export default function FinalReport({ items }: FinalReportProps) {
     ].filter(d => d.value > 0);
         
     const COLORS = {
-        'Refeições': '#d92550',
+        'Refeições': 'hsl(var(--destructive))',
         'Bomboniere': '#3498db',
         'Entregas': '#f1c40f',
     };

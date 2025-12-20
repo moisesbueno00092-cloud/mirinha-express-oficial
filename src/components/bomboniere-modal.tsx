@@ -172,7 +172,7 @@ export default function BomboniereModal({ isOpen, onClose, onAddItems, bombonier
   };
 
   const getStockColor = (stock: number) => {
-      if (stock <= 5) return 'text-red-500';
+      if (stock <= 5) return 'text-destructive';
       if (stock <= 20) return 'text-yellow-500';
       if (stock <= 30) return 'text-blue-500';
       return 'text-muted-foreground';
