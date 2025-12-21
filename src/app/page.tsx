@@ -160,14 +160,18 @@ export default function Home() {
             const quantityMatch = part.match(/^(\d+)([\w\d-]+)$/i);
             let baseQuantity = 1;
             let currentItemCode = upperPart;
+            let currentItemNameOnly = upperPart;
 
             if (quantityMatch) {
                 baseQuantity = parseInt(quantityMatch[1], 10);
                 currentItemCode = quantityMatch[2].toUpperCase();
+                currentItemNameOnly = quantityMatch[2];
+            } else {
+                 currentItemNameOnly = part;
             }
 
             const isPredefined = PREDEFINED_PRICES[currentItemCode];
-            const bomboniereItemDef = bomboniereItems?.find(bi => bi.name.toUpperCase().replace(/\s+/g, '-') === currentItemCode);
+            const bomboniereItemDef = bomboniereItems?.find(bi => bi.name.toLowerCase().replace(/\s+/g, '-') === currentItemNameOnly.toLowerCase());
             
             if (isPredefined) {
                 const defaultPrice = PREDEFINED_PRICES[currentItemCode];
@@ -185,7 +189,7 @@ export default function Home() {
                 }
                 totalQuantity += baseQuantity;
             } else if (bomboniereItemDef) {
-                let priceToUse = bomboniereItemDef.price;
+                 let priceToUse = bomboniereItemDef.price;
                  if (i + 1 < parts.length && isNumeric(parts[i + 1])) {
                     priceToUse = parseFloat(parts[i + 1].replace(',', '.'));
                     i++; // Consume the price part
@@ -417,7 +421,14 @@ export default function Home() {
             const bomboniereDef = bomboniereItems.find(item => item.id === bi.id);
             const namePart = bomboniereDef ? bomboniereDef.name.toLowerCase().replace(/\s+/g, '-') : bi.name.toLowerCase();
 
-            reconstructedParts.push(`${qtyPart}${namePart} ${String(bi.price).replace('.', ',')}`);
+            // Check if the price is the default bomboniere price. If not, append it.
+            let part = `${qtyPart}${namePart}`;
+            if (bomboniereDef && bi.price !== bomboniereDef.price) {
+                part += ` ${String(bi.price).replace('.', ',')}`;
+            } else if (!bomboniereDef) { // If it's a custom item, always add price
+                 part += ` ${String(bi.price).replace('.', ',')}`;
+            }
+            reconstructedParts.push(part);
         });
     }
 
@@ -657,5 +668,7 @@ export default function Home() {
     </>
   );
 }
+
+    
 
     

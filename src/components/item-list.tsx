@@ -147,7 +147,7 @@ const renderItemName = (item: Item) => {
     // Handle bomboniere items
     if (item.bomboniereItems && item.bomboniereItems.length > 0) {
         item.bomboniereItems.forEach((bItem, index) => {
-            const badgeLabel = bItem.quantity > 1 ? `${bItem.quantity}${bItem.name}` : bItem.name;
+            const badgeLabel = bItem.quantity > 1 ? `${bItem.quantity}${bItem.name.replace(/\s+/g, '-')}` : bItem.name.replace(/\s+/g, '-');
             itemElements.push(
                 <div key={`bomboniere-group-${index}`} className="flex flex-col items-center">
                     <Badge className={cn("whitespace-nowrap", getItemBadgeStyle(bItem.name))}>
@@ -235,3 +235,6 @@ export default function ItemList({ items, onEdit, onDelete, isLoading }: ItemLis
     </div>
   );
 }
+
+
+    
