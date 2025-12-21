@@ -48,6 +48,14 @@ export default function ManageFavoritesModal({ isOpen, onClose, favoriteClients 
     }
   }, [isOpen]);
 
+  useEffect(() => {
+    // Reset form only when switching to adding mode
+    if (isAdding && addFormRef.current) {
+        addFormRef.current.reset();
+    }
+  }, [isAdding]);
+
+
   const handleSaveItem = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     if (!firestore) return;
