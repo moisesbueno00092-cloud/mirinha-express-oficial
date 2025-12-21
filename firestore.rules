@@ -38,8 +38,7 @@ service cloud.firestore {
     /**
      * @description Allows public read/write access to individual client account entries and allows listing of the entire collection.
      * @path        /client_accounts/{clientAccountId}
-     * @allow       (read, write) Any client can create, read, update, and delete individual entries.
-     * @allow       (list) Any client can list all client account entries.
+     * @allow       (read, write, list) Any client can create, read, update, delete, and list all entries.
      * @principle   Provides open access for a simple, single-user application.
      */
     match /client_accounts/{clientAccountId} {
