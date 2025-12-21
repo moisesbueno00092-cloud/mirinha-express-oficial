@@ -85,21 +85,6 @@ const getItemBadgeStyle = (itemName: string) => {
 const renderItemName = (item: Item) => {
     const itemElements = [];
 
-    // Handle favorite client
-    if (item.customerName) {
-      itemElements.push(
-        <div key={`fav-client-${item.id}`} className="flex flex-col items-start">
-            <div className="flex items-center gap-1.5">
-                <User className="h-3 w-3 text-amber-500" />
-                <span className="font-semibold">{item.customerName}</span>
-            </div>
-            <span className="text-xs text-muted-foreground pl-5">{item.name}</span>
-        </div>
-      );
-      return <div className="flex flex-wrap gap-2 items-start">{itemElements}</div>;
-    }
-
-
     // Handle predefined items by counting them
     if (item.predefinedItems && item.predefinedItems.length > 0) {
       const itemCounts: Record<string, { count: number; price: number }> = {};
@@ -163,9 +148,22 @@ const renderItemName = (item: Item) => {
     }
 
     if (itemElements.length === 0 && item.name) {
-       return <Badge className={cn("whitespace-nowrap", getItemBadgeStyle(item.name))}>{item.name}</Badge>;
+       itemElements.push(<Badge key={`name-badge-${item.id}`} className={cn("whitespace-nowrap", getItemBadgeStyle(item.name))}>{item.name}</Badge>);
     }
 
+    // Handle favorite client
+    if (item.customerName) {
+        return (
+          <div key={`fav-client-${item.id}`} className="flex flex-col items-start gap-1">
+              <div className="flex items-center gap-1.5">
+                  <User className="h-3 w-3 text-amber-500" />
+                  <span className="font-semibold text-xs text-foreground/80">{item.customerName}</span>
+              </div>
+              <div className="flex flex-wrap gap-2 items-start">{itemElements}</div>
+          </div>
+        );
+    }
+    
     return <div className="flex flex-wrap gap-2 items-start">{itemElements}</div>;
 }
 
