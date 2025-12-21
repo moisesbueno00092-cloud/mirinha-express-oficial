@@ -42,12 +42,14 @@ export default function ManageFavoritesModal({ isOpen, onClose, favoriteClients 
   const [newName, setNewName] = useState('');
   const [newCommand, setNewCommand] = useState('');
   
-  useEffect(() => {
-    if(!isOpen) {
-        setIsAdding(false);
-        setEditingClient(null);
-    }
-  }, [isOpen]);
+  const handleClose = () => {
+    // Reset state before closing
+    setIsAdding(false);
+    setEditingClient(null);
+    setNewName('');
+    setNewCommand('');
+    onClose();
+  };
 
   const handleSaveItem = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -93,7 +95,7 @@ export default function ManageFavoritesModal({ isOpen, onClose, favoriteClients 
   const sortedClients = [...favoriteClients].sort((a,b) => a.name.localeCompare(b.name));
 
   return (
-    <Dialog open={isOpen} onOpenChange={onClose}>
+    <Dialog open={isOpen} onOpenChange={(open) => !open && handleClose()}>
       <DialogContent className="sm:max-w-md">
         <AlertDialog open={!!clientToDelete} onOpenChange={(open) => !open && setClientToDelete(null)}>
             <AlertDialogContent>
@@ -170,7 +172,7 @@ export default function ManageFavoritesModal({ isOpen, onClose, favoriteClients 
         </ScrollArea>
         
         <DialogFooter className="mt-4 gap-2 sm:gap-0">
-          <Button variant="outline" className="w-full" onClick={() => { setIsAdding(prev => !prev); setEditingClient(null); }} disabled={isAdding || !!editingClient}>
+          <Button variant="outline" className="w-full" onClick={() => { setIsAdding(prev => !prev); setEditingClient(null); }}>
             <Plus className="h-4 w-4 mr-2" />
             Adicionar Novo
           </Button>
