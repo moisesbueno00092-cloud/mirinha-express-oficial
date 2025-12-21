@@ -32,86 +32,56 @@ interface ManageFavoritesModalProps {
   favoriteClients: FavoriteClient[];
 }
 
-function FavoriteForm({
-    selectedClient,
-    onSave,
-    onClearSelection,
-  }: {
-    selectedClient: FavoriteClient | null;
-    onSave: (id: string | null, data: { name: string; command: string }) => void;
-    onClearSelection: () => void;
-  }) {
-    const [formData, setFormData] = useState({ name: '', command: '' });
-  
-    useEffect(() => {
-      if (selectedClient) {
-        setFormData({ name: selectedClient.name, command: selectedClient.command });
-      } else {
-        setFormData({ name: '', command: '' });
-      }
-    }, [selectedClient]);
-  
-    const handleFormChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-      const { name, value } = e.target;
-      setFormData((prev) => ({ ...prev, [name]: value }));
-    };
-  
-    const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
-      e.preventDefault();
-      if (!formData.name || !formData.command) return;
-      onSave(selectedClient?.id || null, formData);
-      setFormData({ name: '', command: '' }); // Reset form after saving
-    };
-  
-    return (
-      <form onSubmit={handleSubmit} className="p-4 bg-muted/50 rounded-lg space-y-3">
-        <div className="flex justify-between items-center">
-          <h3 className="font-semibold text-center">
-            {selectedClient ? 'Editar Cliente' : 'Adicionar Novo Cliente'}
-          </h3>
-          {selectedClient && (
-            <Button type="button" variant="ghost" size="sm" onClick={onClearSelection}>
-              <Plus className="h-4 w-4 mr-2" /> Novo
-            </Button>
-          )}
-        </div>
-        <div className="space-y-1">
-          <Label htmlFor="form-name">Nome do Cliente</Label>
-          <Input id="form-name" name="name" placeholder="Ex: João da Silva" required value={formData.name} onChange={handleFormChange} />
-        </div>
-        <div className="space-y-1">
-          <Label htmlFor="form-command">Comando de Lançamento</Label>
-          <Input id="form-command" name="command" placeholder="Ex: pf coquinha" required value={formData.command} onChange={handleFormChange} />
-        </div>
-        <div className="flex justify-end gap-2 pt-2">
-          <Button type="submit" size="sm" disabled={!formData.name || !formData.command}>
-            <Save className="h-4 w-4 mr-2" /> Salvar
-          </Button>
-        </div>
-      </form>
-    );
-}
-
 export default function ManageFavoritesModal({ isOpen, onClose, favoriteClients }: ManageFavoritesModalProps) {
     const firestore = useFirestore();
     const favoriteClientsRef = useMemoFirebase(() => collection(firestore, 'favorite_clients'), [firestore]);
   
     const [clientToDelete, setClientToDelete] = useState<string | null>(null);
-    const [selectedClientId, setSelectedClientId] = useState<string | null>(null);
+    const [editingClient, setEditingClient] = useState<FavoriteClient | null>(null);
+    const [isAdding, setIsAdding] = useState(false);
+    const [newName, setNewName] = useState('');
+    const [newCommand, setNewCommand] = useState('');
+
+    useEffect(() => {
+        if (isOpen) {
+          setEditingClient(null);
+          setIsAdding(false);
+          setNewName('');
+          setNewCommand('');
+        }
+      }, [isOpen]);
   
-    const handleSave = (id: string | null, data: { name: string; command: string }) => {
-      if (!firestore) return;
-  
-      if (id) {
-        // Editing existing client
-        const docRef = doc(firestore, 'favorite_clients', id);
-        updateDocumentNonBlocking(docRef, data);
-      } else {
-        // Adding new client
-        addDocumentNonBlocking(favoriteClientsRef, data);
-      }
-      setSelectedClientId(null); // Clear selection after save
+    const handleSave = () => {
+        if (!firestore || !newName.trim() || !newCommand.trim()) return;
+
+        const data = { name: newName, command: newCommand };
+
+        if (editingClient) {
+            const docRef = doc(firestore, 'favorite_clients', editingClient.id);
+            updateDocumentNonBlocking(docRef, data);
+        } else {
+            addDocumentNonBlocking(favoriteClientsRef, data);
+        }
+        
+        setNewName('');
+        setNewCommand('');
+        setEditingClient(null);
+        setIsAdding(false);
     };
+
+    const handleEditClick = (client: FavoriteClient) => {
+        setIsAdding(false);
+        setEditingClient(client);
+        setNewName(client.name);
+        setNewCommand(client.command);
+    }
+    
+    const handleAddNewClick = () => {
+        setEditingClient(null);
+        setIsAdding(true);
+        setNewName('');
+        setNewCommand('');
+    }
   
     const handleDeleteRequest = (id: string) => {
       setClientToDelete(id);
@@ -125,25 +95,71 @@ export default function ManageFavoritesModal({ isOpen, onClose, favoriteClients 
       }
     };
   
-    const handleModalOpenChange = (open: boolean) => {
-      if (!open) {
-        setSelectedClientId(null); // Reset state when closing
-        onClose();
-      }
-    };
-  
     const sortedClients = useMemo(() => 
       [...favoriteClients].sort((a, b) => a.name.localeCompare(b.name)),
       [favoriteClients]
     );
-  
-    const selectedClient = useMemo(() => 
-        sortedClients.find(c => c.id === selectedClientId) || null,
-        [selectedClientId, sortedClients]
+
+    const renderList = () => (
+        <>
+            <ScrollArea className="h-72 -mx-6 px-6">
+                <div className="space-y-3">
+                {sortedClients.map((client) => (
+                    <Card key={client.id} className={cn(editingClient?.id === client.id && 'border-primary')}>
+                    <CardContent className="p-3 flex items-center">
+                        <div className="flex-grow">
+                        <p className="font-semibold">{client.name}</p>
+                        <p className="text-sm text-muted-foreground font-mono">{client.command}</p>
+                        </div>
+                        <div className="flex">
+                        <Button variant="ghost" size="icon" onClick={() => handleEditClick(client)}>
+                            <Pencil className="h-4 w-4" />
+                        </Button>
+                        <Button
+                            variant="ghost"
+                            size="icon"
+                            className="text-destructive hover:text-destructive"
+                            onClick={() => handleDeleteRequest(client.id)}
+                        >
+                            <Trash2 className="h-4 w-4" />
+                        </Button>
+                        </div>
+                    </CardContent>
+                    </Card>
+                ))}
+                </div>
+            </ScrollArea>
+             <Button variant="outline" className="w-full mt-4" onClick={handleAddNewClick}>
+                <Plus className="h-4 w-4 mr-2" />
+                Adicionar Novo Cliente
+            </Button>
+        </>
+    );
+
+    const renderForm = () => (
+        <div className="p-4 bg-muted/50 rounded-lg space-y-3">
+            <h3 className="font-semibold text-center">
+              {editingClient ? 'Editar Cliente' : 'Adicionar Novo Cliente'}
+            </h3>
+            <div className="space-y-1">
+              <Label htmlFor="form-name">Nome do Cliente</Label>
+              <Input id="form-name" placeholder="Ex: João da Silva" required value={newName} onChange={(e) => setNewName(e.target.value)} />
+            </div>
+            <div className="space-y-1">
+              <Label htmlFor="form-command">Comando de Lançamento</Label>
+              <Input id="form-command" placeholder="Ex: pf coquinha" required value={newCommand} onChange={(e) => setNewCommand(e.target.value)} />
+            </div>
+            <div className="flex justify-end gap-2 pt-2">
+              <Button type="button" variant="ghost" size="sm" onClick={() => { setIsAdding(false); setEditingClient(null); }}>Cancelar</Button>
+              <Button type="button" size="sm" onClick={handleSave} disabled={!newName.trim() || !newCommand.trim()}>
+                <Save className="h-4 w-4 mr-2" /> Salvar
+              </Button>
+            </div>
+        </div>
     );
   
     return (
-      <Dialog open={isOpen} onOpenChange={handleModalOpenChange}>
+      <Dialog open={isOpen} onOpenChange={onClose}>
         <DialogContent className="sm:max-w-md">
           <AlertDialog open={!!clientToDelete} onOpenChange={(open) => !open && setClientToDelete(null)}>
             <AlertDialogContent>
@@ -163,47 +179,16 @@ export default function ManageFavoritesModal({ isOpen, onClose, favoriteClients 
           <DialogHeader>
             <DialogTitle>Gerenciar Clientes Favoritos</DialogTitle>
           </DialogHeader>
-  
-          <ScrollArea className="h-72 -mx-6 px-6">
-            <div className="space-y-3">
-              {sortedClients.map((client) => (
-                <Card key={client.id} className={cn(client.id === selectedClientId && 'border-primary')}>
-                  <CardContent className="p-3 flex items-center">
-                    <div className="flex-grow">
-                      <p className="font-semibold">{client.name}</p>
-                      <p className="text-sm text-muted-foreground font-mono">{client.command}</p>
-                    </div>
-                    <div className="flex">
-                      <Button variant="ghost" size="icon" onClick={() => setSelectedClientId(client.id)}>
-                        <Pencil className="h-4 w-4" />
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="text-destructive hover:text-destructive"
-                        onClick={() => handleDeleteRequest(client.id)}
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
-          </ScrollArea>
-  
-          <FavoriteForm
-            selectedClient={selectedClient}
-            onSave={handleSave}
-            onClearSelection={() => setSelectedClientId(null)}
-          />
+
+          {isAdding || editingClient ? renderForm() : renderList()}
   
           <DialogFooter className="mt-2">
             <DialogClose asChild>
-              <Button className="w-full">Fechar</Button>
+              <Button className="w-full" variant="outline">Fechar</Button>
             </DialogClose>
           </DialogFooter>
         </DialogContent>
       </Dialog>
     );
   }
+
