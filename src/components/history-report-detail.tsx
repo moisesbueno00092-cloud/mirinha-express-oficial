@@ -54,14 +54,14 @@ export default function HistoryReportDetail({ report, onBack, onDelete }: Histor
         .map(([name, value]) => ({ name, value, percent: totalFaturamentoForPercent > 0 ? value / totalFaturamentoForPercent : 0, isCurrency: true }))
         .filter(d => d.value > 0);
 
-    const salesTotalForProportion = reportData.totalMealValue + reportData.totalBomboniereValue + reportData.totalDeliveryFee;
+    const salesTotalForProportion = (reportData.totalMealValue || 0) + (reportData.totalBomboniereValue || 0) + (reportData.totalDeliveryFee || 0);
     const salesProportionData = [
         { name: 'Refeições', value: reportData.totalMealValue, percent: salesTotalForProportion > 0 ? reportData.totalMealValue / salesTotalForProportion : 0, isCurrency: true },
         { name: 'Bomboniere', value: reportData.totalBomboniereValue, percent: salesTotalForProportion > 0 ? reportData.totalBomboniereValue / salesTotalForProportion : 0, isCurrency: true },
         { name: 'Entregas', value: reportData.totalDeliveryFee, percent: salesTotalForProportion > 0 ? reportData.totalDeliveryFee / salesTotalForProportion : 0, isCurrency: true },
     ].filter(d => d.value > 0);
     
-    const totalItemsCount = reportData.totalMealItems + reportData.totalBomboniereQuantity;
+    const totalItemsCount = (reportData.totalMealItems || 0) + (reportData.totalBomboniereQuantity || 0);
     const itemsCountData = [
         { name: 'Refeições', value: reportData.totalMealItems, percent: totalItemsCount > 0 ? reportData.totalMealItems / totalItemsCount : 0 },
         { name: 'Bomboniere', value: reportData.totalBomboniereQuantity, percent: totalItemsCount > 0 ? reportData.totalBomboniereQuantity / totalItemsCount : 0 },
@@ -204,14 +204,34 @@ export default function HistoryReportDetail({ report, onBack, onDelete }: Histor
                     <CardTitle className="text-base sm:text-lg">Contagem de Refeições</CardTitle>
                 </CardHeader>
                 <CardContent className="text-xs sm:text-sm">
-                    <ul className="space-y-1 mt-2">
-                        {Object.entries(reportData.itemCounts).map(([name, count]) => (
-                            <li key={name} className="flex items-baseline justify-between gap-2">
-                                <span className="font-medium">{name}:</span>
-                                <span className="font-mono">{count.total}</span>
-                            </li>
-                        ))}
-                    </ul>
+                    <div className="grid grid-cols-2 gap-x-4">
+                        <div>
+                            <h4 className="font-medium mb-1 border-b pb-1">Total</h4>
+                            <ul className="space-y-1 mt-2">
+                                {Object.entries(reportData.itemCounts).map(([name, count]) => (
+                                    <li key={name} className="flex items-baseline justify-between gap-2">
+                                        <div className="flex items-baseline gap-2">
+                                            <span className="font-medium">{name}:</span>
+                                            <span className="font-mono">{count.total}</span>
+                                        </div>
+                                    </li>
+                                ))}
+                            </ul>
+                        </div>
+                        <div>
+                            <h4 className="font-medium mb-1 border-b pb-1">Rua</h4>
+                            <ul className="space-y-1 mt-2">
+                                {Object.entries(reportData.itemCounts).filter(([, count]) => count.rua > 0).map(([name, count]) => (
+                                    <li key={name} className="flex items-baseline justify-between gap-2">
+                                        <div className="flex items-baseline gap-2">
+                                            <span className="font-medium">{name}:</span>
+                                            <span className="font-mono">{count.rua}</span>
+                                        </div>
+                                    </li>
+                                ))}
+                            </ul>
+                        </div>
+                    </div>
                 </CardContent>
             </Card>
             <Card>
@@ -236,3 +256,5 @@ export default function HistoryReportDetail({ report, onBack, onDelete }: Histor
     </div>
   );
 }
+
+    

@@ -208,6 +208,8 @@ export default function FinalReport({ items, onClearData }: FinalReportProps) {
 
     // 1. Salvar o relatório
     const reportDocRef = doc(firestore, "daily_reports", reportId);
+    
+    // Explicitly keep the full structure for itemCounts
     const itemCountsAsObject = Object.fromEntries(reportData.itemCounts);
     const bomboniereItemCountsAsObject = Object.fromEntries(reportData.bomboniereItemCounts);
 
@@ -224,7 +226,7 @@ export default function FinalReport({ items, onClearData }: FinalReportProps) {
         totalBomboniereValue: reportData.totalBomboniereValue,
         totalBomboniereQuantity: reportData.totalBomboniereQuantity,
         totalsByGroup: reportData.totalsByGroup,
-        itemCounts: itemCountsAsObject,
+        itemCounts: itemCountsAsObject, // Save the full object with 'total' and 'rua'
         bomboniereItemCounts: bomboniereItemCountsAsObject,
         totalMealValue: reportData.totalMealValue,
       },
@@ -491,5 +493,7 @@ export default function FinalReport({ items, onClearData }: FinalReportProps) {
   );
 }
 
+
+    
 
     
