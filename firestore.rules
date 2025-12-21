@@ -44,6 +44,7 @@ service cloud.firestore {
     match /client_accounts/{clientAccountId} {
       allow read, write, delete: if true;
     }
+
     /**
      * @description Allows public listing of the client_accounts collection.
      *              - Any client can list the entire collection.
