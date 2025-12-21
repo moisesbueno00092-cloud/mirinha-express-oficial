@@ -42,12 +42,17 @@ export default function ManageFavoritesModal({ isOpen, onClose, favoriteClients 
   const [newName, setNewName] = useState('');
   const [newCommand, setNewCommand] = useState('');
   
-  const handleClose = () => {
-    // Reset state before closing
-    setIsAdding(false);
-    setEditingClient(null);
-    onClose();
-  };
+  useEffect(() => {
+    // Reset internal state when the modal is opened
+    if (isOpen) {
+      setIsAdding(false);
+      setEditingClient(null);
+      setClientToDelete(null);
+      setNewName('');
+      setNewCommand('');
+    }
+  }, [isOpen]);
+
 
   const handleSaveItem = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -93,11 +98,7 @@ export default function ManageFavoritesModal({ isOpen, onClose, favoriteClients 
   const sortedClients = [...favoriteClients].sort((a,b) => a.name.localeCompare(b.name));
 
   return (
-    <Dialog open={isOpen} onOpenChange={(open) => {
-      if (!open) {
-        handleClose();
-      }
-    }}>
+    <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
       <DialogContent className="sm:max-w-md">
         <AlertDialog open={!!clientToDelete} onOpenChange={(open) => !open && setClientToDelete(null)}>
             <AlertDialogContent>
