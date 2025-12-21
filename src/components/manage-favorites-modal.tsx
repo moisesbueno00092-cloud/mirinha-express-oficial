@@ -40,7 +40,6 @@ export default function ManageFavoritesModal({ isOpen, onClose, favoriteClients 
   const [editingClient, setEditingClient] = useState<FavoriteClient | null>(null);
 
   const addFormRef = useRef<HTMLFormElement>(null);
-  const editFormRef = useRef<HTMLFormElement>(null);
   
   useEffect(() => {
     if(!isOpen) {
@@ -120,7 +119,7 @@ export default function ManageFavoritesModal({ isOpen, onClose, favoriteClients 
           <div className="space-y-3">
             {sortedClients.map(client => (
               editingClient?.id === client.id ? (
-                <form key={client.id} ref={editFormRef} onSubmit={handleSaveItem} className="p-4 bg-muted/50 rounded-lg space-y-3">
+                <form key={client.id} onSubmit={handleSaveItem} className="p-4 bg-muted/50 rounded-lg space-y-3">
                     <div className="space-y-1">
                         <Label htmlFor={`edit-name-${client.id}`}>Nome do Cliente</Label>
                         <Input id={`edit-name-${client.id}`} name="name" defaultValue={client.name} required />
