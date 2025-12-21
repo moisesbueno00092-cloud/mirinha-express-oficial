@@ -98,6 +98,7 @@ export default function Home() {
         let deliveryFeeApplicable = false;
         let isTaxExempt = false;
         let originalGroup: Group | null = null;
+        let customerName: string | undefined = undefined;
         
         const partsWithExemption = mainInput.split(' ').filter(part => part.trim() !== '');
         if (partsWithExemption.map(p => p.toUpperCase()).includes('E')) {
@@ -227,6 +228,9 @@ export default function Home() {
                 } catch(e) {
                     console.error("AI parsing failed, skipping part:", part, e);
                 }
+            } else if (!isPredefined && !bomboniereItemDef && !isNumeric(part) && /^[a-zA-Z]+$/.test(part) && (group.startsWith('Fiado'))) {
+                // Assume it's a customer name for fiado
+                customerName = part;
             }
         }
         
@@ -262,6 +266,7 @@ export default function Home() {
         const hasBomboniereItems = processedBomboniereItems.length > 0;
 
         const nameParts = [];
+        if (customerName) nameParts.push(customerName);
         if (hasPredefinedItems) nameParts.push(predefinedItems.map(p => p.name).join(' '));
         if (hasKgItems) nameParts.push('KG');
         if (hasBomboniereItems) nameParts.push('Bomboniere');
@@ -277,6 +282,7 @@ export default function Home() {
             group,
             timestamp: new Date().toISOString(),
             deliveryFee,
+            ...(customerName && { customerName }),
             ...(individualPrices.length > 0 ? { individualPrices } : {}),
             ...(predefinedItems.length > 0 ? { predefinedItems } : {}),
             ...(processedBomboniereItems.length > 0 ? { bomboniereItems: processedBomboniereItems } : {}),
@@ -318,33 +324,18 @@ export default function Home() {
   const handleFavoriteLaunch = (client: FavoriteClient) => {
     if (!firestore) return;
     
-    // 1. Add to daily order_items
-    const dailyItem: Omit<Item, 'id'> = {
-      name: client.orderDescription,
-      quantity: 1,
-      price: client.price,
-      group: 'Fiados salão',
-      timestamp: new Date().toISOString(),
-      deliveryFee: 0,
-      total: client.price,
-      favoriteClientId: client.id,
-      customerName: client.name,
-    };
-    addDocumentNonBlocking(orderItemsRef, dailyItem);
+    // The command to be executed, always as fiado and with the client's name
+    const commandToExecute = `F ${client.name} ${client.command}`;
+    
+    handleUpsertItem(commandToExecute);
 
-    // 2. Add to permanent client_accounts
-    const accountEntry = {
-        customerId: client.id,
-        customerName: client.name,
-        description: client.orderDescription,
-        price: client.price,
-        timestamp: new Date().toISOString()
-    };
-    addDocumentNonBlocking(clientAccountsRef, accountEntry);
-
+    // TODO: Decide if client_accounts collection is still needed with this new flow.
+    // For now, let's keep it simple and just process the command.
+    // The name is already in the command, so the item will be associated with the client.
+    
     toast({
       title: "Lançamento Rápido",
-      description: `Pedido para ${client.name} adicionado com sucesso.`,
+      description: `Comando para ${client.name} executado.`,
     });
   }
 
@@ -384,9 +375,8 @@ export default function Home() {
 
     let reconstructedParts: string[] = [];
     
-    if (item.favoriteClientId) {
-      setEditInputValue(`${prefix}${item.name}`);
-      return;
+    if (item.customerName && !item.favoriteClientId) {
+      reconstructedParts.push(item.customerName);
     }
 
     if (item.predefinedItems && item.predefinedItems.length > 0) {
@@ -668,7 +658,3 @@ export default function Home() {
     </>
   );
 }
-
-    
-
-    

@@ -43,8 +43,7 @@ export interface Item {
 export interface FavoriteClient {
     id: string;
     name: string;
-    orderDescription: string;
-    price: number;
+    command: string;
 }
 
 export interface ClientAccountEntry {

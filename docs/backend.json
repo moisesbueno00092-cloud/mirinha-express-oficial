@@ -148,16 +148,12 @@
           "type": "string",
           "description": "The name of the client."
         },
-        "orderDescription": {
+        "command": {
           "type": "string",
-          "description": "A short description of the client's usual order (e.g., 'PF com suco')."
-        },
-        "price": {
-          "type": "number",
-          "description": "The fixed price for the client's usual order."
+          "description": "The raw command string representing the client's usual order (e.g., 'PF coquinha')."
         }
       },
-      "required": ["id", "name", "orderDescription", "price"]
+      "required": ["id", "name", "command"]
     }
   },
   "auth": {

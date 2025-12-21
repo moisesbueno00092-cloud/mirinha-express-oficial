@@ -31,13 +31,6 @@ interface ManageFavoritesModalProps {
   favoriteClients: FavoriteClient[];
 }
 
-const formatCurrency = (value: number) => {
-    return new Intl.NumberFormat("pt-BR", {
-      style: "currency",
-      currency: "BRL",
-    }).format(value);
-};
-
 export default function ManageFavoritesModal({ isOpen, onClose, favoriteClients }: ManageFavoritesModalProps) {
   const firestore = useFirestore();
   const favoriteClientsRef = useMemoFirebase(() => collection(firestore, 'favorite_clients'), [firestore]);
@@ -62,10 +55,9 @@ export default function ManageFavoritesModal({ isOpen, onClose, favoriteClients 
 
     const formData = new FormData(e.currentTarget);
     const name = formData.get('name') as string;
-    const orderDescription = formData.get('orderDescription') as string;
-    const price = parseFloat((formData.get('price') as string || '0').replace(',', '.'));
+    const command = formData.get('command') as string;
     
-    if (!name || !orderDescription || isNaN(price) || price <= 0) {
+    if (!name || !command) {
         alert("Por favor, preencha todos os campos corretamente.");
         return;
     }
@@ -73,14 +65,13 @@ export default function ManageFavoritesModal({ isOpen, onClose, favoriteClients 
     if (isAdding) {
       const newClient: Omit<FavoriteClient, 'id'> = {
         name,
-        orderDescription,
-        price,
+        command,
       };
       addDocumentNonBlocking(favoriteClientsRef, newClient);
       setIsAdding(false);
     } else if (editingClient) {
       const docRef = doc(firestore, 'favorite_clients', editingClient.id);
-      updateDocumentNonBlocking(docRef, { name, orderDescription, price });
+      updateDocumentNonBlocking(docRef, { name, command });
       setEditingClient(null);
     }
   };
@@ -135,12 +126,8 @@ export default function ManageFavoritesModal({ isOpen, onClose, favoriteClients 
                         <Input id={`edit-name-${client.id}`} name="name" defaultValue={client.name} required />
                     </div>
                     <div className="space-y-1">
-                        <Label htmlFor={`edit-desc-${client.id}`}>Descrição do Pedido</Label>
-                        <Input id={`edit-desc-${client.id}`} name="orderDescription" defaultValue={client.orderDescription} required />
-                    </div>
-                    <div className="space-y-1">
-                        <Label htmlFor={`edit-price-${client.id}`}>Preço Fixo (R$)</Label>
-                        <Input id={`edit-price-${client.id}`} name="price" type="text" defaultValue={String(client.price).replace('.',',')} required />
+                        <Label htmlFor={`edit-command-${client.id}`}>Comando de Lançamento</Label>
+                        <Input id={`edit-command-${client.id}`} name="command" defaultValue={client.command} required />
                     </div>
                     <div className="flex justify-end gap-2 pt-2">
                         <Button type="button" variant="ghost" size="sm" onClick={handleCancelEdit}>Cancelar</Button>
@@ -152,8 +139,7 @@ export default function ManageFavoritesModal({ isOpen, onClose, favoriteClients 
                     <CardContent className="p-3 flex items-center">
                         <div className="flex-grow">
                             <p className="font-semibold">{client.name}</p>
-                            <p className="text-sm text-muted-foreground">{client.orderDescription}</p>
-                            <p className="text-sm font-bold text-primary">{formatCurrency(client.price)}</p>
+                            <p className="text-sm text-muted-foreground font-mono">{client.command}</p>
                         </div>
                         <div className="flex">
                             <Button variant="ghost" size="icon" onClick={() => setEditingClient(client)}><Pencil className="h-4 w-4" /></Button>
@@ -172,12 +158,8 @@ export default function ManageFavoritesModal({ isOpen, onClose, favoriteClients 
                         <Input id="add-name" name="name" placeholder="Ex: João da Silva" required autoFocus/>
                     </div>
                     <div className="space-y-1">
-                        <Label htmlFor="add-desc">Descrição do Pedido</Label>
-                        <Input id="add-desc" name="orderDescription" placeholder="Ex: PF com suco" required />
-                    </div>
-                    <div className="space-y-1">
-                        <Label htmlFor="add-price">Preço Fixo (R$)</Label>
-                        <Input id="add-price" name="price" placeholder="Ex: 25,50" required />
+                        <Label htmlFor="add-command">Comando de Lançamento</Label>
+                        <Input id="add-command" name="command" placeholder="Ex: PF coquinha" required />
                     </div>
                     <div className="flex justify-end gap-2 pt-2">
                         <Button type="button" variant="ghost" size="sm" onClick={() => setIsAdding(false)}>Cancelar</Button>
