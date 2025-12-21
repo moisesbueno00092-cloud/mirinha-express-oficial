@@ -30,6 +30,7 @@ import {
   DialogTitle,
   DialogFooter,
   DialogClose,
+  DialogDescription,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -78,7 +79,6 @@ export default function Home() {
   // State for Favorites Modal
   const [isFavoritesModalOpen, setFavoritesModalOpen] = useState(false);
   const [favoriteClientToDelete, setFavoriteClientToDelete] = useState<string | null>(null);
-  const [editingFavoriteClientId, setEditingFavoriteClientId] = useState<string | null>(null);
   const [favoriteFormData, setFavoriteFormData] = useState({ name: '', command: '' });
 
   const { toast } = useToast();
@@ -339,8 +339,7 @@ export default function Home() {
 
   const handleFavoriteLaunch = (client: FavoriteClient) => {
     if (!firestore) return;
-    const command = `${client.command}`;
-    handleUpsertItem(command, null, client);
+    handleUpsertItem(client.command, null, client);
     toast({
       title: "Lançamento Rápido",
       description: `Comando para ${client.name} executado.`,
@@ -499,25 +498,9 @@ export default function Home() {
   const handleSaveFavorite = () => {
     if (!firestore || !isFavoriteFormValid) return;
 
-    if (editingFavoriteClientId) {
-      const docRef = doc(firestore, 'favorite_clients', editingFavoriteClientId);
-      updateDocumentNonBlocking(docRef, favoriteFormData);
-    } else {
-      addDocumentNonBlocking(favoriteClientsRef, favoriteFormData);
-    }
+    addDocumentNonBlocking(favoriteClientsRef, favoriteFormData);
     
     // Reset form after saving
-    setEditingFavoriteClientId(null);
-    setFavoriteFormData({ name: '', command: '' });
-  };
-
-  const handleEditFavoriteClick = (client: FavoriteClient) => {
-    setEditingFavoriteClientId(client.id);
-    setFavoriteFormData({ name: client.name, command: client.command });
-  }
-
-  const handleCancelEditFavorite = () => {
-    setEditingFavoriteClientId(null);
     setFavoriteFormData({ name: '', command: '' });
   };
 
@@ -530,8 +513,6 @@ export default function Home() {
   };
   
   const handleOpenFavoritesModal = () => {
-    // Reset state when opening the modal
-    setEditingFavoriteClientId(null);
     setFavoriteFormData({ name: '', command: '' });
     setFavoritesModalOpen(true);
   };
@@ -667,9 +648,6 @@ export default function Home() {
                                         <p className="text-sm text-muted-foreground font-mono">{client.command}</p>
                                     </div>
                                     <div className="flex">
-                                        <Button variant="ghost" size="icon" onClick={() => handleEditFavoriteClick(client)}>
-                                            <Pencil className="h-4 w-4" />
-                                        </Button>
                                         <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive" onClick={() => setFavoriteClientToDelete(client.id)}>
                                             <Trash2 className="h-4 w-4" />
                                         </Button>
@@ -687,7 +665,7 @@ export default function Home() {
             </div>
             <div className="flex-shrink-0 pt-4 border-t">
                 <div className="p-1 bg-muted/50 rounded-lg space-y-3">
-                    <h3 className="font-semibold text-center text-sm">{editingFavoriteClientId ? 'Editar Cliente' : 'Adicionar Novo Cliente'}</h3>
+                    <h3 className="font-semibold text-center text-sm">Adicionar Novo Cliente</h3>
                     <div className="space-y-1">
                         <Label htmlFor="fav-form-name" className="text-xs">Nome</Label>
                         <Input id="fav-form-name" placeholder="Ex: João da Silva" value={favoriteFormData.name} onChange={(e) => setFavoriteFormData(prev => ({ ...prev, name: e.target.value }))} className="h-8" />
@@ -697,13 +675,8 @@ export default function Home() {
                         <Input id="fav-form-command" placeholder="Ex: pf coquinha-200ml" value={favoriteFormData.command} onChange={(e) => setFavoriteFormData(prev => ({ ...prev, command: e.target.value }))} className="h-8" />
                     </div>
                     <div className="flex justify-end gap-2 pt-1">
-                        {editingFavoriteClientId && (
-                            <Button type="button" variant="ghost" size="sm" onClick={handleCancelEditFavorite}>
-                                <X className="h-4 w-4 mr-1" /> Cancelar Edição
-                            </Button>
-                        )}
                         <Button type="button" size="sm" onClick={handleSaveFavorite} disabled={!isFavoriteFormValid}>
-                            <Save className="h-4 w-4 mr-2" /> Salvar
+                            <Save className="h-4 w-4 mr-2" /> Salvar Novo Cliente
                         </Button>
                     </div>
                 </div>
@@ -789,3 +762,4 @@ export default function Home() {
     </>
   );
 }
+
