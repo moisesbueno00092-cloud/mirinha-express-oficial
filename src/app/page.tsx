@@ -228,9 +228,13 @@ export default function Home() {
                 } catch(e) {
                     console.error("AI parsing failed, skipping part:", part, e);
                 }
-            } else if (!isPredefined && !bomboniereItemDef && !isNumeric(part) && /^[a-zA-Z]+$/.test(part) && (group.startsWith('Fiado'))) {
+            } else if (!isPredefined && !bomboniereItemDef && !isNumeric(part) && /^[a-zA-Z\s]+$/.test(part) && (group.startsWith('Fiado'))) {
                 // Assume it's a customer name for fiado
-                customerName = part;
+                 if (!customerName) {
+                    customerName = part;
+                } else {
+                    customerName += ` ${part}`;
+                }
             }
         }
         
@@ -266,7 +270,7 @@ export default function Home() {
         const hasBomboniereItems = processedBomboniereItems.length > 0;
 
         const nameParts = [];
-        if (customerName) nameParts.push(customerName);
+        // Do not add customer name to consolidated name, it is a separate field
         if (hasPredefinedItems) nameParts.push(predefinedItems.map(p => p.name).join(' '));
         if (hasKgItems) nameParts.push('KG');
         if (hasBomboniereItems) nameParts.push('Bomboniere');
@@ -328,10 +332,6 @@ export default function Home() {
     const commandToExecute = `F ${client.name} ${client.command}`;
     
     handleUpsertItem(commandToExecute);
-
-    // TODO: Decide if client_accounts collection is still needed with this new flow.
-    // For now, let's keep it simple and just process the command.
-    // The name is already in the command, so the item will be associated with the client.
     
     toast({
       title: "Lançamento Rápido",
