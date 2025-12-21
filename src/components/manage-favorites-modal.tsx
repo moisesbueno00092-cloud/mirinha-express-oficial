@@ -46,8 +46,6 @@ export default function ManageFavoritesModal({ isOpen, onClose, favoriteClients 
     // Reset state before closing
     setIsAdding(false);
     setEditingClient(null);
-    setNewName('');
-    setNewCommand('');
     onClose();
   };
 
@@ -95,7 +93,11 @@ export default function ManageFavoritesModal({ isOpen, onClose, favoriteClients 
   const sortedClients = [...favoriteClients].sort((a,b) => a.name.localeCompare(b.name));
 
   return (
-    <Dialog open={isOpen} onOpenChange={(open) => !open && handleClose()}>
+    <Dialog open={isOpen} onOpenChange={(open) => {
+      if (!open) {
+        handleClose();
+      }
+    }}>
       <DialogContent className="sm:max-w-md">
         <AlertDialog open={!!clientToDelete} onOpenChange={(open) => !open && setClientToDelete(null)}>
             <AlertDialogContent>
