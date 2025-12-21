@@ -2,7 +2,7 @@
 "use client";
 
 import { useMemo, useState, useRef, useEffect } from "react";
-import type { Item, Group, PredefinedItem, SelectedBomboniereItem, BomboniereItem, FavoriteClient } from "@/types";
+import type { Item, Group, PredefinedItem, SelectedBomboniereItem, BomboniereItem, FavoriteClient, ClientAccountEntry } from "@/types";
 import { PREDEFINED_PRICES, DELIVERY_FEE, BOMBONIERE_ITEMS_DEFAULT } from "@/lib/constants";
 import { useCollection, useFirestore, useMemoFirebase } from "@/firebase";
 import { collection, doc } from "firebase/firestore";
@@ -35,7 +35,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
-import { Trash2, Save, History, Star } from "lucide-react";
+import { Trash2, Save, History, Star, Users } from "lucide-react";
 import { addDocumentNonBlocking, deleteDocumentNonBlocking, setDocumentNonBlocking, updateDocumentNonBlocking } from "@/firebase/non-blocking-updates";
 
 import ItemForm from "@/components/item-form";
@@ -60,6 +60,8 @@ export default function Home() {
   const orderItemsRef = useMemoFirebase(() => collection(firestore, "order_items"), [firestore]);
   const bomboniereItemsRef = useMemoFirebase(() => collection(firestore, "bomboniere_items"), [firestore]);
   const favoriteClientsRef = useMemoFirebase(() => collection(firestore, "favorite_clients"), [firestore]);
+  const clientAccountsRef = useMemoFirebase(() => collection(firestore, "client_accounts"), [firestore]);
+
 
   const { data: items, isLoading, error: firestoreError } = useCollection<Item>(orderItemsRef);
   const { data: bomboniereItems, isLoading: isLoadingBomboniere } = useCollection<BomboniereItem>(bomboniereItemsRef);
@@ -78,6 +80,8 @@ export default function Home() {
   const [isSaveFavoriteOpen, setIsSaveFavoriteOpen] = useState(false);
   const [itemToSaveAsFavorite, setItemToSaveAsFavorite] = useState<Item | null>(null);
   const [favoriteName, setFavoriteName] = useState("");
+  const [favoriteToDelete, setFavoriteToDelete] = useState<string | null>(null);
+
 
   const { toast } = useToast();
   
@@ -92,7 +96,7 @@ export default function Home() {
     }
   }, [firestore, bomboniereItems, isLoadingBomboniere]);
 
-  const handleUpsertItem = async (rawInputToProcess: string, currentItem?: Item | null, favoriteClientName?: string) => {
+  const handleUpsertItem = async (rawInputToProcess: string, currentItem?: Item | null, favoriteClient?: FavoriteClient) => {
     setIsProcessing(true);
     try {
         let mainInput = rawInputToProcess.trim();
@@ -103,7 +107,7 @@ export default function Home() {
         let deliveryFeeApplicable = false;
         let isTaxExempt = false;
         let originalGroup: Group | null = null;
-        let customerName: string | undefined = favoriteClientName;
+        let customerName: string | undefined = favoriteClient?.name;
         
         const partsWithExemption = mainInput.split(' ').filter(part => part.trim() !== '');
         if (partsWithExemption.map(p => p.toUpperCase()).includes('E')) {
@@ -284,16 +288,18 @@ export default function Home() {
         consolidatedName = nameParts.join(' + ') || 'Lançamento';
         if (consolidatedName.length > 50) consolidatedName = 'Lançamento Misto';
 
+        const timestamp = new Date().toISOString();
 
         const finalItem: Omit<Item, 'id' | 'total'> = {
             name: consolidatedName,
             quantity: totalQuantity,
             price: totalPrice,
             group,
-            timestamp: new Date().toISOString(),
+            timestamp: timestamp,
             deliveryFee,
-            originalCommand: rawInputToProcess, // Save the original command
+            originalCommand: rawInputToProcess,
             ...(customerName && { customerName }),
+            ...(favoriteClient && { customerId: favoriteClient.id }),
             ...(individualPrices.length > 0 ? { individualPrices } : {}),
             ...(predefinedItems.length > 0 ? { predefinedItems } : {}),
             ...(processedBomboniereItems.length > 0 ? { bomboniereItems: processedBomboniereItems } : {}),
@@ -305,7 +311,20 @@ export default function Home() {
             setDocumentNonBlocking(docRef, { ...finalItem, total }, { merge: true });
             toast({ title: "Sucesso", description: "Lançamento atualizado." });
         } else {
-            addDocumentNonBlocking(orderItemsRef, { ...finalItem, total });
+            const newItem = { ...finalItem, total };
+            addDocumentNonBlocking(orderItemsRef, newItem);
+
+            // Se for fiado para um cliente, adicionar na caderneta
+            if (group.startsWith('Fiados') && favoriteClient?.id && customerName && clientAccountsRef) {
+                const accountEntry: Omit<ClientAccountEntry, 'id'> = {
+                    customerId: favoriteClient.id,
+                    customerName: customerName,
+                    description: consolidatedName,
+                    price: total,
+                    timestamp: timestamp
+                };
+                addDocumentNonBlocking(clientAccountsRef, accountEntry);
+            }
             toast({ title: "Sucesso", description: "Lançamento adicionado." });
         }
         
@@ -411,7 +430,7 @@ export default function Home() {
         return;
     }
     setItemToSaveAsFavorite(item);
-    setFavoriteName('');
+    setFavoriteName(item.customerName || '');
     setIsSaveFavoriteOpen(true);
   };
 
@@ -429,14 +448,19 @@ export default function Home() {
   };
   
   const handleSelectFavorite = (client: FavoriteClient) => {
-    handleUpsertItem(client.command, null, client.name);
+    handleUpsertItem(client.command, null, client);
   };
   
-  const handleDeleteFavorite = (clientId: string) => {
-    if (!firestore) return;
-    const docRef = doc(firestore, 'favorite_clients', clientId);
+  const handleDeleteFavoriteRequest = (clientId: string) => {
+    setFavoriteToDelete(clientId);
+  };
+
+  const confirmDeleteFavorite = () => {
+    if (!firestore || !favoriteToDelete) return;
+    const docRef = doc(firestore, 'favorite_clients', favoriteToDelete);
     deleteDocumentNonBlocking(docRef);
     toast({ title: 'Sucesso', description: 'Favorito removido.' });
+    setFavoriteToDelete(null);
   };
   // --- End Favorites Logic ---
 
@@ -482,6 +506,7 @@ export default function Home() {
 
   return (
     <>
+      {/* Item Delete Dialog */}
       <AlertDialog open={!!itemToDelete} onOpenChange={(open) => !open && setItemToDelete(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
@@ -497,6 +522,23 @@ export default function Home() {
         </AlertDialogContent>
       </AlertDialog>
 
+      {/* Favorite Delete Dialog */}
+      <AlertDialog open={!!favoriteToDelete} onOpenChange={(open) => !open && setFavoriteToDelete(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Excluir Favorito?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Essa ação não pode ser desfeita. Isso excluirá permanentemente o cliente favorito.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmDeleteFavorite}>Confirmar</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Edit Item Dialog */}
       <Dialog open={!!editingItem} onOpenChange={(open) => !open && setEditingItem(null)}>
         <DialogContent className="sm:max-w-[425px]">
           <DialogHeader>
@@ -568,6 +610,11 @@ export default function Home() {
 
       <div className="container mx-auto max-w-4xl p-2 sm:p-4 lg:p-8 pb-48">
         <header className="mb-6 flex flex-col items-center justify-center text-center relative">
+            <Link href="/accounts" passHref>
+                <Button variant="ghost" size="icon" className="absolute top-0 right-0 text-muted-foreground hover:text-primary">
+                    <Users />
+                </Button>
+            </Link>
           <MirinhaLogo className="w-64 sm:w-80 h-auto text-primary" />
           <p className="text-muted-foreground -mt-2 text-sm sm:text-base">Controle de Pedidos</p>
         </header>
@@ -584,7 +631,7 @@ export default function Home() {
              <FavoritesMenu 
               favoriteClients={favoriteClients || []}
               onSelectClient={handleSelectFavorite}
-              onDeleteClient={handleDeleteFavorite}
+              onDeleteClient={handleDeleteFavoriteRequest}
              />
           </ItemForm>
 
@@ -639,3 +686,5 @@ export default function Home() {
     </>
   );
 }
+
+    

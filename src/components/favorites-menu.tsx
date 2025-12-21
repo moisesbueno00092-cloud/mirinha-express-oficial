@@ -28,6 +28,13 @@ export default function FavoritesMenu({ favoriteClients, onSelectClient, onDelet
     return null;
   }
 
+  const handleSubTriggerClick = (e: React.MouseEvent, client: FavoriteClient) => {
+    // Only trigger selection when the main part of the sub-trigger is clicked
+    if ((e.target as HTMLElement).closest('[data-radix-collection-item]')) {
+        onSelectClient(client);
+    }
+  };
+
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
@@ -45,17 +52,20 @@ export default function FavoritesMenu({ favoriteClients, onSelectClient, onDelet
         <DropdownMenuSeparator />
         {favoriteClients.map((client) => (
           <DropdownMenuSub key={client.id}>
-             <DropdownMenuSubTrigger>
-              <span className="flex-1" onClick={() => onSelectClient(client)}>{client.name}</span>
-            </DropdownMenuSubTrigger>
+             <DropdownMenuSubTrigger onClick={(e) => handleSubTriggerClick(e, client)}>
+                <span className="flex-1">{client.name}</span>
+             </DropdownMenuSubTrigger>
             <DropdownMenuPortal>
               <DropdownMenuSubContent>
-                <DropdownMenuItem 
-                  className="text-destructive focus:text-destructive"
-                  onSelect={() => onDeleteClient(client.id)}
+                 <DropdownMenuItem
+                    className="text-destructive focus:text-destructive"
+                    onSelect={(e) => {
+                        e.preventDefault(); // Prevent menu from closing
+                        onDeleteClient(client.id);
+                    }}
                 >
-                  <Trash2 className="mr-2 h-4 w-4" />
-                  <span>Confirmar Exclusão</span>
+                    <Trash2 className="mr-2 h-4 w-4" />
+                    <span>Confirmar Exclusão</span>
                 </DropdownMenuItem>
               </DropdownMenuSubContent>
             </DropdownMenuPortal>
@@ -65,3 +75,5 @@ export default function FavoritesMenu({ favoriteClients, onSelectClient, onDelet
     </DropdownMenu>
   );
 }
+
+    

@@ -38,6 +38,7 @@ export interface Item {
 
   // For favorite client entries
   customerName?: string;
+  customerId?: string; // ID from FavoriteClient
 }
 
 export interface ClientAccountEntry {
@@ -75,3 +76,5 @@ export interface DailyReport {
   };
   rawItems: Item[];
 }
+
+    
