@@ -61,6 +61,16 @@ export default function FinalReport({ items, onClearData }: FinalReportProps) {
   const { toast } = useToast();
 
   const reportData = useMemo(() => {
+    if (items.length === 0) return null;
+
+    const latestItemTimestamp = items.reduce((latest, item) => {
+        const itemDate = new Date(item.timestamp);
+        return itemDate > latest ? itemDate : latest;
+    }, new Date(0));
+    
+    const reportDate = latestItemTimestamp > new Date(0) ? latestItemTimestamp : new Date();
+
+
     const totalsByGroup: Record<Group, number> = {
       'Vendas salão': 0,
       'Fiados salão': 0,
@@ -169,6 +179,7 @@ export default function FinalReport({ items, onClearData }: FinalReportProps) {
     const sortedBomboniereCounts = Object.entries(bomboniereItemCounts).sort(([, a], [, b]) => b.total - a.total);
 
     return { 
+        reportDate,
         totalsByGroup,
         totalFaturamento,
         totalAVista,
@@ -188,13 +199,13 @@ export default function FinalReport({ items, onClearData }: FinalReportProps) {
     };
   }, [items]);
   
-  const currentDate = new Date();
-  const currentDateFormatted = currentDate.toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' });
-  const reportId = currentDate.toISOString().split('T')[0]; // YYYY-MM-DD
 
   const handleSaveAndClear = async () => {
-    if (!firestore) return;
+    if (!firestore || !reportData) return;
     
+    const reportId = reportData.reportDate.toISOString().split('T')[0]; // YYYY-MM-DD
+    const reportTimestamp = reportData.reportDate.toISOString();
+
     // 1. Salvar o relatório
     const reportDocRef = doc(firestore, "daily_reports", reportId);
     const itemCountsAsObject = Object.fromEntries(reportData.itemCounts);
@@ -202,7 +213,7 @@ export default function FinalReport({ items, onClearData }: FinalReportProps) {
 
     const reportToSave = {
       id: reportId,
-      timestamp: new Date().toISOString(),
+      timestamp: reportTimestamp,
       reportData: {
         totalFaturamento: reportData.totalFaturamento,
         totalAVista: reportData.totalAVista,
@@ -230,7 +241,7 @@ export default function FinalReport({ items, onClearData }: FinalReportProps) {
       });
       toast({
         title: "Relatório Salvo e Dia Encerrado!",
-        description: `O relatório foi salvo e a área de trabalho foi limpa.`,
+        description: `O relatório de ${reportData.reportDate.toLocaleDateString('pt-BR')} foi salvo.`,
       });
     } catch (error) {
        console.error("Error clearing data after saving report:", error);
@@ -242,7 +253,7 @@ export default function FinalReport({ items, onClearData }: FinalReportProps) {
     }
   };
 
-  if (items.length === 0) {
+  if (items.length === 0 || !reportData) {
     return (
       <div className="text-center text-muted-foreground py-10">
         <p>Nenhum dado para exibir no relatório.</p>
@@ -256,6 +267,8 @@ export default function FinalReport({ items, onClearData }: FinalReportProps) {
     );
   }
   
+  const reportDateFormatted = reportData.reportDate.toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' });
+
   const RADIAN = Math.PI / 180;
   const renderCustomizedLabel = ({ cx, cy, midAngle, outerRadius, percent }: any) => {
     const radius = outerRadius + 12;
@@ -318,7 +331,7 @@ export default function FinalReport({ items, onClearData }: FinalReportProps) {
         <div className="flex flex-wrap gap-2 justify-between items-center">
             <div>
                 <h2 className="text-xl sm:text-2xl font-bold">Relatório do Dia</h2>
-                <p className="text-xs sm:text-sm text-muted-foreground">{currentDateFormatted}</p>
+                <p className="text-xs sm:text-sm text-muted-foreground">{reportDateFormatted}</p>
             </div>
             <div className="flex flex-wrap gap-2">
                 <Button variant="ghost" size="sm" className="text-xs sm:text-sm" onClick={onClearData} disabled={!items || items.length === 0}>
@@ -477,3 +490,6 @@ export default function FinalReport({ items, onClearData }: FinalReportProps) {
     </div>
   );
 }
+
+
+    
