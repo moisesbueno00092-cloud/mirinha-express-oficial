@@ -81,7 +81,7 @@ export default function FinalReport({ items, onClearData }: FinalReportProps) {
     let totalBomboniereValue = 0;
     let totalBomboniereQuantity = 0;
     const itemCounts: { [key: string]: { total: number; rua: number } } = {};
-    const bomboniereItemCounts: { [key: string]: { quantity: number; total: number } } = {};
+    const bomboniereItemCounts: { [key: string]: { quantity: number; total: number; rua: number } } = {};
     
     let totalMealItems = 0;
     
@@ -96,6 +96,8 @@ export default function FinalReport({ items, onClearData }: FinalReportProps) {
         totalDeliveryFee += item.deliveryFee;
       }
       
+      const isRua = item.group.includes('rua');
+
       if(item.bomboniereItems){
         item.bomboniereItems.forEach(bItem => {
             const bomboniereValue = bItem.price * bItem.quantity;
@@ -103,14 +105,15 @@ export default function FinalReport({ items, onClearData }: FinalReportProps) {
             totalBomboniereQuantity += bItem.quantity;
 
             if(!bomboniereItemCounts[bItem.name]){
-                bomboniereItemCounts[bItem.name] = { quantity: 0, total: 0 };
+                bomboniereItemCounts[bItem.name] = { quantity: 0, total: 0, rua: 0 };
             }
             bomboniereItemCounts[bItem.name].quantity += bItem.quantity;
             bomboniereItemCounts[bItem.name].total += bomboniereValue;
+            if (isRua) {
+                bomboniereItemCounts[bItem.name].rua += bItem.quantity;
+            }
         });
       }
-      
-      const isRua = item.group.includes('rua');
       
       if(item.predefinedItems){
         item.predefinedItems.forEach(pItem => {
@@ -209,7 +212,6 @@ export default function FinalReport({ items, onClearData }: FinalReportProps) {
     // 1. Salvar o relatório
     const reportDocRef = doc(firestore, "daily_reports", reportId);
     
-    // Explicitly keep the full structure for itemCounts
     const itemCountsAsObject = Object.fromEntries(reportData.itemCounts);
     const bomboniereItemCountsAsObject = Object.fromEntries(reportData.bomboniereItemCounts);
 
@@ -226,7 +228,7 @@ export default function FinalReport({ items, onClearData }: FinalReportProps) {
         totalBomboniereValue: reportData.totalBomboniereValue,
         totalBomboniereQuantity: reportData.totalBomboniereQuantity,
         totalsByGroup: reportData.totalsByGroup,
-        itemCounts: itemCountsAsObject, // Save the full object with 'total' and 'rua'
+        itemCounts: itemCountsAsObject,
         bomboniereItemCounts: bomboniereItemCountsAsObject,
         totalMealValue: reportData.totalMealValue,
       },
@@ -458,17 +460,35 @@ export default function FinalReport({ items, onClearData }: FinalReportProps) {
                     <CardTitle className="text-base sm:text-lg">Contagem de Bomboniere</CardTitle>
                 </CardHeader>
                 <CardContent className="text-xs sm:text-sm">
-                     <ul className="space-y-1">
-                        {reportData.bomboniereItemCounts.map(([name, data]) => (
-                            <li key={name} className="flex items-baseline justify-between gap-2">
-                                <div className="flex items-baseline gap-2">
-                                    <span className="font-medium">{data.quantity}x</span>
-                                    <span>{name}</span>
-                                </div>
-                                <span className="font-mono">{formatCurrency(data.total)}</span>
-                            </li>
-                        ))}
-                    </ul>
+                     <div className="grid grid-cols-2 gap-x-4">
+                        <div>
+                            <h4 className="font-medium mb-1 border-b pb-1">Total</h4>
+                            <ul className="space-y-1 mt-2">
+                                {reportData.bomboniereItemCounts.map(([name, data]) => (
+                                    <li key={name} className="flex items-baseline justify-between gap-2">
+                                        <div className="flex items-baseline gap-2">
+                                            <span className="font-medium">{data.quantity}x</span>
+                                            <span>{name}</span>
+                                        </div>
+                                        <span className="font-mono">{formatCurrency(data.total)}</span>
+                                    </li>
+                                ))}
+                            </ul>
+                        </div>
+                        <div>
+                            <h4 className="font-medium mb-1 border-b pb-1">Rua</h4>
+                            <ul className="space-y-1 mt-2">
+                                {reportData.bomboniereItemCounts.filter(([, data]) => data.rua > 0).map(([name, data]) => (
+                                    <li key={name} className="flex items-baseline justify-between gap-2">
+                                        <div className="flex items-baseline gap-2">
+                                            <span className="font-medium">{data.rua}x</span>
+                                            <span>{name}</span>
+                                        </div>
+                                    </li>
+                                ))}
+                            </ul>
+                        </div>
+                    </div>
                 </CardContent>
             </Card>
         </div>
@@ -492,8 +512,3 @@ export default function FinalReport({ items, onClearData }: FinalReportProps) {
     </div>
   );
 }
-
-
-    
-
-    

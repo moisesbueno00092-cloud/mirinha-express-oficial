@@ -239,22 +239,38 @@ export default function HistoryReportDetail({ report, onBack, onDelete }: Histor
                     <CardTitle className="text-base sm:text-lg">Contagem de Bomboniere</CardTitle>
                 </CardHeader>
                 <CardContent className="text-xs sm:text-sm">
-                     <ul className="space-y-1">
-                        {Object.entries(reportData.bomboniereItemCounts).map(([name, data]) => (
-                            <li key={name} className="flex items-baseline justify-between gap-2">
-                                <div className="flex items-baseline gap-2">
-                                    <span className="font-medium">{data.quantity}x</span>
-                                    <span>{name}</span>
-                                </div>
-                                <span className="font-mono">{formatCurrency(data.total)}</span>
-                            </li>
-                        ))}
-                    </ul>
+                     <div className="grid grid-cols-2 gap-x-4">
+                        <div>
+                            <h4 className="font-medium mb-1 border-b pb-1">Total</h4>
+                            <ul className="space-y-1 mt-2">
+                                {Object.entries(reportData.bomboniereItemCounts).map(([name, data]) => (
+                                    <li key={name} className="flex items-baseline justify-between gap-2">
+                                        <div className="flex items-baseline gap-2">
+                                            <span className="font-medium">{data.quantity}x</span>
+                                            <span>{name}</span>
+                                        </div>
+                                        <span className="font-mono">{formatCurrency(data.total)}</span>
+                                    </li>
+                                ))}
+                            </ul>
+                        </div>
+                        <div>
+                            <h4 className="font-medium mb-1 border-b pb-1">Rua</h4>
+                            <ul className="space-y-1 mt-2">
+                                {Object.entries(reportData.bomboniereItemCounts).filter(([, data]) => data.rua > 0).map(([name, data]) => (
+                                    <li key={name} className="flex items-baseline justify-between gap-2">
+                                        <div className="flex items-baseline gap-2">
+                                            <span className="font-medium">{data.rua}x</span>
+                                            <span>{name}</span>
+                                        </div>
+                                    </li>
+                                ))}
+                            </ul>
+                        </div>
+                    </div>
                 </CardContent>
             </Card>
         </div>
     </div>
   );
 }
-
-    
