@@ -95,6 +95,10 @@ export default function Home() {
         if (!mainInput) return;
 
         let group: Group = 'Vendas salão';
+        if (favoriteClient) {
+            group = 'Fiados salão'; // default for favorites
+        }
+
         let deliveryFeeApplicable = false;
         let isTaxExempt = false;
         let originalGroup: Group | null = null;
@@ -329,17 +333,12 @@ export default function Home() {
 
   const handleFavoriteLaunch = (client: FavoriteClient) => {
     if (!firestore) return;
-    
-    // The command to be executed, always as fiado and with the client's name
-    const commandToExecute = `F ${client.command}`;
-    
-    handleUpsertItem(commandToExecute, null, client);
-    
+    handleUpsertItem(client.command, null, client);
     toast({
       title: "Lançamento Rápido",
       description: `Comando para ${client.name} executado.`,
     });
-  }
+  };
 
 
   const confirmClearData = () => {
@@ -660,3 +659,5 @@ export default function Home() {
     </>
   );
 }
+
+    
