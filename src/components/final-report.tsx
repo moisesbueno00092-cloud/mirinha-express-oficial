@@ -264,8 +264,8 @@ export default function FinalReport({ items, onClearData }: FinalReportProps) {
         totalFaturamento: reportData.totalFaturamento,
         totalAVista: reportData.totalAVista,
         totalFiado: reportData.totalFiado,
-        totalSalao: reportData.totalSalao, // Ensure this is saved
-        totalRua: reportData.totalRua,     // Ensure this is saved
+        totalSalao: reportData.totalSalao,
+        totalRua: reportData.totalRua,
         deliveryCount: reportData.deliveryCount,
         totalDeliveryFee: reportData.totalDeliveryFee,
         totalMealItems: reportData.totalMealItems,
