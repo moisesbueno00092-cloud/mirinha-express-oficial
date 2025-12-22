@@ -239,23 +239,23 @@ export default function HistoryReportDetail({ report, onBack, onDelete }: Histor
                     <CardTitle className="text-base sm:text-lg">Contagem de Bomboniere</CardTitle>
                 </CardHeader>
                 <CardContent className="text-xs sm:text-sm">
-                    <div className="grid grid-cols-3 font-semibold mb-2 border-b pb-2">
-                        <span>Total</span>
-                        <span>Salão</span>
-                        <span>Rua</span>
-                    </div>
-                    <div className="grid grid-cols-3 gap-x-4">
-                        <ul className="space-y-1">
-                            {sortedBomboniereCounts.map(([name, data]) => (
-                                <li key={name}>{data.quantity}x {name} {formatCurrency(data.totalValue)}</li>
-                            ))}
-                        </ul>
-                        <ul className="space-y-1">
-                           {/* Render Salao items here */}
-                        </ul>
-                        <ul className="space-y-1">
-                            {/* Render Rua items here */}
-                        </ul>
+                    <div className="grid grid-cols-2 gap-4">
+                        <div>
+                            <h4 className="font-semibold mb-1 border-b pb-1">Salão</h4>
+                            <ul className="space-y-1 mt-2">
+                                {sortedBomboniereCounts.filter(([, data]) => data.salao_qty > 0).map(([name, data]) => (
+                                    <li key={`${name}-salao`}>{data.salao_qty}x {name}</li>
+                                ))}
+                            </ul>
+                        </div>
+                        <div>
+                            <h4 className="font-semibold mb-1 border-b pb-1">Rua</h4>
+                            <ul className="space-y-1 mt-2">
+                                {sortedBomboniereCounts.filter(([, data]) => data.rua_qty > 0).map(([name, data]) => (
+                                    <li key={`${name}-rua`}>{data.rua_qty}x {name}</li>
+                                ))}
+                            </ul>
+                        </div>
                     </div>
                 </CardContent>
             </Card>
