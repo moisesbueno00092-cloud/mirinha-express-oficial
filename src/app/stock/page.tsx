@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { useCollection, useFirestore, useMemoFirebase } from '@/firebase';
 import { collection, doc, query, orderBy } from 'firebase/firestore';
 import type { BomboniereItem } from '@/types';
@@ -24,13 +24,9 @@ import {
 import { addDocumentNonBlocking, deleteDocumentNonBlocking, updateDocumentNonBlocking } from '@/firebase/non-blocking-updates';
 import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
+import { useRouter } from 'next/navigation';
+import { useAuth } from '@/context/AuthContext';
 
-const formatCurrency = (value: number) => {
-    return new Intl.NumberFormat("pt-BR", {
-      style: "currency",
-      currency: "BRL",
-    }).format(value);
-};
 
 const getStockColor = (stock: number) => {
     if (stock <= 5) return 'text-destructive';
@@ -41,11 +37,20 @@ const getStockColor = (stock: number) => {
 
 
 export default function StockPage() {
+    const { isAuthenticated } = useAuth();
+    const router = useRouter();
+
+    useEffect(() => {
+        if (isAuthenticated === false) { // Use explicit false to wait for initial check
+            router.push('/login');
+        }
+    }, [isAuthenticated, router]);
+    
     const firestore = useFirestore();
     const { toast } = useToast();
     
-    const bomboniereItemsRef = useMemoFirebase(() => (firestore ? query(collection(firestore, 'bomboniere_items'), orderBy('name', 'asc')) : null), [firestore]);
-    const { data: bomboniereItems, isLoading, error } = useCollection<BomboniereItem>(bomboniereItemsRef);
+    const bomboniereItemsQuery = useMemoFirebase(() => (firestore ? query(collection(firestore, 'bomboniere_items'), orderBy('name', 'asc')) : null), [firestore]);
+    const { data: bomboniereItems, isLoading, error } = useCollection<BomboniereItem>(bomboniereItemsQuery);
     
     const [editValues, setEditValues] = useState<Record<string, Partial<Omit<BomboniereItem, 'id'>>>>({});
     const [itemToDelete, setItemToDelete] = useState<string | null>(null);
@@ -99,7 +104,7 @@ export default function StockPage() {
     };
 
     const handleAddNewItem = () => {
-        if (!firestore || !newItemName.trim() || !newItemPrice || !newItemStock) {
+        if (!firestore || !bomboniereItemsQuery || !newItemName.trim() || !newItemPrice || !newItemStock) {
             toast({ variant: 'destructive', title: 'Erro', description: 'Preencha todos os campos para adicionar um novo item.' });
             return;
         }
@@ -110,6 +115,10 @@ export default function StockPage() {
             toast({ variant: 'destructive', title: 'Erro', description: 'Preço e estoque devem ser números válidos.' });
             return;
         }
+        
+        // bomboniereItemsQuery can be a query or a collection ref, so we need to get the collection ref
+        const collectionRef = bomboniereItemsQuery.type === 'collection' ? bomboniereItemsQuery : bomboniereItemsQuery.converter ? bomboniereItemsQuery.withConverter(null) : bomboniereItemsQuery;
+
 
         const newItem: Omit<BomboniereItem, 'id'> = {
             name: newItemName.trim(),
@@ -117,7 +126,7 @@ export default function StockPage() {
             stock
         };
 
-        addDocumentNonBlocking(bomboniereItemsRef, newItem);
+        addDocumentNonBlocking(collectionRef, newItem);
         toast({ title: 'Sucesso!', description: `${newItem.name} foi adicionado.` });
 
         // Reset form
@@ -136,7 +145,7 @@ export default function StockPage() {
         setItemToDelete(null);
     };
 
-    if (isLoading) {
+     if (isAuthenticated === undefined || isAuthenticated === false || isLoading) {
         return (
           <div className="flex h-screen items-center justify-center">
             <Loader2 className="h-12 w-12 animate-spin text-primary" />

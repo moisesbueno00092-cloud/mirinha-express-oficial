@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useCollection, useFirestore, useMemoFirebase } from '@/firebase';
 import { collection, query, orderBy, doc } from 'firebase/firestore';
 import type { DailyReport } from '@/types';
@@ -22,9 +22,20 @@ import {
 } from "@/components/ui/alert-dialog";
 import { deleteDocumentNonBlocking } from '@/firebase/non-blocking-updates';
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from '@/context/AuthContext';
+import { useRouter } from 'next/navigation';
 
 
 export default function HistoryPage() {
+  const { isAuthenticated } = useAuth();
+  const router = useRouter();
+
+  useEffect(() => {
+    if (isAuthenticated === false) { // Use explicit false to wait for initial check
+      router.push('/login');
+    }
+  }, [isAuthenticated, router]);
+
   const firestore = useFirestore();
   const { toast } = useToast();
   const reportsRef = useMemoFirebase(
@@ -74,7 +85,7 @@ export default function HistoryPage() {
     setReportToDelete(null);
   };
 
-  if (isLoading) {
+  if (isAuthenticated === undefined || isAuthenticated === false || isLoading) {
     return (
       <div className="flex h-screen items-center justify-center">
         <Loader2 className="h-12 w-12 animate-spin text-primary" />
@@ -178,3 +189,5 @@ export default function HistoryPage() {
     </>
   );
 }
+
+    

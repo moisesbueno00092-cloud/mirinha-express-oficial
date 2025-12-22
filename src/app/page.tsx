@@ -5,9 +5,10 @@ import { useMemo, useState, useRef, useEffect } from "react";
 import type { Item, Group, PredefinedItem, SelectedBomboniereItem, BomboniereItem, FavoriteClient, ClientAccountEntry } from "@/types";
 import { PREDEFINED_PRICES, DELIVERY_FEE, BOMBONIERE_ITEMS_DEFAULT } from "@/lib/constants";
 import { useCollection, useFirestore, useMemoFirebase } from "@/firebase";
-import { collection, doc } from "firebase/firestore";
+import { collection, doc, query, where, orderBy } from "firebase/firestore";
 import { parseCustomItemPrice } from "@/ai/flows/parse-custom-item-price";
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 
 
 import { Button } from "@/components/ui/button";
@@ -35,8 +36,10 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
-import { Trash2, Save, History, Star, Users, Package } from "lucide-react";
+import { Trash2, Save, History, Star, Users, Package, LogOut, Loader2 } from "lucide-react";
 import { addDocumentNonBlocking, deleteDocumentNonBlocking, setDocumentNonBlocking, updateDocumentNonBlocking } from "@/firebase/non-blocking-updates";
+import { useAuth } from '@/context/AuthContext';
+
 
 import ItemForm from "@/components/item-form";
 import ItemList from "@/components/item-list";
@@ -56,11 +59,21 @@ const formatCurrency = (value: number) => {
 const isNumeric = (str: string) => !isNaN(parseFloat(str.replace(',', '.'))) && /^[0-9,.]+$/.test(str);
 
 export default function Home() {
+  const { isAuthenticated, logout } = useAuth();
+  const router = useRouter();
+
+  useEffect(() => {
+    if (isAuthenticated === false) { // Use explicit false to wait for initial check
+      router.push('/login');
+    }
+  }, [isAuthenticated, router]);
+
+
   const firestore = useFirestore();
-  const orderItemsRef = useMemoFirebase(() => collection(firestore, "order_items"), [firestore]);
-  const bomboniereItemsRef = useMemoFirebase(() => collection(firestore, "bomboniere_items"), [firestore]);
-  const favoriteClientsRef = useMemoFirebase(() => collection(firestore, "favorite_clients"), [firestore]);
-  const clientAccountsRef = useMemoFirebase(() => collection(firestore, "client_accounts"), [firestore]);
+  const orderItemsRef = useMemoFirebase(() => (firestore ? collection(firestore, "order_items") : null), [firestore]);
+  const bomboniereItemsRef = useMemoFirebase(() => (firestore ? query(collection(firestore, 'bomboniere_items'), orderBy('name', 'asc')) : null), [firestore]);
+  const favoriteClientsRef = useMemoFirebase(() => (firestore ? collection(firestore, "favorite_clients") : null), [firestore]);
+  const clientAccountsRef = useMemoFirebase(() => (firestore ? collection(firestore, "client_accounts") : null), [firestore]);
 
 
   const { data: items, isLoading, error: firestoreError } = useCollection<Item>(orderItemsRef);
@@ -311,6 +324,7 @@ export default function Home() {
             setDocumentNonBlocking(docRef, { ...finalItem, total }, { merge: true });
             toast({ title: "Sucesso", description: "Lançamento atualizado." });
         } else {
+            if (!firestore || !orderItemsRef) return;
             const newItem = { ...finalItem, total };
             addDocumentNonBlocking(orderItemsRef, newItem);
 
@@ -435,7 +449,7 @@ export default function Home() {
   };
 
   const confirmSaveFavorite = () => {
-    if (!firestore || !itemToSaveAsFavorite || !favoriteName.trim() || !itemToSaveAsFavorite.originalCommand) return;
+    if (!firestore || !favoriteClientsRef || !itemToSaveAsFavorite || !favoriteName.trim() || !itemToSaveAsFavorite.originalCommand) return;
     
     const newFavorite: Omit<FavoriteClient, 'id'> = {
       name: favoriteName.trim(),
@@ -493,6 +507,14 @@ export default function Home() {
 
     return { total, totalAVista, totalFiado, deliveryCount, totalDeliveryFee };
   }, [items]);
+
+  if (isAuthenticated === undefined || isAuthenticated === false) {
+    return (
+      <div className="flex h-screen items-center justify-center">
+        <Loader2 className="h-12 w-12 animate-spin text-primary" />
+      </div>
+    );
+  }
 
   if (firestoreError) {
     return (
@@ -612,10 +634,13 @@ export default function Home() {
         <header className="mb-6 flex flex-col items-center justify-center text-center relative">
             <div className="absolute top-0 right-0 flex items-center gap-2">
                 <Link href="/stock" passHref>
-                    <Button variant="ghost" size="icon" className="text-muted-foreground hover:text-primary">
+                    <Button variant="ghost" size="icon" className="text-muted-foreground hover:text-primary" title="Controle de Estoque">
                         <Package />
                     </Button>
                 </Link>
+                 <Button variant="ghost" size="icon" className="text-muted-foreground hover:text-destructive" onClick={logout} title="Sair">
+                    <LogOut />
+                </Button>
             </div>
           <MirinhaLogo className="w-64 sm:w-80 h-auto text-primary" />
           <p className="text-muted-foreground -mt-2 text-sm sm:text-base">Controle de Pedidos</p>
@@ -688,5 +713,6 @@ export default function Home() {
     </>
   );
 }
+
 
     
