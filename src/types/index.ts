@@ -73,11 +73,9 @@ export interface DailyReport {
     totalBomboniereValue: number;
     totalBomboniereQuantity: number;
     totalsByGroup: Record<Group, number>;
-    itemCounts: Record<string, { total: number; rua: number; salao: number }>;
+    itemCounts: Record<string, { total: number; rua: number; salao: number; totalValue: number }>;
     bomboniereItemCounts: Record<string, { quantity: number; totalValue: number; rua_qty: number; salao_qty: number }>;
     totalMealValue: number;
   };
   rawItems: Item[];
 }
-
-    

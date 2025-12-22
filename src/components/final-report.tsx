@@ -96,10 +96,11 @@ export default function FinalReport({ items, onClearData }: FinalReportProps) {
     
     let totalBomboniereValue = 0;
     let totalBomboniereQuantity = 0;
-    const itemCounts: { [key: string]: { total: number; rua: number; salao: number } } = {};
+    const itemCounts: { [key: string]: { total: number; rua: number; salao: number; totalValue: number } } = {};
     const bomboniereItemCounts: { [key: string]: { quantity: number; totalValue: number; rua_qty: number; salao_qty: number } } = {};
     
     let totalMealItems = 0;
+    let totalMealValue = 0;
     
     let deliveryCount = 0;
     let totalDeliveryFee = 0;
@@ -115,6 +116,9 @@ export default function FinalReport({ items, onClearData }: FinalReportProps) {
       }
       
       const isRua = item.group.includes('rua');
+      const itemMealValue = item.price - (item.bomboniereItems ? item.bomboniereItems.reduce((acc, bi) => acc + (bi.price * bi.quantity), 0) : 0);
+      totalMealValue += itemMealValue;
+
 
       // Aggregate favorite client fiado data
       if (item.group.includes('Fiados') && item.customerId && item.customerName) {
@@ -147,9 +151,10 @@ export default function FinalReport({ items, onClearData }: FinalReportProps) {
       if(item.predefinedItems){
         item.predefinedItems.forEach(pItem => {
           if (!itemCounts[pItem.name]) {
-            itemCounts[pItem.name] = { total: 0, rua: 0, salao: 0 };
+            itemCounts[pItem.name] = { total: 0, rua: 0, salao: 0, totalValue: 0 };
           }
           itemCounts[pItem.name].total += 1;
+          itemCounts[pItem.name].totalValue += pItem.price;
           if (isRua) {
              itemCounts[pItem.name].rua += 1;
           } else {
@@ -161,10 +166,12 @@ export default function FinalReport({ items, onClearData }: FinalReportProps) {
       
       if(item.individualPrices){
         const kgCount = item.individualPrices.length;
+        const kgValue = item.individualPrices.reduce((a, b) => a + b, 0);
         if (!itemCounts['KG']) {
-          itemCounts['KG'] = { total: 0, rua: 0, salao: 0 };
+          itemCounts['KG'] = { total: 0, rua: 0, salao: 0, totalValue: 0 };
         }
         itemCounts['KG'].total += kgCount;
+        itemCounts['KG'].totalValue += kgValue;
         if(isRua) {
             itemCounts['KG'].rua += kgCount;
         } else {
@@ -175,7 +182,6 @@ export default function FinalReport({ items, onClearData }: FinalReportProps) {
     });
     
     const totalFaturamento = Object.values(totalsByGroup).reduce((acc, val) => acc + val, 0);
-    const totalMealValue = items.reduce((sum, item) => sum + (item.price - (item.bomboniereItems ? item.bomboniereItems.reduce((acc, bi) => acc + (bi.price * bi.quantity), 0) : 0)), 0);
     const totalAVista = totalsByGroup['Vendas salão'] + totalsByGroup['Vendas rua'];
     const totalFiado = totalsByGroup['Fiados salão'] + totalsByGroup['Fiados rua'];
     const totalSalao = totalsByGroup['Vendas salão'] + totalsByGroup['Fiados salão'];
@@ -492,22 +498,24 @@ export default function FinalReport({ items, onClearData }: FinalReportProps) {
                     </div>
                     <div className="grid grid-cols-2 gap-x-4">
                         <ul className="space-y-1">
-                            {reportData.itemCounts.filter(([, count]) => count.salao > 0).map(([name, count]) => (
-                                <li key={`${name}-salao`}>
-                                    <div className="flex justify-between items-center">
-                                      <span>{count.salao > 1 && `${count.salao}x `}{name}</span>
-                                    </div>
+                            {reportData.itemCounts.filter(([, count]) => count.salao > 0).map(([name, count]) => {
+                                const pricePerItem = count.total > 0 ? count.totalValue / count.total : 0;
+                                return (
+                                <li key={`${name}-salao`} className="flex justify-between items-center">
+                                    <span>{count.salao > 1 && `${count.salao}x `}{name}</span>
+                                    <span className="font-mono">{formatCurrency(pricePerItem * count.salao)}</span>
                                 </li>
-                            ))}
+                            )})}
                         </ul>
                         <ul className="space-y-1">
-                            {reportData.itemCounts.filter(([, count]) => count.rua > 0).map(([name, count]) => (
-                                <li key={`${name}-rua`}>
-                                   <div className="flex justify-between items-center">
-                                      <span>{count.rua > 1 && `${count.rua}x `}{name}</span>
-                                   </div>
+                            {reportData.itemCounts.filter(([, count]) => count.rua > 0).map(([name, count]) => {
+                                const pricePerItem = count.total > 0 ? count.totalValue / count.total : 0;
+                                return (
+                                <li key={`${name}-rua`} className="flex justify-between items-center">
+                                    <span>{count.rua > 1 && `${count.rua}x `}{name}</span>
+                                    <span className="font-mono">{formatCurrency(pricePerItem * count.rua)}</span>
                                 </li>
-                            ))}
+                            )})}
                         </ul>
                     </div>
                 </CardContent>
@@ -521,22 +529,28 @@ export default function FinalReport({ items, onClearData }: FinalReportProps) {
                         <span>Salão</span>
                         <span>Rua</span>
                     </div>
-                    <div className="grid grid-cols-2 gap-x-4">
+                     <div className="grid grid-cols-2 gap-x-4">
                         <ul className="space-y-1">
-                            {reportData.bomboniereItemCounts.filter(([, data]) => data.salao_qty > 0).map(([name, data]) => (
-                                <li key={`${name}-salao`} className="flex justify-between items-center">
-                                    <span>{data.salao_qty > 1 && `${data.salao_qty}x `}{name}</span>
-                                    <span className="font-mono">{formatCurrency((data.totalValue / data.quantity) * data.salao_qty)}</span>
-                                </li>
-                            ))}
+                           {reportData.bomboniereItemCounts.filter(([, data]) => data.salao_qty > 0).map(([name, data]) => {
+                                const pricePerItem = data.quantity > 0 ? data.totalValue / data.quantity : 0;
+                                return (
+                                    <li key={`${name}-salao`} className="flex justify-between items-center">
+                                        <span>{data.salao_qty > 1 && `${data.salao_qty}x `}{name}</span>
+                                        <span className="font-mono">{formatCurrency(pricePerItem * data.salao_qty)}</span>
+                                    </li>
+                                )
+                            })}
                         </ul>
                         <ul className="space-y-1">
-                           {reportData.bomboniereItemCounts.filter(([, data]) => data.rua_qty > 0).map(([name, data]) => (
-                                <li key={`${name}-rua`} className="flex justify-between items-center">
-                                     <span>{data.rua_qty > 1 && `${data.rua_qty}x `}{name}</span>
-                                     <span className="font-mono">{formatCurrency((data.totalValue / data.quantity) * data.rua_qty)}</span>
-                                </li>
-                            ))}
+                           {reportData.bomboniereItemCounts.filter(([, data]) => data.rua_qty > 0).map(([name, data]) => {
+                                const pricePerItem = data.quantity > 0 ? data.totalValue / data.quantity : 0;
+                                return (
+                                    <li key={`${name}-rua`} className="flex justify-between items-center">
+                                        <span>{data.rua_qty > 1 && `${data.rua_qty}x `}{name}</span>
+                                        <span className="font-mono">{formatCurrency(pricePerItem * data.rua_qty)}</span>
+                                    </li>
+                                )
+                           })}
                         </ul>
                     </div>
                 </CardContent>
@@ -563,5 +577,3 @@ export default function FinalReport({ items, onClearData }: FinalReportProps) {
     </>
   );
 }
-
-    
