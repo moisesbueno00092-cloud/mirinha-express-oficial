@@ -490,26 +490,20 @@ export default function FinalReport({ items, onClearData }: FinalReportProps) {
                 <CardHeader>
                     <CardTitle className="text-base sm:text-lg">Contagem de Refeições</CardTitle>
                 </CardHeader>
-                <CardContent className="text-xs sm:text-sm">
-                    <div className="grid grid-cols-3 font-semibold mb-2 border-b pb-2">
-                        <span>Total</span>
-                        <span>Salão</span>
-                        <span>Rua</span>
+                <CardContent className="text-xs sm:text-sm space-y-2">
+                    <div>
+                        <h4 className="font-semibold mb-1 border-b pb-1">Salão</h4>
+                        <ul className="space-y-1 mt-2">
+                            {reportData.itemCounts.filter(([, count]) => count.salao > 0).map(([name, count]) => (
+                                <li key={`${name}-salao`}>{count.salao}x {name}</li>
+                            ))}
+                        </ul>
                     </div>
-                    <div className="grid grid-cols-3 gap-x-4">
-                        <ul className="space-y-1">
-                            {reportData.itemCounts.map(([name, count]) => (
-                                <li key={name}>{name}: {count.total}</li>
-                            ))}
-                        </ul>
-                        <ul className="space-y-1">
-                             {reportData.itemCounts.map(([name, count]) => (
-                                <li key={`${name}-salao`}>{name}: {count.salao}</li>
-                            ))}
-                        </ul>
-                        <ul className="space-y-1">
-                            {reportData.itemCounts.map(([name, count]) => (
-                                <li key={`${name}-rua`}>{name}: {count.rua}</li>
+                    <div>
+                        <h4 className="font-semibold mb-1 border-b pb-1 pt-2">Rua</h4>
+                        <ul className="space-y-1 mt-2">
+                            {reportData.itemCounts.filter(([, count]) => count.rua > 0).map(([name, count]) => (
+                                <li key={`${name}-rua`}>{count.rua}x {name}</li>
                             ))}
                         </ul>
                     </div>
@@ -535,7 +529,7 @@ export default function FinalReport({ items, onClearData }: FinalReportProps) {
                            {/* Render Salao items here */}
                         </ul>
                         <ul className="space-y-1">
-                           {/* Render Rua items here */}
+                            {/* Render Rua items here */}
                         </ul>
                     </div>
                 </CardContent>
