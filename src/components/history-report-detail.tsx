@@ -250,31 +250,19 @@ export default function HistoryReportDetail({ report, onBack, onDelete }: Histor
                     <CardTitle className="text-base sm:text-lg">Contagem de Bomboniere</CardTitle>
                 </CardHeader>
                 <CardContent className="text-xs sm:text-sm">
-                    <div className="grid grid-cols-3 gap-x-4 font-semibold mb-2 border-b pb-2">
-                        <h4>Total</h4>
+                     <div className="grid grid-cols-2 gap-x-4 font-semibold mb-2 border-b pb-2">
                         <h4>Salão</h4>
                         <h4>Rua</h4>
                     </div>
-                     <div className="grid grid-cols-3 gap-x-4">
-                        <ul className="space-y-1">
-                            {sortedBomboniereCounts.map(([name, data]) => (
-                                <li key={name} className="flex justify-between items-center">
-                                    <span className="truncate pr-2">
-                                        <span className="font-medium">{data.quantity > 1 ? `${data.quantity}x` : ''}</span>
-                                        <span className="ml-1">{name}</span>
-                                    </span>
-                                    <span className="font-mono text-muted-foreground">{formatCurrency(data.totalValue)}</span>
-                                </li>
-                            ))}
-                        </ul>
+                    <div className="grid grid-cols-2 gap-x-4">
                         <ul className="space-y-1">
                             {sortedBomboniereCounts.filter(([, data]) => data.salao_qty > 0).map(([name, data]) => (
                                 <li key={name} className="flex justify-between items-center">
-                                   <span className="truncate pr-2">
-                                     <span className="font-medium">{data.salao_qty > 1 ? `${data.salao_qty}x` : ''}</span>
-                                     <span className="ml-1">{name}</span>
-                                   </span>
-                                   <span className="font-mono text-muted-foreground">{formatCurrency((data.totalValue / data.quantity) * data.salao_qty)}</span>
+                                    <span className="truncate pr-2">
+                                        <span className="font-medium">{data.salao_qty > 1 ? `${data.salao_qty}x` : ''}</span>
+                                        <span className="ml-1">{name}</span>
+                                    </span>
+                                    <span className="font-mono text-muted-foreground">{formatCurrency((data.totalValue / data.quantity) * data.salao_qty)}</span>
                                 </li>
                             ))}
                         </ul>
