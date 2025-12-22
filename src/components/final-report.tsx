@@ -8,10 +8,10 @@ import { Separator } from "@/components/ui/separator";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { PieChart, Pie, Cell, ResponsiveContainer, Legend, Tooltip } from "recharts";
-import { Share, FileText, BrainCircuit, Save, History, Trash2, User, KeyRound, Loader2 } from "lucide-react";
+import { Share, FileText, BrainCircuit, Save, History, Trash2, User, KeyRound, Loader2, AlertTriangle } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useFirestore } from "@/firebase";
-import { doc } from "firebase/firestore";
+import { doc, getDoc } from "firebase/firestore";
 import { useToast } from "@/hooks/use-toast";
 import { setDocumentNonBlocking, deleteDocumentNonBlocking } from "@/firebase/non-blocking-updates";
 import Link from "next/link";
@@ -75,6 +75,9 @@ export default function FinalReport({ items, onClearData }: FinalReportProps) {
   const firestore = useFirestore();
   const { toast } = useToast();
   const router = useRouter();
+  const [isSaving, setIsSaving] = useState(false);
+  const [showOverwriteConfirm, setShowOverwriteConfirm] = useState(false);
+
 
   const reportData = useMemo(() => {
     if (items.length === 0) return null;
@@ -252,10 +255,12 @@ export default function FinalReport({ items, onClearData }: FinalReportProps) {
     };
   }, [items]);
   
-
-  const handleSaveAndClear = async () => {
+  const proceedWithSaveAndClear = () => {
     if (!firestore || !reportData) return;
     
+    setIsSaving(true);
+    setShowOverwriteConfirm(false);
+
     const reportId = reportData.reportDate.toISOString().split('T')[0]; // YYYY-MM-DD
     const reportTimestamp = reportData.reportDate.toISOString();
 
@@ -285,6 +290,7 @@ export default function FinalReport({ items, onClearData }: FinalReportProps) {
       rawItems: items,
     };
     
+    // Use merge: true to overwrite, as confirmed by the user.
     setDocumentNonBlocking(reportDocRef, { ...reportToSave, id: reportId }, { merge: true });
 
     try {
@@ -303,8 +309,40 @@ export default function FinalReport({ items, onClearData }: FinalReportProps) {
         title: "Erro ao limpar dados",
         description: "O relatório foi salvo, mas ocorreu um problema ao limpar os itens do dia.",
       });
+    } finally {
+        setIsSaving(false);
     }
   };
+
+  const handleSaveAndClear = async () => {
+    if (!firestore || !reportData || isSaving) return;
+
+    setIsSaving(true);
+    const reportId = reportData.reportDate.toISOString().split('T')[0];
+    const reportDocRef = doc(firestore, "daily_reports", reportId);
+
+    try {
+      const existingReport = await getDoc(reportDocRef);
+      if (existingReport.exists()) {
+        setShowOverwriteConfirm(true);
+      } else {
+        proceedWithSaveAndClear();
+      }
+    } catch (error) {
+        console.error("Error checking for existing report:", error);
+        toast({
+            variant: "destructive",
+            title: "Erro de Verificação",
+            description: "Não foi possível verificar se o relatório já existe. Tente novamente."
+        });
+    } finally {
+        // Only set isSaving to false here if we didn't open the dialog
+        if (!showOverwriteConfirm) {
+            setIsSaving(false);
+        }
+    }
+  };
+
 
   if (items.length === 0 || !reportData) {
     return (
@@ -381,6 +419,26 @@ export default function FinalReport({ items, onClearData }: FinalReportProps) {
 
   return (
     <>
+      <AlertDialog open={showOverwriteConfirm} onOpenChange={setShowOverwriteConfirm}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <AlertTriangle className="text-destructive h-6 w-6" />
+              Substituir Relatório Existente?
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              Já existe um relatório salvo para o dia {reportDateFormatted}. Deseja substituí-lo pelo novo? Esta ação não pode ser desfeita.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => setIsSaving(false)}>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={proceedWithSaveAndClear}>
+              Sim, Substituir
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
       <div className="bg-card text-card-foreground rounded-lg p-2 sm:p-6 space-y-4 sm:space-y-6">
         <div className="flex flex-wrap gap-2 justify-between items-center">
             <div>
@@ -398,9 +456,9 @@ export default function FinalReport({ items, onClearData }: FinalReportProps) {
                         Histórico
                     </Button>
                 </Link>
-                <Button variant="destructive" size="sm" className="text-xs sm:text-sm" onClick={handleSaveAndClear}>
-                    <Save className="mr-2 h-4 w-4" />
-                    Salvar e Encerrar
+                <Button variant="destructive" size="sm" className="text-xs sm:text-sm" onClick={handleSaveAndClear} disabled={isSaving}>
+                  {isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
+                  {isSaving ? 'A Guardar...' : 'Salvar e Encerrar'}
                 </Button>
             </div>
         </div>
@@ -560,4 +618,3 @@ export default function FinalReport({ items, onClearData }: FinalReportProps) {
   );
 }
 
-    
