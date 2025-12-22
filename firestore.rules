@@ -2,22 +2,27 @@ rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
-    match /order_items/{orderItemId} {
+    
+    // Rule for a specific collection path.
+    // This allows anyone to read or write to this collection.
+    match /order_items/{docId} {
       allow read, write: if true;
     }
-    match /daily_reports/{reportId} {
+
+    match /daily_reports/{docId} {
       allow read, write: if true;
     }
-    match /client_accounts/{clientAccountId} {
-      allow read, write, delete: if true;
+
+    // This is the correct and explicit way to allow a 'list' operation on a collection.
+    match /client_accounts/{docId} {
+       allow read, write, delete, list: if true;
     }
-    match /client_accounts {
-       allow list: if true;
-    }
-    match /bomboniere_items/{bomboniereItemId} {
+
+    match /bomboniere_items/{docId} {
       allow read, write: if true;
     }
-    match /favorite_clients/{favoriteClientId} {
+
+    match /favorite_clients/{docId} {
       allow read, write: if true;
     }
   }
