@@ -201,12 +201,18 @@ export default function HistoryReportDetail({ report, onBack, onDelete }: Histor
                 </CardHeader>
                 <CardContent className="text-xs sm:text-sm pt-2">
                     <div className="grid grid-cols-2 gap-x-4 gap-y-1">
-                        {sortedItemCounts.filter(([, count]) => count.salao > 0).map(([name, count]) => (
-                            <div key={`${name}-salao`} className="flex justify-between"><span>{count.salao}x {name}</span><span className="text-muted-foreground">Salão</span></div>
-                        ))}
-                        {sortedItemCounts.filter(([, count]) => count.rua > 0).map(([name, count]) => (
-                            <div key={`${name}-rua`} className="flex justify-between"><span>{count.rua}x {name}</span><span className="text-muted-foreground">Rua</span></div>
-                        ))}
+                        <div>
+                          <h4 className="font-semibold mb-1">Salão</h4>
+                          {sortedItemCounts.filter(([, count]) => count.salao > 0).map(([name, count]) => (
+                            <div key={`${name}-salao`} className="flex justify-between"><span>{count.salao}x {name}</span></div>
+                          ))}
+                        </div>
+                        <div>
+                          <h4 className="font-semibold mb-1">Rua</h4>
+                          {sortedItemCounts.filter(([, count]) => count.rua > 0).map(([name, count]) => (
+                            <div key={`${name}-rua`} className="flex justify-between"><span>{count.rua}x {name}</span></div>
+                          ))}
+                        </div>
                     </div>
                 </CardContent>
             </Card>
@@ -219,12 +225,18 @@ export default function HistoryReportDetail({ report, onBack, onDelete }: Histor
                 </CardHeader>
                 <CardContent className="text-xs sm:text-sm pt-2">
                      <div className="grid grid-cols-2 gap-x-4 gap-y-1">
-                        {sortedBomboniereCounts.filter(([, data]) => data.salao_qty > 0).map(([name, data]) => (
-                             <div key={`${name}-salao`} className="flex justify-between"><span>{data.salao_qty}x {name}</span><span className="text-muted-foreground">Salão</span></div>
-                        ))}
-                         {sortedBomboniereCounts.filter(([, data]) => data.rua_qty > 0).map(([name, data]) => (
-                             <div key={`${name}-rua`} className="flex justify-between"><span>{data.rua_qty}x {name}</span><span className="text-muted-foreground">Rua</span></div>
-                        ))}
+                         <div>
+                            <h4 className="font-semibold mb-1">Salão</h4>
+                            {sortedBomboniereCounts.filter(([, data]) => data.salao_qty > 0).map(([name, data]) => (
+                                <div key={`${name}-salao`} className="flex justify-between"><span>{data.salao_qty}x {name}</span></div>
+                            ))}
+                        </div>
+                        <div>
+                            <h4 className="font-semibold mb-1">Rua</h4>
+                            {sortedBomboniereCounts.filter(([, data]) => data.rua_qty > 0).map(([name, data]) => (
+                                <div key={`${name}-rua`} className="flex justify-between"><span>{data.rua_qty}x {name}</span></div>
+                            ))}
+                        </div>
                     </div>
                 </CardContent>
             </Card>
