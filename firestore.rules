@@ -13,10 +13,13 @@ service cloud.firestore {
       allow read, write: if true;
     }
 
-    // This is the correct and explicit way to allow a 'list' operation on a collection.
     match /client_accounts/{docId} {
-       allow read, write, delete, list: if true;
+       allow read, write, delete: if true;
     }
+     match /client_accounts {
+        allow list: if true;
+    }
+
 
     match /bomboniere_items/{docId} {
       allow read, write: if true;
