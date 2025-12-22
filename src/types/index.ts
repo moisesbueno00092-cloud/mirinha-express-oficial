@@ -64,17 +64,17 @@ export interface DailyReport {
     totalFaturamento: number;
     totalAVista: number;
     totalFiado: number;
+    totalSalao: number;
+    totalRua: number;
     deliveryCount: number;
     totalDeliveryFee: number;
     totalMealItems: number;
     totalBomboniereValue: number;
     totalBomboniereQuantity: number;
     totalsByGroup: Record<Group, number>;
-    itemCounts: Record<string, { total: number; rua: number }>;
-    bomboniereItemCounts: Record<string, { quantity: number; total: number; rua: number }>;
+    itemCounts: Record<string, { total: number; rua: number; salao: number }>;
+    bomboniereItemCounts: Record<string, { quantity: number; total: number; rua: number; salao: number }>;
     totalMealValue: number;
   };
   rawItems: Item[];
 }
-
-    

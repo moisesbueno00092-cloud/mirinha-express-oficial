@@ -178,14 +178,14 @@ export default function HistoryReportDetail({ report, onBack, onDelete }: Histor
                         </div>
                     </div>
                      <Separator />
-                     <div className="space-y-2 text-xs sm:text-sm">
-                        <div className="flex justify-between">
-                            <span>Total Itens (Refeições):</span>
-                            <span className="font-mono font-medium">{reportData.totalMealItems}</span>
+                      <div className="space-y-2 text-xs sm:text-sm">
+                        <div className="flex justify-between font-bold">
+                            <span>Total Salão:</span>
+                            <span className="font-mono">{formatCurrency(reportData.totalSalao)}</span>
                         </div>
-                         <div className="flex justify-between">
-                            <span>Total Itens (Bomboniere):</span>
-                            <span className="font-mono font-medium">{reportData.totalBomboniereQuantity}</span>
+                        <div className="flex justify-between font-bold">
+                            <span>Total Rua:</span>
+                            <span className="font-mono">{formatCurrency(reportData.totalRua)}</span>
                         </div>
                     </div>
                 </div>
@@ -204,7 +204,7 @@ export default function HistoryReportDetail({ report, onBack, onDelete }: Histor
                     <CardTitle className="text-base sm:text-lg">Contagem de Refeições</CardTitle>
                 </CardHeader>
                 <CardContent className="text-xs sm:text-sm">
-                    <div className="grid grid-cols-2 gap-x-4">
+                    <div className="grid grid-cols-3 gap-x-4">
                         <div>
                             <h4 className="font-medium mb-1 border-b pb-1">Total</h4>
                             <ul className="space-y-1 mt-2">
@@ -213,6 +213,19 @@ export default function HistoryReportDetail({ report, onBack, onDelete }: Histor
                                         <div className="flex items-baseline gap-2">
                                             <span className="font-medium">{name}:</span>
                                             <span className="font-mono">{count.total}</span>
+                                        </div>
+                                    </li>
+                                ))}
+                            </ul>
+                        </div>
+                        <div>
+                            <h4 className="font-medium mb-1 border-b pb-1">Salão</h4>
+                            <ul className="space-y-1 mt-2">
+                                {Object.entries(reportData.itemCounts).filter(([, count]) => count.salao > 0).map(([name, count]) => (
+                                    <li key={name} className="flex items-baseline justify-between gap-2">
+                                        <div className="flex items-baseline gap-2">
+                                            <span className="font-medium">{name}:</span>
+                                            <span className="font-mono">{count.salao}</span>
                                         </div>
                                     </li>
                                 ))}
@@ -239,7 +252,7 @@ export default function HistoryReportDetail({ report, onBack, onDelete }: Histor
                     <CardTitle className="text-base sm:text-lg">Contagem de Bomboniere</CardTitle>
                 </CardHeader>
                 <CardContent className="text-xs sm:text-sm">
-                     <div className="grid grid-cols-2 gap-x-4">
+                     <div className="grid grid-cols-3 gap-x-4">
                         <div>
                             <h4 className="font-medium mb-1 border-b pb-1">Total</h4>
                             <ul className="space-y-1 mt-2">
@@ -250,6 +263,19 @@ export default function HistoryReportDetail({ report, onBack, onDelete }: Histor
                                             <span>{name}</span>
                                         </div>
                                         <span className="font-mono">{formatCurrency(data.total)}</span>
+                                    </li>
+                                ))}
+                            </ul>
+                        </div>
+                        <div>
+                            <h4 className="font-medium mb-1 border-b pb-1">Salão</h4>
+                            <ul className="space-y-1 mt-2">
+                                {Object.entries(reportData.bomboniereItemCounts).filter(([, data]) => data.salao > 0).map(([name, data]) => (
+                                    <li key={name} className="flex items-baseline justify-between gap-2">
+                                        <div className="flex items-baseline gap-2">
+                                            <span className="font-medium">{data.salao}x</span>
+                                            <span>{name}</span>
+                                        </div>
                                     </li>
                                 ))}
                             </ul>

@@ -94,8 +94,8 @@ export default function FinalReport({ items, onClearData }: FinalReportProps) {
     
     let totalBomboniereValue = 0;
     let totalBomboniereQuantity = 0;
-    const itemCounts: { [key: string]: { total: number; rua: number } } = {};
-    const bomboniereItemCounts: { [key: string]: { quantity: number; total: number; rua: number } } = {};
+    const itemCounts: { [key: string]: { total: number; rua: number; salao: number } } = {};
+    const bomboniereItemCounts: { [key: string]: { quantity: number; total: number; rua: number; salao: number } } = {};
     
     let totalMealItems = 0;
     
@@ -130,12 +130,14 @@ export default function FinalReport({ items, onClearData }: FinalReportProps) {
             totalBomboniereQuantity += bItem.quantity;
 
             if(!bomboniereItemCounts[bItem.name]){
-                bomboniereItemCounts[bItem.name] = { quantity: 0, total: 0, rua: 0 };
+                bomboniereItemCounts[bItem.name] = { quantity: 0, total: 0, rua: 0, salao: 0 };
             }
             bomboniereItemCounts[bItem.name].quantity += bItem.quantity;
             bomboniereItemCounts[bItem.name].total += bomboniereValue;
             if (isRua) {
                 bomboniereItemCounts[bItem.name].rua += bItem.quantity;
+            } else {
+                bomboniereItemCounts[bItem.name].salao += bItem.quantity;
             }
         });
       }
@@ -143,10 +145,14 @@ export default function FinalReport({ items, onClearData }: FinalReportProps) {
       if(item.predefinedItems){
         item.predefinedItems.forEach(pItem => {
           if (!itemCounts[pItem.name]) {
-            itemCounts[pItem.name] = { total: 0, rua: 0 };
+            itemCounts[pItem.name] = { total: 0, rua: 0, salao: 0 };
           }
           itemCounts[pItem.name].total += 1;
-          if (isRua) itemCounts[pItem.name].rua += 1;
+          if (isRua) {
+             itemCounts[pItem.name].rua += 1;
+          } else {
+            itemCounts[pItem.name].salao += 1;
+          }
           totalMealItems += 1;
         });
       }
@@ -154,10 +160,14 @@ export default function FinalReport({ items, onClearData }: FinalReportProps) {
       if(item.individualPrices){
         const kgCount = item.individualPrices.length;
         if (!itemCounts['KG']) {
-          itemCounts['KG'] = { total: 0, rua: 0 };
+          itemCounts['KG'] = { total: 0, rua: 0, salao: 0 };
         }
         itemCounts['KG'].total += kgCount;
-        if(isRua) itemCounts['KG'].rua += kgCount;
+        if(isRua) {
+            itemCounts['KG'].rua += kgCount;
+        } else {
+            itemCounts['KG'].salao += kgCount;
+        }
         totalMealItems += kgCount;
       }
     });
@@ -166,6 +176,9 @@ export default function FinalReport({ items, onClearData }: FinalReportProps) {
     const totalMealValue = items.reduce((sum, item) => sum + (item.price - (item.bomboniereItems ? item.bomboniereItems.reduce((acc, bi) => acc + (bi.price * bi.quantity), 0) : 0)), 0);
     const totalAVista = totalsByGroup['Vendas salão'] + totalsByGroup['Vendas rua'];
     const totalFiado = totalsByGroup['Fiados salão'] + totalsByGroup['Fiados rua'];
+    const totalSalao = totalsByGroup['Vendas salão'] + totalsByGroup['Fiados salão'];
+    const totalRua = totalsByGroup['Vendas rua'] + totalsByGroup['Fiados rua'];
+
 
     // Lógica para os Gráficos
     
@@ -213,6 +226,8 @@ export default function FinalReport({ items, onClearData }: FinalReportProps) {
         totalFaturamento,
         totalAVista,
         totalFiado,
+        totalSalao,
+        totalRua,
         deliveryCount,
         totalDeliveryFee,
         totalMealItems,
@@ -249,6 +264,8 @@ export default function FinalReport({ items, onClearData }: FinalReportProps) {
         totalFaturamento: reportData.totalFaturamento,
         totalAVista: reportData.totalAVista,
         totalFiado: reportData.totalFiado,
+        totalSalao: reportData.totalSalao,
+        totalRua: reportData.totalRua,
         deliveryCount: reportData.deliveryCount,
         totalDeliveryFee: reportData.totalDeliveryFee,
         totalMealItems: reportData.totalMealItems,
@@ -428,13 +445,13 @@ export default function FinalReport({ items, onClearData }: FinalReportProps) {
                     </div>
                      <Separator />
                      <div className="space-y-2 text-xs sm:text-sm">
-                        <div className="flex justify-between">
-                            <span>Total Itens (Refeições):</span>
-                            <span className="font-mono font-medium">{reportData.totalMealItems}</span>
+                        <div className="flex justify-between font-bold">
+                            <span>Total Salão:</span>
+                            <span className="font-mono">{formatCurrency(reportData.totalSalao)}</span>
                         </div>
-                         <div className="flex justify-between">
-                            <span>Total Itens (Rua):</span>
-                            <span className="font-mono font-medium">{reportData.totalRuaItems}</span>
+                        <div className="flex justify-between font-bold">
+                            <span>Total Rua:</span>
+                            <span className="font-mono">{formatCurrency(reportData.totalRua)}</span>
                         </div>
                     </div>
                 </div>
@@ -470,7 +487,7 @@ export default function FinalReport({ items, onClearData }: FinalReportProps) {
                     <CardTitle className="text-base sm:text-lg">Contagem de Refeições</CardTitle>
                 </CardHeader>
                 <CardContent className="text-xs sm:text-sm">
-                    <div className="grid grid-cols-2 gap-x-4">
+                    <div className="grid grid-cols-3 gap-x-4">
                         <div>
                             <h4 className="font-medium mb-1 border-b pb-1">Total</h4>
                             <ul className="space-y-1 mt-2">
@@ -479,6 +496,19 @@ export default function FinalReport({ items, onClearData }: FinalReportProps) {
                                         <div className="flex items-baseline gap-2">
                                             <span className="font-medium">{name}:</span>
                                             <span className="font-mono">{count.total}</span>
+                                        </div>
+                                    </li>
+                                ))}
+                            </ul>
+                        </div>
+                        <div>
+                            <h4 className="font-medium mb-1 border-b pb-1">Salão</h4>
+                            <ul className="space-y-1 mt-2">
+                                {reportData.itemCounts.filter(([, count]) => count.salao > 0).map(([name, count]) => (
+                                    <li key={name} className="flex items-baseline justify-between gap-2">
+                                        <div className="flex items-baseline gap-2">
+                                            <span className="font-medium">{name}:</span>
+                                            <span className="font-mono">{count.salao}</span>
                                         </div>
                                     </li>
                                 ))}
@@ -505,7 +535,7 @@ export default function FinalReport({ items, onClearData }: FinalReportProps) {
                     <CardTitle className="text-base sm:text-lg">Contagem de Bomboniere</CardTitle>
                 </CardHeader>
                 <CardContent className="text-xs sm:text-sm">
-                     <div className="grid grid-cols-2 gap-x-4">
+                     <div className="grid grid-cols-3 gap-x-4">
                         <div>
                             <h4 className="font-medium mb-1 border-b pb-1">Total</h4>
                             <ul className="space-y-1 mt-2">
@@ -516,6 +546,19 @@ export default function FinalReport({ items, onClearData }: FinalReportProps) {
                                             <span>{name}</span>
                                         </div>
                                         <span className="font-mono">{formatCurrency(data.total)}</span>
+                                    </li>
+                                ))}
+                            </ul>
+                        </div>
+                         <div>
+                            <h4 className="font-medium mb-1 border-b pb-1">Salão</h4>
+                            <ul className="space-y-1 mt-2">
+                                {reportData.bomboniereItemCounts.filter(([, data]) => data.salao > 0).map(([name, data]) => (
+                                    <li key={name} className="flex items-baseline justify-between gap-2">
+                                        <div className="flex items-baseline gap-2">
+                                            <span className="font-medium">{data.salao}x</span>
+                                            <span>{name}</span>
+                                        </div>
                                     </li>
                                 ))}
                             </ul>
