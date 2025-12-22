@@ -71,6 +71,9 @@ export default function HistoryReportDetail({ report, onBack, onDelete }: Histor
         { name: 'Bomboniere', value: reportData.totalBomboniereQuantity, percent: totalItemsCount > 0 ? (reportData.totalBomboniereQuantity || 0) / totalItemsCount : 0 },
     ].filter(d => d.value > 0);
 
+  const sortedItemCounts = Object.entries(reportData.itemCounts).sort(([, a], [, b]) => b.total - a.total);
+  const sortedBomboniereCounts = Object.entries(reportData.bomboniereItemCounts).sort(([, a], [, b]) => b.totalValue - a.totalValue);
+
 
   const RADIAN = Math.PI / 180;
   const renderCustomizedLabel = ({ cx, cy, midAngle, outerRadius, percent }: any) => {
@@ -183,18 +186,18 @@ export default function HistoryReportDetail({ report, onBack, onDelete }: Histor
                     </div>
                      <Separator />
                       <div className="space-y-2 text-xs sm:text-sm">
-                        {reportData.totalSalao !== undefined && (
+                        {reportData.totalSalao !== undefined ? (
                             <div className="flex justify-between font-bold">
                                 <span>Total Salão:</span>
                                 <span className="font-mono">{formatCurrency(reportData.totalSalao)}</span>
                             </div>
-                        )}
-                        {reportData.totalRua !== undefined && (
+                        ) : null}
+                        {reportData.totalRua !== undefined ? (
                             <div className="flex justify-between font-bold">
                                 <span>Total Rua:</span>
                                 <span className="font-mono">{formatCurrency(reportData.totalRua)}</span>
                             </div>
-                        )}
+                        ): null}
                     </div>
                 </div>
 
@@ -211,34 +214,31 @@ export default function HistoryReportDetail({ report, onBack, onDelete }: Histor
                 <CardHeader>
                     <CardTitle className="text-base sm:text-lg">Contagem de Refeições</CardTitle>
                 </CardHeader>
-                <CardContent className="text-xs sm:text-sm space-y-2">
+                <CardContent className="text-xs sm:text-sm">
                     <div className="grid grid-cols-3 gap-x-4 font-semibold mb-2 border-b pb-2">
-                        <h4 className="text-left">Total</h4>
-                        <h4 className="text-left">Salão</h4>
-                        <h4 className="text-left">Rua</h4>
+                        <h4>Total</h4>
+                        <h4>Salão</h4>
+                        <h4>Rua</h4>
                     </div>
                     <div className="grid grid-cols-3 gap-x-4">
                         <ul className="space-y-1">
-                            {Object.entries(reportData.itemCounts).map(([name, count]) => (
-                                <li key={name} className="flex items-baseline gap-2">
-                                    <span className="font-medium">{name}:</span>
-                                    <span className="font-mono">{count.total}</span>
+                            {sortedItemCounts.map(([name, count]) => (
+                                <li key={name} className="flex items-baseline justify-between gap-2">
+                                    <span className="font-medium truncate">{count.total > 1 && `${count.total}x `}{name}</span>
                                 </li>
                             ))}
                         </ul>
                         <ul className="space-y-1">
-                            {Object.entries(reportData.itemCounts).filter(([, count]) => count.salao > 0).map(([name, count]) => (
-                                <li key={name} className="flex items-baseline gap-2">
-                                    <span className="font-medium">{name}:</span>
-                                    <span className="font-mono">{count.salao}</span>
+                            {sortedItemCounts.filter(([, count]) => count.salao > 0).map(([name, count]) => (
+                                <li key={name} className="flex items-baseline justify-between gap-2">
+                                    <span className="font-medium truncate">{count.salao > 1 && `${count.salao}x `}{name}</span>
                                 </li>
                             ))}
                         </ul>
                         <ul className="space-y-1">
-                            {Object.entries(reportData.itemCounts).filter(([, count]) => count.rua > 0).map(([name, count]) => (
-                                <li key={name} className="flex items-baseline gap-2">
-                                    <span className="font-medium">{name}:</span>
-                                    <span className="font-mono">{count.rua}</span>
+                            {sortedItemCounts.filter(([, count]) => count.rua > 0).map(([name, count]) => (
+                                <li key={name} className="flex items-baseline justify-between gap-2">
+                                   <span className="font-medium truncate">{count.rua > 1 && `${count.rua}x `}{name}</span>
                                 </li>
                             ))}
                         </ul>
@@ -249,17 +249,17 @@ export default function HistoryReportDetail({ report, onBack, onDelete }: Histor
                  <CardHeader>
                     <CardTitle className="text-base sm:text-lg">Contagem de Bomboniere</CardTitle>
                 </CardHeader>
-                <CardContent className="text-xs sm:text-sm space-y-2">
+                <CardContent className="text-xs sm:text-sm">
                     <div className="grid grid-cols-3 gap-x-4 font-semibold mb-2 border-b pb-2">
-                        <h4 className="text-left">Total</h4>
-                        <h4 className="text-left">Salão</h4>
-                        <h4 className="text-left">Rua</h4>
+                        <h4>Total</h4>
+                        <h4>Salão</h4>
+                        <h4>Rua</h4>
                     </div>
                      <div className="grid grid-cols-3 gap-x-4">
                         <ul className="space-y-1">
-                            {Object.entries(reportData.bomboniereItemCounts).map(([name, data]) => (
+                            {sortedBomboniereCounts.map(([name, data]) => (
                                 <li key={name} className="flex justify-between items-center">
-                                    <span>
+                                    <span className="truncate pr-2">
                                         <span className="font-medium">{data.quantity}x</span>
                                         <span className="ml-1">{name}</span>
                                     </span>
@@ -268,24 +268,24 @@ export default function HistoryReportDetail({ report, onBack, onDelete }: Histor
                             ))}
                         </ul>
                         <ul className="space-y-1">
-                            {Object.entries(reportData.bomboniereItemCounts).filter(([, data]) => data.salao_qty > 0).map(([name, data]) => (
+                            {sortedBomboniereCounts.filter(([, data]) => data.salao_qty > 0).map(([name, data]) => (
                                 <li key={name} className="flex justify-between items-center">
-                                   <span>
+                                   <span className="truncate pr-2">
                                      <span className="font-medium">{data.salao_qty}x</span>
                                      <span className="ml-1">{name}</span>
                                    </span>
-                                   <span className="font-mono text-muted-foreground">{formatCurrency(data.totalValue * (data.salao_qty / data.quantity))}</span>
+                                   <span className="font-mono text-muted-foreground">{formatCurrency(data.totalValue / data.quantity * data.salao_qty)}</span>
                                 </li>
                             ))}
                         </ul>
                         <ul className="space-y-1">
-                            {Object.entries(reportData.bomboniereItemCounts).filter(([, data]) => data.rua_qty > 0).map(([name, data]) => (
+                            {sortedBomboniereCounts.filter(([, data]) => data.rua_qty > 0).map(([name, data]) => (
                                 <li key={name} className="flex justify-between items-center">
-                                    <span>
+                                    <span className="truncate pr-2">
                                         <span className="font-medium">{data.rua_qty}x</span>
                                         <span className="ml-1">{name}</span>
                                     </span>
-                                    <span className="font-mono text-muted-foreground">{formatCurrency(data.totalValue * (data.rua_qty / data.quantity))}</span>
+                                    <span className="font-mono text-muted-foreground">{formatCurrency(data.totalValue / data.quantity * data.rua_qty)}</span>
                                 </li>
                             ))}
                         </ul>
@@ -296,5 +296,3 @@ export default function HistoryReportDetail({ report, onBack, onDelete }: Histor
     </div>
   );
 }
-
-    
