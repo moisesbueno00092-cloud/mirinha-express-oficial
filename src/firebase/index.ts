@@ -2,7 +2,7 @@
 
 import { firebaseConfig } from '@/firebase/config';
 import { initializeApp, getApps, getApp, FirebaseApp } from 'firebase/app';
-import { getAuth } from 'firebase/auth';
+import { getAuth, signInAnonymously } from 'firebase/auth';
 import { getFirestore } from 'firebase/firestore'
 
 // IMPORTANT: DO NOT MODIFY THIS FUNCTION
@@ -33,9 +33,18 @@ export function initializeFirebase() {
 }
 
 export function getSdks(firebaseApp: FirebaseApp) {
+  const auth = getAuth(firebaseApp);
+  // This is a temporary workaround to ensure we have a UID for rules.
+  // In a real app, you would have a proper sign-in flow.
+  if (auth.currentUser === null) {
+      signInAnonymously(auth).catch((error) => {
+          console.error("Anonymous sign-in failed:", error);
+      });
+  }
+
   return {
     firebaseApp,
-    auth: getAuth(firebaseApp),
+    auth: auth,
     firestore: getFirestore(firebaseApp)
   };
 }
