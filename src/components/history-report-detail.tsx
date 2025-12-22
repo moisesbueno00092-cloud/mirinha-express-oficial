@@ -161,12 +161,22 @@ export default function HistoryReportDetail({ report, onBack, onDelete }: Histor
                 <div className="space-y-3 sm:space-y-4">
                     <h3 className="font-semibold text-base sm:text-lg">Resumo Financeiro</h3>
                     <div className="space-y-2 text-xs sm:text-sm">
-                        {Object.entries(reportData.totalsByGroup).map(([group, total]) => (
-                             <div key={group} className={`flex justify-between ${(group.includes('Fiados')) ? 'text-destructive' : ''}`}>
-                                <span>{group}:</span>
-                                <span className="font-mono font-medium">{formatCurrency(total)}</span>
-                            </div>
-                        ))}
+                        <div className="flex justify-between">
+                            <span>À Vista (Salão):</span>
+                            <span className="font-mono font-medium">{formatCurrency(reportData.totalsByGroup['Vendas salão'])}</span>
+                        </div>
+                        <div className="flex justify-between">
+                            <span>À Vista (Rua):</span>
+                            <span className="font-mono font-medium">{formatCurrency(reportData.totalsByGroup['Vendas rua'])}</span>
+                        </div>
+                        <div className="flex justify-between text-destructive">
+                            <span>Fiado (Salão):</span>
+                            <span className="font-mono font-medium">{formatCurrency(reportData.totalsByGroup['Fiados salão'])}</span>
+                        </div>
+                         <div className="flex justify-between text-destructive">
+                            <span>Fiado (Rua):</span>
+                            <span className="font-mono font-medium">{formatCurrency(reportData.totalsByGroup['Fiados rua'])}</span>
+                        </div>
                         <div className="flex justify-between text-yellow-500">
                            <span>Entregas ({reportData.deliveryCount}):</span>
                            <span className="font-mono font-medium">{formatCurrency(reportData.totalDeliveryFee)}</span>
@@ -263,5 +273,3 @@ export default function HistoryReportDetail({ report, onBack, onDelete }: Histor
     </div>
   );
 }
-
-    
