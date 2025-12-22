@@ -255,31 +255,37 @@ export default function HistoryReportDetail({ report, onBack, onDelete }: Histor
                         <h4 className="text-left">Salão</h4>
                         <h4 className="text-left">Rua</h4>
                     </div>
-                    <div className="grid grid-cols-3 gap-x-4">
+                     <div className="grid grid-cols-3 gap-x-4">
                         <ul className="space-y-1">
                             {Object.entries(reportData.bomboniereItemCounts).map(([name, data]) => (
                                 <li key={name} className="flex justify-between items-center">
-                                    <div>
+                                    <span>
                                         <span className="font-medium">{data.quantity}x</span>
                                         <span className="ml-1">{name}</span>
-                                    </div>
-                                    <span className="font-mono text-muted-foreground">{formatCurrency(data.total)}</span>
+                                    </span>
+                                    <span className="font-mono text-muted-foreground">{formatCurrency(data.totalValue)}</span>
                                 </li>
                             ))}
                         </ul>
                         <ul className="space-y-1">
-                            {Object.entries(reportData.bomboniereItemCounts).filter(([, data]) => data.salao > 0).map(([name, data]) => (
-                                <li key={name} className="flex items-baseline gap-2">
-                                    <span className="font-medium">{data.salao}x</span>
-                                    <span>{name}</span>
+                            {Object.entries(reportData.bomboniereItemCounts).filter(([, data]) => data.salao_qty > 0).map(([name, data]) => (
+                                <li key={name} className="flex justify-between items-center">
+                                   <span>
+                                     <span className="font-medium">{data.salao_qty}x</span>
+                                     <span className="ml-1">{name}</span>
+                                   </span>
+                                   <span className="font-mono text-muted-foreground">{formatCurrency(data.totalValue * (data.salao_qty / data.quantity))}</span>
                                 </li>
                             ))}
                         </ul>
                         <ul className="space-y-1">
-                            {Object.entries(reportData.bomboniereItemCounts).filter(([, data]) => data.rua > 0).map(([name, data]) => (
-                                <li key={name} className="flex items-baseline gap-2">
-                                    <span className="font-medium">{data.rua}x</span>
-                                    <span>{name}</span>
+                            {Object.entries(reportData.bomboniereItemCounts).filter(([, data]) => data.rua_qty > 0).map(([name, data]) => (
+                                <li key={name} className="flex justify-between items-center">
+                                    <span>
+                                        <span className="font-medium">{data.rua_qty}x</span>
+                                        <span className="ml-1">{name}</span>
+                                    </span>
+                                    <span className="font-mono text-muted-foreground">{formatCurrency(data.totalValue * (data.rua_qty / data.quantity))}</span>
                                 </li>
                             ))}
                         </ul>
@@ -290,3 +296,5 @@ export default function HistoryReportDetail({ report, onBack, onDelete }: Histor
     </div>
   );
 }
+
+    

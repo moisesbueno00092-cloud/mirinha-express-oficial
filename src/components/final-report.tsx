@@ -95,7 +95,7 @@ export default function FinalReport({ items, onClearData }: FinalReportProps) {
     let totalBomboniereValue = 0;
     let totalBomboniereQuantity = 0;
     const itemCounts: { [key: string]: { total: number; rua: number; salao: number } } = {};
-    const bomboniereItemCounts: { [key: string]: { quantity: number; total: number; rua: number; salao: number } } = {};
+    const bomboniereItemCounts: { [key: string]: { quantity: number; totalValue: number; rua_qty: number; salao_qty: number } } = {};
     
     let totalMealItems = 0;
     
@@ -130,14 +130,14 @@ export default function FinalReport({ items, onClearData }: FinalReportProps) {
             totalBomboniereQuantity += bItem.quantity;
 
             if(!bomboniereItemCounts[bItem.name]){
-                bomboniereItemCounts[bItem.name] = { quantity: 0, total: 0, rua: 0, salao: 0 };
+                bomboniereItemCounts[bItem.name] = { quantity: 0, totalValue: 0, rua_qty: 0, salao_qty: 0 };
             }
             bomboniereItemCounts[bItem.name].quantity += bItem.quantity;
-            bomboniereItemCounts[bItem.name].total += bomboniereValue;
+            bomboniereItemCounts[bItem.name].totalValue += bomboniereValue;
             if (isRua) {
-                bomboniereItemCounts[bItem.name].rua += bItem.quantity;
+                bomboniereItemCounts[bItem.name].rua_qty += bItem.quantity;
             } else {
-                bomboniereItemCounts[bItem.name].salao += bItem.quantity;
+                bomboniereItemCounts[bItem.name].salao_qty += bItem.quantity;
             }
         });
       }
@@ -217,7 +217,7 @@ export default function FinalReport({ items, onClearData }: FinalReportProps) {
     }));
 
     const sortedItemCounts = Object.entries(itemCounts).sort(([, a], [, b]) => b.total - a.total);
-    const sortedBomboniereCounts = Object.entries(bomboniereItemCounts).sort(([, a], [, b]) => b.total - a.total);
+    const sortedBomboniereCounts = Object.entries(bomboniereItemCounts).sort(([, a], [, b]) => b.totalValue - a.totalValue);
     const sortedFavoriteClients = Object.values(favoriteClientsFiado).sort((a,b) => b.total - a.total);
 
     return { 
@@ -226,8 +226,8 @@ export default function FinalReport({ items, onClearData }: FinalReportProps) {
         totalFaturamento,
         totalAVista,
         totalFiado,
-        totalSalao, // Added for return
-        totalRua,   // Added for return
+        totalSalao,
+        totalRua,
         deliveryCount,
         totalDeliveryFee,
         totalMealItems,
@@ -251,7 +251,6 @@ export default function FinalReport({ items, onClearData }: FinalReportProps) {
     const reportId = reportData.reportDate.toISOString().split('T')[0]; // YYYY-MM-DD
     const reportTimestamp = reportData.reportDate.toISOString();
 
-    // 1. Salvar o relatório
     const reportDocRef = doc(firestore, "daily_reports", reportId);
     
     const itemCountsAsObject = Object.fromEntries(reportData.itemCounts);
@@ -281,7 +280,6 @@ export default function FinalReport({ items, onClearData }: FinalReportProps) {
     
     setDocumentNonBlocking(reportDocRef, reportToSave, { merge: true });
 
-    // 2. Limpar os itens do dia
     try {
       items.forEach(item => {
         const docRef = doc(firestore, "order_items", item.id);
@@ -532,29 +530,35 @@ export default function FinalReport({ items, onClearData }: FinalReportProps) {
                     </div>
                     <div className="grid grid-cols-3 gap-x-4">
                         <ul className="space-y-1">
-                            {reportData.bomboniereItemCounts.map(([name, data]) => (
+                             {reportData.bomboniereItemCounts.map(([name, data]) => (
                                 <li key={name} className="flex justify-between items-center">
-                                    <div>
+                                    <span>
                                         <span className="font-medium">{data.quantity}x</span>
                                         <span className="ml-1">{name}</span>
-                                    </div>
-                                    <span className="font-mono text-muted-foreground">{formatCurrency(data.total)}</span>
+                                    </span>
+                                    <span className="font-mono text-muted-foreground">{formatCurrency(data.totalValue)}</span>
                                 </li>
                             ))}
                         </ul>
                         <ul className="space-y-1">
-                            {reportData.bomboniereItemCounts.filter(([, data]) => data.salao > 0).map(([name, data]) => (
-                                <li key={name} className="flex items-baseline gap-2">
-                                    <span className="font-medium">{data.salao}x</span>
-                                    <span>{name}</span>
+                             {reportData.bomboniereItemCounts.filter(([, data]) => data.salao_qty > 0).map(([name, data]) => (
+                                <li key={name} className="flex justify-between items-center">
+                                   <span>
+                                     <span className="font-medium">{data.salao_qty}x</span>
+                                     <span className="ml-1">{name}</span>
+                                   </span>
+                                   <span className="font-mono text-muted-foreground">{formatCurrency(data.totalValue * (data.salao_qty / data.quantity))}</span>
                                 </li>
                             ))}
                         </ul>
                         <ul className="space-y-1">
-                            {reportData.bomboniereItemCounts.filter(([, data]) => data.rua > 0).map(([name, data]) => (
-                                <li key={name} className="flex items-baseline gap-2">
-                                    <span className="font-medium">{data.rua}x</span>
-                                    <span>{name}</span>
+                             {reportData.bomboniereItemCounts.filter(([, data]) => data.rua_qty > 0).map(([name, data]) => (
+                                <li key={name} className="flex justify-between items-center">
+                                    <span>
+                                        <span className="font-medium">{data.rua_qty}x</span>
+                                        <span className="ml-1">{name}</span>
+                                    </span>
+                                    <span className="font-mono text-muted-foreground">{formatCurrency(data.totalValue * (data.rua_qty / data.quantity))}</span>
                                 </li>
                             ))}
                         </ul>
@@ -583,3 +587,5 @@ export default function FinalReport({ items, onClearData }: FinalReportProps) {
     </>
   );
 }
+
+    
