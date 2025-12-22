@@ -36,14 +36,6 @@ service cloud.firestore {
     }
 
     /**
-     * @description Allows public list access to the entire client_accounts collection.
-     * @allow       (list) Necessary for the main accounts page to display all clients.
-     */
-    match /client_accounts {
-      allow list: if true;
-    }
-    
-    /**
      * @description Allows public access to individual documents within the client_accounts collection.
      * @path        /client_accounts/{clientAccountId}
      * @principle   Separates document-level access from collection-level access.
@@ -56,6 +48,14 @@ service cloud.firestore {
         allow read, write, delete: if true;
     }
 
+    /**
+     * @description Allows public list access to the entire client_accounts collection.
+     * @allow       (list) Necessary for the main accounts page to display all clients.
+     */
+    match /client_accounts {
+      allow list: if true;
+    }
+    
     /**
      * @description Allows public read and write access to bomboniere items.
      * @path        /bomboniere_items/{bomboniereItemId}
