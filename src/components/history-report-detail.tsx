@@ -7,6 +7,8 @@ import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
 import { ArrowLeft, Trash2 } from 'lucide-react';
 import { PieChart, Pie, Cell, ResponsiveContainer, Legend, Tooltip } from 'recharts';
+import { useRouter } from 'next/navigation';
+import { KeyRound } from 'lucide-react';
 
 interface HistoryReportDetailProps {
   report: DailyReport;
@@ -49,6 +51,7 @@ const PIE_CHART_COLORS: Record<string, string> = {
 };
 
 export default function HistoryReportDetail({ report, onBack, onDelete }: HistoryReportDetailProps) {
+  const router = useRouter();
   const { reportData } = report;
 
     // Re-create chart data from saved report data
@@ -273,3 +276,5 @@ export default function HistoryReportDetail({ report, onBack, onDelete }: Histor
     </div>
   );
 }
+
+    
