@@ -1,25 +1,11 @@
-
-/**
- * Core Philosophy: This ruleset enforces a public access model. It is designed for a single-user application (like a personal tracker) where the primary goal is to sync data across devices. For this version, we require anonymous authentication to provide a stable user ID without a full login system. Any anonymously authenticated client can read and write data.
- *
- * Data Structure: The data is organized in five flat top-level collections: `order_items`, `daily_reports`, `client_accounts`, `bomboniere_items`, and `favorite_clients`.
- *
- * Key Security Decisions:
- * - Public Access for Authenticated Users: All operations (read, write, delete) on any data are permitted for any client that has successfully authenticated (including anonymously). This is a deliberate choice for a single-user app model where ease of access is prioritized over multi-user security.
- * - Requirement for Authentication: No unauthenticated access is allowed. This prevents completely anonymous writes and provides a basic layer of protection and user identification.
- *
- * Denormalization for Authorization: This model is simple and does not currently require denormalization.
- *
- * Structural Segregation: Not applicable, as all data resides in collections with a uniform security posture for authenticated users.
- */
 rules_version = '2';
+
 service cloud.firestore {
   match /databases/{database}/documents {
-
-    // Allow read/write access to any authenticated user for all collections.
-    // This is a simple, broad rule for a single-user application model.
+    // This ruleset is completely public.
+    // Any client can read and write data.
     match /{document=**} {
-      allow read, write: if request.auth != null;
+      allow read, write: if true;
     }
   }
 }
