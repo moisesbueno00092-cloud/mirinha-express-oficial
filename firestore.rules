@@ -36,15 +36,12 @@ service cloud.firestore {
     }
 
     /**
-     * @description Defines access rules for the client_accounts collection.
-     * @path        /client_accounts
+     * @description Defines access rules for the client_accounts collection. Allows full access.
+     * @path        /client_accounts/{clientAccountId}
+     * @allow       (read, write, list) Any client can access the collection and its documents.
      */
     match /client_accounts/{clientAccountId} {
-        /**
-         * @description Allows public read, write, and delete on individual account entries.
-         * @allow (read, write, delete) Any client can access individual documents.
-         */
-        allow read, write, delete: if true;
+        allow read, write: if true;
     }
     
     /**
