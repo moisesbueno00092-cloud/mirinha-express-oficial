@@ -214,29 +214,29 @@ export default function HistoryReportDetail({ report, onBack, onDelete }: Histor
                     <CardTitle className="text-base sm:text-lg">Contagem de Refeições</CardTitle>
                 </CardHeader>
                 <CardContent className="text-xs sm:text-sm">
-                    <div className="grid grid-cols-3 gap-x-4 font-semibold mb-2 border-b pb-2">
-                        <span className="truncate">Total</span>
-                        <span className="truncate">Salão</span>
-                        <span className="truncate">Rua</span>
+                    <div className="grid grid-cols-3 font-semibold mb-2 border-b pb-2">
+                        <span>Total</span>
+                        <span>Salão</span>
+                        <span>Rua</span>
                     </div>
                     <div className="grid grid-cols-3 gap-x-4">
                         <ul className="space-y-1">
                             {sortedItemCounts.map(([name, count]) => (
-                                <li key={`${name}-total`} className="flex justify-between items-center">
+                                <li key={`${name}-total`} className="flex items-center">
                                     <span className="font-medium truncate pr-2">{count.total > 1 && `${count.total}x `}{name}</span>
                                 </li>
                             ))}
                         </ul>
                         <ul className="space-y-1">
                             {sortedItemCounts.filter(([, count]) => count.salao > 0).map(([name, count]) => (
-                                <li key={`${name}-salao`} className="flex justify-between items-center">
+                                <li key={`${name}-salao`} className="flex items-center">
                                     <span className="font-medium truncate pr-2">{count.salao > 1 && `${count.salao}x `}{name}</span>
                                 </li>
                             ))}
                         </ul>
                         <ul className="space-y-1">
                             {sortedItemCounts.filter(([, count]) => count.rua > 0).map(([name, count]) => (
-                                <li key={`${name}-rua`} className="flex justify-between items-center">
+                                <li key={`${name}-rua`} className="flex items-center">
                                    <span className="font-medium truncate pr-2">{count.rua > 1 && `${count.rua}x `}{name}</span>
                                 </li>
                             ))}
@@ -249,28 +249,23 @@ export default function HistoryReportDetail({ report, onBack, onDelete }: Histor
                     <CardTitle className="text-base sm:text-lg">Contagem de Bomboniere</CardTitle>
                 </CardHeader>
                 <CardContent className="text-xs sm:text-sm">
-                    <div className="grid grid-cols-3 gap-x-2 font-semibold mb-2 border-b pb-2">
+                    <div className="grid grid-cols-3 font-semibold mb-2 border-b pb-2">
                         <span>Item</span>
-                        <span className="text-center">Qtd</span>
+                        <span className="text-center">Detalhes (Qtd)</span>
                         <span className="text-right">Valor</span>
                     </div>
                     <ul className="space-y-2">
                         {sortedBomboniereCounts.map(([name, data]) => (
                             <li key={`${name}-bomboniere`}>
-                                <div className="flex justify-between items-center font-medium">
-                                    <span>{name}</span>
-                                    <span className="text-center">{data.quantity}</span>
+                                <div className="grid grid-cols-3 items-center">
+                                    <span className="font-medium truncate pr-2">{name}</span>
+                                    <div className="text-center text-muted-foreground text-xs">
+                                        {data.salao_qty > 0 && <span>Salão: {data.salao_qty}</span>}
+                                        {data.salao_qty > 0 && data.rua_qty > 0 && <span>, </span>}
+                                        {data.rua_qty > 0 && <span>Rua: {data.rua_qty}</span>}
+                                    </div>
                                     <span className="font-mono text-right">{formatCurrency(data.totalValue)}</span>
                                 </div>
-                                {(data.salao_qty > 0 || data.rua_qty > 0) && (
-                                     <div className="flex justify-between items-center text-muted-foreground pl-2 text-xs">
-                                        <span>
-                                            {data.salao_qty > 0 && `Salão: ${data.salao_qty}`}
-                                            {data.salao_qty > 0 && data.rua_qty > 0 && `, `}
-                                            {data.rua_qty > 0 && `Rua: ${data.rua_qty}`}
-                                        </span>
-                                    </div>
-                                )}
                             </li>
                         ))}
                     </ul>
