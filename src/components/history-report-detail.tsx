@@ -1,4 +1,3 @@
-
 'use client';
 
 import { DailyReport, Group } from '@/types';
