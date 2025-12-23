@@ -1,3 +1,4 @@
+
 rules_version = '2';
 
 /**
@@ -44,6 +45,17 @@ service cloud.firestore {
     match /users/{userId}/order_items/{orderItemId} {
       allow read, write: if isOwner(userId);
     }
+
+    /**
+     * @description
+     *   Manages the list of favorite clients saved by a user.
+     *   Grants full permissions to the user who owns the data.
+     * @path
+     *   /users/{userId}/favorite_clients/{clientId}
+     */
+    match /users/{userId}/favorite_clients/{clientId} {
+      allow read, write: if isOwner(userId);
+    }
     
     /**
      * @description
@@ -67,18 +79,6 @@ service cloud.firestore {
     
     /**
      * @description
-     *   Manages the list of favorite clients saved by a user.
-     *   This rule is currently open for any authenticated user. For a multi-user
-     *   system, this should be nested under the user's private data path.
-     * @path
-     *   /favorite_clients/{clientId}
-     */
-    match /favorite_clients/{clientId} {
-      allow read, write: if isSignedIn();
-    }
-    
-    /**
-     * @description
      *   Manages saved daily reports.
      *   This rule is currently open for any authenticated user. For a multi-user
      *   system, this should be nested under the user's private data path.
@@ -90,3 +90,5 @@ service cloud.firestore {
     }
   }
 }
+
+    

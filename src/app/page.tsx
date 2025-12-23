@@ -64,7 +64,11 @@ export default function Home() {
   );
   
   const bomboniereItemsRef = useMemoFirebase(() => (firestore ? query(collection(firestore, 'bomboniere_items'), orderBy('name', 'asc')) : null), [firestore]);
-  const favoriteClientsRef = useMemoFirebase(() => (firestore ? collection(firestore, "favorite_clients") : null), [firestore]);
+  
+  const favoriteClientsRef = useMemoFirebase(
+    () => (firestore && user ? collection(firestore, `users/${user.uid}/favorite_clients`) : null),
+    [firestore, user]
+  );
 
   const { data: items, isLoading, error: firestoreError } = useCollection<Item>(userOrderItemsRef);
   const { data: bomboniereItems, isLoading: isLoadingBomboniere } = useCollection<BomboniereItem>(bomboniereItemsRef);
@@ -91,9 +95,10 @@ export default function Home() {
   useEffect(() => {
     // Seed bomboniere items if the collection is empty
     if (firestore && !isLoadingBomboniere && bomboniereItems && bomboniereItems.length === 0) {
+      const bomboniereCollectionRef = collection(firestore, 'bomboniere_items');
       BOMBONIERE_ITEMS_DEFAULT.forEach(item => {
         const { id, ...itemData } = item;
-        const docRef = doc(firestore, 'bomboniere_items', id);
+        const docRef = doc(bomboniereCollectionRef, id);
         setDocumentNonBlocking(docRef, itemData, { merge: true });
       });
     }
@@ -264,11 +269,12 @@ export default function Home() {
         }
 
         if (!currentItem && bomboniereItems && firestore) { // Only decrement stock for new items, not for edits
+          const bomboniereCollectionRef = collection(firestore, "bomboniere_items");
           processedBomboniereItems.forEach(soldItem => {
               const itemDef = bomboniereItems.find(i => i.id === soldItem.id);
               if (itemDef) {
                   const newStock = itemDef.stock - soldItem.quantity;
-                  const docRef = doc(firestore, "bomboniere_items", itemDef.id);
+                  const docRef = doc(bomboniereCollectionRef, itemDef.id);
                   updateDocumentNonBlocking(docRef, { stock: newStock });
               }
           });
@@ -429,7 +435,7 @@ export default function Home() {
   };
 
   const confirmSaveFavorite = () => {
-    if (!firestore || !favoriteClientsRef || !itemToSaveAsFavorite || !favoriteName.trim() || !itemToSaveAsFavorite.originalCommand) return;
+    if (!favoriteClientsRef || !itemToSaveAsFavorite || !favoriteName.trim() || !itemToSaveAsFavorite.originalCommand) return;
     
     const newFavorite: Omit<FavoriteClient, 'id'> = {
       name: favoriteName.trim(),
@@ -450,8 +456,8 @@ export default function Home() {
   };
 
   const confirmDeleteFavorite = () => {
-    if (!firestore || !favoriteToDelete) return;
-    const docRef = doc(firestore, 'favorite_clients', favoriteToDelete);
+    if (!favoriteClientsRef || !favoriteToDelete) return;
+    const docRef = doc(favoriteClientsRef, favoriteToDelete);
     deleteDocumentNonBlocking(docRef);
     toast({ title: 'Sucesso', description: 'Favorito removido.' });
     setFavoriteToDelete(null);
@@ -677,3 +683,5 @@ export default function Home() {
     </>
   );
 }
+
+    
