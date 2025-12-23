@@ -43,7 +43,8 @@ service cloud.firestore {
      *   /users/{userId}/order_items/{orderItemId}
      */
     match /users/{userId}/order_items/{orderItemId} {
-      allow read, write: if isOwner(userId);
+      allow list, get: if isOwner(userId);
+      allow create, update, delete: if isOwner(userId);
     }
 
     /**
@@ -54,7 +55,8 @@ service cloud.firestore {
      *   /users/{userId}/favorite_clients/{clientId}
      */
     match /users/{userId}/favorite_clients/{clientId} {
-      allow read, write: if isOwner(userId);
+      allow list, get: if isOwner(userId);
+      allow create, update, delete: if isOwner(userId);
     }
     
     /**
