@@ -11,9 +11,11 @@ service cloud.firestore {
       allow read, write: if true;
     }
 
-    // Allow full access to client accounts for all users
+    // Allow full access to client accounts for all users.
+    // Separating read and write rules to ensure deployment.
     match /client_accounts/{clientAccountId} {
-      allow get, list, create, update, delete: if true;
+      allow read: if true;
+      allow write: if true;
     }
 
     match /bomboniere_items/{docId} {
