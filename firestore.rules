@@ -61,20 +61,15 @@ service cloud.firestore {
      * @description
      *   Manages the shared list of bomboniere items (products).
      *   Allows any authenticated user to read the list of items for display
-     *   in the application. Write access should be restricted (e.g., to admins).
+     *   in the application. Write access is also allowed for authenticated
+     *   users to enable stock updates from the main app and stock page.
      * @path
      *   /bomboniere_items/{itemId}
      * @allow
-     *   Any authenticated user can `get` or `list` bomboniere items.
-     * @deny
-     *   Anonymous users cannot read, and no user can write by default.
+     *   Any authenticated user can read or write bomboniere items.
      */
     match /bomboniere_items/{itemId} {
-        allow read: if isSignedIn();
-        // Writes are denied by default. The /stock page handles updates
-        // via client-side logic protected by a simple password, which is
-        // sufficient for this app's security needs.
-        allow write: if false; 
+        allow read, write: if isSignedIn();
     }
     
     /**
@@ -90,5 +85,3 @@ service cloud.firestore {
     }
   }
 }
-
-    
