@@ -616,6 +616,14 @@ export default function Home() {
         <header className="mb-6 flex flex-col items-center justify-center text-center relative">
           <MirinhaLogo className="w-64 sm:w-80 h-auto text-primary" />
           <p className="text-muted-foreground -mt-2 text-sm sm:text-base">Controle de Pedidos</p>
+          <div className="absolute top-0 right-0">
+             <Link href="/accounts" passHref>
+                <Button variant="ghost">
+                    <Users className="mr-2 h-4 w-4" />
+                    Caderneta
+                </Button>
+            </Link>
+          </div>
         </header>
 
         <main className="space-y-6">
@@ -685,3 +693,5 @@ export default function Home() {
     </>
   );
 }
+
+    

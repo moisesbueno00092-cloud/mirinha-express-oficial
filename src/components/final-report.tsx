@@ -502,9 +502,6 @@ export default function FinalReport({ items, onClearData }: FinalReportProps) {
                                <Users className="h-4 w-4 text-muted-foreground" />
                                <span>Clientes Fiado</span>
                             </CardTitle>
-                             <Button variant="link" size="sm" className="h-7 -mr-2" asChild>
-                                <Link href="/accounts">Ver Todos</Link>
-                            </Button>
                         </CardHeader>
                         <CardContent className="text-sm pt-2">
                             <div className="space-y-1">
@@ -608,3 +605,5 @@ export default function FinalReport({ items, onClearData }: FinalReportProps) {
     </>
   );
 }
+
+    
