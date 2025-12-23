@@ -87,29 +87,26 @@ function ClientDetail({ client, onBack, onClear }: { client: { id: string; name:
     const { toast } = useToast();
     const [isClearConfirmOpen, setIsClearConfirmOpen] = useState(false);
 
-    const userOrderItemsRef = useMemoFirebase(
-      () => (firestore && user ? collection(firestore, `users/${user.uid}/order_items`) : null),
-      [firestore, user]
-    );
-
     const accountEntriesQuery = useMemoFirebase(
-        () => (userOrderItemsRef ? query(
-            userOrderItemsRef,
+        () => (firestore && user ? query(
+            collection(firestore, 'order_items'),
+            where('userId', '==', user.uid),
             where('customerId', '==', client.id),
             where('group', 'in', ['Fiados salão', 'Fiados rua']),
             orderBy('timestamp', 'desc')
         ) : null),
-        [userOrderItemsRef, client.id]
+        [firestore, user, client.id]
     );
     const { data: entries, isLoading, error } = useCollection<ClientAccountEntry>(accountEntriesQuery);
 
     const totalDebt = useMemo(() => entries?.reduce((sum, entry) => sum + entry.total, 0) || 0, [entries]);
     
     const handleClearConfirm = () => {
-        if (!entries || !userOrderItemsRef) return;
+        if (!entries || !firestore) return;
         
+        const orderItemsCollectionRef = collection(firestore, "order_items");
         entries.forEach(entry => {
-            const docRef = doc(userOrderItemsRef, entry.id);
+            const docRef = doc(orderItemsCollectionRef, entry.id);
             deleteDocumentNonBlocking(docRef);
         });
 
@@ -226,14 +223,13 @@ export default function AccountsPage() {
   const { user, isUserLoading } = useUser();
   const [selectedClient, setSelectedClient] = useState<{ id: string; name: string } | null>(null);
   
-  const userOrderItemsRef = useMemoFirebase(
-    () => (firestore && user ? collection(firestore, `users/${user.uid}/order_items`) : null),
-    [firestore, user]
-  );
-  
   const fiadoItemsQuery = useMemoFirebase(
-    () => (userOrderItemsRef ? query(userOrderItemsRef, where('group', 'in', ['Fiados salão', 'Fiados rua'])) : null),
-    [userOrderItemsRef]
+    () => (firestore && user ? query(
+        collection(firestore, 'order_items'), 
+        where('userId', '==', user.uid),
+        where('group', 'in', ['Fiados salão', 'Fiados rua'])
+    ) : null),
+    [firestore, user]
   );
   
   const { data: allFiadoEntries, isLoading } = useCollection<ClientAccountEntry>(fiadoItemsQuery);
@@ -325,5 +321,3 @@ export default function AccountsPage() {
     </div>
   );
 }
-
-    

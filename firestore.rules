@@ -5,22 +5,13 @@ rules_version = '2';
  * # Firestore Security Rules
  *
  * ## Core Philosophy
- * This ruleset enforces a strict user-ownership model for user-specific data,
- * while allowing public read access for shared application data like products.
- * The default security posture is to deny all access unless explicitly granted.
+ * This ruleset enforces a user-ownership model where users can only access
+ * documents that contain their `userId`. This is a data-based security model.
  *
  * ## Data Structure
- * - User-specific data is stored under `/users/{userId}/...`.
- * - Shared data, like `bomboniere_items`, is stored at the root.
- *
- * ## Key Security Decisions
- * - **User Data Ownership:** All create, read, update, and delete operations
- *   on user data are restricted to the owner.
- * - **Public Read for Shared Data:** Collections like `bomboniere_items` are
- *   readable by any authenticated user to populate the application UI.
- * - **Write Restrictions on Shared Data:** Writing to shared collections is
- *   denied by default and should be governed by more specific rules if needed
- *   (e.g., admin roles).
+ * - Each document in a protected collection (e.g., `order_items`) must have a
+ *   `userId` field matching the UID of the authenticated user.
+ * - Shared data, like `bomboniere_items`, is readable by any authenticated user.
  */
 service cloud.firestore {
   match /databases/{database}/documents {
@@ -30,30 +21,48 @@ service cloud.firestore {
       return request.auth != null;
     }
 
-    // Checks if the requesting user is the owner of the document based on the path.
-    function isOwner(userId) {
-      return isSignedIn() && request.auth.uid == userId;
+    // Helper function to check if the user is the owner based on a `userId` field.
+    function isDataOwner() {
+      return isSignedIn() && request.auth.uid == resource.data.userId;
+    }
+    
+    // Helper function for create operations, checking incoming data.
+    function isCreatingOwner() {
+      return isSignedIn() && request.auth.uid == request.resource.data.userId;
     }
 
     /**
      * @description
-     *   Manages user-specific subcollections. This rule block secures all data
-     *   under a user's document, such as order_items and favorite_clients,
-     *   by granting access only to the user who owns the parent document.
-     *   This correctly authorizes collection-level queries (list operations).
+     *   Manages user order items. Access is granted if the document's `userId`
+     *   field matches the authenticated user's UID. This allows for secure
+     *   `list` queries using a `where("userId", "==", request.auth.uid)` clause.
      * @path
-     *   /users/{userId}/{collection}/{docId}
+     *   /order_items/{orderItemId}
      */
-    match /users/{userId}/{collection}/{docId} {
-      allow read, write: if isOwner(userId);
+    match /order_items/{orderItemId} {
+      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow create: if isCreatingOwner();
+      allow update, delete: if isDataOwner();
     }
     
     /**
      * @description
+     *   Manages user favorite clients. Access is granted if the document's `userId`
+     *   field matches the authenticated user's UID.
+     * @path
+     *   /favorite_clients/{clientId}
+     */
+    match /favorite_clients/{clientId} {
+      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow create: if isCreatingOwner();
+      allow update, delete: if isDataOwner();
+    }
+
+    /**
+     * @description
      *   Manages the shared list of bomboniere items (products).
-     *   Allows any authenticated user to read the list of items for display
-     *   in the application. Write access is also allowed for authenticated
-     *   users to enable stock updates from the main app and stock page.
+     *   Allows any authenticated user to read the list. Write access is also
+     *   allowed for authenticated users to enable stock updates.
      * @path
      *   /bomboniere_items/{itemId}
      */
@@ -64,8 +73,7 @@ service cloud.firestore {
     /**
      * @description
      *   Manages saved daily reports.
-     *   This rule is currently open for any authenticated user. For a multi-user
-     *   system, this should be nested under the user's private data path.
+     *   Any authenticated user can read/write reports.
      * @path
      *   /daily_reports/{reportId}
      */

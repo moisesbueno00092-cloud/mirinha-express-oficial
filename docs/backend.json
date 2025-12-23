@@ -7,9 +7,9 @@
       "type": "object",
       "description": "Represents an individual item ordered at Mirinha's Restaurant.",
       "properties": {
-        "id": {
+        "userId": {
           "type": "string",
-          "description": "Unique identifier for the order item."
+          "description": "The ID of the user who created the order item."
         },
         "itemName": {
           "type": "string",
@@ -36,7 +36,7 @@
         }
       },
       "required": [
-        "id",
+        "userId",
         "itemName",
         "itemPrice",
         "itemGroup",
@@ -50,9 +50,9 @@
       "type": "object",
       "description": "Represents a favorite client with a saved command.",
       "properties": {
-        "id": {
+        "userId": {
           "type": "string",
-          "description": "Unique identifier for the favorite client."
+          "description": "The ID of the user who created the favorite."
         },
         "name": {
           "type": "string",
@@ -63,7 +63,7 @@
           "description": "The saved command for the client's usual order."
         }
       },
-      "required": ["id", "name", "command"]
+      "required": ["userId", "name", "command"]
     }
   },
   "auth": {
@@ -75,19 +75,15 @@
   "firestore": {
     "structure": [
       {
-        "path": "/users/{userId}/order_items/{orderItemId}",
+        "path": "/order_items/{orderItemId}",
         "definition": {
           "entityName": "OrderItem",
           "schema": {
             "$ref": "#/backend/entities/OrderItem"
           },
-          "description": "Stores order items specific to a user.  Allows each user to only access their own order items. Path based ownership: `/users/{userId}/order_items/{orderItemId}` enables secure `list` operations based on `request.auth.uid == userId`.",
+          "description": "Stores all order items for the application. Access is controlled via a 'userId' field on each document.",
           "params": [
-            {
-              "name": "userId",
-              "description": "The unique identifier of the user."
-            },
-            {
+             {
               "name": "orderItemId",
               "description": "The unique identifier of the order item."
             }
@@ -95,18 +91,14 @@
         }
       },
       {
-        "path": "/users/{userId}/favorite_clients/{clientId}",
+        "path": "/favorite_clients/{clientId}",
         "definition": {
           "entityName": "FavoriteClient",
           "schema": {
             "$ref": "#/backend/entities/FavoriteClient"
           },
-          "description": "Stores favorite clients specific to a user.",
+          "description": "Stores all favorite clients. Access is controlled via a 'userId' field on each document.",
           "params": [
-            {
-              "name": "userId",
-              "description": "The unique identifier of the user."
-            },
             {
               "name": "clientId",
               "description": "The unique identifier of the favorite client."
@@ -114,9 +106,6 @@
           ]
         }
       }
-    ],
-    "reasoning": "The Firestore structure is designed to address the 'Missing or insufficient permissions' error by ensuring clear ownership and appropriate data segregation.  The core issue is the 'list' operation on `/order_items` failing, indicating a lack of read access.  Given the provided app requirements, all `order_items` should be associated with a user. To solve the authorization problem and support listing, I'm creating a user-centric data structure where order items are stored under each user's document. This approach inherently limits access to a user's own data, preventing unauthorized listing.\n\n**Authorization Independence:** The structure ensures authorization independence because access control is based on the path (`/users/{userId}/order_items/{orderItemId}`) and the authenticated user's ID. There is no reliance on data from other documents to determine authorization.\n\n**QAPs (Rules are not Filters):** To secure the `list` operation, the structure places order items under a user-specific collection (`/users/{userId}/order_items`). This allows a security rule that grants `list` access only if `request.auth.uid == userId`, effectively ensuring that users can only list their own order items.\n\nThis structure inherently creates the segregation required for secure `list` operations, ensuring rules are not used as filters."
+    ]
   }
 }
-
-    

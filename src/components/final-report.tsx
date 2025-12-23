@@ -293,9 +293,9 @@ export default function FinalReport({ items, onClearData, user }: FinalReportPro
     setDocumentNonBlocking(reportDocRef, { ...reportToSave, id: reportId }, { merge: true });
 
     try {
-      const userOrderItemsRef = collection(firestore, `users/${user.uid}/order_items`);
+      const orderItemsCollectionRef = collection(firestore, "order_items");
       items.forEach(item => {
-        const docRef = doc(userOrderItemsRef, item.id);
+        const docRef = doc(orderItemsCollectionRef, item.id);
         deleteDocumentNonBlocking(docRef);
       });
       toast({

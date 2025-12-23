@@ -65,10 +65,8 @@ export default function Home() {
     const ensureUser = async () => {
       if (!isUserLoading && !user && auth) {
         try {
-          // Tenta fazer login com a conta partilhada
           await signInWithEmailAndPassword(auth, 'user@lanche.net', 'palavrapasselanche');
         } catch (error: any) {
-          // Se o utilizador não existir, cria-o
           if (error.code === 'auth/user-not-found' || error.code === 'auth/invalid-credential') {
             try {
               await createUserWithEmailAndPassword(auth, 'user@lanche.net', 'palavrapasselanche');
@@ -84,21 +82,21 @@ export default function Home() {
     ensureUser();
   }, [user, isUserLoading, auth]);
 
-  const userOrderItemsRef = useMemoFirebase(
-    () => (firestore && user ? collection(firestore, `users/${user.uid}/order_items`) : null),
+  const userOrderItemsQuery = useMemoFirebase(
+    () => (firestore && user ? query(collection(firestore, "order_items"), where("userId", "==", user.uid)) : null),
     [firestore, user]
   );
   
-  const bomboniereItemsRef = useMemoFirebase(() => (firestore && user ? query(collection(firestore, 'bomboniere_items'), orderBy('name', 'asc')) : null), [firestore, user]);
+  const bomboniereItemsRef = useMemoFirebase(() => (firestore ? query(collection(firestore, 'bomboniere_items'), orderBy('name', 'asc')) : null), [firestore]);
   
-  const favoriteClientsRef = useMemoFirebase(
-    () => (firestore && user ? collection(firestore, `users/${user.uid}/favorite_clients`) : null),
+  const favoriteClientsQuery = useMemoFirebase(
+    () => (firestore && user ? query(collection(firestore, 'favorite_clients'), where("userId", "==", user.uid)) : null),
     [firestore, user]
   );
 
-  const { data: items, isLoading: isLoadingItems, error: firestoreError } = useCollection<Item>(userOrderItemsRef);
+  const { data: items, isLoading: isLoadingItems, error: firestoreError } = useCollection<Item>(userOrderItemsQuery);
   const { data: bomboniereItems, isLoading: isLoadingBomboniere } = useCollection<BomboniereItem>(bomboniereItemsRef);
-  const { data: favoriteClients, isLoading: isLoadingFavorites } = useCollection<FavoriteClient>(favoriteClientsRef);
+  const { data: favoriteClients, isLoading: isLoadingFavorites } = useCollection<FavoriteClient>(favoriteClientsQuery);
   
   const [isProcessing, setIsProcessing] = useState(false);
   const [editingItem, setEditingItem] = useState<Item | null>(null);
@@ -132,6 +130,12 @@ export default function Home() {
 
   const handleUpsertItem = async (rawInputToProcess: string, currentItem?: Item | null, favoriteClient?: FavoriteClient) => {
     setIsProcessing(true);
+    if (!user) {
+        toast({ variant: "destructive", title: "Erro", description: "Utilizador não autenticado." });
+        setIsProcessing(false);
+        return;
+    }
+    
     try {
         let mainInput = rawInputToProcess.trim();
         if (!mainInput) return;
@@ -326,6 +330,7 @@ export default function Home() {
         const timestamp = new Date().toISOString();
 
         const finalItem: Omit<Item, 'id' | 'total'> = {
+            userId: user.uid,
             name: consolidatedName,
             quantity: totalQuantity,
             price: totalPrice,
@@ -342,14 +347,15 @@ export default function Home() {
 
 
         if (currentItem?.id) {
-            if (!userOrderItemsRef) return;
-            const docRef = doc(userOrderItemsRef, currentItem.id);
+            if (!firestore) return;
+            const docRef = doc(firestore, "order_items", currentItem.id);
             setDocumentNonBlocking(docRef, { ...finalItem, total }, { merge: true });
             toast({ title: "Sucesso", description: "Lançamento atualizado." });
         } else {
-            if (!userOrderItemsRef) return;
+            if (!firestore) return;
             const newItem = { ...finalItem, total };
-            addDocumentNonBlocking(userOrderItemsRef, newItem);
+            const orderItemsCollectionRef = collection(firestore, "order_items");
+            addDocumentNonBlocking(orderItemsCollectionRef, newItem);
 
             toast({ title: "Sucesso", description: "Lançamento adicionado." });
         }
@@ -378,10 +384,11 @@ export default function Home() {
   };
 
   const confirmClearData = () => {
-    if (!items || !userOrderItemsRef) return;
+    if (!items || !firestore || !user) return;
     try {
+      const orderItemsCollectionRef = collection(firestore, "order_items");
       items.forEach(item => {
-        const docRef = doc(userOrderItemsRef, item.id);
+        const docRef = doc(orderItemsCollectionRef, item.id);
         deleteDocumentNonBlocking(docRef);
       });
       toast({
@@ -416,8 +423,9 @@ export default function Home() {
   };
   
   const confirmDelete = () => {
-    if(!userOrderItemsRef || !itemToDelete) return;
-    deleteDocumentNonBlocking(doc(userOrderItemsRef, itemToDelete));
+    if(!firestore || !itemToDelete) return;
+    const orderItemsCollectionRef = collection(firestore, "order_items");
+    deleteDocumentNonBlocking(doc(orderItemsCollectionRef, itemToDelete));
     toast({
       title: "Sucesso",
       description: "Item removido.",
@@ -461,14 +469,16 @@ export default function Home() {
   };
 
   const confirmSaveFavorite = () => {
-    if (!favoriteClientsRef || !itemToSaveAsFavorite || !favoriteName.trim() || !itemToSaveAsFavorite.originalCommand) return;
+    if (!firestore || !user || !itemToSaveAsFavorite || !favoriteName.trim() || !itemToSaveAsFavorite.originalCommand) return;
     
     const newFavorite: Omit<FavoriteClient, 'id'> = {
+      userId: user.uid,
       name: favoriteName.trim(),
       command: itemToSaveAsFavorite.originalCommand,
     };
     
-    addDocumentNonBlocking(favoriteClientsRef, newFavorite);
+    const favClientsCollectionRef = collection(firestore, "favorite_clients");
+    addDocumentNonBlocking(favClientsCollectionRef, newFavorite);
     toast({ title: 'Sucesso', description: `"${favoriteName.trim()}" foi salvo como favorito.` });
     setIsSaveFavoriteOpen(false);
   };
@@ -482,8 +492,8 @@ export default function Home() {
   };
 
   const confirmDeleteFavorite = () => {
-    if (!favoriteClientsRef || !favoriteToDelete) return;
-    const docRef = doc(favoriteClientsRef, favoriteToDelete);
+    if (!firestore || !favoriteToDelete) return;
+    const docRef = doc(firestore, "favorite_clients", favoriteToDelete);
     deleteDocumentNonBlocking(docRef);
     toast({ title: 'Sucesso', description: 'Favorito removido.' });
     setFavoriteToDelete(null);
@@ -721,5 +731,3 @@ export default function Home() {
     </>
   );
 }
-
-    
