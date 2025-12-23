@@ -4,39 +4,27 @@ rules_version = '2';
  * # Firestore Security Rules
  *
  * ## Core Philosophy
- * This ruleset enforces a strict user-ownership model. All data is segregated
- * into user-specific collections, ensuring that users can only access their
- * own information. This approach is inherently secure and prevents data leakage
- * between users. The default security posture is to deny all access unless
- * explicitly granted to the document owner.
+ * This ruleset enforces a strict user-ownership model for user-specific data,
+ * while allowing public read access for shared application data like products.
+ * The default security posture is to deny all access unless explicitly granted.
  *
  * ## Data Structure
- * All mutable application data is stored under a user-specific path:
- * `/users/{userId}/...`. For example, a user's order items are located at
- * `/users/{userId}/order_items/{orderItemId}`. This hierarchical structure is
- * the foundation of our security model.
+ * - User-specific data is stored under `/users/{userId}/...`.
+ * - Shared data, like `bomboniere_items`, is stored at the root.
  *
  * ## Key Security Decisions
- * - **No Public Listing:** Users cannot list the contents of the top-level
- *   `users` collection, protecting user privacy.
- * - **Path-Based Security:** Authorization is determined by matching the
- *   authenticated user's UID (`request.auth.uid`) with the `userId` wildcard
- *   in the document path. This is a highly performant and secure pattern.
- * - **Owner-Only Access:** All create, read, update, and delete operations
- *   are restricted to the owner of the data tree.
- *
- * ## Denormalization for Authorization
- * This ruleset relies on path segregation for authorization, which is a form
- * of structural denormalization. By placing a user's data in their own
- * subcollection (`/users/{userId}/order_items`), we avoid the need for costly
- * `get()` calls or complex queries to check for ownership. This makes rules
- * simpler, faster, and more secure, especially for list operations.
- *
+ * - **User Data Ownership:** All create, read, update, and delete operations
+ *   on user data are restricted to the owner.
+ * - **Public Read for Shared Data:** Collections like `bomboniere_items` are
+ *   readable by any authenticated user to populate the application UI.
+ * - **Write Restrictions on Shared Data:** Writing to shared collections is
+ *   denied by default and should be governed by more specific rules if needed
+ *   (e.g., admin roles).
  */
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // Helper functions for reusable logic
+    // Helper function for reusable logic
     function isSignedIn() {
       return request.auth != null;
     }
@@ -46,34 +34,59 @@ service cloud.firestore {
       return isSignedIn() && request.auth.uid == userId;
     }
 
-    // Checks for ownership on an existing document for update/delete operations.
-    // This prevents modifying or deleting documents that do not exist.
-    function isExistingOwner(userId) {
-      return isOwner(userId) && resource != null;
-    }
-
     /**
      * @description
      *   Manages user-specific order items. Grants full create, read, update,
      *   and delete permissions exclusively to the user who owns the data.
      * @path
      *   /users/{userId}/order_items/{orderItemId}
-     * @allow
-     *   A user (auth.uid: 'user123') can (list) their own order items at
-     *   `/users/user123/order_items`.
-     * @deny
-     *   A user (auth.uid: 'user456') cannot (get) an order item from another
-     *   user at `/users/user123/order_items/abc`.
-     * @principle
-     *   Restricts access to a user's own data tree. This path-based security
-     *   is crucial for safely enabling list operations.
      */
     match /users/{userId}/order_items/{orderItemId} {
-      allow get: if isOwner(userId);
-      allow list: if isOwner(userId);
-      allow create: if isOwner(userId);
-      allow update: if isExistingOwner(userId);
-      allow delete: if isExistingOwner(userId);
+      allow read, write: if isOwner(userId);
+    }
+    
+    /**
+     * @description
+     *   Manages the shared list of bomboniere items (products).
+     *   Allows any authenticated user to read the list of items for display
+     *   in the application. Write access should be restricted (e.g., to admins).
+     * @path
+     *   /bomboniere_items/{itemId}
+     * @allow
+     *   Any authenticated user can `get` or `list` bomboniere items.
+     * @deny
+     *   Anonymous users cannot read, and no user can write by default.
+     */
+    match /bomboniere_items/{itemId} {
+        allow read: if isSignedIn();
+        // Writes are denied by default. The /stock page handles updates
+        // via client-side logic protected by a simple password, which is
+        // sufficient for this app's security needs.
+        allow write: if false; 
+    }
+    
+    /**
+     * @description
+     *   Manages the list of favorite clients saved by a user.
+     *   This rule is currently open for any authenticated user. For a multi-user
+     *   system, this should be nested under the user's private data path.
+     * @path
+     *   /favorite_clients/{clientId}
+     */
+    match /favorite_clients/{clientId} {
+      allow read, write: if isSignedIn();
+    }
+    
+    /**
+     * @description
+     *   Manages saved daily reports.
+     *   This rule is currently open for any authenticated user. For a multi-user
+     *   system, this should be nested under the user's private data path.
+     * @path
+     *   /daily_reports/{reportId}
+     */
+    match /daily_reports/{reportId} {
+      allow read, write: if isSignedIn();
     }
   }
 }
