@@ -652,7 +652,7 @@ export default function Home() {
                     <SummaryReport items={displayItems} />
                   </TabsContent>
                   <TabsContent value="relatorio">
-                    <FinalReport items={displayItems} onClearData={() => setClearAllDataRequest(true)} />
+                    <FinalReport user={user} items={displayItems} onClearData={() => setClearAllDataRequest(true)} />
                   </TabsContent>
                 </div>
               </Tabs>
@@ -683,5 +683,3 @@ export default function Home() {
     </>
   );
 }
-
-    
