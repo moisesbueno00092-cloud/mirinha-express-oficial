@@ -49,6 +49,11 @@ export interface ClientAccountEntry {
     description: string;
     price: number;
     timestamp: string;
+    // Detailed items for better tracking
+    predefinedItems?: PredefinedItem[];
+    bomboniereItems?: SelectedBomboniereItem[];
+    individualPrices?: number[];
+    deliveryFee?: number;
 }
 
 export interface FavoriteClient {

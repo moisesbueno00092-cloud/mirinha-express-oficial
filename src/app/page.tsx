@@ -321,7 +321,11 @@ export default function Home() {
                     customerName: customerName,
                     description: consolidatedName,
                     price: total,
-                    timestamp: timestamp
+                    timestamp: timestamp,
+                    ...(deliveryFee > 0 && { deliveryFee }),
+                    ...(individualPrices.length > 0 && { individualPrices }),
+                    ...(predefinedItems.length > 0 && { predefinedItems }),
+                    ...(processedBomboniereItems.length > 0 && { bomboniereItems: processedBomboniereItems }),
                 };
                 addDocumentNonBlocking(clientAccountsRef, accountEntry);
             }

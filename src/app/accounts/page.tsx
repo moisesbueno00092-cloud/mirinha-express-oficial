@@ -4,10 +4,10 @@
 import { useState, useMemo } from 'react';
 import { useCollection, useFirestore, useMemoFirebase } from '@/firebase';
 import { collection, query, where, orderBy, doc } from 'firebase/firestore';
-import type { ClientAccountEntry } from '@/types';
+import type { ClientAccountEntry, PredefinedItem, SelectedBomboniereItem } from '@/types';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
-import { Loader2, ArrowLeft, Trash2, User } from 'lucide-react';
+import { Loader2, ArrowLeft, Trash2, User, Package, Utensils } from 'lucide-react';
 import Link from 'next/link';
 import {
   AlertDialog,
@@ -21,6 +21,8 @@ import {
 } from "@/components/ui/alert-dialog";
 import { deleteDocumentNonBlocking } from '@/firebase/non-blocking-updates';
 import { useToast } from "@/hooks/use-toast";
+import { Badge } from '@/components/ui/badge';
+import { Separator } from '@/components/ui/separator';
 
 const formatCurrency = (value: number) => {
     return new Intl.NumberFormat("pt-BR", {
@@ -38,6 +40,49 @@ const formatDate = (dateString: string) => {
       minute: '2-digit'
     });
 };
+
+function EntryItems({ entry }: { entry: ClientAccountEntry }) {
+    if (!entry.predefinedItems && !entry.bomboniereItems && !entry.individualPrices) {
+      return <p className="text-sm">{entry.description}</p>;
+    }
+  
+    return (
+      <div className="space-y-2">
+        {entry.predefinedItems && entry.predefinedItems.length > 0 && (
+          <div>
+            <h4 className="font-semibold text-xs flex items-center gap-1"><Utensils className="h-3 w-3" /> Refeições</h4>
+            <div className="flex flex-wrap gap-1 mt-1">
+              {entry.predefinedItems.map((item, idx) => (
+                <Badge key={`pre-${idx}`} variant="secondary">{item.name} ({formatCurrency(item.price)})</Badge>
+              ))}
+            </div>
+          </div>
+        )}
+        {entry.individualPrices && entry.individualPrices.length > 0 && (
+            <div>
+                 <h4 className="font-semibold text-xs flex items-center gap-1"><Utensils className="h-3 w-3" /> Refeições (KG)</h4>
+                 <div className="flex flex-wrap gap-1 mt-1">
+                    {entry.individualPrices.map((price, idx) => (
+                        <Badge key={`kg-${idx}`} variant="secondary">KG ({formatCurrency(price)})</Badge>
+                    ))}
+                 </div>
+            </div>
+        )}
+        {entry.bomboniereItems && entry.bomboniereItems.length > 0 && (
+          <div>
+            <h4 className="font-semibold text-xs flex items-center gap-1"><Package className="h-3 w-3" /> Bomboniere</h4>
+            <div className="flex flex-wrap gap-1 mt-1">
+              {entry.bomboniereItems.map((item, idx) => (
+                <Badge key={`bom-${idx}`} variant="outline">
+                  {item.quantity}x {item.name} ({formatCurrency(item.price)})
+                </Badge>
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  }
 
 function ClientDetail({ client, onBack, onClear }: { client: { id: string; name: string }, onBack: () => void, onClear: (clientId: string) => void }) {
     const firestore = useFirestore();
@@ -143,12 +188,21 @@ function ClientDetail({ client, onBack, onClear }: { client: { id: string; name:
                 <div className="space-y-3">
                     {entries.map(entry => (
                         <Card key={entry.id}>
-                            <CardContent className="p-3 flex justify-between items-center text-sm">
-                                <div>
-                                    <p className="font-semibold">{entry.description}</p>
-                                    <p className="text-xs text-muted-foreground">{formatDate(entry.timestamp)}</p>
+                             <CardContent className="p-4 space-y-3">
+                                <div className="flex justify-between items-start text-sm">
+                                    <div>
+                                        <p className="font-semibold">{formatDate(entry.timestamp)}</p>
+                                        <p className="text-xs text-muted-foreground">{entry.description}</p>
+                                    </div>
+                                    <div className="text-right">
+                                        <p className="font-mono font-bold text-base text-destructive">{formatCurrency(entry.price)}</p>
+                                        {entry.deliveryFee && entry.deliveryFee > 0 ? (
+                                             <p className="text-xs text-muted-foreground">({formatCurrency(entry.deliveryFee)} entrega)</p>
+                                        ) : null}
+                                    </div>
                                 </div>
-                                <p className="font-mono font-semibold text-destructive">{formatCurrency(entry.price)}</p>
+                                <Separator />
+                                <EntryItems entry={entry} />
                             </CardContent>
                         </Card>
                     ))}

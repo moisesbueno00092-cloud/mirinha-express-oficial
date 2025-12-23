@@ -502,10 +502,20 @@ export default function FinalReport({ items, onClearData }: FinalReportProps) {
                                <Users className="h-4 w-4 text-muted-foreground" />
                                <span>Clientes Fiado</span>
                             </CardTitle>
-                             <Button variant="ghost" size="sm" className="h-7 -mr-2" onClick={() => router.push('/accounts')}>
-                                Ver Todos
+                             <Button variant="link" size="sm" className="h-7 -mr-2" asChild>
+                                <Link href="/accounts">Ver Todos</Link>
                             </Button>
                         </CardHeader>
+                        <CardContent className="text-sm pt-2">
+                            <div className="space-y-1">
+                                {reportData.favoriteClientsFiado.slice(0, 3).map(client => (
+                                    <div key={client.name} className="flex justify-between items-center">
+                                        <span className="truncate">{client.name}</span>
+                                        <span className="font-mono text-destructive font-semibold">{formatCurrency(client.total)}</span>
+                                    </div>
+                                ))}
+                            </div>
+                        </CardContent>
                     </Card>
                 )}
             </div>

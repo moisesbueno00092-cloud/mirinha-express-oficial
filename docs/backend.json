@@ -79,7 +79,7 @@
       "$schema": "http://json-schema.org/draft-07/schema#",
       "title": "ClientAccountEntry",
       "type": "object",
-      "description": "Represents a single entry in a client's running tab for end-of-month billing.",
+      "description": "Represents a single entry in a client's running tab for end-of-month billing, with detailed itemization.",
       "properties": {
         "id": {
           "type": "string",
@@ -95,16 +95,51 @@
         },
         "description": {
           "type": "string",
-          "description": "Description of the order (e.g., 'PF com suco')."
+          "description": "A consolidated description of the order (e.g., 'PF + Coquinha')."
         },
         "price": {
           "type": "number",
-          "description": "The fixed price for this order."
+          "description": "The total price for this order, including any delivery fees."
         },
         "timestamp": {
           "type": "string",
           "format": "date-time",
           "description": "The exact date and time the order was placed."
+        },
+        "deliveryFee": {
+          "type": "number",
+          "description": "The delivery fee, if applicable."
+        },
+        "predefinedItems": {
+            "type": "array",
+            "description": "List of predefined meal items in the order.",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "name": {"type": "string"},
+                    "price": {"type": "number"}
+                },
+                "required": ["name", "price"]
+            }
+        },
+        "bomboniereItems": {
+            "type": "array",
+            "description": "List of bomboniere items in the order.",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "id": {"type": "string"},
+                    "name": {"type": "string"},
+                    "price": {"type": "number"},
+                    "quantity": {"type": "number"}
+                },
+                "required": ["id", "name", "price", "quantity"]
+            }
+        },
+        "individualPrices": {
+            "type": "array",
+            "description": "List of prices for KG items.",
+            "items": { "type": "number" }
         }
       },
       "required": ["id", "customerId", "customerName", "description", "price", "timestamp"]
