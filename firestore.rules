@@ -11,6 +11,7 @@ service cloud.firestore {
       allow read, write: if true;
     }
 
+    // Allow full access to client accounts for all users
     match /client_accounts/{clientAccountId} {
       allow get, list, create, update, delete: if true;
     }
