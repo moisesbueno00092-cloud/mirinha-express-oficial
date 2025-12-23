@@ -11,11 +11,10 @@ service cloud.firestore {
       allow read, write: if true;
     }
 
-    // Allow full access to client accounts for all users.
-    // Separating read and write rules to ensure deployment.
+    // Allow full public access to client accounts.
+    // This rule is intentionally open for the app's functionality.
     match /client_accounts/{clientAccountId} {
-      allow read: if true;
-      allow write: if true;
+      allow read, write: if true;
     }
 
     match /bomboniere_items/{docId} {
