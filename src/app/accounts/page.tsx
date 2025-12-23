@@ -1,10 +1,9 @@
-
 'use client';
 
 import { useState, useMemo } from 'react';
 import { useCollection, useFirestore, useMemoFirebase } from '@/firebase';
-import { collection, query, where, orderBy, doc } from 'firebase/firestore';
-import type { ClientAccountEntry, PredefinedItem, SelectedBomboniereItem } from '@/types';
+import { collection, query, where, orderBy, doc, deleteDoc } from 'firebase/firestore';
+import type { Item as ClientAccountEntry, PredefinedItem, SelectedBomboniereItem } from '@/types';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { Loader2, ArrowLeft, Trash2, User, Package, Utensils } from 'lucide-react';
@@ -19,7 +18,6 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { deleteDocumentNonBlocking } from '@/firebase/non-blocking-updates';
 import { useToast } from "@/hooks/use-toast";
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
@@ -41,11 +39,13 @@ const formatDate = (dateString: string) => {
     });
 };
 
+// Simplified non-blocking delete for this page
+const deleteDocumentNonBlocking = (docRef: any) => {
+    deleteDoc(docRef).catch(err => console.error("Failed to delete doc", err));
+}
+
+
 function EntryItems({ entry }: { entry: ClientAccountEntry }) {
-    if (!entry.predefinedItems && !entry.bomboniereItems && !entry.individualPrices) {
-      return <p className="text-sm">{entry.description}</p>;
-    }
-  
     return (
       <div className="space-y-2">
         {entry.predefinedItems && entry.predefinedItems.length > 0 && (
@@ -91,21 +91,22 @@ function ClientDetail({ client, onBack, onClear }: { client: { id: string; name:
 
     const accountEntriesQuery = useMemoFirebase(
         () => (firestore ? query(
-            collection(firestore, 'client_accounts'),
+            collection(firestore, 'order_items'),
             where('customerId', '==', client.id),
+            where('group', 'in', ['Fiados salão', 'Fiados rua']),
             orderBy('timestamp', 'desc')
         ) : null),
         [firestore, client.id]
     );
     const { data: entries, isLoading, error } = useCollection<ClientAccountEntry>(accountEntriesQuery);
 
-    const totalDebt = useMemo(() => entries?.reduce((sum, entry) => sum + entry.price, 0) || 0, [entries]);
+    const totalDebt = useMemo(() => entries?.reduce((sum, entry) => sum + entry.total, 0) || 0, [entries]);
     
     const handleClearConfirm = () => {
         if (!entries || !firestore) return;
         
         entries.forEach(entry => {
-            const docRef = doc(firestore, 'client_accounts', entry.id);
+            const docRef = doc(firestore, 'order_items', entry.id);
             deleteDocumentNonBlocking(docRef);
         });
 
@@ -145,7 +146,7 @@ function ClientDetail({ client, onBack, onClear }: { client: { id: string; name:
               <AlertDialogHeader>
                 <AlertDialogTitle>Limpar Caderneta?</AlertDialogTitle>
                 <AlertDialogDescription>
-                  Esta ação é irreversível. Todos os lançamentos de {client.name} serão apagados.
+                  Esta ação é irreversível. Todos os lançamentos de {client.name} serão apagados permanentemente.
                   Isso é geralmente feito após o pagamento da conta mensal.
                 </AlertDialogDescription>
               </AlertDialogHeader>
@@ -192,10 +193,10 @@ function ClientDetail({ client, onBack, onClear }: { client: { id: string; name:
                                 <div className="flex justify-between items-start text-sm">
                                     <div>
                                         <p className="font-semibold">{formatDate(entry.timestamp)}</p>
-                                        <p className="text-xs text-muted-foreground">{entry.description}</p>
+                                        <p className="text-xs text-muted-foreground">{entry.originalCommand}</p>
                                     </div>
                                     <div className="text-right">
-                                        <p className="font-mono font-bold text-base text-destructive">{formatCurrency(entry.price)}</p>
+                                        <p className="font-mono font-bold text-base text-destructive">{formatCurrency(entry.total)}</p>
                                         {entry.deliveryFee && entry.deliveryFee > 0 ? (
                                              <p className="text-xs text-muted-foreground">({formatCurrency(entry.deliveryFee)} entrega)</p>
                                         ) : null}
@@ -221,17 +222,19 @@ export default function AccountsPage() {
   const firestore = useFirestore();
   const [selectedClient, setSelectedClient] = useState<{ id: string; name: string } | null>(null);
   
-  const clientAccountsQuery = useMemoFirebase(
-    () => (firestore ? collection(firestore, 'client_accounts') : null),
+  const fiadoItemsQuery = useMemoFirebase(
+    () => (firestore ? query(collection(firestore, 'order_items'), where('group', 'in', ['Fiados salão', 'Fiados rua'])) : null),
     [firestore]
   );
   
-  const { data: allAccountEntries, isLoading } = useCollection<ClientAccountEntry>(clientAccountsQuery);
+  const { data: allFiadoEntries, isLoading } = useCollection<ClientAccountEntry>(fiadoItemsQuery);
 
   const clientsWithAccounts = useMemo(() => {
-    if (!allAccountEntries) return [];
+    if (!allFiadoEntries) return [];
 
-    const accountsByCustomer = allAccountEntries.reduce((acc, entry) => {
+    const accountsByCustomer = allFiadoEntries.reduce((acc, entry) => {
+        if (!entry.customerId || !entry.customerName) return acc;
+
         if (!acc[entry.customerId]) {
             acc[entry.customerId] = {
                 id: entry.customerId,
@@ -239,13 +242,13 @@ export default function AccountsPage() {
                 totalDebt: 0
             };
         }
-        acc[entry.customerId].totalDebt += entry.price;
+        acc[entry.customerId].totalDebt += entry.total;
         return acc;
     }, {} as Record<string, { id: string, name: string, totalDebt: number }>);
     
     return Object.values(accountsByCustomer).sort((a,b) => a.name.localeCompare(b.name));
 
-  }, [allAccountEntries]);
+  }, [allFiadoEntries]);
 
   if (selectedClient) {
     return <ClientDetail 
@@ -283,7 +286,7 @@ export default function AccountsPage() {
                 className="cursor-pointer hover:border-primary transition-colors"
                 onClick={() => setSelectedClient(client)}
             >
-              <CardHeader className="flex flex-row justify-between items-center">
+              <CardHeader className="flex flex-row justify-between items-center p-4">
                 <CardTitle className="text-lg sm:text-xl flex items-center gap-3">
                   <User className="h-5 w-5 text-muted-foreground" />
                   {client.name}
