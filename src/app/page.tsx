@@ -56,83 +56,34 @@ const formatCurrency = (value: number) => {
 const isNumeric = (str: string) => !isNaN(parseFloat(str.replace(',', '.'))) && /^[0-9,.]+$/.test(str);
 
 
-function AuthForm({ onLogin }: { onLogin: () => void }) {
-  const auth = useAuth();
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [isSigningUp, setIsSigningUp] = useState(false);
-  const [error, setError] = useState('');
-  const [isLoading, setIsLoading] = useState(false);
-
-  const handleAuth = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setError('');
-    setIsLoading(true);
-    try {
-      if (isSigningUp) {
-        await createUserWithEmailAndPassword(auth, email, password);
-      } else {
-        await signInWithEmailAndPassword(auth, email, password);
-      }
-      onLogin();
-    } catch (err: any) {
-      setError(err.message || 'Ocorreu um erro.');
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  return (
-    <div className="flex h-screen items-center justify-center bg-background p-4">
-      <Card className="w-full max-w-sm">
-        <CardHeader>
-          <CardTitle className="text-center text-xl">Restaurante da Mirinha</CardTitle>
-          <p className="text-center text-sm text-muted-foreground">
-            {isSigningUp ? 'Crie uma conta para sincronizar' : 'Faça login para continuar'}
-          </p>
-        </CardHeader>
-        <CardContent as="form" onSubmit={handleAuth} className="space-y-4">
-          <div className="space-y-2">
-            <Label htmlFor="email">Email</Label>
-            <Input
-              id="email"
-              type="email"
-              placeholder="seu@email.com"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              required
-            />
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="password">Palavra-passe</Label>
-            <Input
-              id="password"
-              type="password"
-              placeholder="********"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              required
-            />
-          </div>
-          {error && <p className="text-sm text-destructive">{error}</p>}
-          <Button type="submit" className="w-full" disabled={isLoading}>
-            {isLoading ? <Loader2 className="animate-spin" /> : (isSigningUp ? 'Criar Conta' : 'Entrar')}
-          </Button>
-          <Button variant="link" type="button" className="w-full text-xs" onClick={() => setIsSigningUp(!isSigningUp)}>
-            {isSigningUp ? 'Já tem uma conta? Entrar' : 'Não tem uma conta? Crie uma'}
-          </Button>
-        </CardContent>
-      </Card>
-    </div>
-  );
-}
-
-
 export default function Home() {
   const firestore = useFirestore();
   const auth = useAuth();
   const { user, isUserLoading } = useUser();
   
+  useEffect(() => {
+    const ensureUser = async () => {
+      if (!isUserLoading && !user && auth) {
+        try {
+          // Tenta fazer login com a conta partilhada
+          await signInWithEmailAndPassword(auth, 'user@lanche.net', 'palavrapasselanche');
+        } catch (error: any) {
+          // Se o utilizador não existir, cria-o
+          if (error.code === 'auth/user-not-found' || error.code === 'auth/invalid-credential') {
+            try {
+              await createUserWithEmailAndPassword(auth, 'user@lanche.net', 'palavrapasselanche');
+            } catch (creationError) {
+              console.error("Failed to create shared user:", creationError);
+            }
+          } else {
+            console.error("Failed to sign in shared user:", error);
+          }
+        }
+      }
+    };
+    ensureUser();
+  }, [user, isUserLoading, auth]);
+
   const userOrderItemsRef = useMemoFirebase(
     () => (firestore && user ? collection(firestore, `users/${user.uid}/order_items`) : null),
     [firestore, user]
@@ -569,10 +520,10 @@ export default function Home() {
     return { total, totalAVista, totalFiado, deliveryCount, totalDeliveryFee };
   }, [items]);
 
-  if (isUserLoading || (!user && !isUserLoading)) {
+  if (isUserLoading || !user) {
     return (
       <div className="flex h-screen items-center justify-center">
-        {isUserLoading ? <Loader2 className="h-12 w-12 animate-spin text-primary" /> : <AuthForm onLogin={() => {}} />}
+        <Loader2 className="h-12 w-12 animate-spin text-primary" />
       </div>
     );
   }
