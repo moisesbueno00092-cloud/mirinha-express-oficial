@@ -2,10 +2,9 @@ rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
-    // This rule allows any authenticated user to read and write to any document.
-    // Security is now primarily enforced by the application's queries,
-    // which filter data by the user's ID.
     match /{document=**} {
+      // This rule allows any authenticated user to read and write to any document in any collection.
+      // Security is enforced at the application level by querying for documents with the correct userId.
       allow read, write: if request.auth != null;
     }
   }
