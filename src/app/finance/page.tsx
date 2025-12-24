@@ -3,7 +3,7 @@
 
 import { useState, useMemo, useEffect } from 'react';
 import { useCollection, useFirestore, useMemoFirebase, useUser } from '@/firebase';
-import { collection, query, where, orderBy, doc, deleteDoc, Timestamp, collectionGroup } from 'firebase/firestore';
+import { collection, query, where, orderBy, doc, deleteDoc, Timestamp, onSnapshot } from 'firebase/firestore';
 import type { Expense, Employee, EmployeeAdvance } from '@/types';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -114,7 +114,7 @@ export default function FinancePage() {
   const [isLoadingAdvances, setIsLoadingAdvances] = useState(true);
 
   useEffect(() => {
-    if (!user || !firestore || !employees || employees.length === 0) {
+    if (!user || !firestore || !employees) {
         if (!isLoadingEmployees) {
              setAllAdvances([]);
              setIsLoadingAdvances(false);
@@ -123,32 +123,47 @@ export default function FinancePage() {
     };
     
     setIsLoadingAdvances(true);
-    const unsubs: (() => void)[] = [];
     const advancesData: Record<string, EmployeeAdvance> = {};
+    
+    // Create listeners for all employee advance subcollections
+    const unsubscribers = employees.map(employee => {
+        const advancesQuery = query(
+            collection(firestore, `employees/${employee.id}/advances`),
+            orderBy('date', 'desc')
+        );
 
-    employees.forEach(employee => {
-        const advancesQuery = query(collection(firestore, `employees/${employee.id}/advances`), where('userId', '==', user.uid), orderBy('date', 'desc'));
-        const unsub = onSnapshot(advancesQuery, (querySnapshot) => {
+        return onSnapshot(advancesQuery, (querySnapshot) => {
             querySnapshot.docChanges().forEach((change) => {
-                 const advance = { ...change.doc.data(), id: change.doc.id, employeeName: employee.name } as EmployeeAdvance;
+                 const advance = { 
+                     ...change.doc.data(), 
+                     id: change.doc.id, 
+                     employeeId: employee.id, // Add parent employeeId
+                     employeeName: employee.name 
+                } as EmployeeAdvance;
+                
                 if (change.type === "removed") {
                     delete advancesData[advance.id];
                 } else {
                     advancesData[advance.id] = advance;
                 }
             });
+            // Update state with the new aggregated data
             setAllAdvances(Object.values(advancesData).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()));
+            setIsLoadingAdvances(false);
         }, (error) => {
             console.error(`Error fetching advances for employee ${employee.id}:`, error);
+            setIsLoadingAdvances(false); // Stop loading on error for this listener
         });
-        unsubs.push(unsub);
     });
-    
-    // Set loading to false once all initial listeners are attached
-    setIsLoadingAdvances(false);
 
+    if (employees.length === 0) {
+        setIsLoadingAdvances(false);
+        setAllAdvances([]);
+    }
+
+    // Cleanup all listeners on unmount
     return () => {
-      unsubs.forEach(unsub => unsub());
+      unsubscribers.forEach(unsub => unsub());
     };
 
   }, [firestore, user, employees, isLoadingEmployees]);
@@ -267,39 +282,28 @@ export default function FinancePage() {
 
   return (
     <div className="container mx-auto max-w-5xl p-4 sm:p-8">
-       <header className="mb-6 flex flex-col items-center justify-center text-center">
-          <Link href="/">
-            <h1 className="text-4xl font-bold text-primary" style={{fontFamily: "'Dancing Script', cursive"}}>Restaurante da Mirinha</h1>
+      <header className="mb-6 flex flex-col sm:flex-row items-center justify-between">
+          <div>
+            <h1 className="text-3xl font-bold">Controle Financeiro</h1>
+            <p className="text-muted-foreground">Gestão de despesas e vales de funcionários.</p>
+          </div>
+          <Link href="/" passHref>
+              <Button variant="outline">
+                  <ArrowLeft className="mr-2 h-4 w-4" />
+                  Voltar
+              </Button>
           </Link>
-          <p className="text-muted-foreground text-sm sm:text-base">Sistema de Gerenciamento de Pedidos</p>
-        </header>
-
-         <div className="flex items-center justify-center space-x-2 border-b mb-6">
-            <Link href="/" passHref>
-                <Button variant="ghost">Controle</Button>
-            </Link>
-            <Button variant="ghost" className="border-b-2 border-primary text-primary">Despesas</Button>
-             <Link href="/history" passHref>
-                <Button variant="ghost">Histórico</Button>
-            </Link>
-             <Link href="/accounts" passHref>
-                <Button variant="ghost">Caderneta</Button>
-            </Link>
-            <Link href="/stock" passHref>
-                <Button variant="ghost">Estoque</Button>
-            </Link>
-        </div>
-
+      </header>
 
       <div className="space-y-6">
         <Card>
           <CardHeader>
             <CardTitle>Adicionar Despesa</CardTitle>
             <CardDescription>
-              Use: &quot;[m, c, i, o] descrição valor&quot; (m=mercado, c=contas, i=impostos, o=outros). Ex: &quot;m arroz 50&quot;.
+              Use o formato: `código descrição valor`. Ex: `m arroz 50`. Códigos: (m)ercado, (s)alário, (v)ale, (c)ontas, (i)mpostos, (o)utros.
             </CardDescription>
           </CardHeader>
-          <CardContent className="flex flex-col sm:flex-row items-center gap-4">
+          <CardContent className="flex flex-col sm:flex-row items-center gap-2">
             <Input 
               placeholder="Ex: m arroz, feijão 150.75" 
               className="flex-grow"
@@ -307,24 +311,13 @@ export default function FinancePage() {
               onChange={(e) => setExpenseInput(e.target.value)}
               onKeyDown={(e) => e.key === 'Enter' && handleAddExpense()}
             />
-            <div className="flex items-center gap-2">
-                <Button variant="outline" className="whitespace-nowrap" disabled>
+            <div className="flex w-full sm:w-auto items-center gap-2">
+                <Button variant="outline" className="flex-1 whitespace-nowrap" disabled>
                   <Calendar className="mr-2 h-4 w-4" />
-                  {format(new Date(), "d 'de' MMMM", { locale: ptBR })}
+                  {format(new Date(), "d 'de' MMM", { locale: ptBR })}
                 </Button>
-                <Button variant="outline" disabled><Repeat className="mr-2 h-4 w-4" />Lançar Despesa Parcelada</Button>
-                <Button variant="default" className="bg-red-600 hover:bg-red-700" onClick={handleAddExpense}><Plus className="mr-2 h-4 w-4" />Adicionar</Button>
+                <Button onClick={handleAddExpense} className="flex-1"><Plus className="mr-2 h-4 w-4" />Adicionar</Button>
             </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2"><Code className="h-5 w-5" /> Agrupar Lançamentos por Código</CardTitle>
-          </CardHeader>
-          <CardContent className="flex items-center gap-4">
-            <Input placeholder="Digite um código (ex: Mega G)" className="flex-grow" disabled />
-            <Button variant="default" className="bg-red-600 hover:bg-red-700" disabled>Definir Grupo</Button>
           </CardContent>
         </Card>
 
@@ -335,7 +328,6 @@ export default function FinancePage() {
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="flex flex-wrap items-center gap-2">
-                <Button variant="outline" className="whitespace-nowrap" disabled><Filter className="mr-2 h-4 w-4" />Filtrar por Grupo</Button>
                  <Select value={selectedYear} onValueChange={setSelectedYear}>
                     <SelectTrigger className="w-[120px]">
                       <Calendar className="mr-2 h-4 w-4" />
@@ -432,7 +424,7 @@ export default function FinancePage() {
             </CardHeader>
             <CardContent className="text-center">
                 <p className="text-muted-foreground">Total do Ano de {selectedYear}</p>
-                <p className="text-5xl font-bold text-red-500 mt-2">{formatCurrency(annualTotal)}</p>
+                <p className="text-5xl font-bold text-destructive mt-2">{formatCurrency(annualTotal)}</p>
             </CardContent>
         </Card>
 
