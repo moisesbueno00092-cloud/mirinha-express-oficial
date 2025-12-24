@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useMemo, useEffect } from 'react';
@@ -35,7 +34,7 @@ const months = [
   { value: '6', label: 'Julho' },
   { value: '7', label: 'Agosto' },
   { value: '8', label: 'Setembro' },
-  { value: '9', label: 'Outubro' },
+  { value: '9', 'label': 'Outubro' },
   { value: '10', label: 'Novembro' },
   { value: '11', label: 'Dezembro' },
 ];
@@ -139,15 +138,14 @@ export default function FinancePage() {
                 
                 const combinedAdvances = Object.values(advancesData).flat();
                 setAllAdvances(combinedAdvances.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()));
-                // Consider loading finished when all initial listeners have fired at least once
-                // This is a simplification; for production you might want a more robust loading state.
+                
                 if(Object.keys(advancesData).length === employees.length) {
                   setIsLoadingAdvances(false);
                 }
             },
             (error) => {
                 console.error(`Error fetching advances for employee ${employee.id}:`, error);
-                // Also consider loading finished on error to not block UI forever
+                
                 if(Object.keys(advancesData).length === employees.length) {
                   setIsLoadingAdvances(false);
                 }
