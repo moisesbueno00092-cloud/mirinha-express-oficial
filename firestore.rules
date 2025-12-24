@@ -72,9 +72,7 @@ service cloud.firestore {
     /**
      * @description
      *  Manages expenses, payables, and employees.
-     *  Users can create their own items.
-     *  Reading is allowed for any signed-in user, but the app's queries
-     *  MUST filter by userId to ensure data privacy.
+     *  Users can create their own items and can only read/update/delete their own items.
      */
     match /expenses/{expenseId} {
       allow create: if isSignedIn() && request.resource.data.userId == request.auth.uid;
