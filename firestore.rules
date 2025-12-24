@@ -20,7 +20,7 @@ service cloud.firestore {
 
     /**
      * @description
-     *   Generic rule for all other user-specific data.
+     *   Generic rule for all user-specific data collections.
      *   - Any signed-in user can read or write to these collections.
      *   - CRITICAL: Data security is enforced by the application code, which MUST
      *     filter all queries by the current user's UID (e.g., `where('userId', '==', user.uid)`).
