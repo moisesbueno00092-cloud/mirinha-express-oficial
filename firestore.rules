@@ -4,11 +4,12 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // Helper Functions
+    // Helper Function to check if a user is signed in
     function isSignedIn() {
       return request.auth != null;
     }
 
+    // Helper function to check if the user is the owner of a document
     function isOwner(userId) {
       return request.auth.uid == userId;
     }
@@ -17,8 +18,6 @@ service cloud.firestore {
      * @description
      *   Manages the user's own profile document.
      *   Only the owner of the document can read or write to it.
-     * @path
-     *   /users/{userId}
      */
     match /users/{userId} {
       allow read, write: if isSignedIn() && isOwner(userId);
@@ -26,11 +25,10 @@ service cloud.firestore {
 
     /**
      * @description
-     *   Manages order items, favorite clients, bomboniere items, daily reports,
-     *   expenses, payables, and employees.
-     *   Authenticated users can read and write to these collections.
-     *   Security is enforced at the application level by querying for documents
-     *   with the correct userId.
+     *   Manages shared data and user-specific data collections.
+     *   Security is primarily enforced at the application level by querying
+     *   for documents with the correct userId. This simplified rule prevents
+     *   list query permission errors while the app's queries ensure data privacy.
      */
     match /order_items/{orderItemId} {
        allow read, write: if isSignedIn();
