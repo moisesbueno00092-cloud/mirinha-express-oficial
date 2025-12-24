@@ -74,26 +74,39 @@ service cloud.firestore {
     /**
      * @description
      *  Manages expenses, payables, and employees.
-     *  Only the user who created them can manage them.
+     *  Users can create their own items.
+     *  They can get, update, or delete items they own.
+     *  Listing is allowed only when querying by the user's own ID.
      */
+    function isQueryingOwnData() {
+      return request.query.where.size == 1
+          && request.query.where[0].fieldPath == 'userId'
+          && request.query.where[0].op == '=='
+          && request.query.where[0].value == request.auth.uid;
+    }
+
     match /expenses/{expenseId} {
       allow create: if isSignedIn() && request.resource.data.userId == request.auth.uid;
-      allow read, update, delete: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow get, update, delete: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow list: if isSignedIn() && isQueryingOwnData();
     }
 
     match /payables/{payableId} {
       allow create: if isSignedIn() && request.resource.data.userId == request.auth.uid;
-      allow read, update, delete: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow get, update, delete: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow list: if isSignedIn() && isQueryingOwnData();
     }
 
     match /employees/{employeeId} {
       allow create: if isSignedIn() && request.resource.data.userId == request.auth.uid;
-      allow read, update, delete: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow get, update, delete: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow list: if isSignedIn() && isQueryingOwnData();
       
       // Salary advances
       match /advances/{advanceId} {
         allow create: if isSignedIn() && request.resource.data.userId == request.auth.uid;
-        allow read, update, delete: if isSignedIn() && resource.data.userId == request.auth.uid;
+        allow get, update, delete: if isSignedIn() && resource.data.userId == request.auth.uid;
+        allow list: if isSignedIn() && request.query.where.size == 1 && request.query.where[0].fieldPath == 'userId' && request.query.where[0].op == '==' && request.query.where[0].value == request.auth.uid;
       }
     }
   }
