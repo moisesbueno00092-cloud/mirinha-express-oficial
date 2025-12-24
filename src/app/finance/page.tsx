@@ -1,9 +1,9 @@
 
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { useCollection, useFirestore, useMemoFirebase, useUser } from '@/firebase';
-import { collection, query, where, orderBy, doc, deleteDoc, Timestamp } from 'firebase/firestore';
+import { collection, query, where, orderBy, doc, deleteDoc, Timestamp, collectionGroup } from 'firebase/firestore';
 import type { Expense, Employee, EmployeeAdvance } from '@/types';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -109,40 +109,80 @@ export default function FinancePage() {
   const { data: expenses, isLoading: isLoadingExpenses } = useCollection<Expense>(
     useMemoFirebase(() => user ? query(collection(firestore, 'expenses'), where('userId', '==', user.uid), orderBy('date', 'desc')) : null, [firestore, user])
   );
+  
+  const [allAdvances, setAllAdvances] = useState<EmployeeAdvance[]>([]);
+  const [isLoadingAdvances, setIsLoadingAdvances] = useState(true);
 
-  const { data: advances, isLoading: isLoadingAdvances } = useCollection<EmployeeAdvance>(
-    useMemoFirebase(() => user ? query(collection(firestore, 'employee_advances'), where('userId', '==', user.uid), orderBy('date', 'desc')) : null, [firestore, user])
-  );
+  useEffect(() => {
+    if (!user || !firestore || !employees || employees.length === 0) {
+        if (!isLoadingEmployees) {
+             setAllAdvances([]);
+             setIsLoadingAdvances(false);
+        }
+        return;
+    };
+    
+    setIsLoadingAdvances(true);
+    const unsubs: (() => void)[] = [];
+    const advancesData: Record<string, EmployeeAdvance> = {};
+
+    employees.forEach(employee => {
+        const advancesQuery = query(collection(firestore, `employees/${employee.id}/advances`), where('userId', '==', user.uid), orderBy('date', 'desc'));
+        const unsub = onSnapshot(advancesQuery, (querySnapshot) => {
+            querySnapshot.docChanges().forEach((change) => {
+                 const advance = { ...change.doc.data(), id: change.doc.id, employeeName: employee.name } as EmployeeAdvance;
+                if (change.type === "removed") {
+                    delete advancesData[advance.id];
+                } else {
+                    advancesData[advance.id] = advance;
+                }
+            });
+            setAllAdvances(Object.values(advancesData).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()));
+        }, (error) => {
+            console.error(`Error fetching advances for employee ${employee.id}:`, error);
+        });
+        unsubs.push(unsub);
+    });
+    
+    // Set loading to false once all initial listeners are attached
+    setIsLoadingAdvances(false);
+
+    return () => {
+      unsubs.forEach(unsub => unsub());
+    };
+
+  }, [firestore, user, employees, isLoadingEmployees]);
+
 
   const filteredData = useMemo(() => {
-    const allItems: (Expense | EmployeeAdvance)[] = [...(expenses || []), ...(advances || [])];
+    const allItems: (Expense | EmployeeAdvance)[] = [...(expenses || []), ...(allAdvances || [])];
 
     return allItems.filter(item => {
         const itemDate = new Date(item.date);
         const yearMatch = itemDate.getFullYear() === parseInt(selectedYear);
         const monthMatch = selectedMonth === 'all' || itemDate.getMonth() === parseInt(selectedMonth);
         const description = 'description' in item ? item.description : `Vale para ${item.employeeName}`;
-        const searchMatch = !searchTerm || description.toLowerCase().includes(searchTerm.toLowerCase()) || ('employeeName' in item && item.employeeName.toLowerCase().includes(searchTerm.toLowerCase()));
+        const searchMatch = !searchTerm || description.toLowerCase().includes(searchTerm.toLowerCase()) || ('employeeName' in item && item.employeeName?.toLowerCase().includes(searchTerm.toLowerCase()));
 
         return yearMatch && monthMatch && searchMatch;
     });
-  }, [expenses, advances, selectedYear, selectedMonth, searchTerm]);
+  }, [expenses, allAdvances, selectedYear, selectedMonth, searchTerm]);
 
-  const generalExpenses = useMemo(() => filteredData.filter(item => 'description' in item), [filteredData]);
-  const employeeExpenses = useMemo(() => filteredData.filter(item => 'employeeId' in item), [filteredData]);
+  const generalExpenses = useMemo(() => filteredData.filter((item): item is Expense => 'description' in item), [filteredData]);
+  const employeeExpenses = useMemo(() => filteredData.filter((item): item is EmployeeAdvance => 'employeeId' in item), [filteredData]);
 
   const annualTotal = useMemo(() => {
-      const allYearItems: (Expense | EmployeeAdvance)[] = [...(expenses || []), ...(advances || [])];
+      const allYearItems: (Expense | EmployeeAdvance)[] = [...(expenses || []), ...(allAdvances || [])];
       return allYearItems
         .filter(item => new Date(item.date).getFullYear() === parseInt(selectedYear))
         .reduce((sum, item) => sum + item.amount, 0);
-  }, [expenses, advances, selectedYear]);
+  }, [expenses, allAdvances, selectedYear]);
 
   const categoryData = useMemo(() => {
     const categoryMap: Record<string, number> = {};
 
     const itemsToProcess = selectedMonth === 'all' 
-        ? [...(expenses || []), ...(advances || [])].filter(item => new Date(item.date).getFullYear() === parseInt(selectedYear))
+        ? [...(expenses || []), ...(allAdvances || [])].filter(item => new Date(item.date).getFullYear() === parseInt(selectedYear))
         : filteredData;
 
     itemsToProcess.forEach(item => {
@@ -165,7 +205,7 @@ export default function FinancePage() {
         color: categoryColors[name] || 'hsl(var(--muted-foreground))',
         icon: categoryIcons[name] || Plus,
     })).sort((a,b) => b.value - a.value);
-  }, [filteredData, expenses, advances, selectedYear, selectedMonth]);
+  }, [filteredData, expenses, allAdvances, selectedYear, selectedMonth]);
 
 
   const handleAddExpense = () => {
@@ -206,13 +246,19 @@ export default function FinancePage() {
   
   const handleDelete = (item: Expense | EmployeeAdvance) => {
       if (!firestore) return;
-      const collectionName = 'description' in item ? 'expenses' : 'employee_advances';
-      const docRef = doc(firestore, collectionName, item.id);
+      
+      let docRef;
+      if ('description' in item) { // It's an Expense
+        docRef = doc(firestore, 'expenses', item.id);
+      } else { // It's an EmployeeAdvance
+        docRef = doc(firestore, `employees/${item.employeeId}/advances`, item.id);
+      }
+      
       deleteDocumentNonBlocking(docRef);
       toast({ title: 'Lançamento excluído.'});
   }
 
-  const formatDate = (date: Date | string) => {
+  const formatDateDisplay = (date: Date | string) => {
     const dateObj = typeof date === 'string' ? new Date(date) : date;
     return format(dateObj, "d 'de' MMM", { locale: ptBR });
   }
@@ -338,8 +384,8 @@ export default function FinancePage() {
                                {generalExpenses.map(item => (
                                    <div key={item.id} className="flex items-center justify-between p-2 rounded-md hover:bg-muted/50">
                                        <div>
-                                           <p className="font-medium">{(item as Expense).description}</p>
-                                           <p className="text-xs text-muted-foreground">{formatDate(item.date)} - <span style={{color: categoryColors[(item as Expense).category]}}>{(item as Expense).category}</span></p>
+                                           <p className="font-medium">{item.description}</p>
+                                           <p className="text-xs text-muted-foreground">{formatDateDisplay(item.date)} - <span style={{color: categoryColors[item.category]}}>{item.category}</span></p>
                                        </div>
                                        <div className="flex items-center gap-2">
                                            <p className="font-mono font-semibold">{formatCurrency(item.amount)}</p>
@@ -362,8 +408,8 @@ export default function FinancePage() {
                                {employeeExpenses.map(item => (
                                    <div key={item.id} className="flex items-center justify-between p-2 rounded-md hover:bg-muted/50">
                                        <div>
-                                           <p className="font-medium">Vale para {(item as EmployeeAdvance).employeeName}</p>
-                                           <p className="text-xs text-muted-foreground">{formatDate(item.date)}</p>
+                                           <p className="font-medium">Vale para {item.employeeName}</p>
+                                           <p className="text-xs text-muted-foreground">{formatDateDisplay(item.date)}</p>
                                        </div>
                                        <div className="flex items-center gap-2">
                                            <p className="font-mono font-semibold">{formatCurrency(item.amount)}</p>
@@ -450,6 +496,3 @@ export default function FinancePage() {
     </div>
   );
 }
-
-
-    

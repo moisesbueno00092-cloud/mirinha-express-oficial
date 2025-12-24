@@ -149,9 +149,6 @@
         "employeeId": {
           "type": "string"
         },
-        "employeeName": {
-            "type": "string"
-        },
         "amount": {
           "type": "number"
         },
@@ -160,7 +157,7 @@
           "format": "date-time"
         }
       },
-      "required": ["userId", "employeeId", "employeeName", "amount", "date"]
+      "required": ["userId", "employeeId", "amount", "date"]
     }
   },
   "auth": {

@@ -3,11 +3,53 @@ rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
-    // This rule allows any user to read or write to any document.
-    // The application's security is enforced by client-side queries
-    // that filter data by the authenticated user's ID (`where('userId', '==', user.uid)`).
-    match /{document=**} {
-      allow read, write: if true;
+    
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    match /users/{userId} {
+      allow read, write: if request.auth.uid == userId;
+    }
+
+    match /order_items/{orderItemId} {
+      allow create: if isSignedIn() && request.resource.data.userId == request.auth.uid;
+      allow read, update, delete: if isSignedIn() && resource.data.userId == request.auth.uid;
+    }
+
+    match /favorite_clients/{clientId} {
+      allow create: if isSignedIn() && request.resource.data.userId == request.auth.uid;
+      allow read, update, delete: if isSignedIn() && resource.data.userId == request.auth.uid;
+    }
+    
+    // bomboniere_items are public
+    match /bomboniere_items/{itemId} {
+      allow read, write: if isSignedIn();
+    }
+    
+    match /daily_reports/{reportId} {
+       allow create, read, update, delete: if isSignedIn();
+    }
+
+    match /expenses/{expenseId} {
+      allow create: if isSignedIn() && request.resource.data.userId == request.auth.uid;
+      allow read, update, delete: if isSignedIn() && resource.data.userId == request.auth.uid;
+    }
+
+    match /payables/{payableId} {
+      allow create: if isSignedIn() && request.resource.data.userId == request.auth.uid;
+      allow read, update, delete: if isSignedIn() && resource.data.userId == request.auth.uid;
+    }
+
+    match /employees/{employeeId} {
+      allow create: if isSignedIn() && request.resource.data.userId == request.auth.uid;
+      allow read, update, delete: if isSignedIn() && resource.data.userId == request.auth.uid;
+
+      // Rule for the 'advances' subcollection
+      match /advances/{advanceId} {
+        allow create: if isSignedIn() && request.resource.data.userId == request.auth.uid;
+        allow read, update, delete: if isSignedIn() && resource.data.userId == request.auth.uid;
+      }
     }
   }
 }
