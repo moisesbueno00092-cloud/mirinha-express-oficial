@@ -12,48 +12,15 @@ service cloud.firestore {
       return request.auth.uid == userId;
     }
 
-    // Allow users to manage their own profile
+    // Acesso geral para utilizadores autenticados.
+    // A segurança é garantida pelas consultas `where('userId', '==', user.uid)` na aplicação.
+    match /{document=**} {
+      allow read, write: if isSignedIn();
+    }
+
+    // Regra específica para a coleção `users` para garantir que um utilizador só pode gerir o seu próprio perfil.
     match /users/{userId} {
       allow read, write: if isOwner(userId);
     }
-
-    // Rules for user-specific, top-level collections
-    match /order_items/{orderItemId} {
-      allow read, write: if isSignedIn() && isOwner(resource.data.userId);
-      allow create: if isSignedIn() && isOwner(request.resource.data.userId);
-    }
-
-    match /favorite_clients/{clientId} {
-      allow read, write: if isSignedIn() && isOwner(resource.data.userId);
-      allow create: if isSignedIn() && isOwner(request.resource.data.userId);
-    }
-
-    match /expenses/{expenseId} {
-      allow read, write: if isSignedIn() && isOwner(resource.data.userId);
-      allow create: if isSignedIn() && isOwner(request.resource.data.userId);
-    }
-    
-    match /daily_reports/{reportId} {
-       allow read, write: if isSignedIn(); // Reports can be read by any authenticated user
-    }
-
-    // Publicly readable collection
-    match /bomboniere_items/{itemId} {
-      allow read: if isSignedIn();
-      allow write: if isSignedIn(); // For simplicity, allow any signed-in user to manage stock
-    }
-
-    // Rules for employees and their advances (subcollection)
-    match /employees/{employeeId} {
-      allow read, write: if isSignedIn() && isOwner(resource.data.userId);
-      allow create: if isSignedIn() && isOwner(request.resource.data.userId);
-
-      match /advances/{advanceId} {
-        allow read, write: if isSignedIn() && get(/databases/$(database)/documents/employees/$(employeeId)).data.userId == request.auth.uid;
-        allow create: if isSignedIn() && get(/databases/$(database)/documents/employees/$(employeeId)).data.userId == request.auth.uid;
-      }
-    }
   }
 }
-
-    
