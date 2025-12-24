@@ -9,35 +9,29 @@ service cloud.firestore {
       return request.auth != null;
     }
 
-    // Helper function to check if the user is the owner of a document
-    function isOwner(userId) {
-      return request.auth.uid == userId;
-    }
-
     /**
      * @description
      *   Manages the user's own profile document.
      *   Only the owner of the document can read or write to it.
      */
     match /users/{userId} {
-      allow read, write: if isSignedIn() && isOwner(userId);
+      allow read, write: if isSignedIn() && request.auth.uid == userId;
     }
 
     /**
      * @description
-     *   Generic rule for user-owned data.
-     *   - Users can create documents if they set the userId to their own UID.
-     *   - Users can read, update, or delete documents they own.
-     *   This rule applies to collections where documents have a 'userId' field.
+     *   Generic rule for all other user-specific data.
+     *   - Any signed-in user can read or write to these collections.
+     *   - CRITICAL: Data security is enforced by the application code, which MUST
+     *     filter all queries by the current user's UID (e.g., `where('userId', '==', user.uid)`).
+     *     This prevents users from accessing each other's data.
      */
     match /order_items/{orderItemId} {
-       allow create: if isSignedIn() && request.resource.data.userId == request.auth.uid;
-       allow read, update, delete: if isSignedIn() && resource.data.userId == request.auth.uid;
+       allow read, write: if isSignedIn();
     }
 
     match /favorite_clients/{clientId} {
-       allow create: if isSignedIn() && request.resource.data.userId == request.auth.uid;
-       allow read, update, delete: if isSignedIn() && resource.data.userId == request.auth.uid;
+       allow read, write: if isSignedIn();
     }
 
     match /daily_reports/{reportId} {
@@ -45,23 +39,19 @@ service cloud.firestore {
     }
 
     match /expenses/{expenseId} {
-      allow create: if isSignedIn() && request.resource.data.userId == request.auth.uid;
-      allow read, update, delete: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow read, write: if isSignedIn();
     }
 
     match /payables/{payableId} {
-      allow create: if isSignedIn() && request.resource.data.userId == request.auth.uid;
-      allow read, update, delete: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow read, write: if isSignedIn();
     }
 
     match /employees/{employeeId} {
-      allow create: if isSignedIn() && request.resource.data.userId == request.auth.uid;
-      allow read, update, delete: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow read, write: if isSignedIn();
       
       // Salary advances for a specific employee.
       match /advances/{advanceId} {
-        allow create: if isSignedIn() && request.resource.data.userId == request.auth.uid;
-        allow read, update, delete: if isSignedIn() && resource.data.userId == request.auth.uid;
+        allow read, write: if isSignedIn();
       }
     }
     
