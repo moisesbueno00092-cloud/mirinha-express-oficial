@@ -73,6 +73,7 @@ service cloud.firestore {
      * @description
      *  Manages expenses, payables, and employees.
      *  Users can create their own items and can only read/update/delete their own items.
+     *  Listing is secured by client-side queries filtering by userId.
      */
     match /expenses/{expenseId} {
       allow create: if isSignedIn() && request.resource.data.userId == request.auth.uid;
