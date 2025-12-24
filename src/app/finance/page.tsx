@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect, useRef } from 'react';
 import { useCollection, useFirestore, useMemoFirebase, useUser } from '@/firebase';
 import { collection, query, where, orderBy, doc, deleteDoc, addDoc, updateDoc } from 'firebase/firestore';
 import type { Expense, Payable, Employee, EmployeeAdvance } from '@/types';
@@ -68,6 +68,7 @@ function ExpensesTab() {
     const [category, setCategory] = useState('');
     const [date, setDate] = useState<Date | undefined>(new Date());
     const [searchTerm, setSearchTerm] = useState('');
+    const addButtonRef = useRef<HTMLButtonElement>(null);
     
     const expensesQuery = useMemoFirebase(() => (
         firestore && user ? query(collection(firestore, 'expenses'), where('userId', '==', user.uid)) : null
@@ -159,7 +160,12 @@ function ExpensesTab() {
                                     className="h-11 text-base"
                                 />
                            </div>
-                           <CategoryCombobox existingCategories={existingCategories} value={category} setValue={setCategory} />
+                           <CategoryCombobox 
+                             existingCategories={existingCategories} 
+                             value={category} 
+                             setValue={setCategory} 
+                             onAddNew={() => addButtonRef.current?.focus()}
+                           />
                            <Popover>
                                 <PopoverTrigger asChild>
                                     <Button variant="outline" className={cn("h-11 w-full sm:w-auto justify-start text-left font-normal", !date && "text-muted-foreground")}>
@@ -171,7 +177,7 @@ function ExpensesTab() {
                                     <Calendar mode="single" selected={date} onSelect={setDate} initialFocus locale={ptBR}/>
                                 </PopoverContent>
                             </Popover>
-                           <Button type="submit" className="h-11 w-full sm:w-auto bg-red-600 hover:bg-red-700 text-white">
+                           <Button ref={addButtonRef} type="submit" className="h-11 w-full sm:w-auto bg-red-600 hover:bg-red-700 text-white">
                                 <Plus className="mr-2 h-4 w-4" />
                                 Adicionar
                            </Button>
@@ -235,12 +241,23 @@ function ExpensesTab() {
     );
 }
 
-function CategoryCombobox({ existingCategories, value, setValue }: { existingCategories: string[], value: string, setValue: (value: string) => void }) {
+function CategoryCombobox({ existingCategories, value, setValue, onAddNew }: { existingCategories: string[], value: string, setValue: (value: string) => void, onAddNew?: () => void }) {
     const [open, setOpen] = useState(false);
 
     const handleSelect = (currentValue: string) => {
         setValue(currentValue === value ? "" : currentValue);
         setOpen(false);
+    };
+
+    const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+        if (e.key === 'Enter') {
+            const hasSelection = document.querySelector('[role="option"][aria-selected="true"]');
+            if (!hasSelection && value.trim() !== '') {
+                e.preventDefault();
+                setOpen(false);
+                onAddNew?.();
+            }
+        }
     };
 
     return (
@@ -262,6 +279,7 @@ function CategoryCombobox({ existingCategories, value, setValue }: { existingCat
                         value={value}
                         onValueChange={setValue}
                         placeholder="Buscar ou criar..."
+                        onKeyDown={handleKeyDown}
                     />
                     <CommandList>
                         <CommandEmpty>Nenhum fornecedor encontrado.</CommandEmpty>
