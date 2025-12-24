@@ -6,8 +6,8 @@ import { useCollection, useFirestore, useMemoFirebase, useUser } from '@/firebas
 import { collection, query, where, orderBy, doc, deleteDoc, addDoc, updateDoc } from 'firebase/firestore';
 import type { Expense, Payable, Employee, EmployeeAdvance } from '@/types';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
-import { Loader2, ArrowLeft, Trash2, User, Package, Utensils, CalendarDays, ReceiptText, Plus, DollarSign, Briefcase, FileText, Search, ChevronsUpDown, Check, BadgeEuro } from 'lucide-react';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Loader2, ArrowLeft, Trash2, User, Package, Utensils, CalendarDays, ReceiptText, Plus, DollarSign, Briefcase, FileText, Search, ChevronsUpDown, Check, BadgeEuro, Filter } from 'lucide-react';
 import Link from 'next/link';
 import {
   AlertDialog,
@@ -73,24 +73,19 @@ function ExpensesTab() {
     const addButtonRef = useRef<HTMLButtonElement>(null);
     
     const expensesQuery = useMemoFirebase(() => (
-        firestore && user ? query(collection(firestore, 'expenses'), where('userId', '==', user.uid)) : null
+        firestore && user ? query(collection(firestore, 'expenses'), where('userId', '==', user.uid), orderBy('date', 'desc')) : null
     ), [firestore, user]);
 
     const { data: expenses, isLoading } = useCollection<Expense>(expensesQuery);
     
-    const sortedExpenses = useMemo(() => {
-        if (!expenses) return [];
-        return [...expenses].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-    }, [expenses]);
-    
     const filteredExpenses = useMemo(() => {
-        if (!sortedExpenses) return [];
+        if (!expenses) return [];
         const lowercasedFilter = searchTerm.toLowerCase();
-        return sortedExpenses.filter(expense => 
+        return expenses.filter(expense => 
             expense.description.toLowerCase().includes(lowercasedFilter) ||
             expense.category.toLowerCase().includes(lowercasedFilter)
         );
-    }, [sortedExpenses, searchTerm]);
+    }, [expenses, searchTerm]);
 
     const existingCategories = useMemo(() => {
         if (!expenses) return [];
@@ -148,6 +143,7 @@ function ExpensesTab() {
             <Card>
                 <CardHeader>
                     <CardTitle className="text-lg">Adicionar Despesa</CardTitle>
+                    <CardDescription>Use: "m 3x Arroz 50" (categoria + quantidade) ou "3x Arroz 50" (sem categoria) para multiplicação.</CardDescription>
                 </CardHeader>
                 <CardContent>
                     <form onSubmit={handleAddExpense} className="space-y-4">
@@ -158,16 +154,10 @@ function ExpensesTab() {
                                     id="exp-desc" 
                                     value={`${description} ${amount}`.trim()} 
                                     onChange={handleComplexInput}
-                                    placeholder="Digite a descrição e o valor (ex: Compras 50,50)" 
+                                    placeholder="Digite a descrição e o valor" 
                                     className="h-11 text-base"
                                 />
                            </div>
-                           <CategoryCombobox 
-                             existingCategories={existingCategories} 
-                             value={category} 
-                             setValue={setCategory} 
-                             onAddNew={() => addButtonRef.current?.focus()}
-                           />
                            <Popover>
                                 <PopoverTrigger asChild>
                                     <Button variant="outline" className={cn("h-11 w-full sm:w-auto justify-start text-left font-normal", !date && "text-muted-foreground")}>
@@ -191,53 +181,81 @@ function ExpensesTab() {
             <Card>
                 <CardHeader>
                     <CardTitle className="text-lg">Controle de Despesas</CardTitle>
-                     <div className="relative pt-2">
-                        <Search className="absolute left-3 top-1/2 h-4 w-4 text-muted-foreground -translate-y-1/2" />
-                        <Input 
-                           placeholder="Buscar por descrição ou fornecedor..."
-                           value={searchTerm}
-                           onChange={e => setSearchTerm(e.target.value)}
-                           className="pl-10"
-                        />
-                    </div>
-                </CardHeader>
-                <CardContent>
-                    {isLoading ? <div className="flex justify-center py-8"><Loader2 className="mx-auto h-8 w-8 animate-spin" /></div> : (
-                        <>
-                        <Table>
-                            <TableHeader>
-                                <TableRow>
-                                    <TableHead>Data</TableHead>
-                                    <TableHead>Descrição</TableHead>
-                                    <TableHead>Fornecedor</TableHead>
-                                    <TableHead className="text-right">Valor</TableHead>
-                                </TableRow>
-                            </TableHeader>
-                            <TableBody>
-                                {filteredExpenses?.map(exp => (
-                                    <TableRow key={exp.id}>
-                                        <TableCell>{formatDate(exp.date)}</TableCell>
-                                        <TableCell className="font-medium">{exp.description}</TableCell>
-                                        <TableCell><Badge variant="secondary">{exp.category}</Badge></TableCell>
-                                        <TableCell className="text-right font-mono font-semibold">{formatCurrency(exp.amount)}</TableCell>
-                                    </TableRow>
+                     <CardDescription>Selecione o período ou faça uma busca para visualizar.</CardDescription>
+                     <div className="flex items-center gap-2 pt-2">
+                        <div className="relative flex-grow">
+                            <Search className="absolute left-3 top-1/2 h-4 w-4 text-muted-foreground -translate-y-1/2" />
+                            <Input 
+                               placeholder="Buscar por descrição ou funcionário..."
+                               value={searchTerm}
+                               onChange={e => setSearchTerm(e.target.value)}
+                               className="pl-10"
+                            />
+                        </div>
+                        <Select defaultValue={new Date().getFullYear().toString()}>
+                            <SelectTrigger className="w-[120px]">
+                                <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="2025">2025</SelectItem>
+                                <SelectItem value="2024">2024</SelectItem>
+                                <SelectItem value="2023">2023</SelectItem>
+                            </SelectContent>
+                        </Select>
+                        <Select defaultValue={(new Date().getMonth()).toString()}>
+                            <SelectTrigger className="w-[150px]">
+                                <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                                {Array.from({length: 12}).map((_, i) => (
+                                    <SelectItem key={i} value={i.toString()}>{format(new Date(0, i), 'MMMM', {locale: ptBR})}</SelectItem>
                                 ))}
-                            </TableBody>
-                        </Table>
-                         {filteredExpenses.length === 0 && (
-                            <div className="text-center py-10 text-muted-foreground">
-                                <p>Nenhuma despesa encontrada.</p>
-                            </div>
-                         )}
-                        </>
-                    )}
+                            </SelectContent>
+                        </Select>
+                     </div>
+                </CardHeader>
+                <CardContent className="px-0">
+                    <Tabs defaultValue="despesasGerais">
+                        <TabsList className="w-full justify-start rounded-none bg-transparent border-b px-6">
+                            <TabsTrigger value="despesasGerais">Despesas Gerais</TabsTrigger>
+                            <TabsTrigger value="funcionarios">Funcionários</TabsTrigger>
+                        </TabsList>
+                        <TabsContent value="despesasGerais" className="px-6 py-4">
+                             {isLoading ? <div className="flex justify-center py-8"><Loader2 className="mx-auto h-8 w-8 animate-spin" /></div> : (
+                                <>
+                                <Table>
+                                    <TableHeader>
+                                        <TableRow>
+                                            <TableHead>Data</TableHead>
+                                            <TableHead>Descrição</TableHead>
+                                            <TableHead>Fornecedor</TableHead>
+                                            <TableHead className="text-right">Valor</TableHead>
+                                        </TableRow>
+                                    </TableHeader>
+                                    <TableBody>
+                                        {filteredExpenses?.map(exp => (
+                                            <TableRow key={exp.id}>
+                                                <TableCell>{formatDate(exp.date)}</TableCell>
+                                                <TableCell className="font-medium">{exp.description}</TableCell>
+                                                <TableCell><Badge variant="secondary">{exp.category}</Badge></TableCell>
+                                                <TableCell className="text-right font-mono font-semibold">{formatCurrency(exp.amount)}</TableCell>
+                                            </TableRow>
+                                        ))}
+                                    </TableBody>
+                                </Table>
+                                {filteredExpenses.length === 0 && (
+                                    <div className="text-center py-10 text-muted-foreground">
+                                        <p>Nenhuma despesa encontrada.</p>
+                                    </div>
+                                )}
+                                </>
+                            )}
+                        </TabsContent>
+                        <TabsContent value="funcionarios" className="px-6 py-4">
+                            <EmployeesTab />
+                        </TabsContent>
+                    </Tabs>
                 </CardContent>
-                <CardFooter className="flex justify-end font-bold">
-                    <div className="flex items-center gap-4">
-                        <span>Total:</span>
-                        <span className="text-xl text-destructive">{formatCurrency(totalExpenses)}</span>
-                    </div>
-                </CardFooter>
             </Card>
         </div>
     );
@@ -322,16 +340,10 @@ function PayablesTab() {
     const [dueDate, setDueDate] = useState<Date | undefined>();
 
     const payablesQuery = useMemoFirebase(() => (
-        firestore && user ? query(collection(firestore, 'payables'), where('userId', '==', user.uid)) : null
+        firestore && user ? query(collection(firestore, 'payables'), where('userId', '==', user.uid), orderBy('dueDate', 'asc')) : null
     ), [firestore, user]);
 
     const { data: payables, isLoading } = useCollection<Payable>(payablesQuery);
-    
-    const sortedPayables = useMemo(() => {
-        if (!payables) return [];
-        return [...payables].sort((a, b) => new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime());
-    }, [payables]);
-
 
     const handleAddPayable = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -363,8 +375,7 @@ function PayablesTab() {
         updateDocumentNonBlocking(docRef, { isPaid: !payable.isPaid });
     };
 
-    const upcomingPayables = useMemo(() => sortedPayables?.filter(p => !p.isPaid) || [], [sortedPayables]);
-    const paidPayables = useMemo(() => sortedPayables?.filter(p => p.isPaid) || [], [sortedPayables]);
+    const upcomingPayables = useMemo(() => payables?.filter(p => !p.isPaid) || [], [payables]);
     const totalUpcoming = useMemo(() => upcomingPayables.reduce((sum, p) => sum + p.amount, 0), [upcomingPayables]);
 
     return (
@@ -773,27 +784,9 @@ export default function FinancePage() {
                 </div>
             </div>
 
-            <Tabs defaultValue="expenses" className="w-full">
-                <TabsList className="grid w-full grid-cols-4">
-                    <TabsTrigger value="expenses"><DollarSign className="mr-2 h-4 w-4"/>Despesas</TabsTrigger>
-                    <TabsTrigger value="employees"><Briefcase className="mr-2 h-4 w-4"/>Funcionários</TabsTrigger>
-                    <TabsTrigger value="advances"><BadgeEuro className="mr-2 h-4 w-4"/>Vales</TabsTrigger>
-                    <TabsTrigger value="payables"><FileText className="mr-2 h-4 w-4"/>Contas a Pagar</TabsTrigger>
-                </TabsList>
-                <TabsContent value="expenses" className="mt-6">
-                   <ExpensesTab />
-                </TabsContent>
-                <TabsContent value="employees" className="mt-6">
-                    <EmployeesTab />
-                </TabsContent>
-                <TabsContent value="advances" className="mt-6">
-                    <AdvancesTab />
-                </TabsContent>
-                <TabsContent value="payables" className="mt-6">
-                   <PayablesTab />
-                </TabsContent>
-            </Tabs>
+            <ExpensesTab />
         </div>
     );
 }
 
+    
