@@ -1,5 +1,4 @@
 
-
 export type Group = 'Vendas salão' | 'Fiados salão' | 'Fiados rua' | 'Vendas rua';
 
 export interface PredefinedItem {
