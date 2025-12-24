@@ -179,7 +179,7 @@ function ExpensesTab() {
                                     <Calendar mode="single" selected={date} onSelect={setDate} initialFocus locale={ptBR}/>
                                 </PopoverContent>
                             </Popover>
-                           <Button ref={addButtonRef} type="submit" className="h-11 w-full sm:w-auto bg-red-600 hover:bg-red-700 text-white">
+                           <Button ref={addButtonRef} type="submit" className="h-11 w-full sm:w-auto bg-primary hover:bg-primary/90 text-primary-foreground">
                                 <Plus className="mr-2 h-4 w-4" />
                                 Adicionar
                            </Button>
@@ -194,7 +194,7 @@ function ExpensesTab() {
                      <div className="relative pt-2">
                         <Search className="absolute left-3 top-1/2 h-4 w-4 text-muted-foreground -translate-y-1/2" />
                         <Input 
-                           placeholder="Buscar por descrição ou categoria..."
+                           placeholder="Buscar por descrição ou fornecedor..."
                            value={searchTerm}
                            onChange={e => setSearchTerm(e.target.value)}
                            className="pl-10"
@@ -209,7 +209,7 @@ function ExpensesTab() {
                                 <TableRow>
                                     <TableHead>Data</TableHead>
                                     <TableHead>Descrição</TableHead>
-                                    <TableHead>Categoria</TableHead>
+                                    <TableHead>Fornecedor</TableHead>
                                     <TableHead className="text-right">Valor</TableHead>
                                 </TableRow>
                             </TableHeader>
@@ -218,7 +218,7 @@ function ExpensesTab() {
                                     <TableRow key={exp.id}>
                                         <TableCell>{formatDate(exp.date)}</TableCell>
                                         <TableCell className="font-medium">{exp.description}</TableCell>
-                                        <TableCell><Badge variant="secondary">{exp.category}</Badge></TableCell>
+                                        <TableCell><Badge variant="secondary">{exp.category}</TableCell>
                                         <TableCell className="text-right font-mono font-semibold">{formatCurrency(exp.amount)}</TableCell>
                                     </TableRow>
                                 ))}
@@ -235,7 +235,7 @@ function ExpensesTab() {
                 <CardFooter className="flex justify-end font-bold">
                     <div className="flex items-center gap-4">
                         <span>Total:</span>
-                        <span className="text-xl text-red-500">{formatCurrency(totalExpenses)}</span>
+                        <span className="text-xl text-destructive">{formatCurrency(totalExpenses)}</span>
                     </div>
                 </CardFooter>
             </Card>
@@ -254,14 +254,10 @@ function CategoryCombobox({ existingCategories, value, setValue, onAddNew }: { e
     const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
         if (e.key === 'Enter') {
             const inputValue = (e.target as HTMLInputElement).value;
-            const isExisting = existingCategories.some(c => c.toLowerCase() === inputValue.toLowerCase());
-            // If it's a new value or there's no specific item highlighted in the list
-            if (!isExisting || !document.querySelector('[role="option"][aria-selected="true"]')) {
-                e.preventDefault();
-                setValue(inputValue); // Ensure the state is set to the typed value
-                setOpen(false);
-                onAddNew?.();
-            }
+            e.preventDefault();
+            setValue(inputValue);
+            setOpen(false);
+            onAddNew?.();
         }
     };
     
