@@ -73,35 +73,24 @@ service cloud.firestore {
      * @description
      *  Manages expenses, payables, and employees.
      *  Users can create their own items.
-     *  They can read, update, or delete items they own.
-     *  Listing is allowed only when querying by the user's own ID.
+     *  Reading is allowed for any signed-in user, but the app's queries
+     *  MUST filter by userId to ensure data privacy.
      */
-    function isQueryingOwnData() {
-      return request.query.where.size == 1 &&
-             request.query.where[0].fieldPath == 'userId' &&
-             request.query.where[0].op == '==' &&
-             request.query.where[0].value == request.auth.uid;
-    }
-    
     match /expenses/{expenseId} {
       allow create: if isSignedIn() && request.resource.data.userId == request.auth.uid;
-      allow get, update, delete: if isSignedIn() && resource.data.userId == request.auth.uid;
-      allow list: if isSignedIn() && isQueryingOwnData();
+      allow read, update, delete: if isSignedIn() && resource.data.userId == request.auth.uid;
     }
 
     match /payables/{payableId} {
       allow create: if isSignedIn() && request.resource.data.userId == request.auth.uid;
-      allow get, update, delete: if isSignedIn() && resource.data.userId == request.auth.uid;
-      allow list: if isSignedIn() && isQueryingOwnData();
+      allow read, update, delete: if isSignedIn() && resource.data.userId == request.auth.uid;
     }
 
     match /employees/{employeeId} {
       allow create: if isSignedIn() && request.resource.data.userId == request.auth.uid;
-      allow get, update, delete: if isSignedIn() && resource.data.userId == request.auth.uid;
-      allow list: if isSignedIn() && isQueryingOwnData();
+      allow read, update, delete: if isSignedIn() && resource.data.userId == request.auth.uid;
       
       // Salary advances for a specific employee.
-      // List is allowed if the parent employee can be read.
       match /advances/{advanceId} {
         allow create: if isSignedIn() && request.resource.data.userId == request.auth.uid;
         allow read, update, delete: if isSignedIn() && resource.data.userId == request.auth.uid;
