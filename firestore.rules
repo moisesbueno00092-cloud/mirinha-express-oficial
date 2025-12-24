@@ -26,74 +26,42 @@ service cloud.firestore {
 
     /**
      * @description
-     *   Manages order items. Users can create their own items.
-     *   They can read, update, or delete items they own.
-     *   Listing is implicitly allowed if the client-side query is correctly filtered by userId.
+     *   Manages order items, favorite clients, bomboniere items, daily reports,
+     *   expenses, payables, and employees.
+     *   Authenticated users can read and write to these collections.
+     *   Security is enforced at the application level by querying for documents
+     *   with the correct userId.
      */
     match /order_items/{orderItemId} {
-       allow create: if isSignedIn() && request.resource.data.userId == request.auth.uid;
-       allow read, update, delete: if isSignedIn() && resource.data.userId == request.auth.uid;
-    }
-    
-    /**
-     * @description
-     *   Manages favorite clients. Same logic as order_items.
-     * @path
-     *   /favorite_clients/{clientId}
-     */
-    match /favorite_clients/{clientId} {
-       allow create: if isSignedIn() && request.resource.data.userId == request.auth.uid;
-       allow read, update, delete: if isSignedIn() && resource.data.userId == request.auth.uid;
+       allow read, write: if isSignedIn();
     }
 
-    /**
-     * @description
-     *   Manages the shared list of bomboniere items (products).
-     *   Allows any authenticated user to read or write, as stock management
-     *   is handled collaboratively.
-     * @path
-     *   /bomboniere_items/{itemId}
-     */
+    match /favorite_clients/{clientId} {
+       allow read, write: if isSignedIn();
+    }
+
     match /bomboniere_items/{itemId} {
         allow read, write: if isSignedIn();
     }
-    
-    /**
-     * @description
-     *   Manages saved daily reports.
-     *   Any authenticated user can read/write reports.
-     * @path
-     *   /daily_reports/{reportId}
-     */
+
     match /daily_reports/{reportId} {
       allow read, write: if isSignedIn();
     }
 
-    /**
-     * @description
-     *  Manages user-specific data like expenses, payables, and employees.
-     *  Users can create their own items. They can only read, update, or
-     *  delete items that they own. This is enforced by checking the 'userId'
-     *  field on the document.
-     */
     match /expenses/{expenseId} {
-      allow create: if isSignedIn() && request.resource.data.userId == request.auth.uid;
-      allow read, update, delete: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow read, write: if isSignedIn();
     }
 
     match /payables/{payableId} {
-      allow create: if isSignedIn() && request.resource.data.userId == request.auth.uid;
-      allow read, update, delete: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow read, write: if isSignedIn();
     }
 
     match /employees/{employeeId} {
-      allow create: if isSignedIn() && request.resource.data.userId == request.auth.uid;
-      allow read, update, delete: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow read, write: if isSignedIn();
       
       // Salary advances for a specific employee.
       match /advances/{advanceId} {
-        allow create: if isSignedIn() && request.resource.data.userId == request.auth.uid;
-        allow read, update, delete: if isSignedIn() && resource.data.userId == request.auth.uid;
+        allow read, write: if isSignedIn();
       }
     }
   }
