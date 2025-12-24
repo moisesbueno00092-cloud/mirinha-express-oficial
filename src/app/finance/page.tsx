@@ -236,24 +236,12 @@ function ExpensesTab() {
 }
 
 function CategoryCombobox({ existingCategories, value, setValue }: { existingCategories: string[], value: string, setValue: (value: string) => void }) {
-    const [open, setOpen] = useState(false)
-    const [inputValue, setInputValue] = useState("")
-
-    useEffect(() => {
-        setInputValue(value)
-    }, [value])
+    const [open, setOpen] = useState(false);
 
     const handleSelect = (currentValue: string) => {
-        const newValue = currentValue === value ? "" : currentValue
-        setValue(newValue)
-        setInputValue(newValue)
-        setOpen(false)
-    }
-    
-    const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        setInputValue(e.target.value)
-        setValue(e.target.value)
-    }
+        setValue(currentValue === value ? "" : currentValue);
+        setOpen(false);
+    };
 
     return (
         <Popover open={open} onOpenChange={setOpen}>
@@ -271,13 +259,12 @@ function CategoryCombobox({ existingCategories, value, setValue }: { existingCat
             <PopoverContent className="w-[--radix-popover-trigger-width] p-0">
                 <Command>
                     <CommandInput
-                        value={inputValue}
-                        onValueChange={setInputValue}
-                        onBlur={() => setValue(inputValue)}
-                        placeholder="Buscar ou criar categoria..."
+                        value={value}
+                        onValueChange={setValue}
+                        placeholder="Buscar ou criar..."
                     />
                     <CommandList>
-                        <CommandEmpty>Nenhuma categoria encontrada.</CommandEmpty>
+                        <CommandEmpty>Nenhum fornecedor encontrado.</CommandEmpty>
                         <CommandGroup>
                             {existingCategories.map((category) => (
                                 <CommandItem
@@ -299,7 +286,7 @@ function CategoryCombobox({ existingCategories, value, setValue }: { existingCat
                 </Command>
             </PopoverContent>
         </Popover>
-    )
+    );
 }
 
 // --- Contas a Pagar Component ---
