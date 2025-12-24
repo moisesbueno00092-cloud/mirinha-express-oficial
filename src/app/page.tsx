@@ -7,7 +7,6 @@ import { PREDEFINED_PRICES, DELIVERY_FEE, BOMBONIERE_ITEMS_DEFAULT } from "@/lib
 import { useAuth, useCollection, useFirestore, useMemoFirebase, useUser } from "@/firebase";
 import { collection, doc, query, where, orderBy } from "firebase/firestore";
 import { parseCustomItemPrice } from "@/ai/flows/parse-custom-item-price";
-import Link from 'next/link';
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -34,17 +33,15 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
-import { Trash2, Save, History, Star, Users, Package, Loader2, KeyRound, BookUser, LogIn, DollarSign, UserCog } from "lucide-react";
+import { Save, Loader2 } from "lucide-react";
 import { addDocumentNonBlocking, deleteDocumentNonBlocking, setDocumentNonBlocking, updateDocumentNonBlocking } from "@/firebase/non-blocking-updates";
 
 import ItemForm from "@/components/item-form";
 import ItemList from "@/components/item-list";
-import SummaryReport from "@/components/summary-report";
-import FinalReport from "@/components/final-report";
 import BomboniereModal from "@/components/bomboniere-modal";
 import MirinhaLogo from "@/components/mirinha-logo";
 import FavoritesMenu from "@/components/favorites-menu";
-import { createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut } from "firebase/auth";
+import { createUserWithEmailAndPassword, signInWithEmailAndPassword } from "firebase/auth";
 
 const formatCurrency = (value: number) => {
   return new Intl.NumberFormat("pt-BR", {
@@ -102,7 +99,6 @@ export default function Home() {
   const [editingItem, setEditingItem] = useState<Item | null>(null);
   const [editInputValue, setEditInputValue] = useState("");
   const [itemToDelete, setItemToDelete] = useState<string | null>(null);
-  const [clearAllDataRequest, setClearAllDataRequest] = useState(false);
   const [isBomboniereModalOpen, setBomboniereModalOpen] = useState(false);
   const [rawInput, setRawInput] = useState("");
   const inputRef = useRef<HTMLInputElement>(null);
@@ -189,7 +185,7 @@ export default function Home() {
                 while(i < parts.length && isNumeric(parts[i])) {
                     const price = parseFloat(parts[i].replace(',', '.'));
                     individualPrices.push(price);
-                    totalPrice += price;
+totalPrice += price;
                     i++;
                 }
                 i--; 
@@ -373,41 +369,6 @@ export default function Home() {
     }
   };
 
-  const confirmClearData = () => {
-    if (!items || !firestore || !user) return;
-    try {
-      const orderItemsCollectionRef = collection(firestore, "order_items");
-      items.forEach(item => {
-        const docRef = doc(orderItemsCollectionRef, item.id);
-        deleteDocumentNonBlocking(docRef);
-      });
-      toast({
-        title: "Sucesso",
-        description: "Todos os dados foram apagados.",
-      });
-    } catch (error) {
-      console.error("Error clearing data:", error);
-      toast({
-        variant: "destructive",
-        title: "Erro ao limpar dados",
-        description: "Ocorreu um problema ao apagar os itens.",
-      });
-    }
-    setClearAllDataRequest(false);
-  };
-
-  const handleEditRequest = (item: Item) => {
-    setEditingItem(item);
-    setEditInputValue(item.originalCommand || '');
-  };
-
-  const handleSaveEdit = () => {
-    if(editingItem && editInputValue) {
-      handleUpsertItem(editInputValue, editingItem)
-    }
-  }
-
-
   const handleDeleteRequest = (id: string) => {
     setItemToDelete(id);
   };
@@ -488,19 +449,28 @@ export default function Home() {
     setFavoriteToDelete(null);
   };
 
+  const handleEditRequest = (item: Item) => {
+    setEditingItem(item);
+    setEditInputValue(item.originalCommand || '');
+  };
+
+  const handleSaveEdit = () => {
+    if(editingItem && editInputValue) {
+      handleUpsertItem(editInputValue, editingItem)
+    }
+  }
+
   const displayItems = items || [];
   
   const summary = useMemo(() => {
     if (!items) {
-      return { total: 0, totalAVista: 0, totalFiado: 0, deliveryCount: 0, totalDeliveryFee: 0 };
+      return { total: 0, totalAVista: 0, totalFiado: 0 };
     }
 
     let total = 0;
     let totalAVista = 0;
     let totalFiado = 0;
-    let deliveryCount = 0;
-    let totalDeliveryFee = 0;
-
+    
     items.forEach(item => {
       total += item.total;
       if (item.group.includes('Fiados')) {
@@ -508,13 +478,9 @@ export default function Home() {
       } else {
         totalAVista += item.total;
       }
-      if (item.deliveryFee > 0) {
-        deliveryCount++;
-        totalDeliveryFee += item.deliveryFee;
-      }
     });
 
-    return { total, totalAVista, totalFiado, deliveryCount, totalDeliveryFee };
+    return { total, totalAVista, totalFiado };
   }, [items]);
 
   if (isUserLoading || !user) {
@@ -659,31 +625,14 @@ export default function Home() {
           </ItemForm>
 
           <Card>
-            <CardContent className="p-0">
-              <Tabs defaultValue="pedidos" className="w-full">
-                <TabsList className="rounded-t-lg rounded-b-none w-full justify-start border-b">
-                  <TabsTrigger value="pedidos">Pedidos</TabsTrigger>
-                  <TabsTrigger value="resumo">Resumo</TabsTrigger>
-                  <TabsTrigger value="relatorio">Relatório Final</TabsTrigger>
-                </TabsList>
-                <div className="p-2 sm:p-6">
-                  <TabsContent value="pedidos">
-                    <ItemList
-                      items={displayItems}
-                      onEdit={handleEditRequest}
-                      onDelete={handleDeleteRequest}
-                      isLoading={isLoadingItems}
-                      onSaveFavorite={handleSaveFavoriteRequest}
-                    />
-                  </TabsContent>
-                  <TabsContent value="resumo">
-                    <SummaryReport items={displayItems} />
-                  </TabsContent>
-                  <TabsContent value="relatorio">
-                    <FinalReport user={user} items={displayItems} onClearData={() => setClearAllDataRequest(true)} />
-                  </TabsContent>
-                </div>
-              </Tabs>
+            <CardContent className="p-2 sm:p-6">
+               <ItemList
+                  items={displayItems}
+                  onEdit={handleEditRequest}
+                  onDelete={handleDeleteRequest}
+                  isLoading={isLoadingItems}
+                  onSaveFavorite={handleSaveFavoriteRequest}
+                />
             </CardContent>
           </Card>
         </main>

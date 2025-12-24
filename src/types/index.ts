@@ -49,27 +49,4 @@ export interface FavoriteClient {
   command: string;
 }
 
-
-export interface DailyReport {
-  id: string; // YYYY-MM-DD
-  timestamp: string;
-  reportData: {
-    totalFaturamento: number;
-    totalAVista: number;
-    totalFiado: number;
-    totalSalao: number;
-    totalRua: number;
-    deliveryCount: number;
-    totalDeliveryFee: number;
-    totalMealItems: number;
-    totalBomboniereValue: number;
-    totalBomboniereQuantity: number;
-    totalsByGroup: Record<Group, number>;
-    itemCounts: Record<string, { total: number; rua: number; salao: number; totalValue: number }>;
-    bomboniereItemCounts: Record<string, { quantity: number; totalValue: number; rua_qty: number; salao_qty: number }>;
-    totalMealValue: number;
-  };
-  rawItems: Item[];
-}
-
     
