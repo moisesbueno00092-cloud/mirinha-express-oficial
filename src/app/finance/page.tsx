@@ -204,10 +204,16 @@ function PayablesTab() {
     const [dueDate, setDueDate] = useState<Date | undefined>();
 
     const payablesQuery = useMemoFirebase(() => (
-        firestore && user ? query(collection(firestore, 'payables'), where('userId', '==', user.uid), orderBy('dueDate', 'asc')) : null
+        firestore && user ? query(collection(firestore, 'payables'), where('userId', '==', user.uid)) : null
     ), [firestore, user]);
 
     const { data: payables, isLoading } = useCollection<Payable>(payablesQuery);
+    
+    const sortedPayables = useMemo(() => {
+        if (!payables) return [];
+        return [...payables].sort((a, b) => new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime());
+    }, [payables]);
+
 
     const handleAddPayable = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -239,8 +245,8 @@ function PayablesTab() {
         updateDocumentNonBlocking(docRef, { isPaid: !payable.isPaid });
     };
 
-    const upcomingPayables = useMemo(() => payables?.filter(p => !p.isPaid) || [], [payables]);
-    const paidPayables = useMemo(() => payables?.filter(p => p.isPaid) || [], [payables]);
+    const upcomingPayables = useMemo(() => sortedPayables?.filter(p => !p.isPaid) || [], [sortedPayables]);
+    const paidPayables = useMemo(() => sortedPayables?.filter(p => p.isPaid) || [], [sortedPayables]);
     const totalUpcoming = useMemo(() => upcomingPayables.reduce((sum, p) => sum + p.amount, 0), [upcomingPayables]);
 
     return (
