@@ -175,6 +175,7 @@ function ClientDetail({ client, onBack, onClear }: { client: { id: string; name:
                 </CardHeader>
                 <CardContent>
                     <p className="text-3xl font-bold text-destructive">{formatCurrency(totalDebt)}</p>
+
                 </CardContent>
                 <CardFooter>
                     <Button variant="destructive" onClick={() => setIsClearConfirmOpen(true)} disabled={!entries || entries.length === 0}>
