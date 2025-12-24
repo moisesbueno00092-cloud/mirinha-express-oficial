@@ -4,61 +4,12 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // Helper Function to check if a user is signed in
     function isSignedIn() {
       return request.auth != null;
     }
 
-    /**
-     * @description
-     *   Manages the user's own profile document.
-     *   Only the owner of the document can read or write to it.
-     */
-    match /users/{userId} {
-      allow read, write: if isSignedIn() && request.auth.uid == userId;
-    }
-
-    /**
-     * @description
-     *   Generic rule for all user-specific data collections.
-     *   - Any signed-in user can perform read and write operations.
-     *   - CRITICAL: Data security is enforced by the application code, which MUST
-     *     filter all queries by the current user's UID (e.g., `where('userId', '==', user.uid)`).
-     *     This prevents users from accessing each other's data. The broad rule here
-     *     is necessary to allow list (query) operations that are filtered on the client.
-     */
-    match /order_items/{orderItemId} {
-       allow read, write: if isSignedIn();
-    }
-
-    match /favorite_clients/{clientId} {
-       allow read, write: if isSignedIn();
-    }
-
-    match /daily_reports/{reportId} {
+    match /{document=**} {
       allow read, write: if isSignedIn();
-    }
-
-    match /expenses/{expenseId} {
-      allow read, write: if isSignedIn();
-    }
-
-    match /payables/{payableId} {
-      allow read, write: if isSignedIn();
-    }
-
-    match /employees/{employeeId} {
-      allow read, write: if isSignedIn();
-      
-      // Salary advances for a specific employee.
-      match /advances/{advanceId} {
-        allow read, write: if isSignedIn();
-      }
-    }
-    
-    // Shared, public data that any authenticated user can manage.
-    match /bomboniere_items/{itemId} {
-        allow read, write: if isSignedIn();
     }
   }
 }
