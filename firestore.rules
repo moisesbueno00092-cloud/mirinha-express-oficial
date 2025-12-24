@@ -35,23 +35,28 @@ service cloud.firestore {
     }
 
     match /expenses/{expenseId} {
-      allow create: if isSignedIn() && isOwner(request.resource.data.userId);
-      allow list, get, update, delete: if isSignedIn() && isOwner(resource.data.userId);
-    }
-    
-    match /employees/{employeeId} {
-      allow create: if isSignedIn() && isOwner(request.resource.data.userId);
-      allow list, get, update, delete: if isSignedIn() && isOwner(resource.data.userId);
-      
-      match /advances/{advanceId} {
-        allow create: if isSignedIn() && isOwner(request.resource.data.userId);
-        allow list, get, update, delete: if isSignedIn() && isOwner(resource.data.userId);
-      }
+      allow list: if isSignedIn();
+      allow get, create, update, delete: if isSignedIn() && (isOwner(request.resource.data.userId) || isOwner(resource.data.userId));
     }
 
     match /payables/{payableId} {
-      allow create: if isSignedIn() && isOwner(request.resource.data.userId);
-      allow read, update, delete: if isSignedIn() && isOwner(resource.data.userId);
+      allow list: if isSignedIn();
+      allow get, create, update, delete: if isSignedIn() && (isOwner(request.resource.data.userId) || isOwner(resource.data.userId));
+    }
+    
+    match /employees/{employeeId} {
+      allow list: if isSignedIn();
+      allow get, create, update, delete: if isSignedIn() && (isOwner(request.resource.data.userId) || isOwner(resource.data.userId));
+      
+      match /advances/{advanceId} {
+        allow list: if isSignedIn();
+        allow get, create, update, delete: if isSignedIn() && (isOwner(request.resource.data.userId) || isOwner(resource.data.userId));
+      }
+    }
+
+    match /employee_advances/{advanceId} {
+      allow list: if isSignedIn();
+      allow get, create, update, delete: if isSignedIn() && (isOwner(request.resource.data.userId) || isOwner(resource.data.userId));
     }
   }
 }
