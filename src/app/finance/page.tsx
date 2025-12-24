@@ -68,10 +68,16 @@ function ExpensesTab() {
     const [date, setDate] = useState<Date | undefined>(new Date());
     
     const expensesQuery = useMemoFirebase(() => (
-        firestore && user ? query(collection(firestore, 'expenses'), where('userId', '==', user.uid), orderBy('date', 'desc')) : null
+        firestore && user ? query(collection(firestore, 'expenses'), where('userId', '==', user.uid)) : null
     ), [firestore, user]);
 
     const { data: expenses, isLoading } = useCollection<Expense>(expensesQuery);
+    
+    const sortedExpenses = useMemo(() => {
+        if (!expenses) return [];
+        return [...expenses].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+    }, [expenses]);
+
 
     const handleAddExpense = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -170,7 +176,7 @@ function ExpensesTab() {
                                 </TableRow>
                             </TableHeader>
                             <TableBody>
-                                {expenses?.map(exp => (
+                                {sortedExpenses?.map(exp => (
                                     <TableRow key={exp.id}>
                                         <TableCell>{formatDate(exp.date)}</TableCell>
                                         <TableCell>{exp.description}</TableCell>

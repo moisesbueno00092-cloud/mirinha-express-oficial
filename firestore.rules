@@ -81,25 +81,25 @@ service cloud.firestore {
     match /expenses/{expenseId} {
       allow create: if isSignedIn() && request.resource.data.userId == request.auth.uid;
       allow get, update, delete: if isSignedIn() && resource.data.userId == request.auth.uid;
-      allow list: if isSignedIn() && request.query.where.size() > 0 && request.query.where[0][1] == 'userId' && request.query.where[0][2] == request.auth.uid;
+      allow list: if isSignedIn() && request.query.where.size() > 0 && request.query.where[0][0] == 'userId' && request.query.where[0][2] == request.auth.uid;
     }
 
     match /payables/{payableId} {
       allow create: if isSignedIn() && request.resource.data.userId == request.auth.uid;
       allow get, update, delete: if isSignedIn() && resource.data.userId == request.auth.uid;
-      allow list: if isSignedIn() && request.query.where.size() > 0 && request.query.where[0][1] == 'userId' && request.query.where[0][2] == request.auth.uid;
+      allow list: if isSignedIn() && request.query.where.size() > 0 && request.query.where[0][0] == 'userId' && request.query.where[0][2] == request.auth.uid;
     }
 
     match /employees/{employeeId} {
       allow create: if isSignedIn() && request.resource.data.userId == request.auth.uid;
       allow get, update, delete: if isSignedIn() && resource.data.userId == request.auth.uid;
-      allow list: if isSignedIn() && request.query.where.size() > 0 && request.query.where[0][1] == 'userId' && request.query.where[0][2] == request.auth.uid;
+      allow list: if isSignedIn() && request.query.where.size() > 0 && request.query.where[0][0] == 'userId' && request.query.where[0][2] == request.auth.uid;
       
       // Salary advances
       match /advances/{advanceId} {
         allow create: if isSignedIn() && request.resource.data.userId == request.auth.uid;
         allow get, update, delete: if isSignedIn() && resource.data.userId == request.auth.uid;
-        allow list: if isSignedIn() && request.query.where.size() > 0 && request.query.where[0][1] == 'userId' && request.query.where[0][2] == request.auth.uid;
+        allow list: if isSignedIn() && request.query.where.size() > 0 && request.query.where[0][0] == 'userId' && request.query.where[0][2] == request.auth.uid;
       }
     }
   }
