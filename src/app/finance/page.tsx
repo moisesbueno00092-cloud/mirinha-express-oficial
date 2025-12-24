@@ -139,6 +139,7 @@ export default function FinancePage() {
                  const advance = { 
                      ...change.doc.data(), 
                      id: change.doc.id, 
+                     userId: user.uid, // Add userId to the advance
                      employeeId: employee.id, 
                      employeeName: employee.name 
                 } as EmployeeAdvance;
@@ -149,22 +150,32 @@ export default function FinancePage() {
                     advancesData[advance.id] = advance;
                 }
             });
+             // This needs to be done inside the snapshot callback to ensure it's up-to-date
             setAllAdvances(Object.values(advancesData).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()));
+
         }, (error) => {
             console.error(`Error fetching advances for employee ${employee.id}:`, error);
             activeListeners--;
             if (activeListeners === 0) setIsLoadingAdvances(false);
         }, () => {
+             // This is the completion handler
              activeListeners--;
-             if (activeListeners === 0) setIsLoadingAdvances(false);
+             if (activeListeners === 0) {
+                setIsLoadingAdvances(false);
+             }
         });
     });
-    
-     // Initial check in case onSnapshot completes synchronously for all
-    if (activeListeners === 0) {
-        setIsLoadingAdvances(false);
-    }
 
+    // Set initial loading to false only after all listeners are set up
+    // and potentially have fired once. The completion handler above is more reliable.
+    if (unsubscribers.length === employees.length) {
+        const initialLoadCheck = () => {
+            if (activeListeners === 0) {
+                setIsLoadingAdvances(false);
+            }
+        };
+        setTimeout(initialLoadCheck, 1000); // Give snapshots a moment to load
+    }
 
     return () => {
       unsubscribers.forEach(unsub => unsub());
@@ -492,3 +503,5 @@ export default function FinancePage() {
     </div>
   );
 }
+
+    

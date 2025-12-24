@@ -4,16 +4,56 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
     
-    // Helper function to check if a user is signed in.
     function isSignedIn() {
       return request.auth != null;
     }
 
-    // Allow signed-in users to read and write any document.
-    // Security is enforced at the application level by querying
-    // for documents with the correct userId.
-    match /{document=**} {
-      allow read, write: if isSignedIn();
+    function isOwner(userId) {
+      return request.auth.uid == userId;
+    }
+
+    // Allow users to manage their own profile
+    match /users/{userId} {
+      allow read, write: if isOwner(userId);
+    }
+
+    // Rules for user-specific, top-level collections
+    match /order_items/{orderItemId} {
+      allow read, write: if isSignedIn() && isOwner(resource.data.userId);
+      allow create: if isSignedIn() && isOwner(request.resource.data.userId);
+    }
+
+    match /favorite_clients/{clientId} {
+      allow read, write: if isSignedIn() && isOwner(resource.data.userId);
+      allow create: if isSignedIn() && isOwner(request.resource.data.userId);
+    }
+
+    match /expenses/{expenseId} {
+      allow read, write: if isSignedIn() && isOwner(resource.data.userId);
+      allow create: if isSignedIn() && isOwner(request.resource.data.userId);
+    }
+    
+    match /daily_reports/{reportId} {
+       allow read, write: if isSignedIn(); // Reports can be read by any authenticated user
+    }
+
+    // Publicly readable collection
+    match /bomboniere_items/{itemId} {
+      allow read: if isSignedIn();
+      allow write: if isSignedIn(); // For simplicity, allow any signed-in user to manage stock
+    }
+
+    // Rules for employees and their advances (subcollection)
+    match /employees/{employeeId} {
+      allow read, write: if isSignedIn() && isOwner(resource.data.userId);
+      allow create: if isSignedIn() && isOwner(request.resource.data.userId);
+
+      match /advances/{advanceId} {
+        allow read, write: if isSignedIn() && get(/databases/$(database)/documents/employees/$(employeeId)).data.userId == request.auth.uid;
+        allow create: if isSignedIn() && get(/databases/$(database)/documents/employees/$(employeeId)).data.userId == request.auth.uid;
+      }
     }
   }
 }
+
+    
