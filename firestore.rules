@@ -21,10 +21,11 @@ service cloud.firestore {
     /**
      * @description
      *   Generic rule for all user-specific data collections.
-     *   - Any signed-in user can read or write to these collections.
+     *   - Any signed-in user can perform read and write operations.
      *   - CRITICAL: Data security is enforced by the application code, which MUST
      *     filter all queries by the current user's UID (e.g., `where('userId', '==', user.uid)`).
-     *     This prevents users from accessing each other's data.
+     *     This prevents users from accessing each other's data. The broad rule here
+     *     is necessary to allow list (query) operations that are filtered on the client.
      */
     match /order_items/{orderItemId} {
        allow read, write: if isSignedIn();
