@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useMemo, useEffect } from 'react';
@@ -129,13 +128,12 @@ export default function FinancePage() {
     }
     
     const advancesData: Record<string, EmployeeAdvance> = {};
-    let listenerCount = employees.length;
-    let loadedCount = 0;
 
     const unsubscribers = employees.map(employee => {
         const advancesQuery = query(collection(firestore, `employees/${employee.id}/advances`));
         
         return onSnapshot(advancesQuery, (querySnapshot) => {
+            let updated = false;
             querySnapshot.docChanges().forEach((change) => {
                  const advance = { 
                      ...change.doc.data(), 
@@ -150,21 +148,21 @@ export default function FinancePage() {
                 } else {
                     advancesData[advance.id] = advance;
                 }
+                updated = true;
             });
-            // Update the state with the latest advances from all employees
-            setAllAdvances(Object.values(advancesData).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()));
+
+            if (updated) {
+                // Update the state with the latest advances from all employees
+                setAllAdvances(Object.values(advancesData).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()));
+            }
         }, (error) => {
             console.error(`Error fetching advances for employee ${employee.id}:`, error);
-            loadedCount++;
-            if(loadedCount === listenerCount) setIsLoadingAdvances(false);
-        }, () => {
-          // onCompletion is not standard for onSnapshot, but we can manage loading state
         });
     });
     
     // Since onSnapshot can take time to fire the first time,
-    // we assume loading is finished when all listeners are attached.
-    // A more robust solution might involve tracking initial loads.
+    // we can consider loading finished after attaching listeners.
+    // A more robust solution might involve tracking initial loads for each listener.
     setIsLoadingAdvances(false);
 
 
@@ -494,7 +492,3 @@ export default function FinancePage() {
     </div>
   );
 }
-
-    
-
-    
