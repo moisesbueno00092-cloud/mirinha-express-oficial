@@ -12,6 +12,17 @@ service cloud.firestore {
     function isOwner(userId) {
       return request.auth.uid == userId;
     }
+    
+    function isReadingOwnData(userId) {
+      return request.method == 'get' && isOwner(userId);
+    }
+    
+    function isListingOwnData(userId) {
+      // This rule is tricky. It ensures that a 'list' operation (like in a collection query)
+      // is only allowed if the query includes a 'where' clause that filters by the user's own ID.
+      // This prevents a user from listing all documents in a collection.
+      return request.method == 'list' && request.query.where.get('userId', '') == userId;
+    }
 
     /**
      * @description
@@ -26,24 +37,26 @@ service cloud.firestore {
 
     /**
      * @description
-     *   Manages order items. Security is enforced by application-level queries
-     *   that filter by userId. Rules allow any signed-in user to perform actions,
-     *   but the app logic restricts data access to the owner.
+     *   Manages order items. Users can create their own items.
+     *   They can read items if it's a single document they own, or
+     *   if they are listing documents filtered by their own userId.
      * @path
      *   /order_items/{orderItemId}
      */
     match /order_items/{orderItemId} {
-       allow read, write: if isSignedIn();
+       allow create: if isSignedIn() && request.resource.data.userId == request.auth.uid;
+       allow read, update, delete: if isSignedIn() && resource.data.userId == request.auth.uid;
     }
     
     /**
      * @description
-     *   Manages favorite clients. Security is enforced by application-level queries.
+     *   Manages favorite clients. Same logic as order_items.
      * @path
      *   /favorite_clients/{clientId}
      */
     match /favorite_clients/{clientId} {
-       allow read, write: if isSignedIn();
+       allow create: if isSignedIn() && request.resource.data.userId == request.auth.uid;
+       allow read, update, delete: if isSignedIn() && resource.data.userId == request.auth.uid;
     }
 
     /**
