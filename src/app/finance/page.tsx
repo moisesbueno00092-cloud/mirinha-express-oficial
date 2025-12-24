@@ -450,9 +450,15 @@ function EmployeesTab() {
     const [employeeToDelete, setEmployeeToDelete] = useState<Employee | null>(null);
 
     const employeesQuery = useMemoFirebase(() => (
-        firestore && user ? query(collection(firestore, 'employees'), where('userId', '==', user.uid), orderBy('name')) : null
+        firestore && user ? query(collection(firestore, 'employees'), where('userId', '==', user.uid)) : null
     ), [firestore, user]);
+    
     const { data: employees, isLoading } = useCollection<Employee>(employeesQuery);
+
+    const sortedEmployees = useMemo(() => {
+        if (!employees) return [];
+        return [...employees].sort((a,b) => a.name.localeCompare(b.name));
+    }, [employees]);
 
     const handleAddEmployee = (e: React.FormEvent) => {
         e.preventDefault();
@@ -538,7 +544,7 @@ function EmployeesTab() {
                                 </TableRow>
                             </TableHeader>
                             <TableBody>
-                                {employees?.map(emp => (
+                                {sortedEmployees?.map(emp => (
                                     <TableRow key={emp.id}>
                                         <TableCell className="font-medium">{emp.name}</TableCell>
                                         <TableCell>{emp.role}</TableCell>
@@ -553,7 +559,7 @@ function EmployeesTab() {
                             </TableBody>
                         </Table>
                     )}
-                     {employees?.length === 0 && !isLoading && (
+                     {sortedEmployees?.length === 0 && !isLoading && (
                         <div className="text-center py-10 text-muted-foreground">
                             <p>Nenhum funcionário cadastrado.</p>
                         </div>
