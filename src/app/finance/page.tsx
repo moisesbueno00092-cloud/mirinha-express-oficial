@@ -7,7 +7,7 @@ import { collection, query, where, orderBy, doc, deleteDoc, addDoc, updateDoc } 
 import type { Expense, Payable, Employee, EmployeeAdvance } from '@/types';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
-import { Loader2, ArrowLeft, Trash2, User, Package, Utensils, CalendarDays, ReceiptText, Plus, DollarSign, Briefcase, FileText } from 'lucide-react';
+import { Loader2, ArrowLeft, Trash2, User, Package, Utensils, CalendarDays, ReceiptText, Plus, DollarSign, Briefcase, FileText, Search } from 'lucide-react';
 import Link from 'next/link';
 import {
   AlertDialog,
@@ -31,7 +31,7 @@ import { Input } from '@/components/ui/input';
 import { useToast } from "@/hooks/use-toast";
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
-import { deleteDocumentNonBlocking, addDocumentNonBlocking, updateDocumentNonBlocking } from '@/firebase/non-blocking-updates';
+import { addDocumentNonBlocking, deleteDocumentNonBlocking, updateDocumentNonBlocking } from '@/firebase/non-blocking-updates';
 import { cn } from '@/lib/utils';
 import usePersistentState from '@/hooks/use-persistent-state';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -64,8 +64,8 @@ function ExpensesTab() {
 
     const [description, setDescription] = useState('');
     const [amount, setAmount] = useState('');
-    const [category, setCategory] = useState<'Fornecedor' | 'Conta Fixa' | 'Salário' | 'Imposto' | 'Outros'>('Outros');
     const [date, setDate] = useState<Date | undefined>(new Date());
+    const [searchTerm, setSearchTerm] = useState('');
     
     const expensesQuery = useMemoFirebase(() => (
         firestore && user ? query(collection(firestore, 'expenses'), where('userId', '==', user.uid)) : null
@@ -77,11 +77,18 @@ function ExpensesTab() {
         if (!expenses) return [];
         return [...expenses].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
     }, [expenses]);
+    
+    const filteredExpenses = useMemo(() => {
+        if (!sortedExpenses) return [];
+        return sortedExpenses.filter(expense => 
+            expense.description.toLowerCase().includes(searchTerm.toLowerCase())
+        );
+    }, [sortedExpenses, searchTerm]);
 
 
     const handleAddExpense = async (e: React.FormEvent) => {
         e.preventDefault();
-        if (!user || !firestore || !description || !amount || !date || !category) {
+        if (!user || !firestore || !description || !amount || !date) {
             toast({ variant: 'destructive', title: 'Erro', description: 'Preencha todos os campos.' });
             return;
         }
@@ -90,7 +97,7 @@ function ExpensesTab() {
             userId: user.uid,
             description,
             amount: parseFloat(amount.replace(',', '.')),
-            category,
+            category: 'Outros', // Simplified for now
             date: date.toISOString(),
         };
 
@@ -101,71 +108,82 @@ function ExpensesTab() {
         setDescription('');
         setAmount('');
     };
+
+    const handleComplexInput = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const value = e.target.value;
+        const parts = value.split(' ');
+        const lastPart = parts[parts.length - 1];
+        
+        const priceMatch = lastPart.match(/(\d+([,.]\d{1,2})?)$/);
+        
+        if (priceMatch && priceMatch[0] && parts.length > 1) {
+            const price = priceMatch[0];
+            const desc = parts.slice(0, parts.length - 1).join(' ');
+            setDescription(desc);
+            setAmount(price);
+        } else {
+            setDescription(value);
+            setAmount('');
+        }
+    }
     
-    const totalExpenses = useMemo(() => expenses?.reduce((sum, exp) => sum + exp.amount, 0) || 0, [expenses]);
+    const totalExpenses = useMemo(() => filteredExpenses?.reduce((sum, exp) => sum + exp.amount, 0) || 0, [filteredExpenses]);
 
     return (
         <div className="space-y-6">
             <Card>
                 <CardHeader>
-                    <CardTitle>Adicionar Nova Despesa</CardTitle>
+                    <CardTitle className="text-lg">Adicionar Despesa</CardTitle>
                 </CardHeader>
                 <CardContent>
                     <form onSubmit={handleAddExpense} className="space-y-4">
-                        <div className="grid sm:grid-cols-2 gap-4">
-                             <div className="space-y-2">
-                                <Label htmlFor="exp-desc">Descrição</Label>
-                                <Input id="exp-desc" value={description} onChange={e => setDescription(e.target.value)} placeholder="Ex: Compras no atacado" />
-                            </div>
-                            <div className="space-y-2">
-                                <Label htmlFor="exp-amount">Valor</Label>
-                                <Input id="exp-amount" value={amount} onChange={e => setAmount(e.target.value)} placeholder="0,00" />
-                            </div>
+                        <div className="flex flex-col sm:flex-row items-center gap-2">
+                           <div className="flex-grow w-full">
+                                <Label htmlFor="exp-desc" className="sr-only">Descrição e Valor</Label>
+                                <Input 
+                                    id="exp-desc" 
+                                    value={`${description} ${amount}`.trim()} 
+                                    onChange={handleComplexInput}
+                                    placeholder="Digite a descrição e o valor (ex: Compras 50,50)" 
+                                    className="h-11 text-base"
+                                />
+                           </div>
+                           <Popover>
+                                <PopoverTrigger asChild>
+                                    <Button variant="outline" className={cn("h-11 w-full sm:w-auto justify-start text-left font-normal", !date && "text-muted-foreground")}>
+                                        <CalendarDays className="mr-2 h-4 w-4" />
+                                        {date ? format(date, "d 'de' MMMM", { locale: ptBR }) : <span>Escolha uma data</span>}
+                                    </Button>
+                                </PopoverTrigger>
+                                <PopoverContent className="w-auto p-0">
+                                    <Calendar mode="single" selected={date} onSelect={setDate} initialFocus locale={ptBR}/>
+                                </PopoverContent>
+                            </Popover>
+                           <Button type="submit" className="h-11 w-full sm:w-auto bg-red-600 hover:bg-red-700 text-white">
+                                <Plus className="mr-2 h-4 w-4" />
+                                Adicionar
+                           </Button>
                         </div>
-                         <div className="grid sm:grid-cols-2 gap-4">
-                            <div className="space-y-2">
-                                <Label>Categoria</Label>
-                                <Select value={category} onValueChange={(v: any) => setCategory(v)}>
-                                    <SelectTrigger><SelectValue /></SelectTrigger>
-                                    <SelectContent>
-                                        <SelectItem value="Fornecedor">Fornecedor</SelectItem>
-                                        <SelectItem value="Conta Fixa">Conta Fixa</SelectItem>
-                                        <SelectItem value="Salário">Salário</SelectItem>
-                                        <SelectItem value="Imposto">Imposto</SelectItem>
-                                        <SelectItem value="Outros">Outros</SelectItem>
-                                    </SelectContent>
-                                </Select>
-                            </div>
-                             <div className="space-y-2">
-                                <Label>Data</Label>
-                                <Popover>
-                                    <PopoverTrigger asChild>
-                                        <Button variant="outline" className={cn("w-full justify-start text-left font-normal", !date && "text-muted-foreground")}>
-                                            <CalendarDays className="mr-2 h-4 w-4" />
-                                            {date ? format(date, "PPP", { locale: ptBR }) : <span>Escolha uma data</span>}
-                                        </Button>
-                                    </PopoverTrigger>
-                                    <PopoverContent className="w-auto p-0">
-                                        <Calendar mode="single" selected={date} onSelect={setDate} initialFocus />
-                                    </PopoverContent>
-                                </Popover>
-                            </div>
-                        </div>
-                        <Button type="submit">Adicionar Despesa</Button>
                     </form>
                 </CardContent>
             </Card>
 
             <Card>
-                <CardHeader className="flex flex-row items-center justify-between">
-                    <CardTitle>Histórico de Despesas</CardTitle>
-                    <div className="text-right">
-                         <p className="text-sm text-muted-foreground">Total Gasto</p>
-                         <p className="text-xl font-bold text-destructive">{formatCurrency(totalExpenses)}</p>
+                <CardHeader>
+                    <CardTitle className="text-lg">Controle de Despesas</CardTitle>
+                     <div className="relative pt-2">
+                        <Search className="absolute left-3 top-1/2 h-4 w-4 text-muted-foreground" />
+                        <Input 
+                           placeholder="Buscar por descrição..."
+                           value={searchTerm}
+                           onChange={e => setSearchTerm(e.target.value)}
+                           className="pl-10"
+                        />
                     </div>
                 </CardHeader>
                 <CardContent>
-                    {isLoading ? <Loader2 className="mx-auto h-8 w-8 animate-spin" /> : (
+                    {isLoading ? <div className="flex justify-center py-8"><Loader2 className="mx-auto h-8 w-8 animate-spin" /></div> : (
+                        <>
                         <Table>
                             <TableHeader>
                                 <TableRow>
@@ -176,18 +194,30 @@ function ExpensesTab() {
                                 </TableRow>
                             </TableHeader>
                             <TableBody>
-                                {sortedExpenses?.map(exp => (
+                                {filteredExpenses?.map(exp => (
                                     <TableRow key={exp.id}>
                                         <TableCell>{formatDate(exp.date)}</TableCell>
-                                        <TableCell>{exp.description}</TableCell>
+                                        <TableCell className="font-medium">{exp.description}</TableCell>
                                         <TableCell><Badge variant="secondary">{exp.category}</Badge></TableCell>
-                                        <TableCell className="text-right font-mono">{formatCurrency(exp.amount)}</TableCell>
+                                        <TableCell className="text-right font-mono font-semibold">{formatCurrency(exp.amount)}</TableCell>
                                     </TableRow>
                                 ))}
                             </TableBody>
                         </Table>
+                         {filteredExpenses.length === 0 && (
+                            <div className="text-center py-10 text-muted-foreground">
+                                <p>Nenhuma despesa encontrada.</p>
+                            </div>
+                         )}
+                        </>
                     )}
                 </CardContent>
+                <CardFooter className="flex justify-end font-bold">
+                    <div className="flex items-center gap-4">
+                        <span>Total:</span>
+                        <span className="text-xl text-red-500">{formatCurrency(totalExpenses)}</span>
+                    </div>
+                </CardFooter>
             </Card>
         </div>
     );
