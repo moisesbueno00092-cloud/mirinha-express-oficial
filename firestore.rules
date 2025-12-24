@@ -3,11 +3,51 @@ rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
-    // This rule allows any authenticated user to read and write to any document
-    // in the database. Security is enforced at the application level by
-    // querying data with a `where('userId', '==', user.uid)` clause.
-    match /{document=**} {
+    function isOwner(userId) {
+      return request.auth != null && request.auth.uid == userId;
+    }
+
+    // GENERAL COLLECTIONS: Secure by userId field
+    match /order_items/{orderItemId} {
+      allow read, write: if isOwner(request.resource.data.userId);
+      allow list: if request.auth.uid != null;
+    }
+    match /favorite_clients/{clientId} {
+      allow read, write: if isOwner(request.resource.data.userId);
+      allow list: if request.auth.uid != null;
+    }
+    match /expenses/{expenseId} {
+      allow read, write: if isOwner(request.resource.data.userId);
+      allow list: if request.auth.uid != null;
+    }
+    match /payables/{payableId} {
+      allow read, write: if isOwner(request.resource.data.userId);
+      allow list: if request.auth.uid != null;
+    }
+
+    // EMPLOYEE DATA: Secure parent and subcollection
+    match /employees/{employeeId} {
+      allow read, write: if isOwner(request.resource.data.userId);
+      allow list: if request.auth.uid != null;
+
+      // Secure the advances subcollection
+      match /advances/{advanceId} {
+        allow read, write: if get(/databases/$(database)/documents/employees/$(employeeId)).data.userId == request.auth.uid;
+        allow list: if get(/databases/$(database)/documents/employees/$(employeeId)).data.userId == request.auth.uid;
+      }
+    }
+
+    // SHARED COLLECTIONS: Allow any authenticated user
+    match /bomboniere_items/{itemId} {
       allow read, write: if request.auth != null;
+    }
+    match /daily_reports/{reportId} {
+       allow read, write: if request.auth != null;
+    }
+    
+    // USER PROFILE: Secure by document ID
+    match /users/{userId} {
+      allow read, write: if isOwner(userId);
     }
   }
 }
