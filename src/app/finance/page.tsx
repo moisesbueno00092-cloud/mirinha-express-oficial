@@ -112,77 +112,32 @@ export default function FinancePage() {
   const [isLoadingAdvances, setIsLoadingAdvances] = useState(true);
 
   useEffect(() => {
-    if (!user || !firestore || !employees) {
-      setIsLoadingAdvances(false);
-      return;
-    }
-  
+    if (!user || !firestore) return;
+    
+    // This now correctly queries the top-level 'employee_advances' collection
+    const advancesQuery = query(
+      collection(firestore, 'employee_advances'),
+      where('userId', '==', user.uid)
+    );
+
     setIsLoadingAdvances(true);
-  
-    if (employees.length === 0) {
-      setAllAdvances([]);
-      setIsLoadingAdvances(false);
-      return;
-    }
-  
-    const unsubscribers: Unsubscribe[] = [];
-    const allAdvancesData: { [key: string]: EmployeeAdvance } = {};
-  
-    let listenersAttached = 0;
-  
-    employees.forEach(employee => {
-      const advancesQuery = query(collection(firestore, 'employees', employee.id, 'advances'));
-  
-      const unsubscribe = onSnapshot(advancesQuery, snapshot => {
-        let isUpdated = false;
-        snapshot.docChanges().forEach(change => {
-          const advanceData = change.doc.data() as Omit<EmployeeAdvance, 'id' | 'userId' | 'employeeName'>;
-          const advanceId = change.doc.id;
-  
-          if (change.type === 'removed') {
-            delete allAdvancesData[advanceId];
-          } else {
-            allAdvancesData[advanceId] = {
-              ...advanceData,
-              id: advanceId,
-              userId: user.uid,
-              employeeId: employee.id,
-              employeeName: employee.name,
-            };
-          }
-          isUpdated = true;
-        });
-  
-        if (isUpdated) {
-          setAllAdvances(Object.values(allAdvancesData).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()));
-        }
-  
-        // Mark initial load for this listener as complete
-        if (listenersAttached < employees.length) {
-            listenersAttached++;
-            if (listenersAttached === employees.length) {
-                setIsLoadingAdvances(false);
-            }
-        }
-      }, (error) => {
-        console.error(`Error fetching advances for employee ${employee.id}:`, error);
-        // Also mark as loaded on error to not block UI
-        if (listenersAttached < employees.length) {
-            listenersAttached++;
-            if (listenersAttached === employees.length) {
-                setIsLoadingAdvances(false);
-            }
-        }
-      });
-  
-      unsubscribers.push(unsubscribe);
-    });
-  
-    return () => {
-      unsubscribers.forEach(unsub => unsub());
-    };
-  
-  }, [firestore, user, employees]);
+    const unsubscribe = onSnapshot(advancesQuery, 
+      (snapshot) => {
+        const advancesData = snapshot.docs.map(doc => ({
+          ...doc.data(),
+          id: doc.id
+        } as EmployeeAdvance));
+        setAllAdvances(advancesData.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()));
+        setIsLoadingAdvances(false);
+      },
+      (error) => {
+        console.error("Error fetching employee advances:", error);
+        setIsLoadingAdvances(false);
+      }
+    );
+
+    return () => unsubscribe();
+  }, [firestore, user]);
 
 
   const filteredData = useMemo(() => {
@@ -282,7 +237,7 @@ export default function FinancePage() {
       if ('description' in item) { // It's an Expense
         docRef = doc(firestore, 'expenses', item.id);
       } else { // It's an EmployeeAdvance
-        docRef = doc(firestore, `employees/${item.employeeId}/advances`, item.id);
+        docRef = doc(firestore, 'employee_advances', item.id);
       }
       
       deleteDocumentNonBlocking(docRef);
