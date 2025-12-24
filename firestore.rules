@@ -8,8 +8,50 @@ service cloud.firestore {
       return request.auth != null;
     }
 
-    match /{document=**} {
+    function isOwner(userId) {
+      return request.auth.uid == userId;
+    }
+
+    match /users/{userId} {
+      allow read, write: if isOwner(userId);
+    }
+
+    match /order_items/{orderItemId} {
+      allow create: if isSignedIn() && isOwner(request.resource.data.userId);
+      allow read, update, delete: if isSignedIn() && isOwner(resource.data.userId);
+    }
+
+    match /favorite_clients/{clientId} {
+      allow create: if isSignedIn() && isOwner(request.resource.data.userId);
+      allow read, update, delete: if isSignedIn() && isOwner(resource.data.userId);
+    }
+    
+    match /bomboniere_items/{itemId} {
       allow read, write: if isSignedIn();
+    }
+
+    match /daily_reports/{reportId} {
+      allow read, write: if isSignedIn();
+    }
+
+    match /expenses/{expenseId} {
+      allow create: if isSignedIn() && isOwner(request.resource.data.userId);
+      allow list, get, update, delete: if isSignedIn() && isOwner(resource.data.userId);
+    }
+    
+    match /employees/{employeeId} {
+      allow create: if isSignedIn() && isOwner(request.resource.data.userId);
+      allow list, get, update, delete: if isSignedIn() && isOwner(resource.data.userId);
+      
+      match /advances/{advanceId} {
+        allow create: if isSignedIn() && isOwner(request.resource.data.userId);
+        allow list, get, update, delete: if isSignedIn() && isOwner(resource.data.userId);
+      }
+    }
+
+    match /payables/{payableId} {
+      allow create: if isSignedIn() && isOwner(request.resource.data.userId);
+      allow read, update, delete: if isSignedIn() && isOwner(resource.data.userId);
     }
   }
 }
