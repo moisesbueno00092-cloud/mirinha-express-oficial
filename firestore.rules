@@ -8,8 +8,57 @@ service cloud.firestore {
       return request.auth != null;
     }
 
+    function isOwner(userId) {
+      return request.auth.uid == userId;
+    }
+
+    // Default deny all
     match /{document=**} {
-      allow read, write: if isSignedIn();
+      allow read, write: if false;
+    }
+
+    // Public collections (read-only for authenticated users)
+    match /bomboniere_items/{itemId} {
+      allow read: if isSignedIn();
+      // Write access should be restricted (e.g., admin only, not implemented here)
+      allow write: if isSignedIn(); // Simplified for now
+    }
+    
+    // User-specific collections
+    match /order_items/{orderItemId} {
+      allow create: if isSignedIn() && isOwner(request.resource.data.userId);
+      allow read, update, delete: if isSignedIn() && isOwner(resource.data.userId);
+    }
+
+    match /favorite_clients/{clientId} {
+      allow create: if isSignedIn() && isOwner(request.resource.data.userId);
+      allow read, update, delete: if isSignedIn() && isOwner(resource.data.userId);
+    }
+
+    match /daily_reports/{reportId} {
+      allow create: if isSignedIn();
+      allow read, delete: if isSignedIn();
+    }
+    
+    match /expenses/{expenseId} {
+        allow create: if isSignedIn() && isOwner(request.resource.data.userId);
+        allow read, update, delete: if isSignedIn() && isOwner(resource.data.userId);
+    }
+    
+    match /payables/{payableId} {
+        allow create: if isSignedIn() && isOwner(request.resource.data.userId);
+        allow read, update, delete: if isSignedIn() && isOwner(resource.data.userId);
+    }
+
+    match /employees/{employeeId} {
+      allow create: if isSignedIn() && isOwner(request.resource.data.userId);
+      allow read, update, delete: if isSignedIn() && isOwner(resource.data.userId);
+      
+      // Sub-collection rules
+      match /advances/{advanceId} {
+        allow create: if isSignedIn() && isOwner(request.resource.data.userId);
+        allow read, update, delete: if isSignedIn() && isOwner(resource.data.userId);
+      }
     }
   }
 }
