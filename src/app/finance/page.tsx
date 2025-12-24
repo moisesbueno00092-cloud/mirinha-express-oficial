@@ -127,6 +127,7 @@ export default function FinancePage() {
 
     const unsubscribers: Unsubscribe[] = [];
     let allAdvancesData: EmployeeAdvance[] = [];
+    let activeListeners = employees.length;
 
     employees.forEach(employee => {
         const advancesQuery = query(collection(firestore, 'employees', employee.id, 'advances'));
@@ -142,16 +143,39 @@ export default function FinancePage() {
                 // Filter out old advances for this employee and add new ones
                 allAdvancesData = allAdvancesData.filter(adv => adv.employeeId !== employee.id).concat(employeeAdvances);
                 
+                // This state update could happen multiple times, but it's okay
                 setAllAdvances(allAdvancesData.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()));
-                setIsLoadingAdvances(false);
             },
             (error) => {
                 console.error(`Error fetching advances for employee ${employee.id}:`, error);
-                setIsLoadingAdvances(false);
+                activeListeners--;
+                if (activeListeners === 0) {
+                    setIsLoadingAdvances(false);
+                }
+            },
+            () => { // onCompletion
+                activeListeners--;
+                if (activeListeners === 0) {
+                    setIsLoadingAdvances(false);
+                }
             }
         );
         unsubscribers.push(unsubscribe);
     });
+    
+    // Initial loading state handle
+    if(employees.length > 0 && activeListeners > 0){
+        // A simple timeout to prevent indefinite loading state if snapshots are slow or fail silently
+        const loadingTimeout = setTimeout(() => {
+            if(activeListeners > 0) {
+                setIsLoadingAdvances(false);
+            }
+        }, 5000); // 5 seconds timeout
+         unsubscribers.push(() => clearTimeout(loadingTimeout));
+    } else {
+        setIsLoadingAdvances(false);
+    }
+
 
     return () => {
         unsubscribers.forEach(unsub => unsub());
