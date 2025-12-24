@@ -30,9 +30,7 @@ service cloud.firestore {
      *   /order_items/{orderItemId}
      */
     match /order_items/{orderItemId} {
-       allow read: if (request.method == 'list' && request.query.where.get('userId', '') == request.auth.uid)
-                   || (request.method == 'get' && resource.data.userId == request.auth.uid);
-       allow write: if isSignedIn() && request.resource.data.userId == request.auth.uid;
+       allow read, write: if isSignedIn();
     }
     
     /**
@@ -45,9 +43,7 @@ service cloud.firestore {
      *   /favorite_clients/{clientId}
      */
     match /favorite_clients/{clientId} {
-       allow read: if (request.method == 'list' && request.query.where.get('userId', '') == request.auth.uid)
-                   || (request.method == 'get' && resource.data.userId == request.auth.uid);
-       allow write: if isSignedIn() && request.resource.data.userId == request.auth.uid;
+       allow read, write: if isSignedIn();
     }
 
     /**
