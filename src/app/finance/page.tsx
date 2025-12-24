@@ -126,9 +126,14 @@ export default function FinancePage() {
     }
 
     const unsubscribers: Unsubscribe[] = [];
-    let advancesData: EmployeeAdvance[] = [];
-    let listenersCount = employees.length;
+    let allAdvancesData: EmployeeAdvance[] = [];
+    let pendingListeners = employees.length;
 
+    const onAllListenersReady = () => {
+        setAllAdvances(allAdvancesData.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()));
+        setIsLoadingAdvances(false);
+    }
+    
     employees.forEach(employee => {
         const advancesQuery = query(collection(firestore, 'employees', employee.id, 'advances'));
         const unsubscribe = onSnapshot(advancesQuery,
@@ -136,25 +141,29 @@ export default function FinancePage() {
                 const employeeAdvances = snapshot.docs.map(doc => ({
                     ...doc.data(),
                     id: doc.id,
-                    employeeId: employee.id,
-                    employeeName: employee.name,
                 } as EmployeeAdvance));
 
-                // Atomically update the advances for one employee
-                advancesData = advancesData.filter(adv => adv.employeeId !== employee.id).concat(employeeAdvances);
+                // Replace all advances for this employee to avoid duplicates
+                allAdvancesData = allAdvancesData.filter(adv => adv.employeeId !== employee.id).concat(employeeAdvances);
                 
-                // Only update state once all listeners have returned their initial data
-                listenersCount--;
-                if(listenersCount === 0) {
-                    setAllAdvances(advancesData.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()));
-                    setIsLoadingAdvances(false);
+                // Only call the final update after the first snapshot from all listeners
+                if(pendingListeners > 0){
+                    pendingListeners--;
+                    if (pendingListeners === 0) {
+                        onAllListenersReady();
+                    }
+                } else {
+                    // After initial load, update on any change
+                    onAllListenersReady();
                 }
             },
             (error) => {
                 console.error(`Error fetching advances for employee ${employee.id}:`, error);
-                listenersCount--;
-                if (listenersCount === 0) {
-                    setIsLoadingAdvances(false);
+                if(pendingListeners > 0){
+                    pendingListeners--;
+                    if (pendingListeners === 0) {
+                        onAllListenersReady();
+                    }
                 }
             }
         );
