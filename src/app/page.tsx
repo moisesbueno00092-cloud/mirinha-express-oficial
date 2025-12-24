@@ -5,7 +5,7 @@ import { useMemo, useState, useRef, useEffect } from "react";
 import type { Item, Group, PredefinedItem, SelectedBomboniereItem, BomboniereItem, FavoriteClient } from "@/types";
 import { PREDEFINED_PRICES, DELIVERY_FEE, BOMBONIERE_ITEMS_DEFAULT } from "@/lib/constants";
 import { useAuth, useCollection, useFirestore, useMemoFirebase, useUser } from "@/firebase";
-import { collection, doc, query, orderBy } from "firebase/firestore";
+import { collection, doc, query, where, orderBy } from "firebase/firestore";
 import { parseCustomItemPrice } from "@/ai/flows/parse-custom-item-price";
 import Link from 'next/link';
 
@@ -65,10 +65,8 @@ export default function Home() {
     const ensureUser = async () => {
       if (!isUserLoading && !user && auth) {
         try {
-          // Try to sign in with the shared credentials first
           await signInWithEmailAndPassword(auth, 'user@lanche.net', 'palavrapasselanche');
         } catch (error: any) {
-          // If the user does not exist, create it
           if (error.code === 'auth/user-not-found' || error.code === 'auth/invalid-credential') {
             try {
               await createUserWithEmailAndPassword(auth, 'user@lanche.net', 'palavrapasselanche');
@@ -85,14 +83,14 @@ export default function Home() {
   }, [user, isUserLoading, auth]);
 
   const userOrderItemsQuery = useMemoFirebase(
-    () => (firestore && user ? collection(firestore, "users", user.uid, "order_items") : null),
+    () => (firestore && user ? query(collection(firestore, "order_items"), where("userId", "==", user.uid)) : null),
     [firestore, user]
   );
   
   const bomboniereItemsRef = useMemoFirebase(() => (firestore ? query(collection(firestore, 'bomboniere_items'), orderBy('name', 'asc')) : null), [firestore]);
   
   const favoriteClientsQuery = useMemoFirebase(
-    () => (firestore && user ? collection(firestore, "users", user.uid, "favorite_clients") : null),
+    () => (firestore && user ? query(collection(firestore, "favorite_clients"), where("userId", "==", user.uid)) : null),
     [firestore, user]
   );
 
@@ -109,7 +107,6 @@ export default function Home() {
   const [rawInput, setRawInput] = useState("");
   const inputRef = useRef<HTMLInputElement>(null);
   
-  // State for Favorites
   const [isSaveFavoriteOpen, setIsSaveFavoriteOpen] = useState(false);
   const [itemToSaveAsFavorite, setItemToSaveAsFavorite] = useState<Item | null>(null);
   const [favoriteName, setFavoriteName] = useState("");
@@ -119,7 +116,6 @@ export default function Home() {
   const { toast } = useToast();
   
   useEffect(() => {
-    // Seed bomboniere items if the collection is empty
     if (firestore && !isLoadingBomboniere && bomboniereItems && bomboniereItems.length === 0) {
       const bomboniereCollectionRef = collection(firestore, 'bomboniere_items');
       BOMBONIERE_ITEMS_DEFAULT.forEach(item => {
@@ -196,7 +192,7 @@ export default function Home() {
                     totalPrice += price;
                     i++;
                 }
-                i--; // Decrement because the outer loop will increment
+                i--; 
                 totalQuantity += individualPrices.length;
                 continue;
             }
@@ -204,7 +200,7 @@ export default function Home() {
             if (upperPart === 'TX') {
                 if (i + 1 < parts.length && isNumeric(parts[i+1])) {
                     customDeliveryFee = parseFloat(parts[i+1].replace(',', '.'));
-                    i++; // Consume the fee value
+                    i++; 
                 }
                 continue;
             }
@@ -229,10 +225,9 @@ export default function Home() {
                 const defaultPrice = PREDEFINED_PRICES[currentItemCode];
                 let priceToUse = defaultPrice;
 
-                // Check for a custom price immediately following the item code
                 if (i + 1 < parts.length && isNumeric(parts[i + 1])) {
                     priceToUse = parseFloat(parts[i + 1].replace(',', '.'));
-                    i++; // Consume the price part
+                    i++; 
                 }
                 
                 for(let j=0; j < baseQuantity; j++) {
@@ -244,7 +239,7 @@ export default function Home() {
                  let priceToUse = bomboniereItemDef.price;
                  if (i + 1 < parts.length && isNumeric(parts[i + 1])) {
                     priceToUse = parseFloat(parts[i + 1].replace(',', '.'));
-                    i++; // Consume the price part
+                    i++; 
                 }
                 processedBomboniereItems.push({ id: bomboniereItemDef.id, name: bomboniereItemDef.name, quantity: baseQuantity, price: priceToUse });
                 totalPrice += priceToUse * baseQuantity;
@@ -260,9 +255,8 @@ export default function Home() {
                 processedBomboniereItems.push({ id: existingItemDef?.id || namePart, name: namePart, quantity: qty, price: price });
                 totalPrice += price * qty;
                 totalQuantity += qty;
-                i++; // consume price part
+                i++; 
             } else if (part.match(/^\d+[a-zA-Z]+/) && i + 1 < parts.length && isNumeric(parts[i+1])) {
-                // Fallback to AI for complex cases like '2bala 0.50'
                 try {
                     const { itemName, customPrice } = await parseCustomItemPrice({ itemName: `${part} ${parts[i+1]}`.trim() });
                     if (customPrice !== undefined) {
@@ -274,13 +268,12 @@ export default function Home() {
                         processedBomboniereItems.push({ id: existingItemDef?.id || name, name, quantity: qty, price: customPrice });
                         totalPrice += customPrice * qty;
                         totalQuantity += qty;
-                        i++; // consume price part
+                        i++; 
                     }
                 } catch(e) {
                     console.error("AI parsing failed, skipping part:", part, e);
                 }
             } else if (!customerName && !isNumeric(part) && /^[a-zA-Z\s]+$/.test(part) && (group.startsWith('Fiado'))) {
-                // Assume it's a customer name for fiado
                 potentialCustomerNameParts.push(part);
             }
         }
@@ -300,7 +293,7 @@ export default function Home() {
             deliveryFeeApplicable = false;
         }
 
-        if (!currentItem && bomboniereItems) { // Only decrement stock for new items, not for edits
+        if (!currentItem && bomboniereItems) { 
           const bomboniereCollectionRef = collection(firestore, "bomboniere_items");
           processedBomboniereItems.forEach(soldItem => {
               const itemDef = bomboniereItems.find(i => i.id === soldItem.id);
@@ -330,7 +323,8 @@ export default function Home() {
 
         const timestamp = new Date().toISOString();
 
-        const finalItem: Omit<Item, 'id' | 'userId'> = {
+        const finalItem: Omit<Item, 'id'> = {
+            userId: user.uid,
             name: consolidatedName,
             quantity: totalQuantity,
             price: totalPrice,
@@ -346,7 +340,7 @@ export default function Home() {
             ...(processedBomboniereItems.length > 0 ? { bomboniereItems: processedBomboniereItems } : {}),
         };
 
-        const orderItemsCollectionRef = collection(firestore, "users", user.uid, "order_items");
+        const orderItemsCollectionRef = collection(firestore, "order_items");
 
         if (currentItem?.id) {
             const docRef = doc(orderItemsCollectionRef, currentItem.id);
@@ -382,7 +376,7 @@ export default function Home() {
   const confirmClearData = () => {
     if (!items || !firestore || !user) return;
     try {
-      const orderItemsCollectionRef = collection(firestore, "users", user.uid, "order_items");
+      const orderItemsCollectionRef = collection(firestore, "order_items");
       items.forEach(item => {
         const docRef = doc(orderItemsCollectionRef, item.id);
         deleteDocumentNonBlocking(docRef);
@@ -420,7 +414,7 @@ export default function Home() {
   
   const confirmDelete = () => {
     if(!firestore || !itemToDelete || !user) return;
-    const orderItemsCollectionRef = collection(firestore, "users", user.uid, "order_items");
+    const orderItemsCollectionRef = collection(firestore, "order_items");
     deleteDocumentNonBlocking(doc(orderItemsCollectionRef, itemToDelete));
     toast({
       title: "Sucesso",
@@ -453,7 +447,6 @@ export default function Home() {
     await handleUpsertItem(rawInput);
   };
   
-  // --- Favorites Logic ---
   const handleSaveFavoriteRequest = (item: Item) => {
     if (!item.originalCommand) {
         toast({ variant: 'destructive', title: 'Erro', description: 'Este lançamento não pode ser salvo como favorito.' });
@@ -468,11 +461,12 @@ export default function Home() {
     if (!firestore || !user || !itemToSaveAsFavorite || !favoriteName.trim() || !itemToSaveAsFavorite.originalCommand) return;
     
     const newFavorite: Omit<FavoriteClient, 'id'> = {
+      userId: user.uid,
       name: favoriteName.trim(),
       command: itemToSaveAsFavorite.originalCommand,
     };
     
-    const favClientsCollectionRef = collection(firestore, "users", user.uid, "favorite_clients");
+    const favClientsCollectionRef = collection(firestore, "favorite_clients");
     addDocumentNonBlocking(favClientsCollectionRef, newFavorite);
     toast({ title: 'Sucesso', description: `"${favoriteName.trim()}" foi salvo como favorito.` });
     setIsSaveFavoriteOpen(false);
@@ -488,13 +482,11 @@ export default function Home() {
 
   const confirmDeleteFavorite = () => {
     if (!firestore || !favoriteToDelete || !user) return;
-    const docRef = doc(firestore, "users", user.uid, "favorite_clients", favoriteToDelete);
+    const docRef = doc(firestore, "favorite_clients", favoriteToDelete);
     deleteDocumentNonBlocking(docRef);
     toast({ title: 'Sucesso', description: 'Favorito removido.' });
     setFavoriteToDelete(null);
   };
-  // --- End Favorites Logic ---
-
 
   const displayItems = items || [];
   
@@ -545,7 +537,6 @@ export default function Home() {
 
   return (
     <>
-      {/* Item Delete Dialog */}
       <AlertDialog open={!!itemToDelete} onOpenChange={(open) => !open && setItemToDelete(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
@@ -561,7 +552,6 @@ export default function Home() {
         </AlertDialogContent>
       </AlertDialog>
 
-      {/* Favorite Delete Dialog */}
       <AlertDialog open={!!favoriteToDelete} onOpenChange={(open) => !open && setFavoriteToDelete(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
@@ -577,7 +567,6 @@ export default function Home() {
         </AlertDialogContent>
       </AlertDialog>
 
-      {/* Edit Item Dialog */}
       <Dialog open={!!editingItem} onOpenChange={(open) => !open && setEditingItem(null)}>
         <DialogContent className="sm:max-w-[425px]">
           <DialogHeader>
@@ -614,7 +603,6 @@ export default function Home() {
         bomboniereItems={bomboniereItems || []}
       />
       
-      {/* Save as Favorite Dialog */}
       <Dialog open={isSaveFavoriteOpen} onOpenChange={setIsSaveFavoriteOpen}>
         <DialogContent>
           <DialogHeader>

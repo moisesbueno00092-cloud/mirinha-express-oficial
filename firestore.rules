@@ -9,42 +9,47 @@ service cloud.firestore {
       return request.auth != null;
     }
 
-    // Helper function to check if the user is the owner of the user document
-    // they are trying to access.
-    function isOwner(userId) {
-      return isSignedIn() && request.auth.uid == userId;
-    }
-
     /**
      * @description
      *   Manages the user's own profile document.
+     *   Only the owner of the document can read or write to it.
      * @path
      *   /users/{userId}
      */
     match /users/{userId} {
-      allow read, write: if isOwner(userId);
+      allow read, write: if isSignedIn() && request.auth.uid == userId;
+    }
 
-      /**
-       * @description
-       *   Manages a user's order items.
-       * @path
-       *   /users/{userId}/order_items/{orderItemId}
-       */
-      match /order_items/{orderItemId} {
-        allow read, write: if isOwner(userId);
-      }
-
-      /**
-       * @description
-       *   Manages a user's favorite clients.
-       * @path
-       *   /users/{userId}/favorite_clients/{clientId}
-       */
-      match /favorite_clients/{clientId} {
-        allow read, write: if isOwner(userId);
-      }
+    /**
+     * @description
+     *   Manages order items. Users can only access their own items.
+     *   - List/Read: Allowed only if the query filters by the user's own userId.
+     *   - Get: Allowed if the document's userId matches the requesting user.
+     *   - Write: Allowed if the new/updated data's userId matches the requesting user.
+     * @path
+     *   /order_items/{orderItemId}
+     */
+    match /order_items/{orderItemId} {
+       allow read: if (request.method == 'list' && request.query.where.get('userId', '') == request.auth.uid)
+                   || (request.method == 'get' && resource.data.userId == request.auth.uid);
+       allow write: if isSignedIn() && request.resource.data.userId == request.auth.uid;
     }
     
+    /**
+     * @description
+     *   Manages favorite clients. Users can only access their own saved clients.
+     *   - List/Read: Allowed only if the query filters by the user's own userId.
+     *   - Get: Allowed if the document's userId matches the requesting user.
+     *   - Write: Allowed if the new/updated data's userId matches the requesting user.
+     * @path
+     *   /favorite_clients/{clientId}
+     */
+    match /favorite_clients/{clientId} {
+       allow read: if (request.method == 'list' && request.query.where.get('userId', '') == request.auth.uid)
+                   || (request.method == 'get' && resource.data.userId == request.auth.uid);
+       allow write: if isSignedIn() && request.resource.data.userId == request.auth.uid;
+    }
+
     /**
      * @description
      *   Manages the shared list of bomboniere items (products).

@@ -89,7 +89,8 @@ function ClientDetail({ client, onBack, onClear }: { client: { id: string; name:
 
     const accountEntriesQuery = useMemoFirebase(
         () => (firestore && user ? query(
-            collection(firestore, 'users', user.uid, 'order_items'),
+            collection(firestore, 'order_items'),
+            where('userId', '==', user.uid),
             where('customerId', '==', client.id),
             where('group', 'in', ['Fiados salão', 'Fiados rua']),
             orderBy('timestamp', 'desc')
@@ -103,7 +104,7 @@ function ClientDetail({ client, onBack, onClear }: { client: { id: string; name:
     const handleClearConfirm = () => {
         if (!entries || !firestore || !user) return;
         
-        const orderItemsCollectionRef = collection(firestore, "users", user.uid, "order_items");
+        const orderItemsCollectionRef = collection(firestore, "order_items");
         entries.forEach(entry => {
             const docRef = doc(orderItemsCollectionRef, entry.id);
             deleteDocumentNonBlocking(docRef);
@@ -224,7 +225,8 @@ export default function AccountsPage() {
   
   const fiadoItemsQuery = useMemoFirebase(
     () => (firestore && user ? query(
-        collection(firestore, 'users', user.uid, 'order_items'), 
+        collection(firestore, 'order_items'), 
+        where('userId', '==', user.uid),
         where('group', 'in', ['Fiados salão', 'Fiados rua'])
     ) : null),
     [firestore, user]

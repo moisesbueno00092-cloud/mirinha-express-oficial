@@ -289,11 +289,10 @@ export default function FinalReport({ items, onClearData, user }: FinalReportPro
       rawItems: items,
     };
     
-    // Use merge: true to overwrite, as confirmed by the user.
     setDocumentNonBlocking(reportDocRef, { ...reportToSave, id: reportId }, { merge: true });
 
     try {
-      const orderItemsCollectionRef = collection(firestore, "users", user.uid, "order_items");
+      const orderItemsCollectionRef = collection(firestore, "order_items");
       items.forEach(item => {
         const docRef = doc(orderItemsCollectionRef, item.id);
         deleteDocumentNonBlocking(docRef);
