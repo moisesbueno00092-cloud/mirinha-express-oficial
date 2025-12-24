@@ -36,18 +36,18 @@ service cloud.firestore {
     }
 
     match /daily_reports/{reportId} {
-      allow create: if isSignedIn();
-      allow read, delete: if isSignedIn();
+      allow create: if isSignedIn(); // Any signed in user can create (for shared use)
+      allow read, delete: if isSignedIn(); // Any signed in user can read/delete
     }
     
     match /expenses/{expenseId} {
-        allow create: if isSignedIn() && isOwner(request.resource.data.userId);
-        allow read, update, delete: if isSignedIn() && isOwner(resource.data.userId);
+      allow create: if isSignedIn() && isOwner(request.resource.data.userId);
+      allow read, update, delete: if isSignedIn() && isOwner(resource.data.userId);
     }
     
     match /payables/{payableId} {
-        allow create: if isSignedIn() && isOwner(request.resource.data.userId);
-        allow read, update, delete: if isSignedIn() && isOwner(resource.data.userId);
+      allow create: if isSignedIn() && isOwner(request.resource.data.userId);
+      allow read, update, delete: if isSignedIn() && isOwner(resource.data.userId);
     }
 
     match /employees/{employeeId} {
