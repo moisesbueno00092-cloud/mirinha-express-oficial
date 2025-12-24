@@ -90,3 +90,38 @@ export interface DailyReport {
   };
   rawItems: Item[];
 }
+
+// Financial Control Types
+export interface Expense {
+    id: string;
+    userId: string;
+    description: string;
+    amount: number;
+    category: 'Fornecedor' | 'Conta Fixa' | 'Salário' | 'Imposto' | 'Outros';
+    date: string; // ISO date string
+}
+
+export interface Payable {
+    id: string;
+    userId: string;
+    description: string;
+    amount: number;
+    dueDate: string; // ISO date string
+    isPaid: boolean;
+}
+
+export interface Employee {
+    id: string;
+    userId: string;
+    name: string;
+    role: string;
+    salary: number;
+}
+
+export interface EmployeeAdvance {
+    id: string;
+    userId: string;
+    employeeId: string;
+    amount: number;
+    date: string; // ISO date string
+}

@@ -70,5 +70,31 @@ service cloud.firestore {
     match /daily_reports/{reportId} {
       allow read, write: if isSignedIn();
     }
+
+    /**
+     * @description
+     *  Manages expenses, payables, and employees.
+     *  Only the user who created them can manage them.
+     */
+    match /expenses/{expenseId} {
+      allow create: if isSignedIn() && request.resource.data.userId == request.auth.uid;
+      allow read, update, delete: if isSignedIn() && resource.data.userId == request.auth.uid;
+    }
+
+    match /payables/{payableId} {
+      allow create: if isSignedIn() && request.resource.data.userId == request.auth.uid;
+      allow read, update, delete: if isSignedIn() && resource.data.userId == request-auth.uid;
+    }
+
+    match /employees/{employeeId} {
+      allow create: if isSignedIn() && request.resource.data.userId == request.auth.uid;
+      allow read, update, delete: if isSignedIn() && resource.data.userId == request.auth.uid;
+      
+      // Salary advances
+      match /advances/{advanceId} {
+        allow create: if isSignedIn() && request.resource.data.userId == request.auth.uid;
+        allow read, update, delete: if isSignedIn() && resource.data.userId == request.auth.uid;
+      }
+    }
   }
 }

@@ -34,7 +34,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
-import { Trash2, Save, History, Star, Users, Package, Loader2, KeyRound, BookUser, LogIn } from "lucide-react";
+import { Trash2, Save, History, Star, Users, Package, Loader2, KeyRound, BookUser, LogIn, DollarSign } from "lucide-react";
 import { addDocumentNonBlocking, deleteDocumentNonBlocking, setDocumentNonBlocking, updateDocumentNonBlocking } from "@/firebase/non-blocking-updates";
 
 import ItemForm from "@/components/item-form";
@@ -694,11 +694,17 @@ export default function Home() {
                 <div><span className="text-muted-foreground">À Vista:</span> <span className="font-bold text-foreground">{formatCurrency(summary.totalAVista)}</span></div>
                 <div><span className="text-muted-foreground">Fiado:</span> <span className="font-bold text-destructive">{formatCurrency(summary.totalFiado)}</span></div>
             </div>
-             <div className="flex justify-center">
+             <div className="flex justify-center items-center gap-2">
                  <Link href="/accounts" passHref>
                     <Button variant="outline" size="sm">
                        <BookUser className="mr-2 h-4 w-4" />
                        Caderneta
+                    </Button>
+                </Link>
+                 <Link href="/finance" passHref>
+                    <Button variant="outline" size="sm">
+                       <DollarSign className="mr-2 h-4 w-4" />
+                       Financeiro
                     </Button>
                 </Link>
             </div>
@@ -711,4 +717,3 @@ export default function Home() {
     </>
   );
 }
-
