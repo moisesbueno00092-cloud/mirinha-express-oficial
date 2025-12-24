@@ -1,8 +1,9 @@
+
 'use client';
 
 import { useState, useMemo } from 'react';
 import { useCollection, useFirestore, useMemoFirebase, useUser } from '@/firebase';
-import { collection, query, where, orderBy, doc, deleteDoc } from 'firebase/firestore';
+import { collection, query, where, orderBy, doc, deleteDoc, Timestamp } from 'firebase/firestore';
 import type { Expense, Employee, EmployeeAdvance } from '@/types';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -20,20 +21,23 @@ import Link from 'next/link';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend } from 'recharts';
+import { addDocumentNonBlocking, deleteDocumentNonBlocking } from '@/firebase/non-blocking-updates';
+import { useToast } from '@/hooks/use-toast';
 
 const months = [
-  { value: 0, label: 'Janeiro' },
-  { value: 1, label: 'Fevereiro' },
-  { value: 2, label: 'Março' },
-  { value: 3, label: 'Abril' },
-  { value: 4, label: 'Maio' },
-  { value: 5, label: 'Junho' },
-  { value: 6, label: 'Julho' },
-  { value: 7, label: 'Agosto' },
-  { value: 8, label: 'Setembro' },
-  { value: 9, label: 'Outubro' },
-  { value: 10, label: 'Novembro' },
-  { value: 11, label: 'Dezembro' },
+  { value: 'all', label: 'Todos os Meses' },
+  { value: '0', label: 'Janeiro' },
+  { value: '1', label: 'Fevereiro' },
+  { value: '2', label: 'Março' },
+  { value: '3', label: 'Abril' },
+  { value: '4', label: 'Maio' },
+  { value: '5', label: 'Junho' },
+  { value: '6', label: 'Julho' },
+  { value: '7', label: 'Agosto' },
+  { value: '8', label: 'Setembro' },
+  { value: '9', label: 'Outubro' },
+  { value: '10', label: 'Novembro' },
+  { value: '11', label: 'Dezembro' },
 ];
 
 const currentYear = new Date().getFullYear();
@@ -46,14 +50,33 @@ const formatCurrency = (value: number) => {
     }).format(value);
 };
 
-const categoryData = [
-    { name: 'Mercado', value: 48574.90, color: 'hsl(var(--chart-1))', icon: ShoppingBasket },
-    { name: 'Salário', value: 35200.00, color: 'hsl(var(--chart-2))', icon: HandCoins },
-    { name: 'Vale', value: 7850.00, color: 'hsl(var(--chart-3))', icon: FileText },
-    { name: 'Contas', value: 32789.60, color: 'hsl(var(--chart-4))', icon: Banknote },
-    { name: 'Impostos', value: 22401.90, color: 'hsl(var(--chart-5))', icon: Landmark },
-    { name: 'Outros', value: 5500.00, color: 'hsl(var(--muted-foreground))', icon: Plus },
-];
+const expenseCategories = {
+    'm': 'Mercado',
+    's': 'Salário',
+    'v': 'Vale',
+    'c': 'Contas',
+    'i': 'Impostos',
+    'o': 'Outros',
+};
+
+const categoryIcons: Record<string, React.ElementType> = {
+    'Mercado': ShoppingBasket,
+    'Salário': HandCoins,
+    'Vale': FileText,
+    'Contas': Banknote,
+    'Impostos': Landmark,
+    'Outros': Plus,
+};
+
+const categoryColors: Record<string, string> = {
+    'Mercado': 'hsl(var(--chart-1))',
+    'Salário': 'hsl(var(--chart-2))',
+    'Vale': 'hsl(var(--chart-3))',
+    'Contas': 'hsl(var(--chart-4))',
+    'Impostos': 'hsl(var(--chart-5))',
+    'Outros': 'hsl(var(--muted-foreground))',
+};
+
 
 const RADIAN = Math.PI / 180;
 const renderCustomizedLabel = ({ cx, cy, midAngle, innerRadius, outerRadius, percent }: any) => {
@@ -70,15 +93,131 @@ const renderCustomizedLabel = ({ cx, cy, midAngle, innerRadius, outerRadius, per
 
 
 export default function FinancePage() {
-  const [selectedYear, setSelectedYear] = useState(String(currentYear));
-  const [selectedMonth, setSelectedMonth] = useState(String(new Date().getMonth()));
-  const [searchTerm, setSearchTerm] = useState('');
+  const firestore = useFirestore();
+  const { user } = useUser();
+  const { toast } = useToast();
 
+  const [selectedYear, setSelectedYear] = useState(String(currentYear));
+  const [selectedMonth, setSelectedMonth] = useState<string>(String(new Date().getMonth()));
+  const [searchTerm, setSearchTerm] = useState('');
+  const [expenseInput, setExpenseInput] = useState('');
+
+  const { data: employees, isLoading: isLoadingEmployees } = useCollection<Employee>(
+    useMemoFirebase(() => user ? query(collection(firestore, 'employees'), where('userId', '==', user.uid)) : null, [firestore, user])
+  );
+  
+  const { data: expenses, isLoading: isLoadingExpenses } = useCollection<Expense>(
+    useMemoFirebase(() => user ? query(collection(firestore, 'expenses'), where('userId', '==', user.uid), orderBy('date', 'desc')) : null, [firestore, user])
+  );
+
+  const { data: advances, isLoading: isLoadingAdvances } = useCollection<EmployeeAdvance>(
+    useMemoFirebase(() => user ? query(collection(firestore, 'employee_advances'), where('userId', '==', user.uid), orderBy('date', 'desc')) : null, [firestore, user])
+  );
+
+  const filteredData = useMemo(() => {
+    const allItems: (Expense | EmployeeAdvance)[] = [...(expenses || []), ...(advances || [])];
+
+    return allItems.filter(item => {
+        const itemDate = new Date(item.date);
+        const yearMatch = itemDate.getFullYear() === parseInt(selectedYear);
+        const monthMatch = selectedMonth === 'all' || itemDate.getMonth() === parseInt(selectedMonth);
+        const description = 'description' in item ? item.description : `Vale para ${item.employeeName}`;
+        const searchMatch = !searchTerm || description.toLowerCase().includes(searchTerm.toLowerCase()) || ('employeeName' in item && item.employeeName.toLowerCase().includes(searchTerm.toLowerCase()));
+
+        return yearMatch && monthMatch && searchMatch;
+    });
+  }, [expenses, advances, selectedYear, selectedMonth, searchTerm]);
+
+  const generalExpenses = useMemo(() => filteredData.filter(item => 'description' in item), [filteredData]);
+  const employeeExpenses = useMemo(() => filteredData.filter(item => 'employeeId' in item), [filteredData]);
+
+  const annualTotal = useMemo(() => {
+      const allYearItems: (Expense | EmployeeAdvance)[] = [...(expenses || []), ...(advances || [])];
+      return allYearItems
+        .filter(item => new Date(item.date).getFullYear() === parseInt(selectedYear))
+        .reduce((sum, item) => sum + item.amount, 0);
+  }, [expenses, advances, selectedYear]);
+
+  const categoryData = useMemo(() => {
+    const categoryMap: Record<string, number> = {};
+
+    const itemsToProcess = selectedMonth === 'all' 
+        ? [...(expenses || []), ...(advances || [])].filter(item => new Date(item.date).getFullYear() === parseInt(selectedYear))
+        : filteredData;
+
+    itemsToProcess.forEach(item => {
+        let category: string;
+        if ('category' in item) { // It's an Expense
+            category = item.category;
+        } else { // It's an EmployeeAdvance
+            category = 'Vale';
+        }
+        
+        if (!categoryMap[category]) {
+            categoryMap[category] = 0;
+        }
+        categoryMap[category] += item.amount;
+    });
+
+    return Object.entries(categoryMap).map(([name, value]) => ({
+        name,
+        value,
+        color: categoryColors[name] || 'hsl(var(--muted-foreground))',
+        icon: categoryIcons[name] || Plus,
+    })).sort((a,b) => b.value - a.value);
+  }, [filteredData, expenses, advances, selectedYear, selectedMonth]);
+
+
+  const handleAddExpense = () => {
+    if (!expenseInput.trim() || !user || !firestore) return;
+
+    const parts = expenseInput.trim().split(' ');
+    const amountStr = parts.pop();
+    const amount = amountStr ? parseFloat(amountStr.replace(',', '.')) : NaN;
+
+    if (isNaN(amount)) {
+        toast({ variant: 'destructive', title: 'Valor inválido', description: 'O último valor deve ser um número.' });
+        return;
+    }
+
+    let categoryKey = parts[0]?.toLowerCase();
+    let description = parts.join(' ');
+    
+    // @ts-ignore
+    if (expenseCategories[categoryKey]) {
+        description = parts.slice(1).join(' ');
+    } else {
+        categoryKey = 'o'; // Default to 'Outros'
+    }
+
+    const newExpense: Omit<Expense, 'id'> = {
+        userId: user.uid,
+        // @ts-ignore
+        category: expenseCategories[categoryKey],
+        description: description || 'Despesa sem descrição',
+        amount,
+        date: new Date().toISOString(),
+    };
+    
+    addDocumentNonBlocking(collection(firestore, 'expenses'), newExpense);
+    toast({ title: 'Despesa adicionada!' });
+    setExpenseInput('');
+  };
+  
+  const handleDelete = (item: Expense | EmployeeAdvance) => {
+      if (!firestore) return;
+      const collectionName = 'description' in item ? 'expenses' : 'employee_advances';
+      const docRef = doc(firestore, collectionName, item.id);
+      deleteDocumentNonBlocking(docRef);
+      toast({ title: 'Lançamento excluído.'});
+  }
 
   const formatDate = (date: Date | string) => {
     const dateObj = typeof date === 'string' ? new Date(date) : date;
-    return format(dateObj, "d 'de' MMMM 'de' yyyy", { locale: ptBR });
+    return format(dateObj, "d 'de' MMM", { locale: ptBR });
   }
+
+  const isLoading = isLoadingExpenses || isLoadingAdvances || isLoadingEmployees;
 
   return (
     <div className="container mx-auto max-w-5xl p-4 sm:p-8">
@@ -100,7 +239,9 @@ export default function FinancePage() {
              <Link href="/accounts" passHref>
                 <Button variant="ghost">Caderneta</Button>
             </Link>
-            <Button variant="ghost" disabled>Caixa</Button>
+            <Link href="/stock" passHref>
+                <Button variant="ghost">Estoque</Button>
+            </Link>
         </div>
 
 
@@ -109,18 +250,24 @@ export default function FinancePage() {
           <CardHeader>
             <CardTitle>Adicionar Despesa</CardTitle>
             <CardDescription>
-              Use: &quot;m 3x Arroz 50&quot; (categoria + quantidade) ou &quot;3x Arroz 50&quot; (sem categoria) para multiplicação.
+              Use: &quot;[m, c, i, o] descrição valor&quot; (m=mercado, c=contas, i=impostos, o=outros). Ex: &quot;m arroz 50&quot;.
             </CardDescription>
           </CardHeader>
           <CardContent className="flex flex-col sm:flex-row items-center gap-4">
-            <Input placeholder="Digite a descrição e o valor" className="flex-grow" />
+            <Input 
+              placeholder="Ex: m arroz, feijão 150.75" 
+              className="flex-grow"
+              value={expenseInput}
+              onChange={(e) => setExpenseInput(e.target.value)}
+              onKeyDown={(e) => e.key === 'Enter' && handleAddExpense()}
+            />
             <div className="flex items-center gap-2">
-                <Button variant="outline" className="whitespace-nowrap">
+                <Button variant="outline" className="whitespace-nowrap" disabled>
                   <Calendar className="mr-2 h-4 w-4" />
-                  {formatDate(new Date())}
+                  {format(new Date(), "d 'de' MMMM", { locale: ptBR })}
                 </Button>
-                <Button variant="outline"><Repeat className="mr-2 h-4 w-4" />Lançar Despesa Parcelada</Button>
-                <Button variant="default" className="bg-red-600 hover:bg-red-700"><Plus className="mr-2 h-4 w-4" />Adicionar</Button>
+                <Button variant="outline" disabled><Repeat className="mr-2 h-4 w-4" />Lançar Despesa Parcelada</Button>
+                <Button variant="default" className="bg-red-600 hover:bg-red-700" onClick={handleAddExpense}><Plus className="mr-2 h-4 w-4" />Adicionar</Button>
             </div>
           </CardContent>
         </Card>
@@ -130,8 +277,8 @@ export default function FinancePage() {
             <CardTitle className="flex items-center gap-2"><Code className="h-5 w-5" /> Agrupar Lançamentos por Código</CardTitle>
           </CardHeader>
           <CardContent className="flex items-center gap-4">
-            <Input placeholder="Digite um código (ex: Mega G)" className="flex-grow" />
-            <Button variant="default" className="bg-red-600 hover:bg-red-700">Definir Grupo</Button>
+            <Input placeholder="Digite um código (ex: Mega G)" className="flex-grow" disabled />
+            <Button variant="default" className="bg-red-600 hover:bg-red-700" disabled>Definir Grupo</Button>
           </CardContent>
         </Card>
 
@@ -142,7 +289,7 @@ export default function FinancePage() {
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="flex flex-wrap items-center gap-2">
-                <Button variant="outline" className="whitespace-nowrap"><Filter className="mr-2 h-4 w-4" />Filtrar por Grupo</Button>
+                <Button variant="outline" className="whitespace-nowrap" disabled><Filter className="mr-2 h-4 w-4" />Filtrar por Grupo</Button>
                  <Select value={selectedYear} onValueChange={setSelectedYear}>
                     <SelectTrigger className="w-[120px]">
                       <Calendar className="mr-2 h-4 w-4" />
@@ -181,19 +328,53 @@ export default function FinancePage() {
          <Tabs defaultValue="gerais" className="w-full">
             <TabsList className="grid w-full grid-cols-2">
                 <TabsTrigger value="gerais">Despesas Gerais</TabsTrigger>
-                <TabsTrigger value="funcionarios">Funcionários</TabsTrigger>
+                <TabsTrigger value="funcionarios">Funcionários (Vales)</TabsTrigger>
             </TabsList>
             <TabsContent value="gerais">
                 <Card>
-                    <CardContent className="p-6">
-                        <p className="text-center text-muted-foreground">Nenhuma despesa geral para este período.</p>
+                    <CardContent className="p-4">
+                       {isLoading ? <Loader2 className="mx-auto my-8 h-8 w-8 animate-spin" /> : generalExpenses.length > 0 ? (
+                           <div className="space-y-2">
+                               {generalExpenses.map(item => (
+                                   <div key={item.id} className="flex items-center justify-between p-2 rounded-md hover:bg-muted/50">
+                                       <div>
+                                           <p className="font-medium">{(item as Expense).description}</p>
+                                           <p className="text-xs text-muted-foreground">{formatDate(item.date)} - <span style={{color: categoryColors[(item as Expense).category]}}>{(item as Expense).category}</span></p>
+                                       </div>
+                                       <div className="flex items-center gap-2">
+                                           <p className="font-mono font-semibold">{formatCurrency(item.amount)}</p>
+                                           <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={() => handleDelete(item)}><Trash2 className="h-4 w-4" /></Button>
+                                       </div>
+                                   </div>
+                               ))}
+                           </div>
+                       ) : (
+                           <p className="text-center text-muted-foreground py-8">Nenhuma despesa geral para este período.</p>
+                       )}
                     </CardContent>
                 </Card>
             </TabsContent>
             <TabsContent value="funcionarios">
                  <Card>
-                    <CardContent className="p-6">
-                        <p className="text-center text-muted-foreground">Nenhuma despesa com funcionário para este período.</p>
+                    <CardContent className="p-4">
+                        {isLoading ? <Loader2 className="mx-auto my-8 h-8 w-8 animate-spin" /> : employeeExpenses.length > 0 ? (
+                           <div className="space-y-2">
+                               {employeeExpenses.map(item => (
+                                   <div key={item.id} className="flex items-center justify-between p-2 rounded-md hover:bg-muted/50">
+                                       <div>
+                                           <p className="font-medium">Vale para {(item as EmployeeAdvance).employeeName}</p>
+                                           <p className="text-xs text-muted-foreground">{formatDate(item.date)}</p>
+                                       </div>
+                                       <div className="flex items-center gap-2">
+                                           <p className="font-mono font-semibold">{formatCurrency(item.amount)}</p>
+                                           <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={() => handleDelete(item)}><Trash2 className="h-4 w-4" /></Button>
+                                       </div>
+                                   </div>
+                               ))}
+                           </div>
+                       ) : (
+                           <p className="text-center text-muted-foreground py-8">Nenhum vale para este período.</p>
+                       )}
                     </CardContent>
                 </Card>
             </TabsContent>
@@ -205,16 +386,20 @@ export default function FinancePage() {
             </CardHeader>
             <CardContent className="text-center">
                 <p className="text-muted-foreground">Total do Ano de {selectedYear}</p>
-                <p className="text-5xl font-bold text-red-500 mt-2">{formatCurrency(152316.40)}</p>
+                <p className="text-5xl font-bold text-red-500 mt-2">{formatCurrency(annualTotal)}</p>
             </CardContent>
         </Card>
 
         <Card>
             <CardHeader>
                 <CardTitle className="flex items-center gap-2"><TrendingUp className="h-5 w-5" /> Detalhes por Categoria</CardTitle>
+                 <CardDescription>
+                    Referente a {selectedMonth === 'all' ? `todo o ano de ${selectedYear}` : `${months.find(m => m.value === selectedMonth)?.label} de ${selectedYear}`}.
+                </CardDescription>
             </CardHeader>
             <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-8 items-center">
                 <div className="h-64">
+                   {isLoading ? <Loader2 className="mx-auto my-8 h-8 w-8 animate-spin" /> : categoryData.length > 0 ? (
                     <ResponsiveContainer width="100%" height="100%">
                         <PieChart>
                             <Pie
@@ -242,6 +427,7 @@ export default function FinancePage() {
                              />
                         </PieChart>
                     </ResponsiveContainer>
+                   ) : <p className="text-center text-muted-foreground">Sem dados para exibir o gráfico.</p>}
                 </div>
                 <div className="space-y-3">
                     {categoryData.map(category => {
@@ -264,3 +450,6 @@ export default function FinancePage() {
     </div>
   );
 }
+
+
+    
