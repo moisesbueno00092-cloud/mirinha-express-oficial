@@ -27,11 +27,15 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table"
+import { Input } from '@/components/ui/input';
 import { useToast } from "@/hooks/use-toast";
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { deleteDocumentNonBlocking } from '@/firebase/non-blocking-updates';
 import { cn } from '@/lib/utils';
+import usePersistentState from '@/hooks/use-persistent-state';
+
+const ACCOUNTS_PASSWORD = "mirinha123";
 
 
 const formatCurrency = (value: number) => {
@@ -165,7 +169,7 @@ function ClientDetail({ client, onBack, onClear }: { client: { id: string; name:
               <AlertDialogHeader>
                 <AlertDialogTitle>Limpar Caderneta?</AlertDialogTitle>
                 <AlertDialogDescription>
-                  Esta ação é irreversível. Todos os lançamentos de {client.name} serão apagados permanentemente.
+                  Esta ação é irreversível. Todos os lançamentos de ${client.name} serão apagados permanentemente.
                   Isso é geralmente feito após o pagamento da conta mensal.
                 </AlertDialogDescription>
               </AlertDialogHeader>
@@ -258,6 +262,11 @@ export default function AccountsPage() {
   const { user, isUserLoading } = useUser();
   const [selectedClient, setSelectedClient] = useState<{ id: string; name: string } | null>(null);
   
+  // Auth state
+  const [isAuthenticated, setIsAuthenticated] = usePersistentState('accounts-auth', false);
+  const [password, setPassword] = useState('');
+  const [authError, setAuthError] = useState('');
+  
   const fiadoItemsQuery = useMemoFirebase(
     () => (firestore && user ? query(
         collection(firestore, 'order_items'), 
@@ -289,6 +298,47 @@ export default function AccountsPage() {
     return Object.values(accountsByCustomer).sort((a,b) => a.name.localeCompare(b.name));
 
   }, [allFiadoEntries]);
+  
+  const handleLogin = (e?: React.FormEvent) => {
+    e?.preventDefault();
+    if (password === ACCOUNTS_PASSWORD) {
+        setIsAuthenticated(true);
+        setAuthError('');
+        setPassword('');
+    } else {
+        setAuthError('Senha incorreta.');
+    }
+  };
+
+  if (!isAuthenticated) {
+    return (
+        <div className="flex h-screen items-center justify-center bg-background p-4">
+            <div className="w-full max-w-sm">
+                <Card>
+                    <CardHeader>
+                        <CardTitle className="text-center text-xl">Caderneta de Clientes</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                        <form onSubmit={handleLogin} className="space-y-4">
+                            <Input
+                                type="password"
+                                placeholder="Digite a senha"
+                                value={password}
+                                onChange={(e) => setPassword(e.target.value)}
+                                autoFocus
+                            />
+                            {authError && <p className="text-sm text-destructive">{authError}</p>}
+                            <Button type="submit" className="w-full">Entrar</Button>
+                             <Link href="/" passHref className="block text-center">
+                                <Button variant="link" className="w-full">Voltar</Button>
+                            </Link>
+                        </form>
+                    </CardContent>
+                </Card>
+            </div>
+        </div>
+    );
+  }
 
   if (isUserLoading || !user) {
     return (
@@ -314,12 +364,15 @@ export default function AccountsPage() {
     <div className="container mx-auto max-w-2xl p-4 sm:p-8">
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-2xl sm:text-3xl font-bold">Caderneta de Clientes</h1>
-        <Link href="/" passHref>
-            <Button variant="outline">
-                <ArrowLeft className="mr-2 h-4 w-4" />
-                Voltar
-            </Button>
-        </Link>
+        <div className="flex items-center gap-2">
+            <Button variant="ghost" size="sm" onClick={() => setIsAuthenticated(false)}>Sair</Button>
+            <Link href="/" passHref>
+                <Button variant="outline">
+                    <ArrowLeft className="mr-2 h-4 w-4" />
+                    Voltar
+                </Button>
+            </Link>
+        </div>
       </div>
 
       {isLoading ? (
@@ -356,5 +409,3 @@ export default function AccountsPage() {
     </div>
   );
 }
-
-    
