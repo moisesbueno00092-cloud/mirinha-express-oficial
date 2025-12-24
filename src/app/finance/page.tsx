@@ -44,6 +44,8 @@ import { Calendar } from '@/components/ui/calendar';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 
+const FINANCE_PASSWORD = "mirinha123";
+
 const formatCurrency = (value: number) => {
     return new Intl.NumberFormat("pt-BR", {
       style: "currency",
@@ -581,7 +583,7 @@ function AdvancesTab() {
     const [date, setDate] = useState<Date | undefined>(new Date());
     
     const employeesQuery = useMemoFirebase(() => (
-        firestore && user ? query(collection(firestore, 'employees'), where('userId', '==', user.uid), orderBy('name')) : null
+        firestore && user ? query(collection(firestore, 'employees'), where('userId', '==', user.uid)) : null
     ), [firestore, user]);
     const { data: employees, isLoading: isLoadingEmployees } = useCollection<Employee>(employeesQuery);
     
@@ -710,6 +712,50 @@ function AdvancesTab() {
 
 export default function FinancePage() {
     const { user, isUserLoading } = useUser();
+    const [isAuthenticated, setIsAuthenticated] = usePersistentState('finance-auth', false);
+    const [password, setPassword] = useState('');
+    const [authError, setAuthError] = useState('');
+
+    const handleLogin = (e?: React.FormEvent) => {
+        e?.preventDefault();
+        if (password === FINANCE_PASSWORD) {
+            setIsAuthenticated(true);
+            setAuthError('');
+            setPassword('');
+        } else {
+            setAuthError('Senha incorreta.');
+        }
+    };
+    
+    if (!isAuthenticated) {
+        return (
+            <div className="flex h-screen items-center justify-center bg-background p-4">
+                <div className="w-full max-w-sm">
+                    <Card>
+                        <CardHeader>
+                            <CardTitle className="text-center text-xl">Acesso às Despesas</CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                            <form onSubmit={handleLogin} className="space-y-4">
+                                <Input
+                                    type="password"
+                                    placeholder="Digite a senha"
+                                    value={password}
+                                    onChange={(e) => setPassword(e.target.value)}
+                                    autoFocus
+                                />
+                                {authError && <p className="text-sm text-destructive">{authError}</p>}
+                                <Button type="submit" className="w-full">Entrar</Button>
+                                 <Link href="/" passHref className="block text-center">
+                                    <Button variant="link" className="w-full">Voltar</Button>
+                                </Link>
+                            </form>
+                        </CardContent>
+                    </Card>
+                </div>
+            </div>
+        );
+    }
     
     if (isUserLoading || !user) {
         return (
@@ -724,6 +770,7 @@ export default function FinancePage() {
             <div className="flex items-center justify-between mb-6">
                 <h1 className="text-2xl sm:text-3xl font-bold">Despesas</h1>
                 <div className="flex items-center gap-2">
+                    <Button variant="ghost" size="sm" onClick={() => setIsAuthenticated(false)}>Sair</Button>
                     <Link href="/" passHref>
                         <Button variant="outline"><ArrowLeft className="mr-2 h-4 w-4" />Voltar</Button>
                     </Link>
