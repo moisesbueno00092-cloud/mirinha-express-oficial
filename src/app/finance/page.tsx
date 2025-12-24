@@ -113,50 +113,42 @@ export default function FinancePage() {
 
   useEffect(() => {
     if (!firestore || !employees) {
-      setIsLoadingAdvances(false);
-      return;
-    };
-    
-    setIsLoadingAdvances(true);
-    let unsubscribers: Unsubscribe[] = [];
-    let allAdvancesData: EmployeeAdvance[] = [];
-    let listenerCount = employees.length;
-
-    if(employees.length === 0) {
-      setIsLoadingAdvances(false);
-      setAllAdvances([]);
-      return;
+        setIsLoadingAdvances(false);
+        return;
     }
+    setIsLoadingAdvances(true);
+
+    if (employees.length === 0) {
+        setAllAdvances([]);
+        setIsLoadingAdvances(false);
+        return;
+    }
+
+    const unsubscribers: Unsubscribe[] = [];
+    let allAdvancesData: EmployeeAdvance[] = [...allAdvances];
 
     employees.forEach(employee => {
         const advancesQuery = query(collection(firestore, 'employees', employee.id, 'advances'));
-        const unsubscribe = onSnapshot(advancesQuery, 
-          (snapshot) => {
-              const advancesForEmployee = snapshot.docs.map(doc => ({
-                  ...doc.data(),
-                  id: doc.id,
-                  employeeId: employee.id,
-                  employeeName: employee.name,
-              } as EmployeeAdvance));
-              
-              // Filter out this employee's old advances and add the new ones
-              allAdvancesData = allAdvancesData.filter(adv => adv.employeeId !== employee.id).concat(advancesForEmployee);
+        const unsubscribe = onSnapshot(advancesQuery,
+            (snapshot) => {
+                const advancesForEmployee = snapshot.docs.map(doc => ({
+                    ...doc.data(),
+                    id: doc.id,
+                    employeeId: employee.id,
+                    employeeName: employee.name,
+                } as EmployeeAdvance));
 
-              // Update the state with the latest aggregated data
-              setAllAdvances(allAdvancesData.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()));
-              
-              listenerCount--;
-              if (listenerCount === 0) {
+                // Filter out this employee's old advances and add the new ones
+                allAdvancesData = allAdvancesData.filter(adv => adv.employeeId !== employee.id).concat(advancesForEmployee);
+
+                // Update the state with the latest aggregated data
+                setAllAdvances(allAdvancesData.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()));
                 setIsLoadingAdvances(false);
-              }
-          },
-          (error) => {
-              console.error(`Error fetching advances for employee ${employee.id}:`, error);
-              listenerCount--;
-              if (listenerCount === 0) {
+            },
+            (error) => {
+                console.error(`Error fetching advances for employee ${employee.id}:`, error);
                 setIsLoadingAdvances(false);
-              }
-          }
+            }
         );
         unsubscribers.push(unsubscribe);
     });
@@ -486,5 +478,3 @@ export default function FinancePage() {
     </div>
   );
 }
-
-    

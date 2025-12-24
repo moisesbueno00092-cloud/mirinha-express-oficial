@@ -120,7 +120,7 @@ export interface Employee {
 
 export interface EmployeeAdvance {
     id: string;
-    userId: string;
+    // userId is not needed here as it will be in the parent Employee document
     employeeId: string;
     employeeName: string;
     amount: number;
