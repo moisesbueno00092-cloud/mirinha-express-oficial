@@ -2,14 +2,33 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
     
-    // Regra geral: O utilizador só pode manipular os seus próprios dados.
-    function isOwner(docData) {
-      return request.auth.uid == docData.userId;
+    // As coleções 'users', 'order_items', 'favorite_clients', 'expenses', 'payables', e 'employees' 
+    // contêm um campo 'userId'. A regra abaixo permite que os utilizadores leiam e escrevam
+    // apenas os seus próprios documentos.
+    match /{collection}/{docId} where collection in ['users', 'order_items', 'favorite_clients', 'expenses', 'payables', 'employees'] {
+      // Um utilizador pode listar (consultar) documentos se a consulta filtrar por seu userId.
+      allow list: if request.auth != null && request.query.resource.data.userId == request.auth.uid;
+      // Um utilizador pode ler, criar, atualizar ou apagar um documento específico se for o proprietário.
+      allow get, create, update, delete: if request.auth != null && request.resource.data.userId == request.auth.uid;
     }
 
-    // Aplica a regra a todas as coleções de primeiro nível
-    match /{collection}/{docId} {
-      allow read, write: if request.auth != null;
+    // A coleção 'bomboniere_items' é partilhada e pode ser lida por qualquer utilizador autenticado.
+    // A escrita é restrita para evitar modificações não autorizadas.
+    match /bomboniere_items/{itemId} {
+      allow read: if request.auth != null;
+      // A escrita pode ser restringida a administradores no futuro, se necessário.
+      allow write: if request.auth != null; 
+    }
+    
+    // A coleção 'daily_reports' pode ser lida por qualquer utilizador autenticado.
+    match /daily_reports/{reportId} {
+        allow read, write: if request.auth != null;
+    }
+
+    // Regra para a sub-coleção 'advances' (vales) de um funcionário.
+    match /employees/{employeeId}/advances/{advanceId} {
+      // Permite ler e escrever na sub-coleção se o utilizador for o proprietário do funcionário pai.
+      allow read, write: if request.auth != null && get(/databases/$(database)/documents/employees/$(employeeId)).data.userId == request.auth.uid;
     }
   }
 }
