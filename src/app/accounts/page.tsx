@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useMemo } from 'react';
@@ -6,7 +7,7 @@ import { collection, query, where, orderBy, doc, deleteDoc } from 'firebase/fire
 import type { Item as ClientAccountEntry } from '@/types';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
-import { Loader2, ArrowLeft, Trash2, User, Package, Utensils } from 'lucide-react';
+import { Loader2, ArrowLeft, Trash2, User, Package, Utensils, CalendarDays, ReceiptText } from 'lucide-react';
 import Link from 'next/link';
 import {
   AlertDialog,
@@ -18,10 +19,20 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table"
 import { useToast } from "@/hooks/use-toast";
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { deleteDocumentNonBlocking } from '@/firebase/non-blocking-updates';
+import { cn } from '@/lib/utils';
+
 
 const formatCurrency = (value: number) => {
     return new Intl.NumberFormat("pt-BR", {
@@ -34,51 +45,34 @@ const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString('pt-BR', {
       day: '2-digit',
       month: '2-digit',
-      year: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit'
     });
 };
+
+const formatTime = (dateString: string) => {
+    return new Date(dateString).toLocaleTimeString('pt-BR', {
+        hour: '2-digit',
+        minute: '2-digit'
+    });
+}
 
 
 function EntryItems({ entry }: { entry: ClientAccountEntry }) {
     return (
-      <div className="space-y-2">
-        {entry.predefinedItems && entry.predefinedItems.length > 0 && (
-          <div>
-            <h4 className="font-semibold text-xs flex items-center gap-1"><Utensils className="h-3 w-3" /> Refeições</h4>
-            <div className="flex flex-wrap gap-1 mt-1">
-              {entry.predefinedItems.map((item, idx) => (
-                <Badge key={`pre-${idx}`} variant="secondary">{item.name} ({formatCurrency(item.price)})</Badge>
-              ))}
-            </div>
-          </div>
-        )}
-        {entry.individualPrices && entry.individualPrices.length > 0 && (
-            <div>
-                 <h4 className="font-semibold text-xs flex items-center gap-1"><Utensils className="h-3 w-3" /> Refeições (KG)</h4>
-                 <div className="flex flex-wrap gap-1 mt-1">
-                    {entry.individualPrices.map((price, idx) => (
-                        <Badge key={`kg-${idx}`} variant="secondary">KG ({formatCurrency(price)})</Badge>
-                    ))}
-                 </div>
-            </div>
-        )}
-        {entry.bomboniereItems && entry.bomboniereItems.length > 0 && (
-          <div>
-            <h4 className="font-semibold text-xs flex items-center gap-1"><Package className="h-3 w-3" /> Bomboniere</h4>
-            <div className="flex flex-wrap gap-1 mt-1">
-              {entry.bomboniereItems.map((item, idx) => (
-                <Badge key={`bom-${idx}`} variant="outline">
-                  {item.quantity}x {item.name} ({formatCurrency(item.price)})
-                </Badge>
-              ))}
-            </div>
-          </div>
-        )}
+      <div className="flex flex-wrap gap-1">
+        {entry.predefinedItems && entry.predefinedItems.map((item, idx) => (
+          <Badge key={`pre-${idx}`} variant="secondary">{item.name}</Badge>
+        ))}
+        {entry.individualPrices && entry.individualPrices.map((price, idx) => (
+            <Badge key={`kg-${idx}`} variant="secondary">KG</Badge>
+        ))}
+        {entry.bomboniereItems && entry.bomboniereItems.map((item, idx) => (
+          <Badge key={`bom-${idx}`} variant="outline">
+            {item.quantity > 1 && `${item.quantity}x `}{item.name}
+          </Badge>
+        ))}
       </div>
     );
-  }
+}
 
 function ClientDetail({ client, onBack, onClear }: { client: { id: string; name: string }, onBack: () => void, onClear: (clientId: string) => void }) {
     const firestore = useFirestore();
@@ -161,8 +155,8 @@ function ClientDetail({ client, onBack, onClear }: { client: { id: string; name:
             </AlertDialogContent>
         </AlertDialog>
 
-        <div className="container mx-auto max-w-2xl p-4 sm:p-8">
-            <div className="flex items-center justify-between mb-6">
+        <div className="container mx-auto max-w-4xl p-4 sm:p-8">
+            <div className="flex items-center justify-between mb-4">
                 <div className="flex-1 min-w-0">
                     <h1 className="text-2xl sm:text-3xl font-bold truncate">{client.name}</h1>
                     <p className="text-muted-foreground">Extrato da Caderneta</p>
@@ -174,14 +168,11 @@ function ClientDetail({ client, onBack, onClear }: { client: { id: string; name:
             </div>
 
             <Card className="mb-6">
-                <CardHeader>
+                <CardHeader className="flex flex-row items-center justify-between p-4">
                     <CardTitle className="text-lg">Dívida Total</CardTitle>
-                </CardHeader>
-                <CardContent>
                     <p className="text-3xl font-bold text-destructive">{formatCurrency(totalDebt)}</p>
-
-                </CardContent>
-                <CardFooter>
+                </CardHeader>
+                <CardFooter className="p-4 border-t">
                     <Button variant="destructive" onClick={() => setIsClearConfirmOpen(true)} disabled={!entries || entries.length === 0}>
                         <Trash2 className="mr-2 h-4 w-4" />
                         Zerar Caderneta
@@ -189,35 +180,53 @@ function ClientDetail({ client, onBack, onClear }: { client: { id: string; name:
                 </CardFooter>
             </Card>
 
-            <h2 className="text-xl font-semibold mb-4">Lançamentos</h2>
-            {sortedEntries && sortedEntries.length > 0 ? (
-                <div className="space-y-3">
-                    {sortedEntries.map(entry => (
-                        <Card key={entry.id}>
-                             <CardContent className="p-4 space-y-3">
-                                <div className="flex justify-between items-start text-sm">
-                                    <div>
-                                        <p className="font-semibold">{formatDate(entry.timestamp)}</p>
-                                        <p className="text-xs text-muted-foreground">{entry.originalCommand}</p>
+            <Card>
+                <CardHeader className="p-4">
+                     <CardTitle className="text-lg flex items-center gap-2">
+                        <ReceiptText className="h-5 w-5 text-muted-foreground" />
+                        Lançamentos
+                    </CardTitle>
+                </CardHeader>
+                <CardContent className="p-0">
+                 {sortedEntries && sortedEntries.length > 0 ? (
+                    <Table>
+                        <TableHeader>
+                            <TableRow>
+                                <TableHead className="w-[100px]"><CalendarDays className="inline-block mr-1 h-4 w-4" />Data</TableHead>
+                                <TableHead>Itens</TableHead>
+                                <TableHead className="text-right">Total</TableHead>
+                            </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                        {sortedEntries.map(entry => (
+                            <TableRow key={entry.id}>
+                                <TableCell className="font-medium align-top">
+                                    <div className="flex flex-col">
+                                        <span>{formatDate(entry.timestamp)}</span>
+                                        <span className="text-xs text-muted-foreground">{formatTime(entry.timestamp)}</span>
                                     </div>
-                                    <div className="text-right">
-                                        <p className="font-mono font-bold text-base text-destructive">{formatCurrency(entry.total)}</p>
-                                        {entry.deliveryFee && entry.deliveryFee > 0 ? (
-                                             <p className="text-xs text-muted-foreground">({formatCurrency(entry.deliveryFee)} entrega)</p>
-                                        ) : null}
-                                    </div>
-                                </div>
-                                <Separator />
-                                <EntryItems entry={entry} />
-                            </CardContent>
-                        </Card>
-                    ))}
-                </div>
-            ) : (
-                <div className="text-center text-muted-foreground py-16">
-                    <p>Nenhum lançamento encontrado para este cliente.</p>
-                </div>
-            )}
+                                </TableCell>
+                                <TableCell className="align-top max-w-[250px]">
+                                    <EntryItems entry={entry} />
+                                    <p className="text-xs text-muted-foreground mt-1 truncate italic">"{entry.originalCommand}"</p>
+                                </TableCell>
+                                <TableCell className="text-right font-mono font-semibold align-top">
+                                    {formatCurrency(entry.total)}
+                                    {entry.deliveryFee && entry.deliveryFee > 0 ? (
+                                        <p className="text-xs text-muted-foreground font-sans font-normal">({formatCurrency(entry.deliveryFee)} entrega)</p>
+                                    ) : null}
+                                </TableCell>
+                            </TableRow>
+                        ))}
+                        </TableBody>
+                    </Table>
+                ) : (
+                    <div className="text-center text-muted-foreground p-16">
+                        <p>Nenhum lançamento encontrado para este cliente.</p>
+                    </div>
+                )}
+                </CardContent>
+            </Card>
         </div>
         </>
     )
