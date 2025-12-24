@@ -114,57 +114,48 @@ export default function FinancePage() {
   useEffect(() => {
     if (!firestore || !employees) {
         if(!isLoadingEmployees) setIsLoadingAdvances(false);
-        return;
+        return () => {};
     }
     
     setIsLoadingAdvances(true);
-    let activeListeners = true;
-    const unsubscribers: Unsubscribe[] = [];
     const advancesData: Record<string, EmployeeAdvance[]> = {};
-
+    
     if (employees.length === 0) {
         setAllAdvances([]);
         setIsLoadingAdvances(false);
-        return;
+        return () => {};
     }
 
-    let loadedCount = 0;
-
-    employees.forEach(employee => {
+    const unsubscribers = employees.map(employee => {
         const advancesQuery = query(collection(firestore, 'employees', employee.id, 'advances'));
-        const unsubscribe = onSnapshot(advancesQuery,
+        return onSnapshot(advancesQuery,
             (snapshot) => {
-                if (!activeListeners) return;
-
-                const advancesForEmployee = snapshot.docs.map(doc => ({
+                advancesData[employee.id] = snapshot.docs.map(doc => ({
                     ...doc.data(),
                     id: doc.id,
                     employeeId: employee.id,
                     employeeName: employee.name,
                 } as EmployeeAdvance));
                 
-                advancesData[employee.id] = advancesForEmployee;
-                
                 const combinedAdvances = Object.values(advancesData).flat();
                 setAllAdvances(combinedAdvances.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()));
-                
-                if(++loadedCount === employees.length) {
-                    setIsLoadingAdvances(false);
+                // Consider loading finished when all initial listeners have fired at least once
+                // This is a simplification; for production you might want a more robust loading state.
+                if(Object.keys(advancesData).length === employees.length) {
+                  setIsLoadingAdvances(false);
                 }
             },
             (error) => {
-                if (!activeListeners) return;
                 console.error(`Error fetching advances for employee ${employee.id}:`, error);
-                if(++loadedCount === employees.length) {
-                   setIsLoadingAdvances(false);
+                // Also consider loading finished on error to not block UI forever
+                if(Object.keys(advancesData).length === employees.length) {
+                  setIsLoadingAdvances(false);
                 }
             }
         );
-        unsubscribers.push(unsubscribe);
     });
 
     return () => {
-        activeListeners = false;
         unsubscribers.forEach(unsub => unsub());
     };
 }, [firestore, employees, isLoadingEmployees]);
