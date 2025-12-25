@@ -3,7 +3,7 @@
 
 import { useState, useMemo } from 'react';
 import { useUser, useFirestore, useCollection, useMemoFirebase } from '@/firebase';
-import { collection } from 'firebase/firestore';
+import { collection, doc, deleteDoc } from 'firebase/firestore';
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 
@@ -24,6 +24,17 @@ import {
   ChartTooltipContent,
 } from "@/components/ui/chart"
 import { PieChart, Pie, Cell, ResponsiveContainer } from "recharts"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { useToast } from '@/hooks/use-toast';
 
 
 import type { DailyReport } from '@/types';
@@ -43,8 +54,11 @@ const getDayName = (date: Date) => {
 export default function ReportsPage() {
   const { user, isUserLoading } = useUser();
   const firestore = useFirestore();
+  const { toast } = useToast();
 
   const [currentMonth, setCurrentMonth] = useState(new Date());
+  const [reportToDelete, setReportToDelete] = useState<string | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   const dailyReportsRef = useMemoFirebase(
     () => (firestore && user ? collection(firestore, 'daily_reports') : null), 
@@ -131,6 +145,26 @@ export default function ReportsPage() {
     )
   }
 
+  const handleDeleteRequest = (reportId: string) => {
+    setReportToDelete(reportId);
+  };
+
+  const confirmDelete = async () => {
+    if (!firestore || !reportToDelete) return;
+
+    setIsDeleting(true);
+    try {
+      await deleteDoc(doc(firestore, "daily_reports", reportToDelete));
+      toast({ title: 'Sucesso', description: 'Relatório excluído.' });
+    } catch (error) {
+      console.error("Error deleting report:", error);
+      toast({ variant: 'destructive', title: 'Erro', description: 'Não foi possível excluir o relatório.' });
+    } finally {
+      setIsDeleting(false);
+      setReportToDelete(null);
+    }
+  };
+
 
   if (isUserLoading || isLoadingReports) {
     return (
@@ -141,123 +175,149 @@ export default function ReportsPage() {
   }
 
   return (
-    <div className="container mx-auto max-w-4xl p-2 sm:p-4 lg:p-8">
-      <header className="mb-6 flex items-center justify-between">
-        <div className="flex items-center gap-4">
-          <Link href="/" passHref>
-            <Button variant="outline" size="icon">
-              <ArrowLeft className="h-4 w-4" />
-            </Button>
-          </Link>
-          <div>
-            <h1 className="text-2xl sm:text-3xl font-bold text-foreground">Relatórios Salvos no Mês</h1>
-            <p className="text-muted-foreground">Detalhes de cada relatório salvo, agrupado por dia.</p>
+    <>
+      <AlertDialog open={!!reportToDelete} onOpenChange={setReportToDelete}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Excluir Relatório?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Esta ação não pode ser desfeita e excluirá permanentemente o relatório diário.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmDelete} disabled={isDeleting}>
+              {isDeleting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              Excluir
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <div className="container mx-auto max-w-4xl p-2 sm:p-4 lg:p-8">
+        <header className="mb-6 flex items-center justify-between">
+          <div className="flex items-center gap-4">
+            <Link href="/" passHref>
+              <Button variant="outline" size="icon">
+                <ArrowLeft className="h-4 w-4" />
+              </Button>
+            </Link>
+            <div>
+              <h1 className="text-2xl sm:text-3xl font-bold text-foreground">Relatórios Salvos no Mês</h1>
+              <p className="text-muted-foreground">Detalhes de cada relatório salvo, agrupado por dia.</p>
+            </div>
           </div>
-        </div>
-      </header>
+        </header>
 
-      <main className="space-y-4">
-        {monthInterval.reverse().map(date => {
-            const dateStr = format(date, 'yyyy-MM-dd');
-            const dayReports = reportsByDay[dateStr];
-            if (!dayReports) return null;
+        <main className="space-y-4">
+          {monthInterval.slice().reverse().map(date => {
+              const dateStr = format(date, 'yyyy-MM-dd');
+              const dayReports = reportsByDay[dateStr] || [];
+              if (dayReports.length === 0) return null;
 
-            const totalDia = dayReports.reduce((sum, report) => sum + (report.totalGeral || 0), 0);
+              const totalDia = dayReports.reduce((sum, report) => sum + (report.totalGeral || 0), 0);
 
-            return (
-                <Card key={dateStr}>
-                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
-                        <div className="flex items-center gap-4">
-                            <div className="text-center">
-                                <p className="text-2xl font-bold">{format(date, 'dd')}</p>
-                                <p className="text-xs uppercase text-muted-foreground">{format(date, 'MMM', { locale: ptBR })}</p>
-                            </div>
-                            <div>
-                                <p className="font-semibold">{getDayName(date)}</p>
-                                <p className="text-sm text-muted-foreground">{format(date, 'dd/MM/yyyy')}</p>
-                            </div>
-                        </div>
-                        <div className="text-right">
-                            <p className="text-xs text-muted-foreground">Total do Dia</p>
-                            <p className="text-xl font-bold text-primary flex items-center gap-1">{formatCurrency(totalDia)} <ArrowUpCircle className="h-4 w-4 text-green-500" /></p>
-                        </div>
-                    </CardHeader>
-                    <CardContent className="pt-0">
-                         <Accordion type="single" collapsible className="w-full">
-                           {dayReports.map((report, index) => (
-                             <AccordionItem value={`item-${index}`} key={report.id + index}>
-                               <AccordionTrigger>
-                                  <div className="flex justify-between items-center w-full pr-4">
-                                      <div className="flex items-center gap-2">
-                                        <p className="font-semibold">Relatório #{index + 1}</p>
-                                        {report.createdAt && (
-                                          <p className="text-sm text-muted-foreground">({format(parseISO(report.createdAt), 'HH:mm:ss')})</p>
-                                        )}
-                                      </div>
-                                      <p className="text-lg font-bold text-primary">{formatCurrency(report.totalGeral)}</p>
-                                  </div>
-                               </AccordionTrigger>
-                               <AccordionContent className="p-2">
-                                  <Card className="bg-card/50 shadow-inner">
-                                    <CardHeader>
-                                      <div className="flex justify-between items-start">
-                                        <div>
-                                            <CardTitle className="text-lg">Detalhes do Relatório #{index + 1}</CardTitle>
-                                            <CardDescription>Faturamento Total: {formatCurrency(report.totalGeral)}</CardDescription>
+              return (
+                  <Card key={dateStr}>
+                      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
+                          <div className="flex items-center gap-4">
+                              <div className="text-center">
+                                  <p className="text-2xl font-bold">{format(date, 'dd')}</p>
+                                  <p className="text-xs uppercase text-muted-foreground">{format(date, 'MMM', { locale: ptBR })}</p>
+                              </div>
+                              <div>
+                                  <p className="font-semibold">{getDayName(date)}</p>
+                                  <p className="text-sm text-muted-foreground">{format(date, 'dd/MM/yyyy')}</p>
+                              </div>
+                          </div>
+                          <div className="text-right">
+                              <p className="text-xs text-muted-foreground">Total do Dia</p>
+                              <p className="text-xl font-bold text-primary flex items-center gap-1">{formatCurrency(totalDia)} <ArrowUpCircle className="h-4 w-4 text-green-500" /></p>
+                          </div>
+                      </CardHeader>
+                      <CardContent className="pt-0">
+                           <Accordion type="single" collapsible className="w-full">
+                             {dayReports.map((report, index) => (
+                               <AccordionItem value={`item-${report.id}-${index}`} key={`${report.id}-${index}`}>
+                                 <AccordionTrigger>
+                                    <div className="flex justify-between items-center w-full pr-4">
+                                        <div className="flex items-center gap-2">
+                                          <p className="font-semibold">Relatório #{index + 1}</p>
+                                          {report.createdAt && (
+                                            <p className="text-sm text-muted-foreground">({format(parseISO(report.createdAt), 'HH:mm:ss')})</p>
+                                          )}
                                         </div>
-                                        <div className="flex items-center -mt-2">
-                                            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={(e) => e.stopPropagation()}><Edit className="h-4 w-4" /></Button>
-                                            <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={(e) => e.stopPropagation()}><Trash2 className="h-4 w-4" /></Button>
+                                        <p className="text-lg font-bold text-primary">{formatCurrency(report.totalGeral)}</p>
+                                    </div>
+                                 </AccordionTrigger>
+                                 <AccordionContent className="p-2">
+                                    <Card className="bg-card/50 shadow-inner">
+                                      <CardHeader>
+                                        <div className="flex justify-between items-start">
+                                          <div>
+                                              <CardTitle className="text-lg">Detalhes do Relatório #{index + 1}</CardTitle>
+                                              <CardDescription>Faturamento Total: {formatCurrency(report.totalGeral)}</CardDescription>
+                                          </div>
+                                          <div className="flex items-center -mt-2">
+                                              <Button variant="ghost" size="icon" className="h-8 w-8" onClick={(e) => { e.stopPropagation(); toast({ variant: 'destructive', title: 'Em breve', description: 'A edição de relatórios será implementada no futuro.'}) }}>
+                                                <Edit className="h-4 w-4" />
+                                              </Button>
+                                              <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={(e) => { e.stopPropagation(); handleDeleteRequest(report.id); }}>
+                                                <Trash2 className="h-4 w-4" />
+                                              </Button>
+                                          </div>
                                         </div>
-                                      </div>
-                                    </CardHeader>
-                                    <CardContent className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                                        <div className="md:col-span-1 space-y-2">
-                                            <h3 className="font-semibold text-center md:text-left">Resumo Financeiro</h3>
-                                             <Separator />
-                                            <div className="space-y-1 text-sm">
-                                                <div className="flex justify-between"><span>À Vista:</span> <span className="font-mono">{formatCurrency(report.totalAVista)}</span></div>
-                                                <div className="flex justify-between text-destructive"><span>Fiado:</span> <span className="font-mono">{formatCurrency(report.totalFiado)}</span></div>
-                                                <Separator className="my-2" />
-                                                <div className="flex justify-between"><span>Taxa Motoboy:</span> <span className="font-mono">{formatCurrency(report.totalTaxas)}</span></div>
-                                                <div className="flex justify-between"><span>Total Itens:</span> <span className="font-mono">{report.totalItens || 0}</span></div>
-                                                <div className="flex justify-between"><span>Total Pedidos:</span> <span className="font-mono">{report.totalPedidos || 0}</span></div>
-                                            </div>
-                                        </div>
-                                        <div className="md:col-span-2 grid grid-cols-1 sm:grid-cols-2 gap-4">
-                                            <div className="space-y-2">
-                                                {renderItemCounts(report)}
-                                            </div>
-                                            <div className="space-y-2">
-                                                 <h3 className="font-semibold text-center">Proporção de Vendas</h3>
-                                                 <Separator />
-                                                 <ProportionChart report={report}/>
-                                            </div>
-                                        </div>
-                                    </CardContent>
-                                  </Card>
-                               </AccordionContent>
-                             </AccordionItem>
-                           ))}
-                         </Accordion>
-                    </CardContent>
-                </Card>
-            )
-        })}
-        
-        <Card>
-            <CardHeader>
-                <CardTitle>Gerenciamento de Dados</CardTitle>
-                <CardDescription>Ações que afetam todo o histórico de vendas.</CardDescription>
-            </CardHeader>
-            <CardContent>
-                <Button variant="destructive">
-                    <Trash2 className="mr-2 h-4 w-4" />
-                    Limpar Histórico Completo
-                </Button>
-            </CardContent>
-        </Card>
-      </main>
-    </div>
+                                      </CardHeader>
+                                      <CardContent className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                                          <div className="md:col-span-1 space-y-2">
+                                              <h3 className="font-semibold text-center md:text-left">Resumo Financeiro</h3>
+                                               <Separator />
+                                              <div className="space-y-1 text-sm">
+                                                  <div className="flex justify-between"><span>À Vista:</span> <span className="font-mono">{formatCurrency(report.totalAVista)}</span></div>
+                                                  <div className="flex justify-between text-destructive"><span>Fiado:</span> <span className="font-mono">{formatCurrency(report.totalFiado)}</span></div>
+                                                  <Separator className="my-2" />
+                                                  <div className="flex justify-between"><span>Taxa Motoboy:</span> <span className="font-mono">{formatCurrency(report.totalTaxas)}</span></div>
+                                                  <div className="flex justify-between"><span>Total Itens:</span> <span className="font-mono">{report.totalItens || 0}</span></div>
+                                                  <div className="flex justify-between"><span>Total Pedidos:</span> <span className="font-mono">{report.totalPedidos || 0}</span></div>
+                                              </div>
+                                          </div>
+                                          <div className="md:col-span-2 grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                              <div className="space-y-2">
+                                                  {renderItemCounts(report)}
+                                              </div>
+                                              <div className="space-y-2">
+                                                   <h3 className="font-semibold text-center">Proporção de Vendas</h3>
+                                                   <Separator />
+                                                   <ProportionChart report={report}/>
+                                              </div>
+                                          </div>
+                                      </CardContent>
+                                    </Card>
+                                 </AccordionContent>
+                               </AccordionItem>
+                             ))}
+                           </Accordion>
+                      </CardContent>
+                  </Card>
+              )
+          })}
+          
+          <Card>
+              <CardHeader>
+                  <CardTitle>Gerenciamento de Dados</CardTitle>
+                  <CardDescription>Ações que afetam todo o histórico de vendas.</CardDescription>
+              </CardHeader>
+              <CardContent>
+                  <Button variant="destructive" onClick={() => toast({ variant: 'destructive', title: 'Em breve', description: 'A limpeza completa do histórico será implementada no futuro.'})}>
+                      <Trash2 className="mr-2 h-4 w-4" />
+                      Limpar Histórico Completo
+                  </Button>
+              </CardContent>
+          </Card>
+        </main>
+      </div>
+    </>
   );
 }
+
+    
