@@ -90,7 +90,7 @@ export default function ReportsPage() {
           <PieChart>
             <ChartTooltip
               cursor={false}
-              content={<ChartTooltipContent hideLabel />}
+              content={<ChartTooltipContent hideLabel formatter={(value, name) => `${name}: ${formatCurrency(value as number)}`} />}
             />
             <Pie
               data={chartData}
@@ -117,19 +117,14 @@ export default function ReportsPage() {
     };
     
     return (
-        <div className="grid grid-cols-2 gap-4 text-sm">
+        <div className="grid grid-cols-1 gap-4 text-sm">
             <div>
-                <h4 className="font-semibold mb-1">Total</h4>
-                <ul>
-                    {counts.totalMarmitas > 0 && <li>Marmitas: {counts.totalMarmitas}</li>}
-                    {counts.totalKg > 0 && <li>KG: {counts.totalKg}</li>}
-                    {counts.totalBomboniere > 0 && <li>Bomboniere: {counts.totalBomboniere}</li>}
-                </ul>
-            </div>
-             <div>
-                <h4 className="font-semibold mb-1">Rua</h4>
-                 <ul>
-                    {/* Placeholder */}
+                <h4 className="font-semibold mb-1">Contagem de Itens</h4>
+                <Separator/>
+                <ul className="mt-2 space-y-1">
+                    {counts.totalMarmitas > 0 && <li className="flex justify-between"><span>Marmitas:</span> <span>{counts.totalMarmitas}</span></li>}
+                    {counts.totalKg > 0 && <li className="flex justify-between"><span>KG:</span> <span>{counts.totalKg}</span></li>}
+                    {counts.totalBomboniere > 0 && <li className="flex justify-between"><span>Bomboniere:</span> <span>{counts.totalBomboniere}</span></li>}
                 </ul>
             </div>
         </div>
@@ -171,7 +166,7 @@ export default function ReportsPage() {
 
             return (
                 <Card key={dateStr}>
-                    <CardHeader className="flex flex-row items-center justify-between space-y-0">
+                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
                         <div className="flex items-center gap-4">
                             <div className="text-center">
                                 <p className="text-2xl font-bold">{format(date, 'dd')}</p>
@@ -187,7 +182,7 @@ export default function ReportsPage() {
                             <p className="text-xl font-bold text-primary flex items-center gap-1">{formatCurrency(totalDia)} <ArrowUpCircle className="h-4 w-4 text-green-500" /></p>
                         </div>
                     </CardHeader>
-                    <CardContent>
+                    <CardContent className="pt-0">
                          <Accordion type="single" collapsible className="w-full">
                            {dayReports.map((report, index) => (
                              <AccordionItem value={`item-${index}`} key={report.id + index}>
@@ -203,40 +198,34 @@ export default function ReportsPage() {
                                   </div>
                                </AccordionTrigger>
                                <AccordionContent className="p-2">
-                                  <Card className="bg-card/50">
+                                  <Card className="bg-card/50 shadow-inner">
                                     <CardHeader>
                                       <div className="flex justify-between items-start">
                                         <div>
-                                            <CardTitle className="text-lg">Relatório #{index + 1} - FATURAMENTO</CardTitle>
-                                            <CardDescription>{formatCurrency(report.totalGeral)}</CardDescription>
+                                            <CardTitle className="text-lg">Detalhes do Relatório #{index + 1}</CardTitle>
+                                            <CardDescription>Faturamento Total: {formatCurrency(report.totalGeral)}</CardDescription>
                                         </div>
                                         <div className="flex items-center -mt-2">
-                                            <Button variant="ghost" size="icon" className="h-8 w-8"><Edit className="h-4 w-4" /></Button>
-                                            <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive"><Trash2 className="h-4 w-4" /></Button>
+                                            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={(e) => e.stopPropagation()}><Edit className="h-4 w-4" /></Button>
+                                            <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={(e) => e.stopPropagation()}><Trash2 className="h-4 w-4" /></Button>
                                         </div>
                                       </div>
                                     </CardHeader>
                                     <CardContent className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                                        {/* Resumo Financeiro */}
                                         <div className="md:col-span-1 space-y-2">
                                             <h3 className="font-semibold text-center md:text-left">Resumo Financeiro</h3>
                                              <Separator />
                                             <div className="space-y-1 text-sm">
-                                                <div className="flex justify-between"><span>Vendas Salão:</span> <span className="font-mono">{formatCurrency((report.totalAVista || 0) - (report.totalTaxas || 0))}</span></div>
-                                                <div className="flex justify-between"><span>Vendas Rua:</span> <span className="font-mono">{formatCurrency(0)}</span></div>
-                                                <div className="flex justify-between text-destructive"><span>Fiado Salão:</span> <span className="font-mono">{formatCurrency(report.totalFiado)}</span></div>
-                                                <div className="flex justify-between text-destructive"><span>Fiado Rua:</span> <span className="font-mono">{formatCurrency(0)}</span></div>
-                                                 <Separator className="my-2" />
-                                                <div className="flex justify-between"><span>Total Outros (O):</span> <span className="font-mono">{formatCurrency(report.totalBomboniere)}</span></div>
-                                                <div className="flex justify-between"><span>Taxa p/ Motoboy:</span> <span className="font-mono">{formatCurrency(report.totalTaxas)}</span></div>
-                                                <div className="flex justify-between"><span>Total de Entregas:</span> <span className="font-mono">{report.totalPedidos > 0 ? '1' : '0'}</span></div>
+                                                <div className="flex justify-between"><span>À Vista:</span> <span className="font-mono">{formatCurrency(report.totalAVista)}</span></div>
+                                                <div className="flex justify-between text-destructive"><span>Fiado:</span> <span className="font-mono">{formatCurrency(report.totalFiado)}</span></div>
+                                                <Separator className="my-2" />
+                                                <div className="flex justify-between"><span>Taxa Motoboy:</span> <span className="font-mono">{formatCurrency(report.totalTaxas)}</span></div>
+                                                <div className="flex justify-between"><span>Total Itens:</span> <span className="font-mono">{report.totalItens || 0}</span></div>
+                                                <div className="flex justify-between"><span>Total Pedidos:</span> <span className="font-mono">{report.totalPedidos || 0}</span></div>
                                             </div>
                                         </div>
-                                        {/* Contagem e Proporção */}
                                         <div className="md:col-span-2 grid grid-cols-1 sm:grid-cols-2 gap-4">
                                             <div className="space-y-2">
-                                                <h3 className="font-semibold text-center">Contagem de Itens</h3>
-                                                <Separator/>
                                                 {renderItemCounts(report)}
                                             </div>
                                             <div className="space-y-2">
@@ -272,3 +261,5 @@ export default function ReportsPage() {
     </div>
   );
 }
+
+    
