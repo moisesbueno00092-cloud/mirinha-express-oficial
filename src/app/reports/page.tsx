@@ -203,8 +203,8 @@ export default function ReportsPage() {
                                       </div>
                                       <div className="flex items-center gap-2">
                                         <p className="text-lg font-bold text-primary">{formatCurrency(report.totalGeral)}</p>
-                                         <Button variant="ghost" size="icon" className="h-8 w-8"><Edit className="h-4 w-4" /></Button>
-                                         <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive"><Trash2 className="h-4 w-4" /></Button>
+                                         <Button variant="ghost" size="icon" className="h-8 w-8" onClick={(e) => e.stopPropagation()}><Edit className="h-4 w-4" /></Button>
+                                         <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={(e) => e.stopPropagation()}><Trash2 className="h-4 w-4" /></Button>
                                       </div>
                                   </div>
                                </AccordionTrigger>
