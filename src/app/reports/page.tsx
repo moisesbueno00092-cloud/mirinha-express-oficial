@@ -26,7 +26,7 @@ import {
 import { PieChart, Pie, Cell, ResponsiveContainer } from "recharts"
 
 
-import type { DailyReport, Item } from '@/types';
+import type { DailyReport } from '@/types';
 
 
 const formatCurrency = (value: number) => {
@@ -116,8 +116,6 @@ export default function ReportsPage() {
         totalBomboniere: report.totalBomboniere,
     };
     
-    // In a real scenario, you'd calculate Rua counts from items,
-    // but for this example, we'll just show total.
     return (
         <div className="grid grid-cols-2 gap-4 text-sm">
             <div>
