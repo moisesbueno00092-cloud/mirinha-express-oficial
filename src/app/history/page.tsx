@@ -115,17 +115,21 @@ export default function HistoryPage() {
       else if (group === 'Fiados rua') totalFiadoRua += item.total || 0;
 
       totalTaxas += item.deliveryFee || 0;
-      if (item.deliveryFee > 0) totalEntregas += 1;
+      if (item.deliveryFee > 0 || group.includes('rua')) totalEntregas += 1;
 
       // Item Counts
       const processItemCounts = (itemSource: { name: string }[], isRua: boolean) => {
         itemSource.forEach(p => {
           const name = p.name;
-          contagemTotal[name] = (contagemTotal[name] || 0) + 1;
-          totalGeralItens += 1;
+          const countMatch = name.match(/^(\d+)/);
+          const baseName = name.replace(/^\d+/, '');
+          const quantity = countMatch ? parseInt(countMatch[1], 10) : 1;
+          
+          contagemTotal[baseName] = (contagemTotal[baseName] || 0) + quantity;
+          totalGeralItens += quantity;
           if (isRua) {
-            contagemRua[name] = (contagemRua[name] || 0) + 1;
-            totalItensRua += 1;
+            contagemRua[baseName] = (contagemRua[baseName] || 0) + quantity;
+            totalItensRua += quantity;
           }
         });
       };
@@ -147,7 +151,9 @@ export default function HistoryPage() {
       }
     });
 
-    const faturamentoTotal = totalVendasSalao + totalVendasRua + totalFiadoSalao + totalFiadoRua;
+    const faturamentoTotal = totalVendasSalao + totalVendasRua + totalFiadoSalao + totalFiadoRua + totalOutros + totalKgValue;
+    totalGeralItens += items.filter(i => i.individualPrices && i.individualPrices.length > 0).length;
+    totalItensRua += items.filter(i => i.individualPrices && i.individualPrices.length > 0 && i.group.includes('rua')).length;
 
     return {
       faturamentoTotal,
