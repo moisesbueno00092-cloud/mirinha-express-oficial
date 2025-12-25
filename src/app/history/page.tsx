@@ -2,8 +2,8 @@
 'use client';
 
 import { useState, useMemo } from 'react';
-import { useUser, useFirestore, useMemoFirebase } from '@/firebase';
-import { collection, query, where, getDocs, doc, setDoc, getDoc } from 'firebase/firestore';
+import { useUser, useFirestore } from '@/firebase';
+import { collection, query, where, getDocs, doc, setDoc, getDoc, serverTimestamp } from 'firebase/firestore';
 import type { Item, DailyReport } from '@/types';
 import { format } from 'date-fns';
 
@@ -38,11 +38,6 @@ export default function HistoryPage() {
   const [isOverwriteConfirmOpen, setOverwriteConfirmOpen] = useState(false);
   const [pendingReport, setPendingReport] = useState<DailyReport | null>(null);
 
-  const reportId = useMemo(() => {
-    if (!selectedDate) return null;
-    return format(selectedDate, 'yyyy-MM-dd');
-  }, [selectedDate]);
-
   const handleGenerateReport = async () => {
     if (!firestore || !user || !selectedDate) {
       toast({ variant: 'destructive', title: 'Erro', description: 'Selecione uma data e tente novamente.' });
@@ -53,7 +48,8 @@ export default function HistoryPage() {
 
     try {
       const reportDate = format(selectedDate, 'yyyy-MM-dd');
-      const reportDocId = `${user.uid}_${reportDate}`;
+      // CORRECÇÃO: O ID do relatório é apenas a data.
+      const reportDocId = reportDate;
       const reportRef = doc(firestore, 'daily_reports', reportDocId);
 
       const startOfDay = new Date(new Date(selectedDate).setHours(0, 0, 0, 0)).toISOString();
@@ -91,6 +87,7 @@ export default function HistoryPage() {
       const total = totalAVista + totalFiadoRua + totalFiadoSalao;
 
       const newReportData: DailyReport = {
+        // CORRECÇÃO: O ID no objeto do relatório também deve ser apenas a data.
         id: reportDocId,
         userId: user.uid,
         totalAVista,
@@ -119,7 +116,8 @@ export default function HistoryPage() {
   const saveReport = async (reportToSave: DailyReport) => {
     if (!firestore) return;
     const reportRef = doc(firestore, 'daily_reports', reportToSave.id);
-    await setDoc(reportRef, reportToSave);
+    // Usar `setDoc` com merge pode ser útil, mas aqui a intenção é substituir.
+    await setDoc(reportRef, reportToSave); 
     setReport(reportToSave);
     toast({ title: 'Relatório Gerado', description: 'O relatório foi processado com sucesso.' });
     setIsLoading(false);
@@ -127,10 +125,17 @@ export default function HistoryPage() {
 
   const handleConfirmOverwrite = async () => {
     if (pendingReport) {
+        setIsLoading(true); // Mostrar loading durante a gravação
         await saveReport(pendingReport);
     }
     setOverwriteConfirmOpen(false);
     setPendingReport(null);
+  }
+  
+  const handleCancelOverwrite = () => {
+      setOverwriteConfirmOpen(false);
+      setPendingReport(null);
+      setIsLoading(false); // Parar o loading se o utilizador cancelar
   }
 
   if (isUserLoading) {
@@ -152,11 +157,7 @@ export default function HistoryPage() {
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel onClick={() => {
-              setOverwriteConfirmOpen(false);
-              setPendingReport(null);
-              setIsLoading(false);
-            }}>Cancelar</AlertDialogCancel>
+            <AlertDialogCancel onClick={handleCancelOverwrite}>Cancelar</AlertDialogCancel>
             <AlertDialogAction onClick={handleConfirmOverwrite}>Substituir</AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
