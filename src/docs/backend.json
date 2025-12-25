@@ -80,6 +80,29 @@
         "stock": { "type": "number" }
       },
       "required": ["name", "price", "stock"]
+    },
+    "DailyReport": {
+      "title": "Daily Report",
+      "description": "Represents a consolidated daily sales report.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "The date of the report in YYYY-MM-DD format." },
+        "userId": { "type": "string" },
+        "totalAVista": { "type": "number" },
+        "totalFiado": { "type": "number" },
+        "totalGeral": { "type": "number" },
+        "totalMarmitas": { "type": "number" },
+        "totalKg": { "type": "number" },
+        "totalBomboniere": { "type": "number" },
+        "totalTaxas": { "type": "number" },
+        "totalItens": { "type": "number" },
+        "totalPedidos": { "type": "number" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": [
+        "id", "userId", "totalAVista", "totalFiado", "totalGeral", "totalMarmitas", "totalKg", 
+        "totalBomboniere", "totalTaxas", "totalItens", "totalPedidos", "createdAt"
+      ]
     }
   },
   "auth": {
@@ -125,6 +148,16 @@
             "$ref": "#/backend/entities/BomboniereItem"
           },
           "description": "Shared list of bomboniere items."
+        }
+      },
+      {
+        "path": "/daily_reports/{reportId}",
+        "definition": {
+            "entityName": "DailyReport",
+            "schema": {
+                "$ref": "#/backend/entities/DailyReport"
+            },
+            "description": "Stores consolidated daily sales reports."
         }
       }
     ]

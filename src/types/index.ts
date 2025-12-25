@@ -48,3 +48,20 @@ export interface FavoriteClient {
   name: string;
   command: string;
 }
+
+export interface DailyReport {
+  id: string; // YYYY-MM-DD
+  userId: string;
+  totalAVista: number;
+  totalFiado: number;
+
+  totalGeral: number;
+  totalMarmitas: number;
+  totalKg: number;
+  totalBomboniere: number;
+  totalTaxas: number;
+  
+  totalItens: number;
+  totalPedidos: number;
+  createdAt: string; // ISO String
+}
