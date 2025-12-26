@@ -46,7 +46,6 @@ import FavoritesMenu from "@/components/favorites-menu";
 import { createUserWithEmailAndPassword, signInWithEmailAndPassword } from "firebase/auth";
 import { format, startOfDay, endOfDay, isWithinInterval } from "date-fns";
 import { Separator } from "@/components/ui/separator";
-import DailyTimelineChart from "@/components/daily-timeline-chart";
 
 const formatCurrency = (value: number) => {
   return new Intl.NumberFormat("pt-BR", {
@@ -535,10 +534,13 @@ export default function Home() {
       totalTaxas += item.deliveryFee || 0;
       if (item.deliveryFee > 0 || group.includes('rua')) totalEntregas += 1;
 
-      const processItemCounts = (itemSource: { name: string, quantity: number }[], isRua: boolean) => {
+      const processItemCounts = (itemSource: { name: string, quantity: number, isPredefined?: boolean }[], isRua: boolean) => {
         const targetCount = isRua ? contagemRua : contagemTotal;
         itemSource.forEach(p => {
-          const name = p.name.toUpperCase().replace(/^\d+/, '').replace(/\s+/g, '');
+          let name = p.name;
+          if (p.isPredefined) {
+             name = p.name.toUpperCase().replace(/^\d+/, '');
+          }
           targetCount[name] = (targetCount[name] || 0) + p.quantity;
         });
       };
@@ -546,10 +548,10 @@ export default function Home() {
       const isRua = group.includes('rua');
       
       if (item.predefinedItems) {
-        const aggregatedPredefined: { [key:string]: {name: string, quantity: number} } = {};
+        const aggregatedPredefined: { [key:string]: {name: string, quantity: number, isPredefined: boolean} } = {};
         item.predefinedItems.forEach(p => {
             if (!aggregatedPredefined[p.name]) {
-                aggregatedPredefined[p.name] = { name: p.name, quantity: 0 };
+                aggregatedPredefined[p.name] = { name: p.name, quantity: 0, isPredefined: true };
             }
             aggregatedPredefined[p.name].quantity++;
         });
@@ -557,12 +559,13 @@ export default function Home() {
       }
       
       if (item.individualPrices) {
-        processItemCounts([{ name: 'KG', quantity: item.individualPrices.length }], isRua);
+        processItemCounts([{ name: 'KG', quantity: item.individualPrices.length, isPredefined: true }], isRua);
         item.individualPrices.forEach(price => totalKgValue += price);
       }
       
       if (item.bomboniereItems) {
-        processItemCounts(item.bomboniereItems, isRua);
+        const bomboniereForCount = item.bomboniereItems.map(b => ({ ...b, isPredefined: false }));
+        processItemCounts(bomboniereForCount, isRua);
         item.bomboniereItems.forEach(b => {
           const bomboniereValue = b.price * b.quantity;
           if (isRua) {
@@ -618,7 +621,7 @@ export default function Home() {
       totalItensRua: reportData.totalItensRua,
       contagemTotal: reportData.contagemTotal,
       contagemRua: reportData.contagemRua,
-      items: items, // Save the full items array
+      items: items,
     };
 
     try {
@@ -904,6 +907,8 @@ export default function Home() {
     </>
   );
 }
+
+    
 
     
 
