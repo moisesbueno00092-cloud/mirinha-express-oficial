@@ -781,61 +781,42 @@ export default function Home() {
             </CardContent>
           </Card>
         </main>
+
+        <div className="mt-8 flex flex-col gap-2 md:flex-row md:items-end md:justify-end mb-24">
+            <Button 
+                onClick={handleSaveReport}
+                disabled={isSavingReport || isLoadingItems || items.length === 0}
+                className="w-full md:w-auto"
+            >
+                {isSavingReport ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
+                Salvar Relatório Final
+            </Button>
+            <Link href="/reports" className="w-full md:w-auto">
+                <Button variant="outline" className="w-full">
+                    <History className="mr-2 h-4 w-4" />
+                    Ver Relatórios Salvos
+                </Button>
+            </Link>
+        </div>
       </div>
 
-      {/* Static Action Buttons Block */}
-      <div className="container mx-auto max-w-4xl p-2 sm:p-4 lg:p-8 pt-0 mb-24">
-          <div className="mt-8 flex flex-col md:flex-row md:items-end md:justify-end gap-2">
-              <Button 
-                  onClick={handleSaveReport}
-                  disabled={isSavingReport || isLoadingItems || items.length === 0}
-                  className="w-full md:w-auto"
-              >
-                  {isSavingReport ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
-                  Salvar Relatório Final
-              </Button>
-              <Link href="/reports" className="w-full md:w-auto">
-                  <Button variant="outline" className="w-full">
-                      <History className="mr-2 h-4 w-4" />
-                      Ver Relatórios Salvos
-                  </Button>
-              </Link>
-          </div>
-      </div>
-
-      {/* Floating Summary Footer */}
       <footer className="fixed bottom-0 left-0 right-0 z-10 border-t bg-background/95 backdrop-blur-sm">
-        <div className="container mx-auto grid max-w-4xl grid-cols-3 items-center gap-4 p-3 text-xs sm:text-sm">
-          {/* Vendas Section */}
-          <div className="flex flex-col gap-1">
-            <div className="flex justify-between">
-              <span className="text-muted-foreground">À Vista:</span>
-              <span className="font-bold text-foreground">{formatCurrency(summary.totalAVista)}</span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-muted-foreground">Fiado:</span>
-              <span className="font-bold text-destructive">{formatCurrency(summary.totalFiado)}</span>
-            </div>
+        <div className="container mx-auto grid max-w-4xl grid-cols-4 items-center gap-2 p-3 text-center text-xs sm:grid-cols-4 sm:gap-4 sm:p-3 sm:text-sm">
+          <div className="flex flex-col">
+            <span className="text-muted-foreground">À Vista</span>
+            <span className="font-bold text-foreground">{formatCurrency(summary.totalAVista)}</span>
           </div>
-
-          <Separator orientation="vertical" className="h-10" />
-
-          {/* Entregas Section */}
-          <div className="flex flex-col gap-1">
-             <div className="flex justify-between">
-              <span className="text-muted-foreground">Nº Entregas:</span>
-              <span className="font-bold text-foreground">{summary.totalEntregas}</span>
-            </div>
-             <div className="flex justify-between">
-              <span className="text-muted-foreground">Valor Taxas:</span>
-              <span className="font-bold text-foreground">{formatCurrency(summary.totalTaxas)}</span>
-            </div>
+          <div className="flex flex-col">
+            <span className="text-muted-foreground">Fiado</span>
+            <span className="font-bold text-destructive">{formatCurrency(summary.totalFiado)}</span>
           </div>
-
-          {/* Faturamento Section (now occupies the last column) */}
-          <div className="flex flex-col items-center justify-center rounded-lg bg-primary/10 p-2">
-            <span className="text-xs font-semibold uppercase tracking-wider text-primary/80">Faturamento do Dia</span>
-            <p className="text-lg font-bold text-primary sm:text-xl">{formatCurrency(summary.total)}</p>
+          <div className="flex flex-col">
+            <span className="text-muted-foreground">Taxas</span>
+            <span className="font-bold text-foreground">{formatCurrency(summary.totalTaxas)}</span>
+          </div>
+          <div className="flex flex-col rounded-lg bg-primary/10 p-2">
+            <span className="text-xs font-semibold uppercase tracking-wider text-primary/80">Total</span>
+            <span className="text-lg font-bold text-primary sm:text-xl">{formatCurrency(summary.total)}</span>
           </div>
         </div>
       </footer>
