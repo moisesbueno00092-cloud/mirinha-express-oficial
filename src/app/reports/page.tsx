@@ -168,16 +168,16 @@ const ReportDetail = ({ report }: { report: DailyReport }) => {
               <div>
                   <h3 className="font-semibold mb-2">Contagem de Itens</h3>
                   <div className="grid grid-cols-2 gap-4">
-                      <div>
-                          <h4 className="font-medium text-xs text-muted-foreground mb-1">Salão</h4>
-                          {renderItemCountList(lanchesSalao)}
-                          {renderItemCountList(bomboniereSalao, "Bomboniere")}
-                      </div>
-                      <div>
-                          <h4 className="font-medium text-xs text-muted-foreground mb-1">Rua</h4>
-                          {renderItemCountList(lanchesRua)}
-                          {renderItemCountList(bomboniereRua, "Bomboniere")}
-                      </div>
+                        <div>
+                            <h4 className="font-medium text-xs text-muted-foreground mb-1">Salão</h4>
+                            {renderItemCountList(lanchesSalao)}
+                            {renderItemCountList(bomboniereSalao, "Bomboniere")}
+                        </div>
+                        <div>
+                            <h4 className="font-medium text-xs text-muted-foreground mb-1">Rua</h4>
+                            {renderItemCountList(lanchesRua)}
+                            {renderItemCountList(bomboniereRua, "Bomboniere")}
+                        </div>
                   </div>
               </div>
               <Separator />
