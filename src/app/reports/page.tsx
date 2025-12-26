@@ -256,11 +256,11 @@ export default function ReportsPage() {
                 <AccordionItem value={report.id} key={report.id}>
                     <div className="flex w-full items-center">
                         <AccordionTrigger className="flex-1 py-4 pr-2 font-semibold text-lg hover:no-underline">
-                            <div className="flex w-full items-center justify-between gap-4">
-                                <span className="text-left">
+                            <div className="flex w-full items-center justify-between">
+                                <span>
                                     {format(new Date(report.reportDate + 'T12:00:00'), "dd 'de' MMMM 'de' yyyy", { locale: ptBR })}
                                 </span>
-                                <span className="text-primary font-bold text-right">
+                                <span className="text-primary font-bold">
                                     {formatCurrency(report.totalGeral)}
                                 </span>
                             </div>
