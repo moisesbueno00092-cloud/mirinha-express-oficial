@@ -39,6 +39,7 @@ import {
 import { PieChart, Pie, Cell, ResponsiveContainer } from "recharts"
 
 import type { DailyReport, ItemCount } from '@/types';
+import DailyTimelineChart from '@/components/daily-timeline-chart';
 
 const formatCurrency = (value: number | undefined | null) => {
     return new Intl.NumberFormat("pt-BR", {
@@ -124,74 +125,84 @@ export default function ReportsPage() {
                   <p className="text-3xl font-bold text-primary">{formatCurrency(report.totalGeral)}</p>
               </div>
           </CardHeader>
-          <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-8">
-            <div className="space-y-4">
-              <div>
-                <h3 className="font-semibold mb-2">Resumo Financeiro</h3>
-                <div className="space-y-1 text-sm">
-                  <div className="flex justify-between items-center"><span className="text-primary">Vendas Salão:</span> <span className="font-mono">{formatCurrency(report.totalVendasSalao)}</span></div>
-                  <div className="flex justify-between items-center"><span className="text-primary">Vendas Rua:</span> <span className="font-mono">{formatCurrency(report.totalVendasRua)}</span></div>
-                  <div className="flex justify-between items-center"><span className="text-destructive">Fiado Salão:</span> <span className="font-mono">{formatCurrency(report.totalFiadoSalao)}</span></div>
-                  <div className="flex justify-between items-center"><span className="text-destructive">Fiado Rua:</span> <span className="font-mono">{formatCurrency(report.totalFiadoRua)}</span></div>
-                </div>
-              </div>
-              <Separator/>
-               <div>
-                <div className="space-y-1 text-sm">
-                  <div className="flex justify-between items-center"><span>Bomboniere (Salão):</span> <span className="font-mono">{formatCurrency(report.totalBomboniereSalao)}</span></div>
-                  <div className="flex justify-between items-center"><span>Bomboniere (Rua):</span> <span className="font-mono">{formatCurrency(report.totalBomboniereRua)}</span></div>
-                  <div className="flex justify-between items-center"><span>Total KG:</span> <span className="font-mono">{formatCurrency(report.totalKg)}</span></div>
-                </div>
-              </div>
-              <Separator/>
-               <div>
-                <div className="space-y-1 text-sm">
-                  <div className="flex justify-between items-center text-muted-foreground"><span>Total Entregas:</span> <span className="font-mono font-bold text-foreground">{report.totalEntregas || 0} ({formatCurrency(report.totalTaxas)})</span></div>
-                  <div className="flex justify-between items-center text-muted-foreground"><span>Total Geral (Itens):</span> <span className="font-mono font-bold text-foreground">{report.totalItens || 0}</span></div>
-                  <div className="flex justify-between items-center text-muted-foreground"><span>Total Itens (Rua):</span> <span className="font-mono font-bold text-foreground">{report.totalItensRua || 0}</span></div>
-                </div>
-              </div>
-            </div>
-
-            <div className="space-y-4">
-               <div>
-                  <h3 className="font-semibold mb-2">Contagem de Itens</h3>
-                  <div className="grid grid-cols-2 gap-4">
-                      <div>
-                          <h4 className="font-medium text-xs text-muted-foreground mb-1">Salão</h4>
-                          {renderItemCountList(report.contagemTotal || {})}
-                      </div>
-                      <div>
-                          <h4 className="font-medium text-xs text-muted-foreground mb-1">Rua</h4>
-                          {renderItemCountList(report.contagemRua || {})}
-                      </div>
+          <CardContent className="space-y-8">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+              <div className="space-y-4">
+                <div>
+                  <h3 className="font-semibold mb-2">Resumo Financeiro</h3>
+                  <div className="space-y-1 text-sm">
+                    <div className="flex justify-between items-center"><span className="text-primary">Vendas Salão:</span> <span className="font-mono">{formatCurrency(report.totalVendasSalao)}</span></div>
+                    <div className="flex justify-between items-center"><span className="text-primary">Vendas Rua:</span> <span className="font-mono">{formatCurrency(report.totalVendasRua)}</span></div>
+                    <div className="flex justify-between items-center"><span className="text-destructive">Fiado Salão:</span> <span className="font-mono">{formatCurrency(report.totalFiadoSalao)}</span></div>
+                    <div className="flex justify-between items-center"><span className="text-destructive">Fiado Rua:</span> <span className="font-mono">{formatCurrency(report.totalFiadoRua)}</span></div>
                   </div>
+                </div>
+                <Separator/>
+                <div>
+                  <div className="space-y-1 text-sm">
+                    <div className="flex justify-between items-center"><span>Bomboniere (Salão):</span> <span className="font-mono">{formatCurrency(report.totalBomboniereSalao)}</span></div>
+                    <div className="flex justify-between items-center"><span>Bomboniere (Rua):</span> <span className="font-mono">{formatCurrency(report.totalBomboniereRua)}</span></div>
+                    <div className="flex justify-between items-center"><span>Total KG:</span> <span className="font-mono">{formatCurrency(report.totalKg)}</span></div>
+                  </div>
+                </div>
+                <Separator/>
+                <div>
+                  <div className="space-y-1 text-sm">
+                    <div className="flex justify-between items-center text-muted-foreground"><span>Total Entregas:</span> <span className="font-mono font-bold text-foreground">{report.totalEntregas || 0} ({formatCurrency(report.totalTaxas)})</span></div>
+                    <div className="flex justify-between items-center text-muted-foreground"><span>Total Geral (Itens):</span> <span className="font-mono font-bold text-foreground">{report.totalItens || 0}</span></div>
+                    <div className="flex justify-between items-center text-muted-foreground"><span>Total Itens (Rua):</span> <span className="font-mono font-bold text-foreground">{report.totalItensRua || 0}</span></div>
+                  </div>
+                </div>
               </div>
-              <Separator />
-              <div>
-                  <h3 className="font-semibold mb-2">Proporção de Vendas</h3>
-                   <ChartContainer config={chartConfig} className="mx-auto aspect-square h-[180px]">
-                      <ResponsiveContainer width="100%" height="100%">
-                          <PieChart>
-                              <ChartTooltip
-                              cursor={false}
-                              content={<ChartTooltipContent hideLabel formatter={(value, name, item) => (
-                                  <div className="flex flex-col">
-                                      <span>{item.payload.name}</span>
-                                      <span className="font-bold">{formatCurrency(value as number)}</span>
-                                  </div>
-                              )} />}
-                              />
-                              <Pie data={chartData} dataKey="value" nameKey="name" innerRadius={40} strokeWidth={2}>
-                              {chartData.map((entry) => (
-                                  <Cell key={`cell-${entry.name}`} fill={entry.fill} />
-                              ))}
-                              </Pie>
-                          </PieChart>
-                      </ResponsiveContainer>
-                  </ChartContainer>
+
+              <div className="space-y-4">
+                <div>
+                    <h3 className="font-semibold mb-2">Contagem de Itens</h3>
+                    <div className="grid grid-cols-2 gap-4">
+                        <div>
+                            <h4 className="font-medium text-xs text-muted-foreground mb-1">Salão</h4>
+                            {renderItemCountList(report.contagemTotal || {})}
+                        </div>
+                        <div>
+                            <h4 className="font-medium text-xs text-muted-foreground mb-1">Rua</h4>
+                            {renderItemCountList(report.contagemRua || {})}
+                        </div>
+                    </div>
+                </div>
+                <Separator />
+                <div>
+                    <h3 className="font-semibold mb-2">Proporção de Vendas</h3>
+                    <ChartContainer config={chartConfig} className="mx-auto aspect-square h-[180px]">
+                        <ResponsiveContainer width="100%" height="100%">
+                            <PieChart>
+                                <ChartTooltip
+                                cursor={false}
+                                content={<ChartTooltipContent hideLabel formatter={(value, name, item) => (
+                                    <div className="flex flex-col">
+                                        <span>{item.payload.name}</span>
+                                        <span className="font-bold">{formatCurrency(value as number)}</span>
+                                    </div>
+                                )} />}
+                                />
+                                <Pie data={chartData} dataKey="value" nameKey="name" innerRadius={40} strokeWidth={2}>
+                                {chartData.map((entry) => (
+                                    <Cell key={`cell-${entry.name}`} fill={entry.fill} />
+                                ))}
+                                </Pie>
+                            </PieChart>
+                        </ResponsiveContainer>
+                    </ChartContainer>
+                </div>
               </div>
             </div>
+            {report.items && report.items.length > 0 && (
+              <>
+                <Separator />
+                <div>
+                   <DailyTimelineChart items={report.items} />
+                </div>
+              </>
+            )}
           </CardContent>
       </Card>
     )
@@ -258,6 +269,7 @@ export default function ReportsPage() {
                             size="icon"
                             className="h-8 w-8 text-muted-foreground hover:text-destructive shrink-0 mr-2"
                             onClick={(e) => {
+                                e.stopPropagation();
                                 handleDeleteReportRequest(report.id);
                             }}
                             >

@@ -597,7 +597,7 @@ export default function Home() {
     
     setIsSavingReport(true);
     
-    const newReportData: Omit<DailyReport, 'id'> = {
+    const newReportData: DailyReport = {
       userId: user.uid,
       reportDate: format(new Date(), 'yyyy-MM-dd'),
       createdAt: new Date().toISOString(),
@@ -618,6 +618,7 @@ export default function Home() {
       totalItensRua: reportData.totalItensRua,
       contagemTotal: reportData.contagemTotal,
       contagemRua: reportData.contagemRua,
+      items: items, // Save the full items array
     };
 
     try {
@@ -847,8 +848,6 @@ export default function Home() {
           
           <Card>
             <CardContent className="p-2 sm:p-6">
-              <DailyTimelineChart items={items} />
-              <Separator className="my-4" />
               <ItemList
                 items={items}
                 onEdit={handleEditRequest}

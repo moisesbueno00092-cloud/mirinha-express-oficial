@@ -52,7 +52,7 @@ export interface FavoriteClient {
 export type ItemCount = { [itemName: string]: number };
 
 export interface DailyReport {
-  id: string;
+  id?: string;
   userId: string;
   reportDate: string; // YYYY-MM-DD
   createdAt: string; // ISO String
@@ -83,8 +83,7 @@ export interface DailyReport {
   // Detailed counts
   contagemTotal?: ItemCount; // Renamed from contagemSalao
   contagemRua?: ItemCount;
+
+  // Raw items for the day
+  items: Item[];
 }
-
-
-
-
