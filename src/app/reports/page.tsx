@@ -112,16 +112,14 @@ const ReportDetail = ({ report }: { report: DailyReport }) => {
         "Fiado Rua": { label: "Fiado Rua", color: "hsl(var(--chart-5))" },
     };
 
-    const { lanchesSalao, bomboniereSalao, lanchesRua, bomboniereRua } = useMemo(() => {
+    const { lanchesSalao, bomboniereSalao } = useMemo(() => {
         const contagemSalao: ItemCount = {};
         for (const key in report.contagemTotal) {
             contagemSalao[key] = report.contagemTotal[key] - (report.contagemRua[key] || 0);
         }
 
-        const { lanches: lanchesSalao, bomboniere: bomboniereSalao } = separateItemsByCategory(contagemSalao);
-        const { lanches: lanchesRua, bomboniere: bomboniereRua } = separateItemsByCategory(report.contagemRua);
-
-        return { lanchesSalao, bomboniereSalao, lanchesRua, bomboniereRua };
+        const { lanches, bomboniere } = separateItemsByCategory(contagemSalao);
+        return { lanchesSalao: lanches, bomboniereSalao: bomboniere };
     }, [report.contagemTotal, report.contagemRua]);
 
 
@@ -176,8 +174,7 @@ const ReportDetail = ({ report }: { report: DailyReport }) => {
                         </div>
                         <div>
                             <h4 className="font-medium text-xs text-muted-foreground mb-1">Rua</h4>
-                            {renderItemCountList(lanchesRua)}
-                            {renderItemCountList(bomboniereRua, "Bomboniere")}
+                            {renderItemCountList(report.contagemRua)}
                         </div>
                   </div>
               </div>
@@ -340,3 +337,5 @@ export default function ReportsPage() {
     </>
   );
 }
+
+    
