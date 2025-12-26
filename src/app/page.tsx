@@ -801,12 +801,16 @@ export default function Home() {
       </div>
 
       <footer className="fixed bottom-0 left-0 right-0 z-10 border-t bg-background/95 backdrop-blur-sm">
-        <div className="container mx-auto grid max-w-4xl grid-cols-[1fr_1fr_1.5fr] items-center gap-2 p-1.5 text-center text-xs">
+        <div className="container mx-auto grid max-w-4xl grid-cols-[1fr_1fr_1.5fr] items-center gap-2 p-1 text-center text-[0.6rem]">
           <div className="flex flex-col items-center justify-center">
-            <span className="font-bold text-foreground">{formatCurrency(summary.totalAVista)}</span>
-            <span className="text-muted-foreground -mt-1">À Vista</span>
-            <span className="font-bold text-destructive">{formatCurrency(summary.totalFiado)}</span>
-            <span className="text-muted-foreground -mt-1">Fiado</span>
+             <div className="flex items-center gap-1.5">
+                <span className="text-muted-foreground">À Vista:</span>
+                <span className="font-bold text-foreground">{formatCurrency(summary.totalAVista)}</span>
+             </div>
+             <div className="flex items-center gap-1.5">
+                <span className="text-muted-foreground">Fiado:</span>
+                <span className="font-bold text-destructive">{formatCurrency(summary.totalFiado)}</span>
+             </div>
           </div>
           <div className="flex flex-col items-center justify-center border-l border-r border-border/50 h-full">
             <span className="text-muted-foreground">Entregas</span>
@@ -814,10 +818,12 @@ export default function Home() {
           </div>
           <div className="flex flex-col items-center justify-center rounded-lg bg-primary/10 p-1">
             <span className="text-xs font-semibold uppercase tracking-wider text-primary/80">Total</span>
-            <span className="text-lg font-bold text-primary">{formatCurrency(summary.total)}</span>
+            <span className="text-base font-bold text-primary">{formatCurrency(summary.total)}</span>
           </div>
         </div>
       </footer>
     </>
   );
 }
+
+    
