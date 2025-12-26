@@ -71,7 +71,8 @@ export interface DailyReport {
   // Other financial data
   totalKg?: number;
   totalTaxas?: number;
-  totalBomboniere?: number;
+  totalBomboniereSalao?: number;
+  totalBomboniereRua?: number;
   
   // Item/Order counts
   totalItens?: number;
@@ -82,9 +83,8 @@ export interface DailyReport {
   // Detailed counts
   contagemTotal?: ItemCount;
   contagemRua?: ItemCount;
+  contagemSalao?: ItemCount;
 
   // Raw items for the day
   items: Item[];
 }
-
-    

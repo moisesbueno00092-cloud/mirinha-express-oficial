@@ -512,16 +512,40 @@ export default function Home() {
     return { total, totalAVista, totalFiado, totalEntregas, totalTaxas };
   }, [items]);
 
-  const reportData = useMemo(() => {
-    if (!items) return null;
-  
+  const handleSaveReport = async () => {
+    if (!firestore || !user || items.length === 0) {
+      toast({ variant: 'destructive', title: 'Não é possível gerar o relatório', description: 'Não há lançamentos para o dia atual.' });
+      return;
+    }
+    
+    setIsSavingReport(true);
+    
     let totalVendasSalao = 0, totalVendasRua = 0, totalFiadoSalao = 0, totalFiadoRua = 0;
     let totalKgValue = 0, totalTaxas = 0, totalEntregas = 0;
-    let totalBomboniere = 0;
+    let totalBomboniereSalao = 0, totalBomboniereRua = 0;
     
     const contagemTotal: ItemCount = {};
     const contagemRua: ItemCount = {};
+    const contagemSalao: ItemCount = {};
   
+    const processItemCounts = (item: Item, targetCount: ItemCount) => {
+        if (item.predefinedItems) {
+            item.predefinedItems.forEach(pItem => {
+                const key = pItem.name.toUpperCase();
+                targetCount[key] = (targetCount[key] || 0) + 1;
+            });
+        }
+        if (item.individualPrices) {
+            targetCount['KG'] = (targetCount['KG'] || 0) + item.individualPrices.length;
+        }
+        if (item.bomboniereItems) {
+            item.bomboniereItems.forEach(bItem => {
+                const key = bItem.name;
+                targetCount[key] = (targetCount[key] || 0) + bItem.quantity;
+            });
+        }
+    };
+
     items.forEach(item => {
         const group = item.group || '';
       
@@ -533,34 +557,22 @@ export default function Home() {
         totalTaxas += item.deliveryFee || 0;
         if (item.deliveryFee > 0 || group.includes('rua')) totalEntregas += 1;
     
-        if(item.bomboniereItems) {
-          totalBomboniere += item.bomboniereItems.reduce((acc, curr) => acc + (curr.price * curr.quantity), 0);
+        const bomboniereTotal = (item.bomboniereItems || []).reduce((acc, curr) => acc + (curr.price * curr.quantity), 0);
+        if (group.includes('rua')) {
+          totalBomboniereRua += bomboniereTotal;
+        } else {
+          totalBomboniereSalao += bomboniereTotal;
         }
+
         if (item.individualPrices) {
             totalKgValue += item.individualPrices.reduce((acc, curr) => acc + curr, 0);
         }
 
-        const processItemCounts = (item: Item, targetCount: ItemCount) => {
-            if (item.predefinedItems) {
-                item.predefinedItems.forEach(pItem => {
-                    const key = pItem.name.toUpperCase();
-                    targetCount[key] = (targetCount[key] || 0) + 1;
-                });
-            }
-            if (item.individualPrices) {
-                targetCount['KG'] = (targetCount['KG'] || 0) + item.individualPrices.length;
-            }
-            if (item.bomboniereItems) {
-                item.bomboniereItems.forEach(bItem => {
-                    const key = bItem.name; // Use o nome original
-                    targetCount[key] = (targetCount[key] || 0) + bItem.quantity;
-                });
-            }
-        };
-
         processItemCounts(item, contagemTotal);
         if (group.includes('rua')) {
           processItemCounts(item, contagemRua);
+        } else {
+          processItemCounts(item, contagemSalao);
         }
     });
   
@@ -570,44 +582,28 @@ export default function Home() {
     const totalAVista = summary.totalAVista;
     const totalFiado = summary.totalFiado;
 
-    return {
-      faturamentoTotal, totalAVista, totalFiado, totalVendasSalao, totalVendasRua, totalFiadoSalao, totalFiadoRua,
-      totalKg: totalKgValue, totalTaxas, totalEntregas, totalBomboniere,
-      contagemTotal, contagemRua,
-      totalItens, totalItensRua,
-    };
-  }, [items, summary]);
-
-  const handleSaveReport = async () => {
-    if (!firestore || !user || !reportData || items.length === 0) {
-      toast({ variant: 'destructive', title: 'Não é possível gerar o relatório', description: 'Não há lançamentos para o dia atual.' });
-      return;
-    }
-    
-    setIsSavingReport(true);
-    
-    // The properties in newReportData are dynamically typed.
-    // Ensure all properties from reportData are correctly assigned.
     const newReportData: DailyReport = {
       userId: user.uid,
       reportDate: format(new Date(), 'yyyy-MM-dd'),
       createdAt: new Date().toISOString(),
-      totalGeral: reportData.faturamentoTotal,
-      totalAVista: reportData.totalAVista,
-      totalFiado: reportData.totalFiado,
-      totalVendasSalao: reportData.totalVendasSalao,
-      totalVendasRua: reportData.totalVendasRua,
-      totalFiadoSalao: reportData.totalFiadoSalao,
-      totalFiadoRua: reportData.totalFiadoRua,
-      totalKg: reportData.totalKg,
-      totalTaxas: reportData.totalTaxas,
-      totalBomboniere: reportData.totalBomboniere,
-      totalItens: reportData.totalItens,
+      totalGeral: faturamentoTotal,
+      totalAVista: totalAVista,
+      totalFiado: totalFiado,
+      totalVendasSalao: totalVendasSalao,
+      totalVendasRua: totalVendasRua,
+      totalFiadoSalao: totalFiadoSalao,
+      totalFiadoRua: totalFiadoRua,
+      totalKg: totalKgValue,
+      totalTaxas: totalTaxas,
+      totalBomboniereSalao: totalBomboniereSalao,
+      totalBomboniereRua: totalBomboniereRua,
+      totalItens: totalItens,
       totalPedidos: items.length,
-      totalEntregas: reportData.totalEntregas,
-      totalItensRua: reportData.totalItensRua,
-      contagemTotal: reportData.contagemTotal,
-      contagemRua: reportData.contagemRua,
+      totalEntregas: totalEntregas,
+      totalItensRua: totalItensRua,
+      contagemTotal: contagemTotal,
+      contagemRua: contagemRua,
+      contagemSalao: contagemSalao,
       items: items,
     };
 
@@ -894,11 +890,3 @@ export default function Home() {
     </>
   );
 }
-
-    
-
-    
-
-    
-
-    

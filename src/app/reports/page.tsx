@@ -69,7 +69,6 @@ const separateItemsByCategory = (items: ItemCount): { lanches: ItemCount; bombon
   return { lanches, bomboniere };
 };
 
-
 const renderItemCountList = (counts: ItemCount, title?: string) => {
   if (!counts || Object.keys(counts).length === 0) {
     return null;
@@ -113,45 +112,10 @@ const ReportDetail = ({ report }: { report: DailyReport }) => {
     };
 
     const { lanchesRua, bomboniereRua, lanchesSalao, bomboniereSalao } = useMemo(() => {
-      const contagemSalao: ItemCount = {};
-      const contagemRua: ItemCount = {};
-
-      const processItemCounts = (item: Item, targetCount: ItemCount) => {
-        if (item.predefinedItems) {
-            item.predefinedItems.forEach(pItem => {
-                const key = pItem.name.toUpperCase();
-                targetCount[key] = (targetCount[key] || 0) + 1;
-            });
-        }
-        if (item.individualPrices) {
-            targetCount['KG'] = (targetCount['KG'] || 0) + item.individualPrices.length;
-        }
-        if (item.bomboniereItems) {
-            item.bomboniereItems.forEach(bItem => {
-                const key = bItem.name;
-                targetCount[key] = (targetCount[key] || 0) + bItem.quantity;
-            });
-        }
-      };
-
-      (report.items || []).forEach(item => {
-        if (item.group.includes('rua')) {
-          processItemCounts(item, contagemRua);
-        } else {
-          processItemCounts(item, contagemSalao);
-        }
-      });
-      
-      const { lanches: lanchesSalao, bomboniere: bomboniereSalao } = separateItemsByCategory(contagemSalao);
-      const { lanches: lanchesRua, bomboniere: bomboniereRua } = separateItemsByCategory(contagemRua);
-  
-      return { 
-        lanchesRua, 
-        bomboniereRua,
-        lanchesSalao,
-        bomboniereSalao,
-      };
-    }, [report.items]);
+        const { lanches: lanchesSalao, bomboniere: bomboniereSalao } = separateItemsByCategory(report.contagemSalao || {});
+        const { lanches: lanchesRua, bomboniere: bomboniereRua } = separateItemsByCategory(report.contagemRua || {});
+        return { lanchesRua, bomboniereRua, lanchesSalao, bomboniereSalao };
+    }, [report.contagemSalao, report.contagemRua]);
 
 
   return (
@@ -179,7 +143,8 @@ const ReportDetail = ({ report }: { report: DailyReport }) => {
               <Separator/>
               <div>
                 <div className="space-y-1 text-sm">
-                  <div className="flex justify-between items-center"><span>Bomboniere:</span> <span className="font-mono">{formatCurrency(report.totalBomboniere)}</span></div>
+                  <div className="flex justify-between items-center"><span>Bomboniere (Salão):</span> <span className="font-mono">{formatCurrency(report.totalBomboniereSalao)}</span></div>
+                  <div className="flex justify-between items-center"><span>Bomboniere (Rua):</span> <span className="font-mono">{formatCurrency(report.totalBomboniereRua)}</span></div>
                   <div className="flex justify-between items-center"><span>Total KG:</span> <span className="font-mono">{formatCurrency(report.totalKg)}</span></div>
                 </div>
               </div>
