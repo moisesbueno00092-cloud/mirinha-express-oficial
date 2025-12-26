@@ -124,7 +124,7 @@ const ReportDetail = ({ report }: { report: DailyReport }) => {
         }
         
         const { lanches: lanchesSalao, bomboniere: bomboniereSalao } = separateItemsByCategory(salaoCount);
-        const { lanches: lanchesRua, bomboniere: bomboniereRua } = separateItemsByCategory(report.contagemRua || {});
+        const { lanches: lanchesRua, bomboniere: bomboniereRua } = separateItemsByCategory(ruaCount);
         return { lanchesRua, bomboniereRua, lanchesSalao, bomboniereSalao };
     }, [report.contagemTotal, report.contagemRua]);
 
