@@ -739,7 +739,7 @@ export default function Home() {
         </DialogContent>
       </Dialog>
 
-      <div className="container mx-auto max-w-4xl p-2 sm:p-4 lg:p-8">
+      <div className="container mx-auto max-w-4xl p-2 sm:p-4 lg:p-8 pb-36">
         <header className="mb-6 flex flex-col items-center justify-center text-center">
           <MirinhaLogo className="w-64 sm:w-80 h-auto text-primary" />
           <p className="text-muted-foreground -mt-2 text-sm sm:text-base">Controle de Pedidos</p>
@@ -775,34 +775,42 @@ export default function Home() {
           </Card>
         </main>
       </div>
-      <footer className="border-t bg-background/95 mt-8">
+
+      {/* Static Action Buttons Block */}
+      <div className="container mx-auto max-w-4xl p-2 sm:p-4 lg:p-8 pt-0">
+          <div className="mt-8 flex flex-col md:flex-row md:items-end md:justify-end gap-2">
+              <Button 
+                  onClick={handleSaveReport}
+                  disabled={isSavingReport || isLoadingItems || items.length === 0}
+                  className="w-full md:w-auto"
+              >
+                  {isSavingReport ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
+                  Salvar Relatório Final
+              </Button>
+              <Link href="/reports" className="w-full md:w-auto">
+                  <Button variant="outline" className="w-full">
+                      <History className="mr-2 h-4 w-4" />
+                      Ver Relatórios Salvos
+                  </Button>
+              </Link>
+          </div>
+      </div>
+
+      {/* Floating Summary Footer */}
+      <footer className="fixed bottom-0 left-0 right-0 z-10 border-t bg-background/95 backdrop-blur-sm">
         <div className="container mx-auto max-w-4xl grid grid-cols-1 md:grid-cols-3 items-center p-4 text-xs sm:text-sm gap-4">
             <div className="flex flex-col gap-1">
                 <div><span className="text-muted-foreground">À Vista:</span> <span className="font-bold text-foreground">{formatCurrency(summary.totalAVista)}</span></div>
                 <div><span className="text-muted-foreground">Fiado:</span> <span className="font-bold text-destructive">{formatCurrency(summary.totalFiado)}</span></div>
-                <div className="mt-1">
-                  <span className="text-muted-foreground">Faturamento do Dia:</span>
-                  <p className="text-lg sm:text-xl font-bold text-primary">{formatCurrency(summary.total)}</p>
-                </div>
             </div>
-            <div className="flex flex-col md:items-end gap-2">
-                <Button 
-                    onClick={handleSaveReport}
-                    disabled={isSavingReport || isLoadingItems || items.length === 0}
-                    className="w-full md:w-auto"
-                >
-                    {isSavingReport ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
-                    Salvar Relatório Final
-                </Button>
-                <Link href="/reports" className="w-full">
-                    <Button variant="outline" className="w-full">
-                        <History className="mr-2 h-4 w-4" />
-                        Ver Relatórios Salvos
-                    </Button>
-                </Link>
+            <div className="col-span-2 flex flex-col items-start md:items-end">
+                <span className="text-muted-foreground">Faturamento do Dia:</span>
+                <p className="text-lg sm:text-xl font-bold text-primary">{formatCurrency(summary.total)}</p>
             </div>
         </div>
       </footer>
     </>
   );
 }
+
+    
