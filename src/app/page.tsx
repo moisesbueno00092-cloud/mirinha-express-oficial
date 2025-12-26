@@ -43,6 +43,7 @@ import MirinhaLogo from "@/components/mirinha-logo";
 import FavoritesMenu from "@/components/favorites-menu";
 import { createUserWithEmailAndPassword, signInWithEmailAndPassword } from "firebase/auth";
 import { format, startOfDay, endOfDay, isWithinInterval } from "date-fns";
+import { Separator } from "@/components/ui/separator";
 
 const formatCurrency = (value: number) => {
   return new Intl.NumberFormat("pt-BR", {
@@ -477,13 +478,14 @@ export default function Home() {
   
   const summary = useMemo(() => {
     if (!items) {
-      return { total: 0, totalAVista: 0, totalFiado: 0, totalEntregas: 0 };
+      return { total: 0, totalAVista: 0, totalFiado: 0, totalEntregas: 0, totalTaxas: 0 };
     }
 
     let total = 0;
     let totalAVista = 0;
     let totalFiado = 0;
     let totalEntregas = 0;
+    let totalTaxas = 0;
     
     items.forEach(item => {
       total += item.total;
@@ -495,9 +497,10 @@ export default function Home() {
       if (item.group.includes('rua') || item.deliveryFee > 0) {
         totalEntregas += 1;
       }
+      totalTaxas += item.deliveryFee || 0;
     });
 
-    return { total, totalAVista, totalFiado, totalEntregas };
+    return { total, totalAVista, totalFiado, totalEntregas, totalTaxas };
   }, [items]);
 
   const reportData = useMemo(() => {
@@ -802,18 +805,38 @@ export default function Home() {
 
       {/* Floating Summary Footer */}
       <footer className="fixed bottom-0 left-0 right-0 z-10 border-t bg-background/95 backdrop-blur-sm">
-        <div className="container mx-auto max-w-4xl grid grid-cols-2 md:grid-cols-3 items-center p-4 text-xs sm:text-sm gap-4">
-            <div className="flex flex-col gap-1">
-                <div><span className="text-muted-foreground">À Vista:</span> <span className="font-bold text-foreground">{formatCurrency(summary.totalAVista)}</span></div>
-                <div><span className="text-muted-foreground">Fiado:</span> <span className="font-bold text-destructive">{formatCurrency(summary.totalFiado)}</span></div>
+        <div className="container mx-auto grid max-w-4xl grid-cols-3 items-center gap-4 p-3 text-xs sm:text-sm">
+          {/* Vendas Section */}
+          <div className="flex flex-col gap-1">
+            <div className="flex justify-between">
+              <span className="text-muted-foreground">À Vista:</span>
+              <span className="font-bold text-foreground">{formatCurrency(summary.totalAVista)}</span>
             </div>
-            <div className="flex flex-col gap-1 md:items-center">
-                 <div><span className="text-muted-foreground">Entregas:</span> <span className="font-bold text-foreground">{summary.totalEntregas}</span></div>
+            <div className="flex justify-between">
+              <span className="text-muted-foreground">Fiado:</span>
+              <span className="font-bold text-destructive">{formatCurrency(summary.totalFiado)}</span>
             </div>
-            <div className="col-span-2 md:col-span-1 flex flex-col items-start md:items-end">
-                <span className="text-muted-foreground">Faturamento do Dia:</span>
-                <p className="text-lg sm:text-xl font-bold text-primary">{formatCurrency(summary.total)}</p>
+          </div>
+
+          <Separator orientation="vertical" className="h-10" />
+
+          {/* Entregas Section */}
+          <div className="flex flex-col gap-1">
+             <div className="flex justify-between">
+              <span className="text-muted-foreground">Nº Entregas:</span>
+              <span className="font-bold text-foreground">{summary.totalEntregas}</span>
             </div>
+             <div className="flex justify-between">
+              <span className="text-muted-foreground">Valor Taxas:</span>
+              <span className="font-bold text-foreground">{formatCurrency(summary.totalTaxas)}</span>
+            </div>
+          </div>
+
+          {/* Faturamento Section (now occupies the last column) */}
+          <div className="flex flex-col items-center justify-center rounded-lg bg-primary/10 p-2">
+            <span className="text-xs font-semibold uppercase tracking-wider text-primary/80">Faturamento do Dia</span>
+            <p className="text-lg font-bold text-primary sm:text-xl">{formatCurrency(summary.total)}</p>
+          </div>
         </div>
       </footer>
     </>
