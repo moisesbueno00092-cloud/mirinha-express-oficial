@@ -254,13 +254,13 @@ export default function ReportsPage() {
             <Accordion type="single" collapsible className="w-full">
               {savedReports.map(report => (
                 <AccordionItem value={report.id} key={report.id}>
-                    <div className="flex items-center w-full">
-                        <AccordionTrigger className="flex-1 py-4 pr-4 font-semibold text-lg hover:no-underline">
-                            <div className="flex justify-between items-center w-full">
+                    <div className="flex w-full items-center">
+                        <AccordionTrigger className="flex-1 py-4 pr-2 font-semibold text-lg hover:no-underline">
+                            <div className="flex w-full items-center justify-between gap-4">
                                 <span className="text-left">
                                     {format(new Date(report.reportDate + 'T12:00:00'), "dd 'de' MMMM 'de' yyyy", { locale: ptBR })}
                                 </span>
-                                <span className="text-primary font-bold">
+                                <span className="text-primary font-bold text-right">
                                     {formatCurrency(report.totalGeral)}
                                 </span>
                             </div>
@@ -268,7 +268,7 @@ export default function ReportsPage() {
                         <Button
                             variant="ghost"
                             size="icon"
-                            className="h-8 w-8 text-muted-foreground hover:text-destructive shrink-0 mr-2"
+                            className="h-8 w-8 shrink-0 text-muted-foreground hover:text-destructive"
                             onClick={(e) => {
                                 e.stopPropagation();
                                 handleDeleteReportRequest(report.id);
