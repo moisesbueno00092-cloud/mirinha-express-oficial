@@ -273,7 +273,7 @@ export default function Home() {
                 
                 const existingItemDef = bomboniereItems?.find(bi => bi.name.toUpperCase().replace(/\s+/g, '-') === namePart.toUpperCase());
 
-                processedBomboniereItems.push({ id: existingItemDef?.id || namePart, name: namePart, quantity: qty, price: price });
+                processedBomboniereItems.push({ id: existingItemDef?.id || namePart, name: existingItemDef?.name || namePart, quantity: qty, price: price });
                 totalPrice += price * qty;
                 totalQuantity += qty;
                 i++; 
@@ -286,7 +286,7 @@ export default function Home() {
                         const name = bomboniereMatch ? bomboniereMatch[2] : itemName;
                         const existingItemDef = bomboniereItems?.find(bi => bi.name.toUpperCase().replace(/\s+/g, '-') === name.toUpperCase());
 
-                        processedBomboniereItems.push({ id: existingItemDef?.id || name, name, quantity: qty, price: customPrice });
+                        processedBomboniereItems.push({ id: existingItemDef?.id || name, name: existingItemDef?.name || name, quantity: qty, price: customPrice });
                         totalPrice += customPrice * qty;
                         totalQuantity += qty;
                         i++; 
@@ -897,5 +897,7 @@ export default function Home() {
     </>
   );
 }
+
+    
 
     
