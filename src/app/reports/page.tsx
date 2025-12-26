@@ -40,6 +40,7 @@ import { PieChart, Pie, Cell, ResponsiveContainer } from "recharts"
 
 import type { DailyReport, ItemCount } from '@/types';
 import DailyTimelineChart from '@/components/daily-timeline-chart';
+import { BOMBONIERE_ITEMS_DEFAULT } from '@/lib/constants';
 
 const formatCurrency = (value: number | undefined | null) => {
     return new Intl.NumberFormat("pt-BR", {
@@ -47,6 +48,9 @@ const formatCurrency = (value: number | undefined | null) => {
       currency: "BRL",
     }).format(value || 0);
 };
+
+// Create a Set of bomboniere names for efficient lookup
+const bomboniereNames = new Set(BOMBONIERE_ITEMS_DEFAULT.map(item => item.name));
 
 export default function ReportsPage() {
   const { user, isUserLoading } = useUser();
@@ -58,21 +62,30 @@ export default function ReportsPage() {
   
   const [reportToDelete, setReportToDelete] = useState<string | null>(null);
 
-  const renderItemCountList = (counts: ItemCount) => {
+  const renderItemCountList = (counts: ItemCount, title: string) => {
     if (!counts || Object.keys(counts).length === 0) {
-      return <p className="text-xs text-muted-foreground">Nenhum</p>;
+      return null;
     }
+
+    const sortedEntries = Object.entries(counts)
+      .sort(([, aCount], [, bCount]) => bCount - aCount);
+
+    if (sortedEntries.length === 0) {
+      return null;
+    }
+
     return (
-      <ul className="text-xs space-y-0.5">
-        {Object.entries(counts)
-          .sort(([, aCount], [, bCount]) => bCount - aCount)
-          .map(([name, count]) => (
-            <li key={name} className="flex items-center gap-2">
-              <span className="font-bold w-6 text-right">{count}</span>
-              <span>{name}</span>
-            </li>
-          ))}
-      </ul>
+      <div>
+        <h5 className="font-medium text-xs text-muted-foreground mb-2 mt-3">{title}</h5>
+        <ul className="text-xs space-y-0.5">
+          {sortedEntries.map(([name, count]) => (
+              <li key={name} className="flex items-center gap-2">
+                <span className="font-bold w-6 text-right">{count}</span>
+                <span>{name}</span>
+              </li>
+            ))}
+        </ul>
+      </div>
     );
   }
 
@@ -114,6 +127,29 @@ export default function ReportsPage() {
           "Fiado Salão": { label: "Fiado Salão", color: "hsl(var(--chart-3))" },
           "Fiado Rua": { label: "Fiado Rua", color: "hsl(var(--chart-5))" },
       };
+
+      const { lanches: lanchesTotais, bomboniere: bomboniereTotais } = useMemo(() => {
+        return Object.entries(report.contagemTotal || {}).reduce((acc, [name, count]) => {
+          if (bomboniereNames.has(name)) {
+            acc.bomboniere[name] = count;
+          } else {
+            acc.lanches[name] = count;
+          }
+          return acc;
+        }, { lanches: {} as ItemCount, bomboniere: {} as ItemCount });
+      }, [report.contagemTotal]);
+    
+      const { lanches: lanchesRua, bomboniere: bomboniereRua } = useMemo(() => {
+        return Object.entries(report.contagemRua || {}).reduce((acc, [name, count]) => {
+          if (bomboniereNames.has(name)) {
+            acc.bomboniere[name] = count;
+          } else {
+            acc.lanches[name] = count;
+          }
+          return acc;
+        }, { lanches: {} as ItemCount, bomboniere: {} as ItemCount });
+      }, [report.contagemRua]);
+
 
     return (
       <Card>
@@ -160,11 +196,13 @@ export default function ReportsPage() {
                     <div className="grid grid-cols-2 gap-4">
                         <div>
                             <h4 className="font-medium text-xs text-muted-foreground mb-1">Total</h4>
-                            {renderItemCountList(report.contagemTotal || {})}
+                            {renderItemCountList(lanchesTotais, 'Lanches')}
+                            {renderItemCountList(bomboniereTotais, 'Bomboniere')}
                         </div>
                         <div>
                             <h4 className="font-medium text-xs text-muted-foreground mb-1">Rua</h4>
-                            {renderItemCountList(report.contagemRua || {})}
+                            {renderItemCountList(lanchesRua, 'Lanches')}
+                            {renderItemCountList(bomboniereRua, 'Bomboniere')}
                         </div>
                     </div>
                 </div>
@@ -293,5 +331,3 @@ export default function ReportsPage() {
     </>
   );
 }
-
-    
