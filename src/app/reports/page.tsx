@@ -254,12 +254,13 @@ export default function ReportsPage() {
             <Accordion type="single" collapsible className="w-full">
               {savedReports.map(report => (
                 <AccordionItem value={report.id} key={report.id}>
-                  <div className="flex w-full items-center">
-                    <AccordionTrigger className="flex-1 py-4 pr-2 hover:no-underline">
+                  <div className="flex w-full items-center" >
+                    <AccordionTrigger className="flex-grow-0 py-4 pr-2 hover:no-underline">
                         <span className="font-semibold text-lg">
                             {format(new Date(report.reportDate + 'T12:00:00'), "dd 'de' MMMM 'de' yyyy", { locale: ptBR })}
                         </span>
                     </AccordionTrigger>
+                    <div className="flex-grow" />
                     <span className="font-bold text-lg text-primary text-right px-4">
                         {formatCurrency(report.totalGeral)}
                     </span>
