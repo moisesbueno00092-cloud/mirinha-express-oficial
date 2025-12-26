@@ -123,7 +123,7 @@ const ReportDetail = ({ report }: { report: DailyReport }) => {
         lanchesSalao: salao.lanches,
         bomboniereSalao: salao.bomboniere,
       };
-  }, [report.contagemTotal, report.contagemRua]);
+    }, [report.contagemTotal, report.contagemRua]);
 
 
   return (
@@ -340,5 +340,3 @@ export default function ReportsPage() {
     </>
   );
 }
-
-    
