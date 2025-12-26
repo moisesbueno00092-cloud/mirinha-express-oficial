@@ -64,8 +64,8 @@ const renderItemCountList = (counts: ItemCount, title?: string) => {
   }
 
   return (
-    <div>
-      {title && <h5 className="font-medium text-xs text-muted-foreground mb-2 mt-3">{title}</h5>}
+    <div className={title ? 'mt-3' : ''}>
+      {title && <h5 className="font-medium text-xs text-muted-foreground mb-2">{title}</h5>}
       <ul className="text-xs space-y-0.5">
         {sortedEntries.map(([name, count]) => (
             <li key={name} className="flex items-center gap-2">
@@ -95,7 +95,7 @@ const ReportDetail = ({ report }: { report: DailyReport }) => {
 
     const { lanchesRua, bomboniereRua, lanchesSalao, bomboniereSalao } = useMemo(() => {
         const rua = Object.entries(report.contagemRua || {}).reduce((acc, [name, count]) => {
-            if (bomboniereNames.has(name)) {
+            if (bomboniereNames.has(name) || !isNaN(Number(name.charAt(0)))) {
                 acc.bomboniere[name] = (acc.bomboniere[name] || 0) + count;
             } else {
                 acc.lanches[name] = (acc.lanches[name] || 0) + count;
@@ -107,7 +107,7 @@ const ReportDetail = ({ report }: { report: DailyReport }) => {
             const ruaCount = report.contagemRua?.[name] || 0;
             const salaoCount = count - ruaCount;
             if (salaoCount > 0) {
-                if (bomboniereNames.has(name)) {
+                if (bomboniereNames.has(name) || !isNaN(Number(name.charAt(0)))) {
                     acc.bomboniere[name] = (acc.bomboniere[name] || 0) + salaoCount;
                 } else {
                     acc.lanches[name] = (acc.lanches[name] || 0) + salaoCount;
@@ -339,3 +339,5 @@ export default function ReportsPage() {
     </>
   );
 }
+
+    
