@@ -112,14 +112,23 @@ const ReportDetail = ({ report }: { report: DailyReport }) => {
         "Fiado Rua": { label: "Fiado Rua", color: "hsl(var(--chart-5))" },
     };
 
-    const { lanchesSalao, bomboniereSalao } = useMemo(() => {
+    const { lanchesSalao, bomboniereSalao, lanchesRua, bomboniereRua } = useMemo(() => {
         const contagemSalao: ItemCount = {};
-        for (const key in report.contagemTotal) {
-            contagemSalao[key] = report.contagemTotal[key] - (report.contagemRua[key] || 0);
+        if (report.contagemTotal && report.contagemRua) {
+            for (const key in report.contagemTotal) {
+                const totalCount = report.contagemTotal[key] || 0;
+                const ruaCount = report.contagemRua[key] || 0;
+                const salaoCount = totalCount - ruaCount;
+                if (salaoCount > 0) {
+                    contagemSalao[key] = salaoCount;
+                }
+            }
         }
 
-        const { lanches, bomboniere } = separateItemsByCategory(contagemSalao);
-        return { lanchesSalao: lanches, bomboniereSalao: bomboniere };
+        const { lanches: lanchesSalao, bomboniere: bomboniereSalao } = separateItemsByCategory(contagemSalao);
+        const { lanches: lanchesRua, bomboniere: bomboniereRua } = separateItemsByCategory(report.contagemRua);
+        
+        return { lanchesSalao, bomboniereSalao, lanchesRua, bomboniereRua };
     }, [report.contagemTotal, report.contagemRua]);
 
 
@@ -174,7 +183,8 @@ const ReportDetail = ({ report }: { report: DailyReport }) => {
                         </div>
                         <div>
                             <h4 className="font-medium text-xs text-muted-foreground mb-1">Rua</h4>
-                            {renderItemCountList(report.contagemRua)}
+                            {renderItemCountList(lanchesRua)}
+                            {renderItemCountList(bomboniereRua, "Bomboniere")}
                         </div>
                   </div>
               </div>
@@ -337,5 +347,3 @@ export default function ReportsPage() {
     </>
   );
 }
-
-    
