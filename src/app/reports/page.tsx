@@ -255,14 +255,14 @@ export default function ReportsPage() {
               {savedReports.map(report => (
                 <AccordionItem value={report.id} key={report.id}>
                     <div className="flex w-full items-center">
-                        <AccordionTrigger className="flex-1 py-4 pr-2 font-semibold text-lg hover:no-underline flex w-full justify-between">
+                        <AccordionTrigger className="flex-1 py-4 pr-2 font-semibold text-lg hover:no-underline">
                            <span>
                                 {format(new Date(report.reportDate + 'T12:00:00'), "dd 'de' MMMM 'de' yyyy", { locale: ptBR })}
                            </span>
-                           <span className="text-primary font-bold">
-                                {formatCurrency(report.totalGeral)}
-                           </span>
                         </AccordionTrigger>
+                        <span className="text-primary font-bold text-lg px-4 text-right">
+                            {formatCurrency(report.totalGeral)}
+                        </span>
                         <Button
                             variant="ghost"
                             size="icon"
