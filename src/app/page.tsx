@@ -337,7 +337,7 @@ export default function Home() {
         const nameParts = [];
         if (hasPredefinedItems) nameParts.push(predefinedItems.map(p => p.name).join(' '));
         if (hasKgItems) nameParts.push('KG');
-        if (hasBomboniereItems) nameParts.push(processedBomboniereItems.map(item => `${item.quantity > 1 ? item.quantity : ''}${item.name.replace(/\s+/g, '-')}`).join(' '));
+        if (hasBomboniereItems) nameParts.push(processedBomboniereItems.map(item => `${item.quantity > 1 ? item.quantity : ''}${item.name}`).join(' '));
         
         consolidatedName = nameParts.join(' + ') || 'Lançamento';
         if (consolidatedName.length > 50) consolidatedName = 'Lançamento Misto';
@@ -521,24 +521,6 @@ export default function Home() {
     
     const contagemTotal: ItemCount = {};
     const contagemRua: ItemCount = {};
-
-    const processItemCounts = (item: Item, targetCount: ItemCount) => {
-        if (item.predefinedItems) {
-            item.predefinedItems.forEach(pItem => {
-                const key = pItem.name.toUpperCase();
-                targetCount[key] = (targetCount[key] || 0) + 1;
-            });
-        }
-        if (item.individualPrices) {
-            targetCount['KG'] = (targetCount['KG'] || 0) + item.individualPrices.length;
-        }
-        if (item.bomboniereItems) {
-            item.bomboniereItems.forEach(bItem => {
-                const key = bItem.name;
-                targetCount[key] = (targetCount[key] || 0) + bItem.quantity;
-            });
-        }
-    };
   
     items.forEach(item => {
         const group = item.group || '';
@@ -557,6 +539,24 @@ export default function Home() {
         if (item.individualPrices) {
             totalKgValue += item.individualPrices.reduce((acc, curr) => acc + curr, 0);
         }
+
+        const processItemCounts = (item: Item, targetCount: ItemCount) => {
+            if (item.predefinedItems) {
+                item.predefinedItems.forEach(pItem => {
+                    const key = pItem.name.toUpperCase();
+                    targetCount[key] = (targetCount[key] || 0) + 1;
+                });
+            }
+            if (item.individualPrices) {
+                targetCount['KG'] = (targetCount['KG'] || 0) + item.individualPrices.length;
+            }
+            if (item.bomboniereItems) {
+                item.bomboniereItems.forEach(bItem => {
+                    const key = bItem.name; // Use o nome original
+                    targetCount[key] = (targetCount[key] || 0) + bItem.quantity;
+                });
+            }
+        };
 
         processItemCounts(item, contagemTotal);
         if (group.includes('rua')) {
@@ -894,6 +894,8 @@ export default function Home() {
     </>
   );
 }
+
+    
 
     
 

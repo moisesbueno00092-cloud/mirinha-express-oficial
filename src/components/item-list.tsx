@@ -76,8 +76,8 @@ const getItemBadgeStyle = (itemName: string) => {
     return `text-white border-transparent ${style}`;
   }
   
-  // Fallback for bomboniere items
-  if(itemName.includes('-')) return `text-white border-transparent ${itemBadgeStyles['BOMBONIERE']}`;
+  // Fallback for bomboniere items by checking for a space
+  if(itemName.includes(' ')) return `text-white border-transparent ${itemBadgeStyles['BOMBONIERE']}`;
   
   return "bg-gray-500 text-white border-transparent";
 }
@@ -133,7 +133,7 @@ const renderItemName = (item: Item) => {
     // Handle bomboniere items
     if (item.bomboniereItems && item.bomboniereItems.length > 0) {
         item.bomboniereItems.forEach((bItem, index) => {
-            const badgeLabel = bItem.quantity > 1 ? `${bItem.quantity}${bItem.name.replace(/\s+/g, '-')}` : bItem.name.replace(/\s+/g, '-');
+            const badgeLabel = bItem.quantity > 1 ? `${bItem.quantity}${bItem.name}` : bItem.name;
             itemElements.push(
                 <div key={`bomboniere-group-${index}`} className="flex flex-col items-center">
                     <Badge className={cn("whitespace-nowrap", getItemBadgeStyle(bItem.name))}>
@@ -234,3 +234,5 @@ export default function ItemList({ items, onEdit, onDelete, isLoading, onSaveFav
     </div>
   );
 }
+
+    
