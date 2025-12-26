@@ -534,38 +534,41 @@ export default function Home() {
       totalTaxas += item.deliveryFee || 0;
       if (item.deliveryFee > 0 || group.includes('rua')) totalEntregas += 1;
 
-      const processItemCounts = (itemSource: { name: string, quantity: number, isPredefined?: boolean }[], isRua: boolean) => {
+      const processItemCounts = (
+        itemSource: { name: string; quantity: number }[],
+        isRua: boolean,
+        isPredefined: boolean
+      ) => {
         const targetCount = isRua ? contagemRua : contagemTotal;
         itemSource.forEach(p => {
           let name = p.name;
-          if (p.isPredefined) {
-             name = p.name.toUpperCase().replace(/^\d+/, '');
+          if (isPredefined) {
+            name = p.name.toUpperCase().replace(/^\d+/, '');
           }
           targetCount[name] = (targetCount[name] || 0) + p.quantity;
         });
       };
-      
+
       const isRua = group.includes('rua');
       
       if (item.predefinedItems) {
-        const aggregatedPredefined: { [key:string]: {name: string, quantity: number, isPredefined: boolean} } = {};
+        const aggregatedPredefined: { [key:string]: {name: string, quantity: number} } = {};
         item.predefinedItems.forEach(p => {
             if (!aggregatedPredefined[p.name]) {
-                aggregatedPredefined[p.name] = { name: p.name, quantity: 0, isPredefined: true };
+                aggregatedPredefined[p.name] = { name: p.name, quantity: 0 };
             }
             aggregatedPredefined[p.name].quantity++;
         });
-        processItemCounts(Object.values(aggregatedPredefined), isRua);
+        processItemCounts(Object.values(aggregatedPredefined), isRua, true);
       }
       
       if (item.individualPrices) {
-        processItemCounts([{ name: 'KG', quantity: item.individualPrices.length, isPredefined: true }], isRua);
+        processItemCounts([{ name: 'KG', quantity: item.individualPrices.length }], isRua, true);
         item.individualPrices.forEach(price => totalKgValue += price);
       }
       
       if (item.bomboniereItems) {
-        const bomboniereForCount = item.bomboniereItems.map(b => ({ ...b, isPredefined: false }));
-        processItemCounts(bomboniereForCount, isRua);
+        processItemCounts(item.bomboniereItems, isRua, false);
         item.bomboniereItems.forEach(b => {
           const bomboniereValue = b.price * b.quantity;
           if (isRua) {
@@ -907,6 +910,8 @@ export default function Home() {
     </>
   );
 }
+
+    
 
     
 
