@@ -94,25 +94,36 @@ const ReportDetail = ({ report }: { report: DailyReport }) => {
         "Fiado Rua": { label: "Fiado Rua", color: "hsl(var(--chart-5))" },
     };
 
-    const { lanches: lanchesTotais, bomboniere: bomboniereTotais } = useMemo(() => {
-      return Object.entries(report.contagemTotal || {}).reduce((acc, [name, count]) => {
-        if (bomboniereNames.has(name)) {
-          acc.bomboniere[name] = count;
-        } else {
-          acc.lanches[name] = count;
-        }
-        return acc;
+    const { lanchesRua, bomboniereRua, lanchesSalao, bomboniereSalao } = useMemo(() => {
+      const rua = Object.entries(report.contagemRua || {}).reduce((acc, [name, count]) => {
+          if (bomboniereNames.has(name)) {
+              acc.bomboniere[name] = count;
+          } else {
+              acc.lanches[name] = count;
+          }
+          return acc;
       }, { lanches: {} as ItemCount, bomboniere: {} as ItemCount });
-    }, [report.contagemTotal]);
-  
-    const { lanches: lanchesRua } = useMemo(() => {
-      return Object.entries(report.contagemRua || {}).reduce((acc, [name, count]) => {
-        if (!bomboniereNames.has(name)) {
-          acc.lanches[name] = count;
-        }
-        return acc;
-      }, { lanches: {} as ItemCount });
-    }, [report.contagemRua]);
+
+      const salao = Object.entries(report.contagemTotal || {}).reduce((acc, [name, count]) => {
+          const ruaCount = report.contagemRua?.[name] || 0;
+          const salaoCount = count - ruaCount;
+          if (salaoCount > 0) {
+              if (bomboniereNames.has(name)) {
+                  acc.bomboniere[name] = salaoCount;
+              } else {
+                  acc.lanches[name] = salaoCount;
+              }
+          }
+          return acc;
+      }, { lanches: {} as ItemCount, bomboniere: {} as ItemCount });
+      
+      return { 
+        lanchesRua: rua.lanches, 
+        bomboniereRua: rua.bomboniere,
+        lanchesSalao: salao.lanches,
+        bomboniereSalao: salao.bomboniere,
+      };
+  }, [report.contagemTotal, report.contagemRua]);
 
 
   return (
@@ -157,18 +168,16 @@ const ReportDetail = ({ report }: { report: DailyReport }) => {
             <div className="space-y-4">
               <div>
                   <h3 className="font-semibold mb-2">Contagem de Itens</h3>
-                  <div className="grid grid-cols-3 gap-4">
+                  <div className="grid grid-cols-2 gap-4">
                       <div>
                           <h4 className="font-medium text-xs text-muted-foreground mb-1">Salão</h4>
-                          {renderItemCountList(lanchesTotais)}
+                          {renderItemCountList(lanchesSalao)}
+                          {renderItemCountList(bomboniereSalao, "Bomboniere")}
                       </div>
                       <div>
                           <h4 className="font-medium text-xs text-muted-foreground mb-1">Rua</h4>
                           {renderItemCountList(lanchesRua)}
-                      </div>
-                      <div>
-                          <h4 className="font-medium text-xs text-muted-foreground mb-1">Bomboniere</h4>
-                          {renderItemCountList(bomboniereTotais)}
+                          {renderItemCountList(bomboniereRua, "Bomboniere")}
                       </div>
                   </div>
               </div>
@@ -331,3 +340,5 @@ export default function ReportsPage() {
     </>
   );
 }
+
+    
