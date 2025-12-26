@@ -49,7 +49,6 @@ const formatCurrency = (value: number | undefined | null) => {
     }).format(value || 0);
 };
 
-// Create a Set of bomboniere names for efficient lookup
 const bomboniereNames = new Set(BOMBONIERE_ITEMS_DEFAULT.map(item => item.name));
 
 const renderItemCountList = (counts: ItemCount, title?: string) => {
@@ -95,35 +94,35 @@ const ReportDetail = ({ report }: { report: DailyReport }) => {
     };
 
     const { lanchesRua, bomboniereRua, lanchesSalao, bomboniereSalao } = useMemo(() => {
-      const rua = Object.entries(report.contagemRua || {}).reduce((acc, [name, count]) => {
-          if (bomboniereNames.has(name)) {
-              acc.bomboniere[name] = count;
-          } else {
-              acc.lanches[name] = count;
-          }
-          return acc;
-      }, { lanches: {} as ItemCount, bomboniere: {} as ItemCount });
-
-      const salao = Object.entries(report.contagemTotal || {}).reduce((acc, [name, count]) => {
-          const ruaCount = report.contagemRua?.[name] || 0;
-          const salaoCount = count - ruaCount;
-          if (salaoCount > 0) {
-              if (bomboniereNames.has(name)) {
-                  acc.bomboniere[name] = salaoCount;
-              } else {
-                  acc.lanches[name] = salaoCount;
-              }
-          }
-          return acc;
-      }, { lanches: {} as ItemCount, bomboniere: {} as ItemCount });
-      
-      return { 
-        lanchesRua: rua.lanches, 
-        bomboniereRua: rua.bomboniere,
-        lanchesSalao: salao.lanches,
-        bomboniereSalao: salao.bomboniere,
-      };
-    }, [report.contagemTotal, report.contagemRua]);
+        const rua = Object.entries(report.contagemRua || {}).reduce((acc, [name, count]) => {
+            if (bomboniereNames.has(name)) {
+                acc.bomboniere[name] = count;
+            } else {
+                acc.lanches[name] = count;
+            }
+            return acc;
+        }, { lanches: {} as ItemCount, bomboniere: {} as ItemCount });
+  
+        const salao = Object.entries(report.contagemTotal || {}).reduce((acc, [name, count]) => {
+            const ruaCount = report.contagemRua?.[name] || 0;
+            const salaoCount = count - ruaCount;
+            if (salaoCount > 0) {
+                if (bomboniereNames.has(name)) {
+                    acc.bomboniere[name] = salaoCount;
+                } else {
+                    acc.lanches[name] = salaoCount;
+                }
+            }
+            return acc;
+        }, { lanches: {} as ItemCount, bomboniere: {} as ItemCount });
+        
+        return { 
+          lanchesRua: rua.lanches, 
+          bomboniereRua: rua.bomboniere,
+          lanchesSalao: salao.lanches,
+          bomboniereSalao: salao.bomboniere,
+        };
+      }, [report.contagemTotal, report.contagemRua]);
 
 
   return (
