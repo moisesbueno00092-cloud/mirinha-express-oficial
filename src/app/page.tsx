@@ -647,7 +647,7 @@ export default function Home() {
   }
 
   const handlePasswordSubmit = () => {
-    if (passwordInput === 'mirinha') {
+    if (passwordInput === 'jujubb3110') {
         setIsPasswordModalOpen(false);
         if (passwordAction === 'reports') {
           router.push('/reports');
@@ -902,5 +902,7 @@ export default function Home() {
     </>
   );
 }
+
+    
 
     
