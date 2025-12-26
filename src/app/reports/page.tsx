@@ -175,8 +175,7 @@ const ReportDetail = ({ report }: { report: DailyReport }) => {
                         </div>
                         <div>
                             <h4 className="font-medium text-xs text-muted-foreground mb-1">Rua</h4>
-                            {renderItemCountList(lanchesRua)}
-                            {renderItemCountList(bomboniereRua, "Bomboniere")}
+                            {renderItemCountList(report.contagemRua)}
                         </div>
                   </div>
               </div>
