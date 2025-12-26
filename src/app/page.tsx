@@ -5,7 +5,7 @@ import { useMemo, useState, useRef, useEffect } from "react";
 import type { Item, Group, PredefinedItem, SelectedBomboniereItem, BomboniereItem, FavoriteClient, DailyReport, ItemCount } from "@/types";
 import { PREDEFINED_PRICES, DELIVERY_FEE, BOMBONIERE_ITEMS_DEFAULT } from "@/lib/constants";
 import { useAuth, useCollection, useFirestore, useMemoFirebase, useUser } from "@/firebase";
-import { collection, doc, query, where, orderBy, deleteDoc, writeBatch } from "firebase/firestore";
+import { collection, doc, query, where, orderBy, deleteDoc, writeBatch, addDoc } from "firebase/firestore";
 import { parseCustomItemPrice } from "@/ai/flows/parse-custom-item-price";
 import Link from 'next/link';
 
@@ -608,7 +608,7 @@ export default function Home() {
 
     try {
       const reportsCollectionRef = collection(firestore, 'daily_reports');
-      await addDocumentNonBlocking(reportsCollectionRef, newReportData);
+      await addDoc(reportsCollectionRef, newReportData);
 
       // Delete items from today
       const batch = writeBatch(firestore);
@@ -782,7 +782,7 @@ export default function Home() {
           </Card>
         </main>
 
-        <div className="mt-8 flex flex-col gap-2 md:flex-row md:items-end md:justify-end mb-24">
+        <div className="mt-8 mb-24 flex flex-col gap-2 md:flex-row md:items-end md:justify-end">
             <Button 
                 onClick={handleSaveReport}
                 disabled={isSavingReport || isLoadingItems || items.length === 0}
@@ -801,7 +801,7 @@ export default function Home() {
       </div>
 
       <footer className="fixed bottom-0 left-0 right-0 z-10 border-t bg-background/95 backdrop-blur-sm">
-        <div className="container mx-auto grid max-w-4xl grid-cols-4 items-center gap-2 p-3 text-center text-xs sm:grid-cols-4 sm:gap-4 sm:p-3 sm:text-sm">
+        <div className="container mx-auto grid max-w-4xl grid-cols-5 items-center gap-1 p-2 text-center text-xs sm:grid-cols-5 sm:gap-2 sm:p-3 sm:text-sm">
           <div className="flex flex-col">
             <span className="text-muted-foreground">À Vista</span>
             <span className="font-bold text-foreground">{formatCurrency(summary.totalAVista)}</span>
@@ -809,6 +809,10 @@ export default function Home() {
           <div className="flex flex-col">
             <span className="text-muted-foreground">Fiado</span>
             <span className="font-bold text-destructive">{formatCurrency(summary.totalFiado)}</span>
+          </div>
+          <div className="flex flex-col">
+            <span className="text-muted-foreground">Entregas</span>
+            <span className="font-bold text-foreground">{summary.totalEntregas}</span>
           </div>
           <div className="flex flex-col">
             <span className="text-muted-foreground">Taxas</span>
@@ -823,5 +827,3 @@ export default function Home() {
     </>
   );
 }
-
-    
