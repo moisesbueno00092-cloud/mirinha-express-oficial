@@ -52,11 +52,11 @@ export default function ReportsPage() {
     return (
         <ul className="text-xs space-y-0.5">
             {entries
-                .sort(([a], [b]) => a.localeCompare(b))
+                .sort(([, aCount], [, bCount]) => bCount - aCount)
                 .map(([name, count]) => (
-                    <li key={name} className="flex justify-between">
-                        <span>• {name}:</span>
-                        <span className="font-bold">{count}</span>
+                    <li key={name} className="flex items-center gap-2">
+                        <span className="font-bold w-6 text-right">{count}</span>
+                        <span>{name}</span>
                     </li>
                 ))}
         </ul>
