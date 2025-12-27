@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo, useRef } from 'react';
+import { useState, useMemo, useRef, useEffect } from 'react';
 import { useCollection, useFirestore, useMemoFirebase } from '@/firebase';
 import { collection, query, orderBy, writeBatch, doc } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
@@ -21,6 +21,8 @@ import { Separator } from '../ui/separator';
 import { format } from 'date-fns';
 import { addDocumentNonBlocking } from '@/firebase/non-blocking-updates';
 import { DatePicker } from '../ui/date-picker';
+import { Popover, PopoverContent, PopoverTrigger, PopoverAnchor } from '../ui/popover';
+import { cn } from '@/lib/utils';
 
 interface LancamentoProduto {
     id: number;
@@ -44,12 +46,41 @@ export default function MercadoriasPanel() {
     
     const lancamentoInputRef = useRef<HTMLInputElement>(null);
 
+    // Autocomplete state
+    const [suggestions, setSuggestions] = useState<string[]>([]);
+    const [isSuggestionsOpen, setSuggestionsOpen] = useState(false);
+    const [activeSuggestionIndex, setActiveSuggestionIndex] = useState(0);
+
     const fornecedoresQuery = useMemoFirebase(
         () => firestore ? query(collection(firestore, 'fornecedores'), orderBy('nome', 'asc')) : null,
         [firestore]
     );
     const { data: fornecedores, isLoading: isLoadingFornecedores } = useCollection<Fornecedor>(fornecedoresQuery);
     
+    const allEntradasQuery = useMemoFirebase(
+        () => firestore ? query(collection(firestore, 'entradas_mercadorias')) : null,
+        [firestore]
+    );
+    const { data: allEntradas } = useCollection<EntradaMercadoria>(allEntradasQuery);
+    
+    const uniqueProductNames = useMemo(() => {
+        if (!allEntradas) return [];
+        const productNames = allEntradas.map(e => e.produtoNome);
+        return [...new Set(productNames)].sort();
+    }, [allEntradas]);
+
+    useEffect(() => {
+        const handleOutsideClick = (event: MouseEvent) => {
+            if (lancamentoInputRef.current && !lancamentoInputRef.current.contains(event.target as Node)) {
+                setSuggestionsOpen(false);
+            }
+        };
+        document.addEventListener('mousedown', handleOutsideClick);
+        return () => {
+            document.removeEventListener('mousedown', handleOutsideClick);
+        };
+    }, []);
+
     const handleAddFornecedor = async () => {
         if (!firestore || !newFornecedorName.trim()) return;
 
@@ -68,10 +99,57 @@ export default function MercadoriasPanel() {
         }
     };
 
+    const handleLancamentoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const value = e.target.value;
+        setLancamentoInput(value);
+        
+        const lastSpaceIndex = value.lastIndexOf(' ');
+        const potentialPrice = value.substring(lastSpaceIndex + 1);
+        const namePart = lastSpaceIndex === -1 ? value : value.substring(0, lastSpaceIndex);
+
+        if (value && !/\d/.test(potentialPrice)) {
+            const filteredSuggestions = uniqueProductNames.filter(name => 
+                name.toLowerCase().includes(value.toLowerCase())
+            );
+            setSuggestions(filteredSuggestions);
+            setSuggestionsOpen(filteredSuggestions.length > 0);
+            setActiveSuggestionIndex(0);
+        } else {
+            setSuggestionsOpen(false);
+        }
+    };
+
+    const handleSuggestionClick = (suggestion: string) => {
+        setLancamentoInput(suggestion + ' ');
+        setSuggestionsOpen(false);
+        lancamentoInputRef.current?.focus();
+    };
+
+    const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+        if (isSuggestionsOpen) {
+            if (e.key === 'ArrowDown') {
+                e.preventDefault();
+                setActiveSuggestionIndex(prev => Math.min(prev + 1, suggestions.length - 1));
+            } else if (e.key === 'ArrowUp') {
+                e.preventDefault();
+                setActiveSuggestionIndex(prev => Math.max(prev - 1, 0));
+            } else if (e.key === 'Enter') {
+                e.preventDefault();
+                if (suggestions[activeSuggestionIndex]) {
+                    handleSuggestionClick(suggestions[activeSuggestionIndex]);
+                }
+            } else if (e.key === 'Escape') {
+                setSuggestionsOpen(false);
+            }
+        }
+    };
+
     const handleAddProduto = (e: React.FormEvent) => {
         e.preventDefault();
         const input = lancamentoInput.trim();
         if (!input) return;
+
+        setSuggestionsOpen(false);
 
         const parts = input.split(' ');
         const precoStr = parts.pop()?.replace(',', '.');
@@ -208,15 +286,40 @@ export default function MercadoriasPanel() {
             <div className="space-y-4">
                 <Label htmlFor="lancamento-produto">Lançamento de Produto</Label>
                 <form onSubmit={handleAddProduto} className="flex items-end gap-2">
-                    <div className="flex-grow space-y-2">
-                        <Input 
-                            id="lancamento-produto"
-                            ref={lancamentoInputRef}
-                            placeholder="Ex: Arroz 5kg 25,90"
-                            value={lancamentoInput}
-                            onChange={(e) => setLancamentoInput(e.target.value)}
-                        />
-                    </div>
+                    <Popover open={isSuggestionsOpen} onOpenChange={setSuggestionsOpen}>
+                        <PopoverAnchor asChild>
+                            <div className="flex-grow space-y-2">
+                                <Input 
+                                    id="lancamento-produto"
+                                    ref={lancamentoInputRef}
+                                    placeholder="Ex: Arroz 5kg 25,90"
+                                    value={lancamentoInput}
+                                    onChange={handleLancamentoChange}
+                                    onKeyDown={handleKeyDown}
+                                    autoComplete="off"
+                                />
+                            </div>
+                        </PopoverAnchor>
+                        <PopoverContent 
+                            className="w-[--radix-popover-trigger-width] p-1"
+                            onOpenAutoFocus={(e) => e.preventDefault()}
+                        >
+                            <div className="max-h-60 overflow-y-auto">
+                                {suggestions.map((suggestion, index) => (
+                                    <div
+                                        key={suggestion}
+                                        className={cn(
+                                            "cursor-pointer p-2 text-sm rounded-sm",
+                                            index === activeSuggestionIndex ? "bg-accent" : ""
+                                        )}
+                                        onMouseDown={() => handleSuggestionClick(suggestion)}
+                                    >
+                                        {suggestion}
+                                    </div>
+                                ))}
+                            </div>
+                        </PopoverContent>
+                    </Popover>
                      <Button type="submit" size="icon" disabled={!lancamentoInput.trim()}>
                         <Plus className="h-4 w-4"/>
                     </Button>
