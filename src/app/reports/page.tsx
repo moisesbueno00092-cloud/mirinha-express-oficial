@@ -200,9 +200,9 @@ const ReportDetail = ({ report, bomboniereItems }: { report: DailyReport, bombon
                             {renderItemCountList(bomboniereSalao, "Bomboniere", "text-purple-400")}
                             {report.totalBomboniereSalao > 0 && (
                                 <div className="mt-2 pt-2 border-t border-dashed">
-                                    <div className="flex justify-between items-end text-xs">
+                                    <div className="grid grid-cols-2 items-end text-xs">
                                         <span className="text-muted-foreground">({totalBomboniereSalaoItens} itens)</span>
-                                        <div className="flex items-center gap-2">
+                                        <div className="flex justify-end items-center gap-2">
                                             <span className="font-semibold text-purple-400">Total:</span>
                                             <span className="font-bold font-mono text-purple-400">{formatCurrency(report.totalBomboniereSalao)}</span>
                                         </div>
@@ -216,9 +216,9 @@ const ReportDetail = ({ report, bomboniereItems }: { report: DailyReport, bombon
                             {renderItemCountList(bomboniereRua, "Bomboniere", "text-blue-400")}
                              {report.totalBomboniereRua > 0 && (
                                 <div className="mt-2 pt-2 border-t border-dashed">
-                                     <div className="flex justify-between items-end text-xs">
+                                     <div className="grid grid-cols-2 items-end text-xs">
                                         <span className="text-muted-foreground">({totalBomboniereRuaItens} itens)</span>
-                                        <div className="flex items-center gap-2">
+                                        <div className="flex justify-end items-center gap-2">
                                             <span className="font-semibold text-blue-400">Total:</span>
                                             <span className="font-bold font-mono text-blue-400">{formatCurrency(report.totalBomboniereRua)}</span>
                                         </div>
