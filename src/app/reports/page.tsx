@@ -4,15 +4,14 @@
 import { useState, useMemo } from 'react';
 import { useUser, useFirestore, useCollection, useMemoFirebase } from '@/firebase';
 import { collection, query, orderBy, doc, deleteDoc } from 'firebase/firestore';
-import { format } from 'date-fns';
+import { format, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
-import { Loader2, ArrowLeft, Trash2 } from 'lucide-react';
-import { WhatsAppIcon } from '@/components/ui/icons/whatsapp-icon';
+import { Loader2, ArrowLeft, Trash2, ChevronDown } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import {
   AlertDialog,
@@ -358,6 +357,20 @@ export default function ReportsPage() {
     }
   };
 
+  const getFormattedDate = (dateString: string) => {
+    try {
+        const date = parseISO(dateString + 'T12:00:00');
+        return {
+            day: format(date, "dd"),
+            month: format(date, "MMM", { locale: ptBR }).toUpperCase(),
+            dayOfWeek: format(date, "EEEE", { locale: ptBR }),
+            fullDate: format(date, "dd/MM/yyyy")
+        }
+    } catch {
+        return { day: '??', month: '???', dayOfWeek: 'Data inválida', fullDate: '??/??/????' }
+    }
+  };
+
   if (isUserLoading || isLoadingReports || isLoadingBomboniere) {
     return (
       <div className="flex h-screen items-center justify-center">
@@ -392,44 +405,57 @@ export default function ReportsPage() {
               </Button>
             </Link>
             <div>
-              <h1 className="text-2xl sm:text-3xl font-bold text-foreground">Relatórios Salvos</h1>
-              <p className="text-muted-foreground">Histórico de relatórios diários finalizados.</p>
+              <h1 className="text-2xl sm:text-3xl font-bold text-foreground">Relatórios Salvos no Mês</h1>
+              <p className="text-muted-foreground">Detalhes de cada relatório salvo, agrupado por dia.</p>
             </div>
           </div>
         </header>
 
         <main className="space-y-2">
           {savedReports && savedReports.length > 0 && bomboniereItems ? (
-            <Accordion type="single" collapsible className="w-full">
-              {savedReports.map(report => (
-                <AccordionItem value={report.id} key={report.id}>
-                  <div className="flex w-full items-center" >
-                    <AccordionTrigger className="flex-1 py-4 pr-2 hover:no-underline">
-                        <span className="font-semibold text-lg">
-                            {format(new Date(report.reportDate + 'T12:00:00'), "dd 'de' MMMM 'de' yyyy", { locale: ptBR })}
-                        </span>
-                    </AccordionTrigger>
-                    <div className="flex-grow" />
-                    <span className="font-bold text-lg text-primary text-right px-4">
-                        {formatCurrency(report.totalGeral)}
-                    </span>
-                    <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-8 w-8 shrink-0 text-muted-foreground hover:text-destructive ml-2"
-                        onClick={(e) => {
-                            e.stopPropagation();
-                            handleDeleteReportRequest(report.id);
-                        }}
-                        >
-                        <Trash2 className="h-4 w-4" />
-                    </Button>
-                  </div>
-                  <AccordionContent className="p-2 pt-0">
-                    <ReportDetail report={report} bomboniereItems={bomboniereItems} />
-                  </AccordionContent>
-                </AccordionItem>
-              ))}
+            <Accordion type="single" collapsible className="w-full space-y-2">
+              {savedReports.map(report => {
+                const { day, month, dayOfWeek, fullDate } = getFormattedDate(report.reportDate);
+                return (
+                    <AccordionItem value={report.id} key={report.id} className="border-b-0">
+                        <div className="bg-card p-2 rounded-lg border flex items-center gap-4">
+                            <div className="bg-primary text-primary-foreground rounded-md flex flex-col items-center justify-center w-16 h-16 shrink-0">
+                                <span className="text-2xl font-bold leading-none">{day}</span>
+                                <span className="text-xs font-semibold uppercase">{month}</span>
+                            </div>
+
+                            <div className="flex-grow">
+                                <p className="font-semibold text-foreground capitalize">{dayOfWeek}</p>
+                                <p className="text-sm text-muted-foreground">{fullDate}</p>
+                            </div>
+
+                            <div className="text-right mr-4">
+                                <p className="text-xs text-muted-foreground">Total do Dia</p>
+                                <p className="font-bold text-lg text-primary">{formatCurrency(report.totalGeral)}</p>
+                            </div>
+
+                            <AccordionTrigger className="p-2 rounded-md hover:bg-accent [&[data-state=open]>svg]:rotate-180">
+                                <ChevronDown className="h-5 w-5 shrink-0 transition-transform duration-200" />
+                            </AccordionTrigger>
+
+                            <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-9 w-9 shrink-0 text-muted-foreground hover:text-destructive"
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleDeleteReportRequest(report.id);
+                                }}
+                                >
+                                <Trash2 className="h-4 w-4" />
+                            </Button>
+                        </div>
+                        <AccordionContent className="p-2 pt-2">
+                            <ReportDetail report={report} bomboniereItems={bomboniereItems} />
+                        </AccordionContent>
+                    </AccordionItem>
+                )
+              })}
             </Accordion>
           ) : (
             <Card>
