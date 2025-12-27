@@ -21,7 +21,7 @@ import { Separator } from '../ui/separator';
 import { format } from 'date-fns';
 import { addDocumentNonBlocking } from '@/firebase/non-blocking-updates';
 import { DatePicker } from '../ui/date-picker';
-import { Popover, PopoverContent, PopoverAnchor } from '../ui/popover';
+import { Popover, PopoverContent, PopoverTrigger } from '../ui/popover';
 import { cn } from '@/lib/utils';
 
 interface LancamentoProduto {
@@ -112,14 +112,12 @@ export default function MercadoriasPanel() {
             setIsSuggestionsOpen(filteredSuggestions.length > 0);
             setActiveSuggestionIndex(0);
         } else {
-            setSuggestions([]);
             setIsSuggestionsOpen(false);
         }
     };
 
     const handleSuggestionClick = (suggestion: string) => {
         setLancamentoInput(suggestion + ' ');
-        setSuggestions([]);
         setIsSuggestionsOpen(false);
         lancamentoInputRef.current?.focus();
     };
@@ -133,12 +131,11 @@ export default function MercadoriasPanel() {
                 e.preventDefault();
                 setActiveSuggestionIndex(prev => Math.max(prev - 1, 0));
             } else if (e.key === 'Enter' || e.key === 'Tab') {
-                 if (suggestions[activeSuggestionIndex]) {
+                 if (suggestions.length > 0 && suggestions[activeSuggestionIndex]) {
                     e.preventDefault();
                     handleSuggestionClick(suggestions[activeSuggestionIndex]);
                 }
             } else if (e.key === 'Escape') {
-                setSuggestions([]);
                 setIsSuggestionsOpen(false);
             }
         }
@@ -287,8 +284,8 @@ export default function MercadoriasPanel() {
                 <Label htmlFor="lancamento-produto">Lançamento de Produto</Label>
                 <form onSubmit={handleAddProduto} className="flex items-end gap-2">
                     <Popover open={isSuggestionsOpen} onOpenChange={setIsSuggestionsOpen}>
-                        <PopoverAnchor asChild>
-                            <div className="flex-grow space-y-2">
+                        <PopoverTrigger asChild>
+                             <div className="flex-grow">
                                 <Input 
                                     id="lancamento-produto"
                                     ref={lancamentoInputRef}
@@ -299,17 +296,19 @@ export default function MercadoriasPanel() {
                                     autoComplete="off"
                                 />
                             </div>
-                        </PopoverAnchor>
+                        </PopoverTrigger>
                         <PopoverContent 
                             className="w-[--radix-popover-trigger-width] p-1"
                             onOpenAutoFocus={(e) => e.preventDefault()}
+                            side="bottom"
+                            align="start"
                         >
                             <div className="max-h-60 overflow-y-auto">
                                 {suggestions.map((suggestion, index) => (
                                     <div
                                         key={suggestion}
                                         className={cn(
-                                            "cursor-pointer p-2 text-sm rounded-sm",
+                                            "cursor-pointer p-2 text-sm rounded-sm hover:bg-accent",
                                             index === activeSuggestionIndex ? "bg-accent" : ""
                                         )}
                                         onMouseDown={() => handleSuggestionClick(suggestion)}
