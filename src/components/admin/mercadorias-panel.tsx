@@ -49,6 +49,7 @@ export default function MercadoriasPanel() {
     const [openCombobox, setOpenCombobox] = useState(false);
     const [selectedProductName, setSelectedProductName] = useState('');
     const [productPrice, setProductPrice] = useState('');
+    const [searchQuery, setSearchQuery] = useState('');
     const priceInputRef = useRef<HTMLInputElement>(null);
 
 
@@ -108,6 +109,7 @@ export default function MercadoriasPanel() {
 
         setSelectedProductName('');
         setProductPrice('');
+        setSearchQuery('');
     }
 
     const handleRemoveProduto = (id: number) => {
@@ -127,6 +129,7 @@ export default function MercadoriasPanel() {
         setProdutosLancados([]);
         setSelectedProductName('');
         setProductPrice('');
+        setSearchQuery('');
     }
 
     const handleRegisterEntry = async () => {
@@ -243,28 +246,31 @@ export default function MercadoriasPanel() {
                         </PopoverTrigger>
                         <PopoverContent className="w-[--radix-popover-trigger-width] p-0">
                             <Command>
-                                <CommandInput placeholder="Buscar ou criar produto..." />
+                                <CommandInput 
+                                  placeholder="Buscar ou criar produto..." 
+                                  value={searchQuery}
+                                  onValueChange={setSearchQuery}
+                                />
                                 <CommandList>
                                     <CommandEmpty
                                       onSelect={() => {
-                                        const input = document.querySelector<HTMLInputElement>('input[cmdk-input]');
-                                        if (input) {
-                                          setSelectedProductName(input.value);
-                                          setOpenCombobox(false);
-                                          setTimeout(() => priceInputRef.current?.focus(), 0);
-                                        }
+                                        setSelectedProductName(searchQuery);
+                                        setOpenCombobox(false);
+                                        setSearchQuery('');
+                                        setTimeout(() => priceInputRef.current?.focus(), 0);
                                       }}
                                     >
-                                      Criar novo: "{document.querySelector<HTMLInputElement>('input[cmdk-input]')?.value}"
+                                      Criar novo: "{searchQuery}"
                                     </CommandEmpty>
                                     <CommandGroup>
-                                    {uniqueProductNames.map((product) => (
+                                    {uniqueProductNames.filter(p => p.toLowerCase().includes(searchQuery.toLowerCase())).map((product) => (
                                         <CommandItem
                                             key={product}
                                             value={product}
                                             onSelect={(currentValue) => {
                                                 setSelectedProductName(currentValue === selectedProductName.toLowerCase() ? "" : product)
                                                 setOpenCombobox(false)
+                                                setSearchQuery('');
                                                 setTimeout(() => priceInputRef.current?.focus(), 0);
                                             }}
                                         >
