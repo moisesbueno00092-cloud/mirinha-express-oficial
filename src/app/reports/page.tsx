@@ -40,6 +40,7 @@ import { PieChart, Pie, Cell, ResponsiveContainer } from "recharts"
 
 import type { DailyReport, ItemCount, BomboniereItem } from '@/types';
 import DailyTimelineChart from '@/components/daily-timeline-chart';
+import { cn } from '@/lib/utils';
 
 const formatCurrency = (value: number | undefined | null) => {
     return new Intl.NumberFormat("pt-BR", {
@@ -118,7 +119,7 @@ const ReportDetail = ({ report, bomboniereItems }: { report: DailyReport, bombon
         return { lanchesSalao, bomboniereSalao, lanchesRua, bomboniereRua };
     }, [report.contagemTotal, report.contagemRua, separateItemsByCategory, bomboniereItems]);
 
-    const renderItemCountList = (counts: ItemCount, title?: string) => {
+    const renderItemCountList = (counts: ItemCount, title?: string, titleClassName?: string) => {
       if (!counts || Object.keys(counts).length === 0) {
         return null;
       }
@@ -132,7 +133,7 @@ const ReportDetail = ({ report, bomboniereItems }: { report: DailyReport, bombon
 
       return (
         <div className={title ? 'mt-3' : ''}>
-          {title && <h5 className="font-medium text-xs text-muted-foreground mb-2">{title}</h5>}
+          {title && <h5 className={cn("font-medium text-xs mb-2", titleClassName || "text-muted-foreground")}>{title}</h5>}
           <ul className="text-xs space-y-0.5">
             {sortedEntries.map(([name, count]) => (
                 <li key={name} className="flex items-center gap-2">
@@ -193,12 +194,12 @@ const ReportDetail = ({ report, bomboniereItems }: { report: DailyReport, bombon
                         <div>
                             <h4 className="font-medium text-sm text-purple-400 mb-1">Salão</h4>
                             {renderItemCountList(lanchesSalao)}
-                            {renderItemCountList(bomboniereSalao, "Bomboniere")}
+                            {renderItemCountList(bomboniereSalao, "Bomboniere", "text-purple-400")}
                         </div>
                         <div>
                             <h4 className="font-medium text-sm text-blue-400 mb-1">Rua</h4>
                             {renderItemCountList(lanchesRua)}
-                            {renderItemCountList(bomboniereRua, "Bomboniere")}
+                            {renderItemCountList(bomboniereRua, "Bomboniere", "text-blue-400")}
                         </div>
                   </div>
               </div>
