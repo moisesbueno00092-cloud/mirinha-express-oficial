@@ -53,8 +53,20 @@ const bomboniereNames = new Set(BOMBONIERE_ITEMS_DEFAULT.map(item => item.name.t
 
 const isBomboniere = (itemName: string): boolean => {
     const lowerItemName = itemName.toLowerCase();
+    // Check against predefined bomboniere names
     const bomboniereItemDef = BOMBONIERE_ITEMS_DEFAULT.find(bi => bi.name.toLowerCase().replace(/\s+/g, '-') === lowerItemName);
-    return !!bomboniereItemDef || bomboniereNames.has(lowerItemName) || /^\d+[a-zA-Z]+/.test(lowerItemName) || lowerItemName.includes('bala') || lowerItemName.includes('chiclete') || lowerItemName.includes('chocolate');
+    if (bomboniereItemDef) return true;
+
+    // Check against the simple set of names
+    if (bomboniereNames.has(lowerItemName)) return true;
+
+    // Regex for patterns like '2bala' or '1chocolate' which might not be in the default list if added manually
+    if (/^\d+[a-zA-Z]+/.test(lowerItemName)) return true;
+    
+    // Fallback for common keywords
+    if (lowerItemName.includes('bala') || lowerItemName.includes('chiclete') || lowerItemName.includes('chocolate')) return true;
+
+    return false;
 };
 
 const separateItemsByCategory = (itemCount: ItemCount) => {
@@ -115,6 +127,8 @@ const ReportDetail = ({ report }: { report: DailyReport }) => {
 
     const { lanchesSalao, bomboniereSalao, lanchesRua, bomboniereRua } = useMemo(() => {
         const contagemSalao: ItemCount = {};
+        
+        // Calculate Salão count by subtracting Rua from Total
         if (report.contagemTotal && report.contagemRua) {
             for (const key in report.contagemTotal) {
                 const totalCount = report.contagemTotal[key] || 0;
@@ -126,7 +140,10 @@ const ReportDetail = ({ report }: { report: DailyReport }) => {
             }
         }
 
+        // Separate items for Salão
         const { lanches: lanchesSalao, bomboniere: bomboniereSalao } = separateItemsByCategory(contagemSalao);
+        
+        // Separate items for Rua (using the direct count)
         const { lanches: lanchesRua, bomboniere: bomboniereRua } = separateItemsByCategory(report.contagemRua);
         
         return { lanchesSalao, bomboniereSalao, lanchesRua, bomboniereRua };
