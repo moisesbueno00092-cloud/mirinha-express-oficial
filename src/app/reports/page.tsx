@@ -195,11 +195,27 @@ const ReportDetail = ({ report, bomboniereItems }: { report: DailyReport, bombon
                             <h4 className="font-medium text-sm text-purple-400 mb-1">Salão</h4>
                             {renderItemCountList(lanchesSalao)}
                             {renderItemCountList(bomboniereSalao, "Bomboniere", "text-purple-400")}
+                            {report.totalBomboniereSalao > 0 && (
+                                <div className="mt-2 pt-2 border-t border-dashed">
+                                    <div className="flex justify-between items-center text-xs">
+                                        <span className="font-semibold text-purple-400">Total Bomboniere:</span>
+                                        <span className="font-bold font-mono text-purple-400">{formatCurrency(report.totalBomboniereSalao)}</span>
+                                    </div>
+                                </div>
+                            )}
                         </div>
                         <div>
                             <h4 className="font-medium text-sm text-blue-400 mb-1">Rua</h4>
                             {renderItemCountList(lanchesRua)}
                             {renderItemCountList(bomboniereRua, "Bomboniere", "text-blue-400")}
+                             {report.totalBomboniereRua > 0 && (
+                                <div className="mt-2 pt-2 border-t border-dashed">
+                                    <div className="flex justify-between items-center text-xs">
+                                        <span className="font-semibold text-blue-400">Total Bomboniere:</span>
+                                        <span className="font-bold font-mono text-blue-400">{formatCurrency(report.totalBomboniereRua)}</span>
+                                    </div>
+                                </div>
+                            )}
                         </div>
                   </div>
               </div>
