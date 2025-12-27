@@ -58,7 +58,7 @@ function ProductCombobox({ products, value, setValue, disabled }: { products: st
             className="w-full justify-between h-10"
             disabled={disabled}
             >
-            {value ? value : "Selecione um produto..."}
+            {value ? products.find(p => p.toLowerCase() === value) || "Selecione um produto..." : "Selecione um produto..."}
             <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
             </Button>
         </PopoverTrigger>
@@ -285,5 +285,7 @@ export default function PriceHistoryPanel() {
         </div>
     );
 }
+
+    
 
     
