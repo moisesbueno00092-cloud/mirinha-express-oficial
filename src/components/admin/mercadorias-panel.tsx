@@ -21,6 +21,7 @@ import { Separator } from '../ui/separator';
 import { format } from 'date-fns';
 import { addDocumentNonBlocking } from '@/firebase/non-blocking-updates';
 import { DatePicker } from '../ui/date-picker';
+import { ProductCombobox } from './product-combobox';
 
 interface LancamentoProduto {
     id: number;
@@ -36,19 +37,32 @@ export default function MercadoriasPanel() {
     const [dataVencimento, setDataVencimento] = useState<Date | undefined>();
     const [isSubmitting, setIsSubmitting] = useState(false);
     
-    const [lancamento, setLancamento] = useState('');
+    const [produtoNome, setProdutoNome] = useState('');
+    const [produtoPreco, setProdutoPreco] = useState('');
     const [produtosLancados, setProdutosLancados] = useState<LancamentoProduto[]>([]);
     
     const [newFornecedorName, setNewFornecedorName] = useState('');
     const [isAddingFornecedor, setIsAddingFornecedor] = useState(false);
     
-    const lancamentoInputRef = useRef<HTMLInputElement>(null);
+    const precoInputRef = useRef<HTMLInputElement>(null);
 
     const fornecedoresQuery = useMemoFirebase(
         () => firestore ? query(collection(firestore, 'fornecedores'), orderBy('nome', 'asc')) : null,
         [firestore]
     );
     const { data: fornecedores, isLoading: isLoadingFornecedores } = useCollection<Fornecedor>(fornecedoresQuery);
+
+    const allEntradasQuery = useMemoFirebase(
+        () => firestore ? query(collection(firestore, 'entradas_mercadorias')) : null,
+        [firestore]
+    );
+    const { data: allEntradas, isLoading: isLoadingAllEntradas } = useCollection<EntradaMercadoria>(allEntradasQuery);
+
+    const uniqueProducts = useMemo(() => {
+        if (!allEntradas) return [];
+        const productNames = allEntradas.map(e => e.produtoNome);
+        return [...new Set(productNames)].sort((a,b) => a.localeCompare(b));
+    }, [allEntradas]);
     
     const handleAddFornecedor = async () => {
         if (!firestore || !newFornecedorName.trim()) return;
@@ -70,16 +84,11 @@ export default function MercadoriasPanel() {
 
     const handleAddProduto = (e: React.FormEvent) => {
         e.preventDefault();
-        if(!lancamento.trim()) return;
-
-        // Simplified logic: expecting "Produto Preco"
-        const parts = lancamento.split(' ');
-        const precoString = parts.pop() || '';
-        const nome = parts.join(' ');
-        const preco = parseFloat(precoString.replace(',', '.'));
+        const nome = produtoNome.trim();
+        const preco = parseFloat(produtoPreco.replace(',', '.'));
         
-        if (!nome || isNaN(preco)) {
-            toast({ variant: 'destructive', title: 'Formato inválido', description: 'Use o formato: Nome do Produto Preço (Ex: Arroz 25,90).' });
+        if (!nome || isNaN(preco) || preco <= 0) {
+            toast({ variant: 'destructive', title: 'Dados inválidos', description: 'Por favor, preencha o nome e um preço válido para o produto.' });
             return;
         }
 
@@ -88,7 +97,9 @@ export default function MercadoriasPanel() {
             produtoNome: nome,
             preco,
         }]);
-        setLancamento('');
+
+        setProdutoNome('');
+        setProdutoPreco('');
     }
 
     const handleRemoveProduto = (id: number) => {
@@ -96,21 +107,23 @@ export default function MercadoriasPanel() {
     }
     
     const handleEditProduto = (produto: LancamentoProduto) => {
-        setLancamento(`${produto.produtoNome} ${String(produto.preco).replace('.', ',')}`);
+        setProdutoNome(produto.produtoNome);
+        setProdutoPreco(String(produto.preco).replace('.', ','));
         handleRemoveProduto(produto.id);
-        lancamentoInputRef.current?.focus();
+        precoInputRef.current?.focus();
     }
 
     const resetForm = () => {
         setFornecedorId(undefined);
         setDataVencimento(undefined);
         setProdutosLancados([]);
-        setLancamento('');
+        setProdutoNome('');
+        setProdutoPreco('');
     }
 
     const handleRegisterEntry = async () => {
         if (!firestore || !fornecedorId || !dataVencimento || produtosLancados.length === 0) {
-            toast({ variant: 'destructive', title: 'Faltam dados', description: 'Por favor, preencha todos os campos.' });
+            toast({ variant: 'destructive', title: 'Faltam dados', description: 'Por favor, preencha todos os campos e adicione pelo menos um produto.' });
             return;
         }
         setIsSubmitting(true);
@@ -205,19 +218,28 @@ export default function MercadoriasPanel() {
             <Separator />
 
             <div className="space-y-4">
-                <form onSubmit={handleAddProduto} className="flex items-end gap-2">
-                    <div className="flex-grow space-y-2">
-                        <Label htmlFor="lancamento-produto">Lançamento do Produto (Nome e Preço)</Label>
+                <form onSubmit={handleAddProduto} className="grid grid-cols-1 sm:grid-cols-[2fr_1fr_auto] items-end gap-2">
+                    <div className="space-y-2">
+                        <Label htmlFor="lancamento-produto-nome">Nome do Produto</Label>
+                         <ProductCombobox
+                            products={uniqueProducts}
+                            value={produtoNome}
+                            setValue={setProdutoNome}
+                            disabled={isLoadingAllEntradas}
+                         />
+                    </div>
+                    <div className="space-y-2">
+                        <Label htmlFor="lancamento-produto-preco">Preço (R$)</Label>
                         <Input 
-                            id="lancamento-produto"
-                            ref={lancamentoInputRef}
-                            placeholder="Ex: Arroz 5kg 25,90"
-                            value={lancamento}
-                            onChange={(e) => setLancamento(e.target.value)}
+                            id="lancamento-produto-preco"
+                            ref={precoInputRef}
+                            placeholder="25,90"
+                            value={produtoPreco}
+                            onChange={(e) => setProdutoPreco(e.target.value)}
                             onKeyDown={(e) => { if(e.key === 'Enter') handleAddProduto(e) }}
                         />
                     </div>
-                     <Button type="submit" size="icon" disabled={!lancamento.trim()}>
+                     <Button type="submit" size="icon" disabled={!produtoNome.trim() || !produtoPreco.trim()}>
                         <Plus className="h-4 w-4"/>
                     </Button>
                 </form>

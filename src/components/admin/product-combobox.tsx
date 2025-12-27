@@ -39,7 +39,7 @@ export function ProductCombobox({ products, value, setValue, disabled }: Product
           disabled={disabled}
         >
           {value
-            ? products.find(p => p.toLowerCase() === value.toLowerCase()) || "Selecione ou crie um produto..."
+            ? products.find(p => p.toLowerCase() === value.toLowerCase()) || value
             : "Selecione ou crie um produto..."}
           <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
         </Button>
@@ -48,7 +48,8 @@ export function ProductCombobox({ products, value, setValue, disabled }: Product
         <Command>
           <CommandInput 
             placeholder="Buscar produto..." 
-            onValueChange={(search) => setValue(search)}
+            value={value}
+            onValueChange={setValue}
           />
           <CommandList>
             <CommandEmpty>Nenhum produto encontrado. Pode adicioná-lo.</CommandEmpty>
@@ -58,7 +59,7 @@ export function ProductCombobox({ products, value, setValue, disabled }: Product
                   key={product}
                   value={product}
                   onSelect={(currentValue) => {
-                    setValue(currentValue.toLowerCase() === value.toLowerCase() ? '' : currentValue);
+                    setValue(currentValue.toLowerCase() === value.toLowerCase() ? '' : product);
                     setOpen(false);
                   }}
                 >
