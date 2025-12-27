@@ -8,7 +8,7 @@ import { useToast } from '@/hooks/use-toast';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
-import type { ContaAPagar, Fornecedor } from '@/types';
+import type { ContaAPagar, Fornecedor, EntradaMercadoria } from '@/types';
 import { updateDocumentNonBlocking, deleteDocumentNonBlocking } from '@/firebase/non-blocking-updates';
 
 import {
@@ -22,7 +22,8 @@ import {
 import { Badge } from '@/components/ui/badge';
 import { Switch } from '@/components/ui/switch';
 import { Button } from '@/components/ui/button';
-import { Loader2, Trash2 } from 'lucide-react';
+import { Input } from '@/components/ui/input';
+import { Loader2, Trash2, Search, History } from 'lucide-react';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -33,6 +34,24 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { Separator } from '../ui/separator';
+
+const formatCurrency = (value: number) => {
+    return new Intl.NumberFormat("pt-BR", {
+      style: "currency",
+      currency: "BRL",
+    }).format(value);
+};
+
+const formatDate = (dateString: string, includeTime = false) => {
+    try {
+        const formatString = includeTime ? "dd/MM/yy 'às' HH:mm" : "dd 'de' MMM, yyyy";
+        // Add time to avoid timezone issues with format() for date-only strings
+        return format(new Date(dateString.includes('T') ? dateString : dateString + 'T00:00:00'), formatString, { locale: ptBR });
+    } catch (e) {
+        return dateString;
+    }
+}
 
 
 export default function ContasAPagarPanel() {
@@ -40,6 +59,7 @@ export default function ContasAPagarPanel() {
     const { toast } = useToast();
 
     const [contaToDelete, setContaToDelete] = useState<ContaAPagar | null>(null);
+    const [searchQuery, setSearchQuery] = useState('');
 
     const contasQuery = useMemoFirebase(
         () => firestore ? query(collection(firestore, 'contas_a_pagar'), orderBy('dataVencimento', 'asc')) : null,
@@ -51,13 +71,28 @@ export default function ContasAPagarPanel() {
         [firestore]
     );
 
+    const allEntradasQuery = useMemoFirebase(
+        () => firestore ? query(collection(firestore, 'entradas_mercadorias'), orderBy('data', 'desc')) : null,
+        [firestore]
+    );
+
     const { data: contas, isLoading: isLoadingContas } = useCollection<ContaAPagar>(contasQuery);
     const { data: fornecedores, isLoading: isLoadingFornecedores } = useCollection<Fornecedor>(fornecedoresQuery);
+    const { data: allEntradas, isLoading: isLoadingAllEntradas } = useCollection<EntradaMercadoria>(allEntradasQuery);
+
 
     const fornecedorMap = useMemo(() => {
         if (!fornecedores) return new Map<string, string>();
         return new Map(fornecedores.map(f => [f.id, f.nome]));
     }, [fornecedores]);
+
+    const filteredEntradas = useMemo(() => {
+        if (!allEntradas) return [];
+        if (!searchQuery.trim()) return allEntradas;
+        return allEntradas.filter(entrada => 
+            entrada.produtoNome.toLowerCase().includes(searchQuery.toLowerCase())
+        );
+    }, [allEntradas, searchQuery]);
 
     const handleStatusChange = (conta: ContaAPagar, isPaga: boolean) => {
         if (!firestore) return;
@@ -83,23 +118,7 @@ export default function ContasAPagarPanel() {
         setContaToDelete(null);
     };
     
-    const formatCurrency = (value: number) => {
-        return new Intl.NumberFormat("pt-BR", {
-          style: "currency",
-          currency: "BRL",
-        }).format(value);
-    };
-
-    const formatDate = (dateString: string) => {
-        try {
-            // Add time to avoid timezone issues with format()
-            return format(new Date(dateString + 'T00:00:00'), "dd 'de' MMM, yyyy", { locale: ptBR });
-        } catch (e) {
-            return dateString;
-        }
-    }
-    
-    const isLoading = isLoadingContas || isLoadingFornecedores;
+    const isLoading = isLoadingContas || isLoadingFornecedores || isLoadingAllEntradas;
 
     return (
         <div className="space-y-6">
@@ -117,6 +136,8 @@ export default function ContasAPagarPanel() {
                     </AlertDialogFooter>
                 </AlertDialogContent>
             </AlertDialog>
+            
+            <h3 className="text-lg font-semibold text-foreground">Contas a Pagar</h3>
             <div className="rounded-md border">
                 <Table>
                     <TableHeader>
@@ -129,7 +150,7 @@ export default function ContasAPagarPanel() {
                         </TableRow>
                     </TableHeader>
                     <TableBody>
-                        {isLoading ? (
+                        {isLoadingContas ? (
                             <TableRow>
                                 <TableCell colSpan={5} className="h-24 text-center">
                                     <Loader2 className="h-6 w-6 animate-spin mx-auto text-muted-foreground" />
@@ -175,6 +196,60 @@ export default function ContasAPagarPanel() {
                         )}
                     </TableBody>
                 </Table>
+            </div>
+            
+            <Separator className="my-8" />
+
+            <div className="space-y-4">
+                 <h3 className="text-lg font-semibold text-foreground flex items-center gap-2">
+                    <History className="h-5 w-5" />
+                    Histórico de Preços de Compras
+                </h3>
+                <div className="relative">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                    <Input 
+                        placeholder="Buscar por nome do produto..."
+                        value={searchQuery}
+                        onChange={(e) => setSearchQuery(e.target.value)}
+                        className="pl-10"
+                    />
+                </div>
+                <div className="rounded-md border">
+                    <Table>
+                        <TableHeader>
+                            <TableRow>
+                                <TableHead>Data</TableHead>
+                                <TableHead>Produto</TableHead>
+                                <TableHead>Fornecedor</TableHead>
+                                <TableHead className="text-right">Preço Unitário</TableHead>
+                            </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                            {isLoadingAllEntradas || isLoadingFornecedores ? (
+                                <TableRow>
+                                    <TableCell colSpan={4} className="h-24 text-center">
+                                        <Loader2 className="h-6 w-6 animate-spin mx-auto text-muted-foreground" />
+                                    </TableCell>
+                                </TableRow>
+                            ) : filteredEntradas.length > 0 ? (
+                                filteredEntradas.map((entry) => (
+                                    <TableRow key={entry.id}>
+                                        <TableCell>{formatDate(entry.data, true)}</TableCell>
+                                        <TableCell className="font-medium">{entry.produtoNome}</TableCell>
+                                        <TableCell>{fornecedorMap.get(entry.fornecedorId) || 'Desconhecido'}</TableCell>
+                                        <TableCell className="text-right font-mono">{formatCurrency(entry.precoUnitario)}</TableCell>
+                                    </TableRow>
+                                ))
+                            ) : (
+                                <TableRow>
+                                    <TableCell colSpan={4} className="h-24 text-center text-muted-foreground">
+                                        {searchQuery ? 'Nenhum resultado para sua busca.' : 'Nenhum histórico de compras encontrado.'}
+                                    </TableCell>
+                                </TableRow>
+                            )}
+                        </TableBody>
+                    </Table>
+                </div>
             </div>
         </div>
     );
