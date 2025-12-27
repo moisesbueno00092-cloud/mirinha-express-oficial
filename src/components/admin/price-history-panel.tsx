@@ -58,7 +58,10 @@ function ProductCombobox({ products, value, setValue, disabled }: { products: st
             className="w-full justify-between h-10"
             disabled={disabled}
             >
-            {value ? products.find(p => p.toLowerCase() === value) || "Selecione um produto..." : "Selecione um produto..."}
+            {value
+                ? products.find(p => p.toLowerCase() === value.toLowerCase()) || "Selecione um produto..."
+                : "Selecione um produto..."
+            }
             <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
             </Button>
         </PopoverTrigger>
@@ -73,14 +76,14 @@ function ProductCombobox({ products, value, setValue, disabled }: { products: st
                         key={product}
                         value={product}
                         onSelect={(currentValue) => {
-                            setValue(currentValue === value ? "" : currentValue)
+                            setValue(currentValue.toLowerCase() === value.toLowerCase() ? "" : currentValue)
                             setOpen(false)
                         }}
                     >
                     <Check
                         className={cn(
                         "mr-2 h-4 w-4",
-                        value === product ? "opacity-100" : "opacity-0"
+                        value.toLowerCase() === product.toLowerCase() ? "opacity-100" : "opacity-0"
                         )}
                     />
                     {product}
