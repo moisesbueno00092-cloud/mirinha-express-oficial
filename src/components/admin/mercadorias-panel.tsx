@@ -92,9 +92,8 @@ export default function MercadoriasPanel() {
     const handleLancamentoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const value = e.target.value;
         setLancamento(value);
-        setActiveIndex(-1);
 
-        if (value && !/\s\d/.test(value)) {
+        if (value.trim() && !/\s\d/.test(value)) {
             const filteredSuggestions = uniqueProductNames.filter(name =>
                 name.toLowerCase().startsWith(value.toLowerCase())
             );
@@ -114,21 +113,28 @@ export default function MercadoriasPanel() {
     };
 
     const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
-        if (!isSuggestionsOpen) return;
-
-        if (e.key === 'ArrowDown') {
-            e.preventDefault();
-            setActiveIndex(prevIndex => (prevIndex + 1) % suggestions.length);
-        } else if (e.key === 'ArrowUp') {
-            e.preventDefault();
-            setActiveIndex(prevIndex => (prevIndex - 1 + suggestions.length) % suggestions.length);
-        } else if ((e.key === 'Enter' || e.key === 'Tab') && activeIndex >= 0) {
-            e.preventDefault();
-            handleSuggestionClick(suggestions[activeIndex]);
-        } else if (e.key === 'Escape') {
-            setIsSuggestionsOpen(false);
+        if (isSuggestionsOpen) {
+            if (e.key === 'ArrowDown') {
+                e.preventDefault();
+                setActiveIndex(prev => (prev + 1) % suggestions.length);
+            } else if (e.key === 'ArrowUp') {
+                e.preventDefault();
+                setActiveIndex(prev => (prev - 1 + suggestions.length) % suggestions.length);
+            } else if ((e.key === 'Enter' || e.key === 'Tab') && activeIndex >= 0) {
+                e.preventDefault();
+                handleSuggestionClick(suggestions[activeIndex]);
+            } else if (e.key === 'Escape') {
+                e.preventDefault();
+                setIsSuggestionsOpen(false);
+            }
         }
     };
+
+    useEffect(() => {
+        if (isSuggestionsOpen) {
+            setActiveIndex(-1); // Reset active index when suggestions open
+        }
+    }, [isSuggestionsOpen]);
 
 
     const handleAddProduto = (e: React.FormEvent) => {
@@ -285,6 +291,7 @@ export default function MercadoriasPanel() {
                                 value={lancamento}
                                 onChange={handleLancamentoChange}
                                 onKeyDown={handleKeyDown}
+                                onBlur={() => setIsSuggestionsOpen(false)}
                                 autoComplete="off"
                                 className='flex-grow'
                             />
@@ -292,7 +299,7 @@ export default function MercadoriasPanel() {
                         <PopoverContent 
                             className="w-[--radix-popover-trigger-width] p-0" 
                             align="start"
-                            onOpenAutoFocus={(e) => e.preventDefault()} // Prevent focus stealing
+                            onOpenAutoFocus={(e) => e.preventDefault()}
                         >
                             <div className="max-h-60 overflow-y-auto">
                                 {suggestions.map((s, i) => (
@@ -302,7 +309,7 @@ export default function MercadoriasPanel() {
                                             "p-2 text-sm cursor-pointer hover:bg-accent",
                                             i === activeIndex && "bg-accent"
                                         )}
-                                        onMouseDown={(e) => { // Use onMouseDown to prevent blur event from firing first
+                                        onMouseDown={(e) => {
                                             e.preventDefault();
                                             handleSuggestionClick(s);
                                         }}
