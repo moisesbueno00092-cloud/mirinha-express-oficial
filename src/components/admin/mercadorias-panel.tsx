@@ -17,7 +17,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { DatePicker } from '@/components/ui/date-picker';
 import { Loader2, Plus, PlusCircle, Trash2 } from 'lucide-react';
 import { Separator } from '../ui/separator';
 import { format } from 'date-fns';
@@ -35,7 +34,7 @@ export default function MercadoriasPanel() {
     const { toast } = useToast();
 
     const [fornecedorId, setFornecedorId] = useState<string | undefined>();
-    const [dataVencimento, setDataVencimento] = useState<Date | undefined>();
+    const [dataVencimento, setDataVencimento] = useState<string>('');
     const [isSubmitting, setIsSubmitting] = useState(false);
     
     const [lancamentoInput, setLancamentoInput] = useState('');
@@ -98,7 +97,7 @@ export default function MercadoriasPanel() {
     
     const resetForm = () => {
         setFornecedorId(undefined);
-        setDataVencimento(undefined);
+        setDataVencimento('');
         setProdutosLancados([]);
         setLancamentoInput('');
     }
@@ -118,7 +117,7 @@ export default function MercadoriasPanel() {
                 descricao: `Compra de mercadorias - ${fornecedorNome}`,
                 fornecedorId: fornecedorId,
                 valor: totalCompra,
-                dataVencimento: format(dataVencimento, 'yyyy-MM-dd'),
+                dataVencimento: dataVencimento, // Assuming YYYY-MM-DD format from input
                 estaPaga: false,
             };
             await addDocumentNonBlocking(collection(firestore, 'contas_a_pagar'), novaConta);
@@ -195,7 +194,13 @@ export default function MercadoriasPanel() {
                 </div>
                 <div className="space-y-2 self-end">
                     <Label htmlFor="vencimento">Data de Vencimento da Fatura</Label>
-                    <DatePicker date={dataVencimento} setDate={setDataVencimento} placeholder="Selecione a data" />
+                    <Input 
+                        id="vencimento"
+                        type="text"
+                        value={dataVencimento}
+                        onChange={(e) => setDataVencimento(e.target.value)}
+                        placeholder="AAAA-MM-DD"
+                    />
                 </div>
             </div>
             
