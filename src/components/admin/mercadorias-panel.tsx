@@ -65,9 +65,11 @@ export default function MercadoriasPanel() {
         if (!allEntradas) return [];
         const latestEntries = new Map<string, EntradaMercadoria>();
         
+        // As entradas já vêm ordenadas pela data descendente
         for (const entry of allEntradas) {
-            if (!latestEntries.has(entry.produtoNome)) {
-                latestEntries.set(entry.produtoNome, entry);
+            const normalizedName = entry.produtoNome.toLowerCase();
+            if (!latestEntries.has(normalizedName)) {
+                latestEntries.set(normalizedName, entry);
             }
         }
         
@@ -81,18 +83,24 @@ export default function MercadoriasPanel() {
 
     useEffect(() => {
       if (lancamentoInput.trim() === '') {
-          setIsSuggestionsOpen(false);
-          return;
-      }
-      const lastSpaceIndex = lancamentoInput.lastIndexOf(' ');
-      const namePart = lancamentoInput.substring(0, lastSpaceIndex > -1 ? lastSpaceIndex : lancamentoInput.length).toLowerCase();
-
-      if (lastSpaceIndex > -1 && /[\d,.]+$/.test(lancamentoInput.substring(lastSpaceIndex + 1))) {
+          setSuggestions([]);
           setIsSuggestionsOpen(false);
           return;
       }
       
-      const filtered = productSuggestions.filter(p => p.name.toLowerCase().startsWith(lancamentoInput.toLowerCase()));
+      const lastSpaceIndex = lancamentoInput.lastIndexOf(' ');
+      const hasPrice = lastSpaceIndex > -1 && /[\d,.]+$/.test(lancamentoInput.substring(lastSpaceIndex + 1));
+
+      if (hasPrice) {
+          setSuggestions([]);
+          setIsSuggestionsOpen(false);
+          return;
+      }
+      
+      const filtered = productSuggestions.filter(p => 
+          p.name.toLowerCase().startsWith(lancamentoInput.toLowerCase())
+      );
+      
       setSuggestions(filtered);
       setIsSuggestionsOpen(filtered.length > 0);
 
@@ -145,12 +153,13 @@ export default function MercadoriasPanel() {
         }]);
 
         setLancamentoInput('');
+        setIsSuggestionsOpen(false);
     }
 
     const handleSelectSuggestion = (suggestion: ProductSuggestion) => {
         setLancamentoInput(`${suggestion.name} ${String(suggestion.lastPrice).replace('.', ',')}`);
         setIsSuggestionsOpen(false);
-        lancamentoInputRef.current?.focus();
+        setTimeout(() => lancamentoInputRef.current?.focus(), 0);
     }
 
     const handleRemoveProduto = (id: number) => {
@@ -278,6 +287,8 @@ export default function MercadoriasPanel() {
                                 onChange={(e) => setLancamentoInput(e.target.value)}
                                 className='w-full'
                                 autoComplete='off'
+                                onBlur={() => setTimeout(() => setIsSuggestionsOpen(false), 150)}
+                                onFocus={() => setIsSuggestionsOpen(lancamentoInput.trim() !== '' && suggestions.length > 0)}
                             />
                         </form>
                     </PopoverAnchor>
@@ -289,7 +300,7 @@ export default function MercadoriasPanel() {
                         {suggestions.map((suggestion, index) => (
                           <li
                             key={index}
-                            className='px-3 py-2 text-sm cursor-pointer hover:bg-accent flex justify-between items-center'
+                            className='px-3 py-2 text-sm cursor-pointer hover:bg-accent flex items-center gap-2'
                             onMouseDown={() => handleSelectSuggestion(suggestion)}
                           >
                             <span>{suggestion.name}</span>
@@ -340,6 +351,5 @@ export default function MercadoriasPanel() {
 
         </div>
     );
-}
 
-  
+    
