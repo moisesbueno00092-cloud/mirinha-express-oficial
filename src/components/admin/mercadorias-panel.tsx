@@ -21,7 +21,7 @@ import { Separator } from '../ui/separator';
 import { format } from 'date-fns';
 import { addDocumentNonBlocking } from '@/firebase/non-blocking-updates';
 import { DatePicker } from '../ui/date-picker';
-import { Popover, PopoverContent, PopoverTrigger } from '../ui/popover';
+import { Popover, PopoverContent, PopoverTrigger, PopoverAnchor } from '../ui/popover';
 import { cn } from '@/lib/utils';
 
 interface LancamentoProduto {
@@ -49,7 +49,6 @@ export default function MercadoriasPanel() {
     // Autocomplete state
     const [suggestions, setSuggestions] = useState<string[]>([]);
     const [activeSuggestionIndex, setActiveSuggestionIndex] = useState(0);
-    const [isSuggestionsOpen, setIsSuggestionsOpen] = useState(false);
 
     const fornecedoresQuery = useMemoFirebase(
         () => firestore ? query(collection(firestore, 'fornecedores'), orderBy('nome', 'asc')) : null,
@@ -69,18 +68,6 @@ export default function MercadoriasPanel() {
         return [...new Set(productNames)].sort();
     }, [allEntradas]);
     
-    useEffect(() => {
-        const handleOutsideClick = (event: MouseEvent) => {
-            if (lancamentoInputRef.current && !lancamentoInputRef.current.contains(event.target as Node)) {
-                setIsSuggestionsOpen(false);
-            }
-        };
-        document.addEventListener('mousedown', handleOutsideClick);
-        return () => {
-            document.removeEventListener('mousedown', handleOutsideClick);
-        };
-    }, []);
-
     const handleAddFornecedor = async () => {
         if (!firestore || !newFornecedorName.trim()) return;
 
@@ -109,21 +96,20 @@ export default function MercadoriasPanel() {
                 name.toLowerCase().startsWith(lowercasedValue)
             );
             setSuggestions(filteredSuggestions);
-            setIsSuggestionsOpen(filteredSuggestions.length > 0);
             setActiveSuggestionIndex(0);
         } else {
-            setIsSuggestionsOpen(false);
+            setSuggestions([]);
         }
     };
 
     const handleSuggestionClick = (suggestion: string) => {
         setLancamentoInput(suggestion + ' ');
-        setIsSuggestionsOpen(false);
+        setSuggestions([]);
         lancamentoInputRef.current?.focus();
     };
 
     const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
-        if (isSuggestionsOpen) {
+        if (suggestions.length > 0) {
             if (e.key === 'ArrowDown') {
                 e.preventDefault();
                 setActiveSuggestionIndex(prev => Math.min(prev + 1, suggestions.length - 1));
@@ -136,7 +122,7 @@ export default function MercadoriasPanel() {
                     handleSuggestionClick(suggestions[activeSuggestionIndex]);
                 }
             } else if (e.key === 'Escape') {
-                setIsSuggestionsOpen(false);
+                setSuggestions([]);
             }
         }
     };
@@ -146,7 +132,7 @@ export default function MercadoriasPanel() {
         const input = lancamentoInput.trim();
         if (!input) return;
 
-        setIsSuggestionsOpen(false);
+        setSuggestions([]);
 
         const parts = input.split(' ');
         const precoStr = parts.pop()?.replace(',', '.');
@@ -283,8 +269,8 @@ export default function MercadoriasPanel() {
             <div className="space-y-4">
                 <Label htmlFor="lancamento-produto">Lançamento de Produto</Label>
                 <form onSubmit={handleAddProduto} className="flex items-end gap-2">
-                    <Popover open={isSuggestionsOpen} onOpenChange={setIsSuggestionsOpen}>
-                        <PopoverTrigger asChild>
+                    <Popover open={suggestions.length > 0} onOpenChange={() => setSuggestions([])}>
+                        <PopoverAnchor asChild>
                              <div className="flex-grow">
                                 <Input 
                                     id="lancamento-produto"
@@ -296,9 +282,9 @@ export default function MercadoriasPanel() {
                                     autoComplete="off"
                                 />
                             </div>
-                        </PopoverTrigger>
+                        </PopoverAnchor>
                         <PopoverContent 
-                            className="w-[--radix-popover-trigger-width] p-1"
+                            className="w-[--radix-popover-anchor-width] p-1"
                             onOpenAutoFocus={(e) => e.preventDefault()}
                             side="bottom"
                             align="start"
