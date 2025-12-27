@@ -214,7 +214,7 @@ const ReportDetail = ({ report, bomboniereItems }: { report: DailyReport, bombon
               <Separator/>
               <div>
                 <div className="space-y-1 text-sm">
-                  <div className="flex justify-between items-center text-muted-foreground"><span>Total Entregas:</span> <span className="font-mono font-bold text-foreground">{report.totalEntregas || 0} ({formatCurrency(report.totalTaxas)})</span></div>
+                  <div className="flex justify-between items-center text-destructive"><span>Total Entregas:</span> <span className="font-mono font-bold text-destructive">{report.totalEntregas || 0} ({formatCurrency(report.totalTaxas)})</span></div>
                   <div className="flex justify-between items-center text-muted-foreground"><span>Total Geral (Itens):</span> <span className="font-mono font-bold text-foreground">{report.totalItens || 0}</span></div>
                 </div>
               </div>
@@ -223,7 +223,7 @@ const ReportDetail = ({ report, bomboniereItems }: { report: DailyReport, bombon
             <div className="space-y-4">
               <div>
                   <h3 className="font-semibold mb-2">Contagem de Itens</h3>
-                  <div className="grid grid-cols-2 gap-4">
+                  <div className="grid grid-cols-[1fr_auto_1fr] gap-4">
                         <div>
                             <h4 className="font-medium text-sm text-purple-400 mb-1">Salão</h4>
                             {renderItemCountList(lanchesSalao)}
@@ -241,16 +241,17 @@ const ReportDetail = ({ report, bomboniereItems }: { report: DailyReport, bombon
                             {renderTitledItemCountList(bomboniereSalao, "Bomboniere", "text-purple-400")}
                             {report.totalBomboniereSalao > 0 && (
                                 <div className="mt-2 pt-2 border-t border-dashed">
-                                     <div className="grid grid-cols-2 items-end text-xs">
-                                        <span className="text-muted-foreground">({totalBomboniereSalaoItens} itens)</span>
-                                        <div className="flex justify-end items-center gap-2">
-                                            <span className="font-semibold text-purple-400">Total:</span>
-                                            <span className="font-bold font-mono text-purple-400">{formatCurrency(report.totalBomboniereSalao)}</span>
-                                        </div>
+                                    <div className="grid grid-cols-2 items-end text-xs">
+                                      <span className="text-muted-foreground">({totalBomboniereSalaoItens} itens)</span>
+                                      <div className="flex justify-end items-center gap-2">
+                                          <span className="font-semibold text-purple-400">Total:</span>
+                                          <span className="font-bold font-mono text-purple-400">{formatCurrency(report.totalBomboniereSalao)}</span>
+                                      </div>
                                     </div>
                                 </div>
                             )}
                         </div>
+                        <Separator orientation="vertical" />
                         <div>
                             <h4 className="font-medium text-sm text-blue-400 mb-1">Rua</h4>
                             {renderItemCountList(lanchesRua)}
