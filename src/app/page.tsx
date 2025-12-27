@@ -491,7 +491,6 @@ export default function Home() {
     }
 
     let total = 0;
-    let totalAVista = 0;
     let totalFiado = 0;
     let totalEntregas = 0;
     let totalTaxas = 0;
@@ -500,14 +499,14 @@ export default function Home() {
       total += item.total;
       if (item.group.includes('Fiados')) {
         totalFiado += item.total;
-      } else {
-        totalAVista += item.total;
       }
       if (item.group.includes('rua') || item.deliveryFee > 0) {
         totalEntregas += 1;
       }
       totalTaxas += item.deliveryFee || 0;
     });
+
+    const totalAVista = total - totalFiado - totalTaxas;
 
     return { total, totalAVista, totalFiado, totalEntregas, totalTaxas };
   }, [items]);
@@ -577,8 +576,8 @@ export default function Home() {
     const totalItens = Object.values(contagemTotal).reduce((s, c) => s + c, 0);
     const totalItensRua = Object.values(contagemRua).reduce((s, c) => s + c, 0);
     const faturamentoTotal = totalVendasSalao + totalVendasRua + totalFiadoSalao + totalFiadoRua;
-    const totalAVista = summary.totalAVista;
     const totalFiado = summary.totalFiado;
+    const totalAVista = faturamentoTotal - totalFiado - totalTaxas;
 
     const newReportData: Omit<DailyReport, 'id'> = {
       userId: user.uid,
@@ -887,3 +886,5 @@ export default function Home() {
     </>
   );
 }
+
+    
