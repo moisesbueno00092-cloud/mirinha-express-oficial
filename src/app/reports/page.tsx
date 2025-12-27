@@ -51,20 +51,25 @@ const formatCurrency = (value: number | undefined | null) => {
 
 const ReportDetail = ({ report, bomboniereItems }: { report: DailyReport, bomboniereItems: BomboniereItem[] }) => {
     
-    const bomboniereNames = useMemo(() => new Set(bomboniereItems.map(item => item.name.toLowerCase())), [bomboniereItems]);
     const bomboniereNameMap = useMemo(() => {
       const map = new Map<string, string>();
+      if (!bomboniereItems) return map;
       bomboniereItems.forEach(item => {
         map.set(item.name.toLowerCase().replace(/\s+/g, '-'), item.name);
         map.set(item.name.toLowerCase(), item.name);
+        map.set(item.id, item.name);
       });
       return map;
     }, [bomboniereItems]);
 
     const isBomboniere = (itemName: string): boolean => {
+      if (!bomboniereItems) return false;
       const lowerItemName = itemName.toLowerCase();
-      // Also check for the original name in the map in case it's not a standard item.
-      return bomboniereNames.has(lowerItemName) || bomboniereNameMap.has(lowerItemName) || bomboniereItems.some(bi => bi.name.toLowerCase() === lowerItemName);
+      // Check by original name, normalized name, or if it exists in the map values derived from IDs.
+      return bomboniereItems.some(bi => 
+        bi.name.toLowerCase() === lowerItemName || 
+        bi.name.toLowerCase().replace(/\s+/g, '-') === lowerItemName
+      );
     };
     
     const separateItemsByCategory = (itemCount: ItemCount) => {
@@ -119,7 +124,7 @@ const ReportDetail = ({ report, bomboniereItems }: { report: DailyReport, bombon
         return { lanchesSalao, bomboniereSalao, lanchesRua, bomboniereRua };
     }, [report.contagemTotal, report.contagemRua, bomboniereItems, separateItemsByCategory]);
 
-    const renderItemCountList = (counts: ItemCount, title?: string, titleClassName?: string) => {
+    const renderItemCountList = (counts: ItemCount) => {
       if (!counts || Object.keys(counts).length === 0) {
         return null;
       }
@@ -132,8 +137,7 @@ const ReportDetail = ({ report, bomboniereItems }: { report: DailyReport, bombon
       }
 
       return (
-        <div className={title ? 'mt-3' : ''}>
-          {title && <h5 className={cn("font-medium text-xs mb-2", titleClassName)}>{title}</h5>}
+        <div className="mt-3">
           <ul className="text-xs space-y-0.5">
             {sortedEntries.map(([name, count]) => (
                 <li key={name} className="flex items-center gap-2">
@@ -144,6 +148,18 @@ const ReportDetail = ({ report, bomboniereItems }: { report: DailyReport, bombon
           </ul>
         </div>
       );
+    }
+    
+    const renderTitledItemCountList = (counts: ItemCount, title: string, titleClassName?: string) => {
+      if (!counts || Object.keys(counts).length === 0) {
+        return null;
+      }
+      return (
+        <div className="mt-3">
+            <h5 className={cn("font-medium text-xs mb-2", titleClassName)}>{title}</h5>
+            {renderItemCountList(counts)}
+        </div>
+      )
     }
 
     const totalBomboniereSalaoItens = useMemo(() => Object.values(bomboniereSalao).reduce((acc, count) => acc + count, 0), [bomboniereSalao]);
@@ -160,6 +176,8 @@ const ReportDetail = ({ report, bomboniereItems }: { report: DailyReport, bombon
         const totalRua = (report.totalVendasRua || 0) + (report.totalFiadoRua || 0);
         return totalRua - (report.totalBomboniereRua || 0);
     }, [report]);
+    
+    const totalGeralBomboniere = (report.totalBomboniereSalao || 0) + (report.totalBomboniereRua || 0);
 
 
   return (
@@ -188,6 +206,7 @@ const ReportDetail = ({ report, bomboniereItems }: { report: DailyReport, bombon
               <div>
                 <div className="space-y-1 text-sm">
                   <div className="flex justify-between items-center"><span>Total KG:</span> <span className="font-mono">{formatCurrency(report.totalKg)}</span></div>
+                  <div className="flex justify-between items-center"><span>Total Geral Bomboniere:</span> <span className="font-mono">{formatCurrency(totalGeralBomboniere)}</span></div>
                 </div>
               </div>
               <Separator/>
@@ -217,7 +236,7 @@ const ReportDetail = ({ report, bomboniereItems }: { report: DailyReport, bombon
                                     </div>
                                 </div>
                             )}
-                            {renderItemCountList(bomboniereSalao, "Bomboniere", "text-purple-400")}
+                            {renderTitledItemCountList(bomboniereSalao, "Bomboniere", "text-purple-400")}
                             {report.totalBomboniereSalao > 0 && (
                                 <div className="mt-2 pt-2 border-t border-dashed">
                                     <div className="grid grid-cols-2 items-end text-xs">
@@ -244,7 +263,7 @@ const ReportDetail = ({ report, bomboniereItems }: { report: DailyReport, bombon
                                     </div>
                                 </div>
                             )}
-                            {renderItemCountList(bomboniereRua, "Bomboniere", "text-blue-400")}
+                            {renderTitledItemCountList(bomboniereRua, "Bomboniere", "text-blue-400")}
                              {report.totalBomboniereRua > 0 && (
                                 <div className="mt-2 pt-2 border-t border-dashed">
                                      <div className="grid grid-cols-2 items-end text-xs">
@@ -421,3 +440,5 @@ export default function ReportsPage() {
     </>
   );
 }
+
+    
