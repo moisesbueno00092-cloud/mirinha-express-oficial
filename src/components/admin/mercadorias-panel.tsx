@@ -102,22 +102,26 @@ export default function MercadoriasPanel() {
     const handleLancamentoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const value = e.target.value;
         setLancamentoInput(value);
-        
-        const lastSpaceIndex = value.lastIndexOf(' ');
-        const potentialPrice = value.substring(lastSpaceIndex + 1);
-        const namePart = lastSpaceIndex === -1 ? value : value.substring(0, lastSpaceIndex);
-
-        if (value && !/\d/.test(potentialPrice)) {
-            const filteredSuggestions = uniqueProductNames.filter(name => 
-                name.toLowerCase().includes(value.toLowerCase())
-            );
-            setSuggestions(filteredSuggestions);
-            setSuggestionsOpen(filteredSuggestions.length > 0);
-            setActiveSuggestionIndex(0);
+    
+        if (value.trim()) {
+            const lastSpaceIndex = value.lastIndexOf(' ');
+            const hasPrice = lastSpaceIndex > -1 && /[\d,.]+$/.test(value.substring(lastSpaceIndex + 1));
+    
+            if (!hasPrice) {
+                const filteredSuggestions = uniqueProductNames.filter(name =>
+                    name.toLowerCase().startsWith(value.toLowerCase())
+                );
+                setSuggestions(filteredSuggestions);
+                setSuggestionsOpen(filteredSuggestions.length > 0);
+                setActiveSuggestionIndex(0);
+            } else {
+                setSuggestionsOpen(false);
+            }
         } else {
             setSuggestionsOpen(false);
         }
     };
+    
 
     const handleSuggestionClick = (suggestion: string) => {
         setLancamentoInput(suggestion + ' ');
@@ -133,7 +137,7 @@ export default function MercadoriasPanel() {
             } else if (e.key === 'ArrowUp') {
                 e.preventDefault();
                 setActiveSuggestionIndex(prev => Math.max(prev - 1, 0));
-            } else if (e.key === 'Enter') {
+            } else if (e.key === 'Enter' || e.key === 'Tab') {
                 e.preventDefault();
                 if (suggestions[activeSuggestionIndex]) {
                     handleSuggestionClick(suggestions[activeSuggestionIndex]);
