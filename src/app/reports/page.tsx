@@ -188,6 +188,9 @@ const ReportDetail = ({ report, bomboniereItems }: { report: DailyReport, bombon
             </div>
             <div className="text-right">
                 <p className="text-3xl font-bold text-primary">{formatCurrency(report.totalGeral)}</p>
+                <p className="text-sm text-muted-foreground mt-1">
+                    Faturamento à Vista: <span className="font-semibold text-foreground">{formatCurrency(report.totalAVista)}</span>
+                </p>
             </div>
         </CardHeader>
         <CardContent className="space-y-8">
