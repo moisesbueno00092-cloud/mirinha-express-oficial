@@ -8,7 +8,6 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
-import FornecedoresPanel from '@/components/admin/fornecedores-panel';
 import MercadoriasPanel from '@/components/admin/mercadorias-panel';
 import ContasAPagarPanel from '@/components/admin/contas-a-pagar-panel';
 import FuncionariosPanel from '@/components/admin/funcionarios-panel';
@@ -25,21 +24,17 @@ export default function AdminPage() {
           </Link>
           <div>
             <h1 className="text-2xl sm:text-3xl font-bold text-foreground">Gestão Administrativa</h1>
-            <p className="text-muted-foreground">Controle de mercadorias, fornecedores, contas e funcionários.</p>
+            <p className="text-muted-foreground">Controle de mercadorias, contas e funcionários.</p>
           </div>
         </div>
       </header>
 
       <main>
         <Tabs defaultValue="mercadorias" className="w-full">
-          <TabsList className="grid w-full grid-cols-4 h-auto">
+          <TabsList className="grid w-full grid-cols-3 h-auto">
             <TabsTrigger value="mercadorias" className="flex flex-col sm:flex-row gap-2 py-2">
               <Box className="h-5 w-5" />
               <span>Mercadorias</span>
-            </TabsTrigger>
-            <TabsTrigger value="fornecedores" className="flex flex-col sm:flex-row gap-2 py-2">
-              <Building className="h-5 w-5" />
-              <span>Fornecedores</span>
             </TabsTrigger>
             <TabsTrigger value="financeiro" className="flex flex-col sm:flex-row gap-2 py-2">
               <HandCoins className="h-5 w-5" />
@@ -59,17 +54,6 @@ export default function AdminPage() {
               </CardHeader>
               <CardContent>
                 <MercadoriasPanel />
-              </CardContent>
-            </Card>
-          </TabsContent>
-          <TabsContent value="fornecedores">
-            <Card>
-              <CardHeader>
-                <CardTitle>Fornecedores</CardTitle>
-                <CardDescription>Gira o seu catálogo de fornecedores.</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <FornecedoresPanel />
               </CardContent>
             </Card>
           </TabsContent>
