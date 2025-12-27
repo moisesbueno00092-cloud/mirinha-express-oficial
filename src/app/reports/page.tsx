@@ -38,9 +38,8 @@ import {
 } from "@/components/ui/chart"
 import { PieChart, Pie, Cell, ResponsiveContainer } from "recharts"
 
-import type { DailyReport, ItemCount } from '@/types';
+import type { DailyReport, ItemCount, BomboniereItem } from '@/types';
 import DailyTimelineChart from '@/components/daily-timeline-chart';
-import { BOMBONIERE_ITEMS_DEFAULT } from '@/lib/constants';
 
 const formatCurrency = (value: number | undefined | null) => {
     return new Intl.NumberFormat("pt-BR", {
@@ -49,68 +48,39 @@ const formatCurrency = (value: number | undefined | null) => {
     }).format(value || 0);
 };
 
-const bomboniereNames = new Set(BOMBONIERE_ITEMS_DEFAULT.map(item => item.name.toLowerCase()));
-
-const isBomboniere = (itemName: string): boolean => {
-    const lowerItemName = itemName.toLowerCase();
-    // Check against predefined bomboniere names
-    const bomboniereItemDef = BOMBONIERE_ITEMS_DEFAULT.find(bi => bi.name.toLowerCase().replace(/\s+/g, '-') === lowerItemName);
-    if (bomboniereItemDef) return true;
-
-    // Check against the simple set of names
-    if (bomboniereNames.has(lowerItemName)) return true;
-
-    // Regex for patterns like '2bala' or '1chocolate' which might not be in the default list if added manually
-    if (/^\d+[a-zA-Z]+/.test(lowerItemName)) return true;
+const ReportDetail = ({ report, bomboniereItems }: { report: DailyReport, bomboniereItems: BomboniereItem[] }) => {
     
-    // Fallback for common keywords
-    if (lowerItemName.includes('bala') || lowerItemName.includes('chiclete') || lowerItemName.includes('chocolate')) return true;
+    const bomboniereNames = useMemo(() => new Set(bomboniereItems.map(item => item.name.toLowerCase())), [bomboniereItems]);
+    const bomboniereNameMap = useMemo(() => {
+      const map = new Map<string, string>();
+      bomboniereItems.forEach(item => {
+        map.set(item.name.toLowerCase().replace(/\s+/g, '-'), item.name);
+        map.set(item.name.toLowerCase(), item.name);
+      });
+      return map;
+    }, [bomboniereItems]);
 
-    return false;
-};
+    const isBomboniere = (itemName: string): boolean => {
+      const lowerItemName = itemName.toLowerCase();
+      return bomboniereNames.has(lowerItemName) || bomboniereNameMap.has(lowerItemName);
+    };
+    
+    const separateItemsByCategory = (itemCount: ItemCount) => {
+        const lanches: ItemCount = {};
+        const bomboniere: ItemCount = {};
+        if (!itemCount) return { lanches, bomboniere };
 
-const separateItemsByCategory = (itemCount: ItemCount) => {
-    const lanches: ItemCount = {};
-    const bomboniere: ItemCount = {};
-    if (!itemCount) return { lanches, bomboniere };
-    for (const [name, count] of Object.entries(itemCount)) {
-        if (isBomboniere(name)) {
-            bomboniere[name] = (bomboniere[name] || 0) + count;
-        } else {
-            lanches[name] = (lanches[name] || 0) + count;
+        for (const [name, count] of Object.entries(itemCount)) {
+            if (isBomboniere(name)) {
+                const officialName = bomboniereNameMap.get(name.toLowerCase()) || name;
+                bomboniere[officialName] = (bomboniere[officialName] || 0) + count;
+            } else {
+                lanches[name] = (lanches[name] || 0) + count;
+            }
         }
-    }
-    return { lanches, bomboniere };
-};
+        return { lanches, bomboniere };
+    };
 
-const renderItemCountList = (counts: ItemCount, title?: string) => {
-  if (!counts || Object.keys(counts).length === 0) {
-    return null;
-  }
-
-  const sortedEntries = Object.entries(counts)
-    .sort(([, aCount], [, bCount]) => bCount - aCount);
-
-  if (sortedEntries.length === 0) {
-    return null;
-  }
-
-  return (
-    <div className={title ? 'mt-3' : ''}>
-      {title && <h5 className="font-medium text-xs text-muted-foreground mb-2">{title}</h5>}
-      <ul className="text-xs space-y-0.5">
-        {sortedEntries.map(([name, count]) => (
-            <li key={name} className="flex items-center gap-2">
-              <span className="font-bold w-6 text-right">{count}</span>
-              <span>{name}</span>
-            </li>
-          ))}
-      </ul>
-    </div>
-  );
-}
-
-const ReportDetail = ({ report }: { report: DailyReport }) => {
     const chartData = [
         { name: 'Vendas Salão', value: report.totalVendasSalao, fill: 'hsl(var(--primary))' },
         { name: 'Vendas Rua', value: report.totalVendasRua, fill: 'hsl(var(--chart-2))' },
@@ -128,7 +98,6 @@ const ReportDetail = ({ report }: { report: DailyReport }) => {
     const { lanchesSalao, bomboniereSalao, lanchesRua, bomboniereRua } = useMemo(() => {
         const contagemSalao: ItemCount = {};
         
-        // This is the logic that works for Salão.
         if (report.contagemTotal) {
             for (const key in report.contagemTotal) {
                 const totalCount = report.contagemTotal[key] || 0;
@@ -140,14 +109,40 @@ const ReportDetail = ({ report }: { report: DailyReport }) => {
             }
         }
         
-        // This is the direct data for Rua.
         const contagemRua = report.contagemRua || {};
 
         const { lanches: lanchesSalao, bomboniere: bomboniereSalao } = separateItemsByCategory(contagemSalao);
         const { lanches: lanchesRua, bomboniere: bomboniereRua } = separateItemsByCategory(contagemRua);
         
         return { lanchesSalao, bomboniereSalao, lanchesRua, bomboniereRua };
-    }, [report.contagemTotal, report.contagemRua]);
+    }, [report.contagemTotal, report.contagemRua, separateItemsByCategory]);
+
+    const renderItemCountList = (counts: ItemCount, title?: string) => {
+      if (!counts || Object.keys(counts).length === 0) {
+        return null;
+      }
+
+      const sortedEntries = Object.entries(counts)
+        .sort(([, aCount], [, bCount]) => bCount - aCount);
+
+      if (sortedEntries.length === 0) {
+        return null;
+      }
+
+      return (
+        <div className={title ? 'mt-3' : ''}>
+          {title && <h5 className="font-medium text-xs text-muted-foreground mb-2">{title}</h5>}
+          <ul className="text-xs space-y-0.5">
+            {sortedEntries.map(([name, count]) => (
+                <li key={name} className="flex items-center gap-2">
+                  <span className="font-bold w-6 text-right">{count}</span>
+                  <span>{name}</span>
+                </li>
+              ))}
+          </ul>
+        </div>
+      );
+    }
 
 
   return (
@@ -252,7 +247,10 @@ export default function ReportsPage() {
   const { toast } = useToast();
   
   const dailyReportsRef = useMemoFirebase(() => (firestore && user ? query(collection(firestore, 'daily_reports'), orderBy('reportDate', 'desc')) : null), [firestore, user]);
+  const bomboniereItemsRef = useMemoFirebase(() => (firestore ? query(collection(firestore, 'bomboniere_items'), orderBy('name', 'asc')) : null), [firestore]);
+
   const { data: savedReports, isLoading: isLoadingReports } = useCollection<DailyReport>(dailyReportsRef);
+  const { data: bomboniereItems, isLoading: isLoadingBomboniere } = useCollection<BomboniereItem>(bomboniereItemsRef);
   
   const [reportToDelete, setReportToDelete] = useState<string | null>(null);
 
@@ -280,7 +278,7 @@ export default function ReportsPage() {
     }
   };
 
-  if (isUserLoading || isLoadingReports) {
+  if (isUserLoading || isLoadingReports || isLoadingBomboniere) {
     return (
       <div className="flex h-screen items-center justify-center">
         <Loader2 className="h-12 w-12 animate-spin text-primary" />
@@ -321,7 +319,7 @@ export default function ReportsPage() {
         </header>
 
         <main className="space-y-2">
-          {savedReports && savedReports.length > 0 ? (
+          {savedReports && savedReports.length > 0 && bomboniereItems ? (
             <Accordion type="single" collapsible className="w-full">
               {savedReports.map(report => (
                 <AccordionItem value={report.id} key={report.id}>
@@ -348,7 +346,7 @@ export default function ReportsPage() {
                     </Button>
                   </div>
                   <AccordionContent className="p-2 pt-0">
-                    <ReportDetail report={report} />
+                    <ReportDetail report={report} bomboniereItems={bomboniereItems} />
                   </AccordionContent>
                 </AccordionItem>
               ))}
