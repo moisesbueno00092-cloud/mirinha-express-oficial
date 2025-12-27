@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useState, useMemo, useRef } from 'react';
+import { useState, useMemo, useRef, useEffect } from 'react';
 import { useCollection, useFirestore, useMemoFirebase } from '@/firebase';
 import { collection, query, orderBy, writeBatch, doc } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
@@ -10,14 +10,12 @@ import type { ContaAPagar, EntradaMercadoria, Fornecedor } from '@/types';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Loader2, Plus, PlusCircle, Trash2, Pencil, Check, ChevronsUpDown } from 'lucide-react';
+import { Loader2, PlusCircle, Trash2, Pencil } from 'lucide-react';
 import { Separator } from '../ui/separator';
 import { format } from 'date-fns';
 import { addDocumentNonBlocking } from '@/firebase/non-blocking-updates';
 import { DatePicker } from '../ui/date-picker';
-import { Popover, PopoverContent, PopoverTrigger } from '../ui/popover';
-import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '../ui/command';
-import { cn } from '@/lib/utils';
+import { Popover, PopoverContent, PopoverTrigger, PopoverAnchor } from '../ui/popover';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
 
 
@@ -40,12 +38,10 @@ export default function MercadoriasPanel() {
     const [newFornecedorName, setNewFornecedorName] = useState('');
     const [isAddingFornecedor, setIsAddingFornecedor] = useState(false);
     
-    // States for the new autocomplete input
-    const [openCombobox, setOpenCombobox] = useState(false);
-    const [selectedProductName, setSelectedProductName] = useState('');
-    const [productPrice, setProductPrice] = useState('');
-    const [searchQuery, setSearchQuery] = useState('');
-    const priceInputRef = useRef<HTMLInputElement>(null);
+    const [lancamentoInput, setLancamentoInput] = useState('');
+    const [suggestions, setSuggestions] = useState<string[]>([]);
+    const [isSuggestionsOpen, setIsSuggestionsOpen] = useState(false);
+    const lancamentoInputRef = useRef<HTMLInputElement>(null);
 
 
     const fornecedoresQuery = useMemoFirebase(
@@ -65,6 +61,26 @@ export default function MercadoriasPanel() {
         const productNames = allEntradas.map(e => e.produtoNome);
         return [...new Set(productNames)].sort();
     }, [allEntradas]);
+
+    useEffect(() => {
+      if (lancamentoInput.trim() === '') {
+          setIsSuggestionsOpen(false);
+          return;
+      }
+      const lastSpaceIndex = lancamentoInput.lastIndexOf(' ');
+      const potentialPrice = lancamentoInput.substring(lastSpaceIndex + 1);
+      const namePart = lancamentoInput.substring(0, lastSpaceIndex > -1 ? lastSpaceIndex : lancamentoInput.length).toLowerCase();
+
+      if (lastSpaceIndex > -1 && /[\d,.]+$/.test(potentialPrice)) {
+          setIsSuggestionsOpen(false);
+          return;
+      }
+      
+      const filtered = uniqueProductNames.filter(p => p.toLowerCase().startsWith(lancamentoInput.toLowerCase()));
+      setSuggestions(filtered);
+      setIsSuggestionsOpen(filtered.length > 0);
+
+    }, [lancamentoInput, uniqueProductNames]);
     
     const handleAddFornecedor = async () => {
         if (!firestore || !newFornecedorName.trim()) return;
@@ -84,15 +100,25 @@ export default function MercadoriasPanel() {
         }
     };
     
-    const handleAddProduto = (e?: React.FormEvent) => {
-        e?.preventDefault();
+    const handleAddProduto = (e: React.FormEvent) => {
+        e.preventDefault();
         
-        const nome = selectedProductName.trim();
-        const precoStr = productPrice.replace(',', '.');
+        const input = lancamentoInput.trim();
+        if (!input) return;
+
+        const lastSpaceIndex = input.lastIndexOf(' ');
+        
+        if (lastSpaceIndex === -1 || lastSpaceIndex === input.length -1) {
+            toast({ variant: 'destructive', title: 'Entrada inválida', description: 'Formato inválido. Use: <Nome do Produto> <Preço>'});
+            return;
+        }
+
+        const nome = input.substring(0, lastSpaceIndex).trim();
+        const precoStr = input.substring(lastSpaceIndex + 1).replace(',', '.');
         const preco = parseFloat(precoStr);
 
         if (!nome || isNaN(preco) || preco <= 0) {
-            toast({ variant: 'destructive', title: 'Entrada inválida', description: 'Por favor, selecione um produto e insira um preço válido.' });
+            toast({ variant: 'destructive', title: 'Entrada inválida', description: 'Nome ou preço do produto inválido.' });
             return;
         }
 
@@ -102,9 +128,13 @@ export default function MercadoriasPanel() {
             preco,
         }]);
 
-        setSelectedProductName('');
-        setProductPrice('');
-        setSearchQuery('');
+        setLancamentoInput('');
+    }
+
+    const handleSelectSuggestion = (suggestion: string) => {
+        setLancamentoInput(suggestion + ' ');
+        setIsSuggestionsOpen(false);
+        lancamentoInputRef.current?.focus();
     }
 
     const handleRemoveProduto = (id: number) => {
@@ -112,19 +142,16 @@ export default function MercadoriasPanel() {
     }
     
     const handleEditProduto = (produto: LancamentoProduto) => {
-        setSelectedProductName(produto.produtoNome);
-        setProductPrice(String(produto.preco).replace('.', ','));
+        setLancamentoInput(`${produto.produtoNome} ${String(produto.preco).replace('.', ',')}`);
         handleRemoveProduto(produto.id);
-        setTimeout(() => priceInputRef.current?.focus(), 0);
+        setTimeout(() => lancamentoInputRef.current?.focus(), 0);
     }
 
     const resetForm = () => {
         setFornecedorId(undefined);
         setDataVencimento(undefined);
         setProdutosLancados([]);
-        setSelectedProductName('');
-        setProductPrice('');
-        setSearchQuery('');
+        setLancamentoInput('');
     }
 
     const handleRegisterEntry = async () => {
@@ -222,81 +249,39 @@ export default function MercadoriasPanel() {
             
             <Separator />
 
-            <div className="space-y-4">
-                <Label>Lançamento de Produto</Label>
-                <form onSubmit={handleAddProduto} className="flex flex-col sm:flex-row items-start gap-2">
-                     <Popover open={openCombobox} onOpenChange={setOpenCombobox}>
-                        <PopoverTrigger asChild>
-                            <Button
-                                variant="outline"
-                                role="combobox"
-                                aria-expanded={openCombobox}
-                                className="w-full sm:w-[250px] justify-between font-normal"
-                            >
-                            {selectedProductName
-                                ? selectedProductName
-                                : "Selecione um produto..."}
-                            <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                            </Button>
-                        </PopoverTrigger>
-                        <PopoverContent className="w-[--radix-popover-trigger-width] p-0">
-                            <Command>
-                                <CommandInput 
-                                  placeholder="Buscar ou criar produto..." 
-                                  value={searchQuery}
-                                  onValueChange={setSearchQuery}
-                                />
-                                <CommandList>
-                                    <CommandEmpty
-                                      onSelect={() => {
-                                        setSelectedProductName(searchQuery);
-                                        setOpenCombobox(false);
-                                        setSearchQuery('');
-                                        setTimeout(() => priceInputRef.current?.focus(), 0);
-                                      }}
-                                    >
-                                      Criar novo: "{searchQuery}"
-                                    </CommandEmpty>
-                                    <CommandGroup>
-                                    {uniqueProductNames.filter(p => p.toLowerCase().includes(searchQuery.toLowerCase())).map((product) => (
-                                        <CommandItem
-                                            key={product}
-                                            value={product}
-                                            onSelect={(currentValue) => {
-                                                setSelectedProductName(currentValue === selectedProductName.toLowerCase() ? "" : product)
-                                                setOpenCombobox(false)
-                                                setSearchQuery('');
-                                                setTimeout(() => priceInputRef.current?.focus(), 0);
-                                            }}
-                                        >
-                                            <Check
-                                                className={cn(
-                                                "mr-2 h-4 w-4",
-                                                selectedProductName.toLowerCase() === product.toLowerCase() ? "opacity-100" : "opacity-0"
-                                                )}
-                                            />
-                                            {product}
-                                        </CommandItem>
-                                    ))}
-                                    </CommandGroup>
-                                </CommandList>
-                            </Command>
-                        </PopoverContent>
-                    </Popover>
-
-                    <Input
-                        id="lancamento-preco" 
-                        ref={priceInputRef}
-                        placeholder="Preço (ex: 25,90)"
-                        value={productPrice}
-                        onChange={(e) => setProductPrice(e.target.value)}
-                        className='w-full sm:w-auto sm:flex-grow'
-                    />
-
-                    <Button type="submit" size="icon" className='w-full sm:w-auto' disabled={!selectedProductName || !productPrice}>
-                        <Plus className="h-4 w-4"/>
-                    </Button>
-                </form>
+            <div className="space-y-2">
+                <Label htmlFor='lancamento-input'>Lançamento de Produto (Nome e Preço)</Label>
+                <Popover open={isSuggestionsOpen} onOpenChange={setIsSuggestionsOpen}>
+                    <PopoverAnchor>
+                        <form onSubmit={handleAddProduto} className="flex flex-col sm:flex-row items-start gap-2">
+                            <Input
+                                id='lancamento-input'
+                                ref={lancamentoInputRef}
+                                placeholder="Ex: Coca-cola 2L 10,50"
+                                value={lancamentoInput}
+                                onChange={(e) => setLancamentoInput(e.target.value)}
+                                className='w-full'
+                                autoComplete='off'
+                            />
+                        </form>
+                    </PopoverAnchor>
+                    <PopoverContent 
+                      className='w-[--radix-popover-trigger-width] p-0' 
+                      onOpenAutoFocus={(e) => e.preventDefault()}
+                    >
+                      <ul className='max-h-60 overflow-y-auto'>
+                        {suggestions.map((suggestion, index) => (
+                          <li
+                            key={index}
+                            className='px-3 py-2 text-sm cursor-pointer hover:bg-accent'
+                            onMouseDown={() => handleSelectSuggestion(suggestion)}
+                          >
+                            {suggestion}
+                          </li>
+                        ))}
+                      </ul>
+                    </PopoverContent>
+                </Popover>
             </div>
             
             {produtosLancados.length > 0 && (
@@ -338,4 +323,5 @@ export default function MercadoriasPanel() {
 
         </div>
     );
-}
+
+    
