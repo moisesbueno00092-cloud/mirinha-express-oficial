@@ -104,11 +104,12 @@ export interface Produto {
 
 export interface EntradaMercadoria {
     id: string;
-    produtoId: string;
+    produtoNome: string;
     fornecedorId: string;
     data: string; // ISO String
     quantidade: number;
     precoUnitario: number;
+    valorTotal: number;
 }
 
 export interface ContaAPagar {

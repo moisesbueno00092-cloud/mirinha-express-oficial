@@ -3,9 +3,9 @@
 
 import { useState, useMemo, useEffect } from 'react';
 import { useCollection, useFirestore, useMemoFirebase } from '@/firebase';
-import { collection, query, orderBy } from 'firebase/firestore';
+import { collection, query, orderBy, addDoc, writeBatch, doc } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
-import type { Fornecedor } from '@/types';
+import type { ContaAPagar, EntradaMercadoria, Fornecedor } from '@/types';
 
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -20,12 +20,14 @@ import {
 import { DatePicker } from '@/components/ui/date-picker';
 import { Loader2, Plus, Trash2 } from 'lucide-react';
 import { Separator } from '../ui/separator';
+import { format } from 'date-fns';
+import { addDocumentNonBlocking } from '@/firebase/non-blocking-updates';
 
 interface LancamentoProduto {
     id: number;
     texto: string;
-    produtoNome?: string;
-    preco?: number;
+    produtoNome: string;
+    preco: number;
 }
 
 export default function MercadoriasPanel() {
@@ -72,6 +74,63 @@ export default function MercadoriasPanel() {
     const handleRemoveProduto = (id: number) => {
         setProdutosLancados(prev => prev.filter(p => p.id !== id));
     }
+    
+    const resetForm = () => {
+        setFornecedorId(undefined);
+        setDataVencimento(undefined);
+        setProdutosLancados([]);
+        setLancamentoInput('');
+    }
+
+    const handleRegisterEntry = async () => {
+        if (!firestore || !fornecedorId || !dataVencimento || produtosLancados.length === 0) {
+            toast({ variant: 'destructive', title: 'Faltam dados', description: 'Por favor, preencha todos os campos.' });
+            return;
+        }
+        setIsSubmitting(true);
+
+        try {
+            const fornecedorNome = fornecedores?.find(f => f.id === fornecedorId)?.nome || 'Fornecedor desconhecido';
+
+            // 1. Create Conta a Pagar
+            const novaConta: Omit<ContaAPagar, 'id'> = {
+                descricao: `Compra de mercadorias - ${fornecedorNome}`,
+                fornecedorId: fornecedorId,
+                valor: totalCompra,
+                dataVencimento: format(dataVencimento, 'yyyy-MM-dd'),
+                estaPaga: false,
+            };
+            await addDocumentNonBlocking(collection(firestore, 'contas_a_pagar'), novaConta);
+            
+            // 2. Create Entrada de Mercadoria for each product
+            const batch = writeBatch(firestore);
+            const entradasCollection = collection(firestore, 'entradas_mercadorias');
+            
+            produtosLancados.forEach(produto => {
+                const novaEntrada: Omit<EntradaMercadoria, 'id'> = {
+                    produtoNome: produto.produtoNome,
+                    fornecedorId: fornecedorId,
+                    data: new Date().toISOString(),
+                    quantidade: 1, // Assuming 1 for now, can be expanded
+                    precoUnitario: produto.preco,
+                    valorTotal: produto.preco,
+                };
+                const docRef = doc(entradasCollection); // Create a new doc with a random ID
+                batch.set(docRef, novaEntrada);
+            });
+            
+            await batch.commit();
+
+            toast({ title: 'Sucesso!', description: 'Entrada de mercadoria e conta a pagar registadas.' });
+            resetForm();
+        } catch (error) {
+            console.error("Erro ao registar entrada:", error);
+            toast({ variant: 'destructive', title: 'Erro', description: 'Não foi possível registar a entrada.' });
+        } finally {
+            setIsSubmitting(false);
+        }
+    }
+
 
     const totalCompra = useMemo(() => {
         return produtosLancados.reduce((acc, p) => acc + (p.preco || 0), 0);
@@ -150,7 +209,10 @@ export default function MercadoriasPanel() {
 
 
             <div className="flex justify-end pt-4">
-                <Button disabled={isSubmitting || !fornecedorId || !dataVencimento || produtosLancados.length === 0}>
+                <Button 
+                    onClick={handleRegisterEntry}
+                    disabled={isSubmitting || !fornecedorId || !dataVencimento || produtosLancados.length === 0}
+                >
                     {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                     Registar Entrada e Criar Conta a Pagar
                 </Button>
