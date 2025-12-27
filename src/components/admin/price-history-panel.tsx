@@ -1,4 +1,3 @@
-
 'use client';
 
 import * as React from 'react';
@@ -9,8 +8,7 @@ import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import type { EntradaMercadoria, Fornecedor, PriceHistoryEntry } from '@/types';
 
-import { Button } from '@/components/ui/button';
-import { Loader2, Check, ChevronsUpDown } from 'lucide-react';
+import { Loader2 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import {
   Table,
@@ -26,9 +24,7 @@ import {
   ChartTooltipContent,
 } from "@/components/ui/chart";
 import { Area, AreaChart, CartesianGrid, ResponsiveContainer, XAxis, YAxis } from "recharts";
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
-import { cn } from '@/lib/utils';
+import { ProductCombobox } from './product-combobox';
 
 const formatCurrency = (value: number) => {
     return new Intl.NumberFormat("pt-BR", {
@@ -44,59 +40,6 @@ const formatDate = (dateString: string) => {
         return dateString;
     }
 }
-
-function ProductCombobox({ products, value, setValue, disabled }: { products: string[], value: string, setValue: (value: string) => void, disabled: boolean }) {
-    const [open, setOpen] = useState(false)
- 
-    return (
-        <Popover open={open} onOpenChange={setOpen}>
-        <PopoverTrigger asChild>
-            <Button
-            variant="outline"
-            role="combobox"
-            aria-expanded={open}
-            className="w-full justify-between h-10"
-            disabled={disabled}
-            >
-            {value
-                ? products.find(p => p.toLowerCase() === value.toLowerCase()) || "Selecione um produto..."
-                : "Selecione um produto..."
-            }
-            <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-            </Button>
-        </PopoverTrigger>
-        <PopoverContent className="w-[--radix-popover-trigger-width] p-0">
-            <Command>
-            <CommandInput placeholder="Buscar produto..." />
-            <CommandList>
-                <CommandEmpty>Nenhum produto encontrado.</CommandEmpty>
-                <CommandGroup>
-                {products.map((product) => (
-                    <CommandItem
-                        key={product}
-                        value={product}
-                        onSelect={(currentValue) => {
-                            setValue(currentValue.toLowerCase() === value.toLowerCase() ? "" : currentValue)
-                            setOpen(false)
-                        }}
-                    >
-                    <Check
-                        className={cn(
-                        "mr-2 h-4 w-4",
-                        value.toLowerCase() === product.toLowerCase() ? "opacity-100" : "opacity-0"
-                        )}
-                    />
-                    {product}
-                    </CommandItem>
-                ))}
-                </CommandGroup>
-            </CommandList>
-            </Command>
-        </PopoverContent>
-        </Popover>
-    )
-}
-
 
 export default function PriceHistoryPanel() {
     const firestore = useFirestore();
@@ -156,12 +99,12 @@ export default function PriceHistoryPanel() {
         }));
     }, [priceHistory]);
     
-    const isLoading = isLoadingSearchResult || isLoadingFornecedores;
-
-     // Effect to set searching state
+    // Effect to set searching state
     React.useEffect(() => {
         if (selectedProduct) {
             setIsSearching(true);
+        } else {
+            setIsSearching(false);
         }
     }, [selectedProduct]);
 
@@ -281,7 +224,3 @@ export default function PriceHistoryPanel() {
         </div>
     );
 }
-
-    
-
-    

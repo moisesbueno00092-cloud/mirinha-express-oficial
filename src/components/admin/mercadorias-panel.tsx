@@ -21,10 +21,10 @@ import { Separator } from '../ui/separator';
 import { format } from 'date-fns';
 import { addDocumentNonBlocking } from '@/firebase/non-blocking-updates';
 import { DatePicker } from '../ui/date-picker';
+import { ProductCombobox } from './product-combobox';
 
 interface LancamentoProduto {
     id: number;
-    texto: string;
     produtoNome: string;
     preco: number;
 }
@@ -37,19 +37,32 @@ export default function MercadoriasPanel() {
     const [dataVencimento, setDataVencimento] = useState<Date | undefined>();
     const [isSubmitting, setIsSubmitting] = useState(false);
     
-    const [lancamentoInput, setLancamentoInput] = useState('');
+    const [produtoNome, setProdutoNome] = useState('');
+    const [produtoPreco, setProdutoPreco] = useState('');
     const [produtosLancados, setProdutosLancados] = useState<LancamentoProduto[]>([]);
     
     const [newFornecedorName, setNewFornecedorName] = useState('');
     const [isAddingFornecedor, setIsAddingFornecedor] = useState(false);
     
-    const lancamentoInputRef = useRef<HTMLInputElement>(null);
+    const precoInputRef = useRef<HTMLInputElement>(null);
 
     const fornecedoresQuery = useMemoFirebase(
         () => firestore ? query(collection(firestore, 'fornecedores'), orderBy('nome', 'asc')) : null,
         [firestore]
     );
     const { data: fornecedores, isLoading: isLoadingFornecedores } = useCollection<Fornecedor>(fornecedoresQuery);
+
+    const allEntradasQuery = useMemoFirebase(
+        () => firestore ? query(collection(firestore, 'entradas_mercadorias')) : null,
+        [firestore]
+    );
+    const { data: allEntradas, isLoading: isLoadingAllEntradas } = useCollection<EntradaMercadoria>(allEntradasQuery);
+
+    const uniqueProducts = useMemo(() => {
+        if (!allEntradas) return [];
+        const productNames = allEntradas.map(e => e.produtoNome);
+        return [...new Set(productNames)].sort((a,b) => a.localeCompare(b));
+    }, [allEntradas]);
     
     const handleAddFornecedor = async () => {
         if (!firestore || !newFornecedorName.trim()) return;
@@ -71,26 +84,22 @@ export default function MercadoriasPanel() {
 
     const handleAddProduto = (e: React.FormEvent) => {
         e.preventDefault();
-        if(!lancamentoInput.trim()) return;
+        if(!produtoNome.trim() || !produtoPreco.trim()) return;
 
-        // Simple parsing: assumes last word is price
-        const parts = lancamentoInput.trim().split(' ');
-        const precoStr = parts.pop()?.replace(',', '.');
-        const produtoNome = parts.join(' ');
-        const preco = parseFloat(precoStr || '');
+        const preco = parseFloat(produtoPreco.replace(',', '.'));
         
-        if (!produtoNome || isNaN(preco)) {
-            toast({ variant: 'destructive', title: 'Entrada inválida', description: 'Formato esperado: "Nome do produto 99,99"' });
+        if (isNaN(preco)) {
+            toast({ variant: 'destructive', title: 'Preço inválido', description: 'Por favor, insira um número válido para o preço.' });
             return;
         }
 
         setProdutosLancados(prev => [...prev, {
             id: Date.now(),
-            texto: lancamentoInput,
             produtoNome,
             preco,
         }]);
-        setLancamentoInput('');
+        setProdutoNome('');
+        setProdutoPreco('');
     }
 
     const handleRemoveProduto = (id: number) => {
@@ -98,16 +107,17 @@ export default function MercadoriasPanel() {
     }
     
     const handleEditProduto = (produto: LancamentoProduto) => {
-        setLancamentoInput(produto.texto);
+        setProdutoNome(produto.produtoNome);
+        setProdutoPreco(String(produto.preco).replace('.', ','));
         handleRemoveProduto(produto.id);
-        lancamentoInputRef.current?.focus();
     }
 
     const resetForm = () => {
         setFornecedorId(undefined);
         setDataVencimento(undefined);
         setProdutosLancados([]);
-        setLancamentoInput('');
+        setProdutoNome('');
+        setProdutoPreco('');
     }
 
     const handleRegisterEntry = async () => {
@@ -120,7 +130,6 @@ export default function MercadoriasPanel() {
         try {
             const fornecedorNome = fornecedores?.find(f => f.id === fornecedorId)?.nome || 'Fornecedor desconhecido';
 
-            // 1. Create Conta a Pagar
             const novaConta: Omit<ContaAPagar, 'id'> = {
                 descricao: `Compra de mercadorias - ${fornecedorNome}`,
                 fornecedorId: fornecedorId,
@@ -130,20 +139,19 @@ export default function MercadoriasPanel() {
             };
             await addDocumentNonBlocking(collection(firestore, 'contas_a_pagar'), novaConta);
             
-            // 2. Create Entrada de Mercadoria for each product
             const batch = writeBatch(firestore);
             const entradasCollection = collection(firestore, 'entradas_mercadorias');
             
             produtosLancados.forEach(produto => {
                 const novaEntrada: Omit<EntradaMercadoria, 'id'> = {
-                    produtoNome: produto.produtoNome,
+                    produtoNome: produto.produtoNome.trim(),
                     fornecedorId: fornecedorId,
                     data: new Date().toISOString(),
-                    quantidade: 1, // Assuming 1 for now, can be expanded
+                    quantidade: 1, 
                     precoUnitario: produto.preco,
                     valorTotal: produto.preco,
                 };
-                const docRef = doc(entradasCollection); // Create a new doc with a random ID
+                const docRef = doc(entradasCollection);
                 batch.set(docRef, novaEntrada);
             });
             
@@ -209,18 +217,28 @@ export default function MercadoriasPanel() {
             <Separator />
 
             <div className="space-y-4">
-                <form onSubmit={handleAddProduto} className="flex items-center gap-2">
+                <form onSubmit={handleAddProduto} className="flex items-end gap-2">
                     <div className="flex-grow space-y-2">
-                        <Label htmlFor="lancamento-produto">Lançamento de Produto (Nome e Preço)</Label>
-                        <Input 
-                            id="lancamento-produto"
-                            ref={lancamentoInputRef}
-                            placeholder="Ex: Arroz 5kg 25,90"
-                            value={lancamentoInput}
-                            onChange={(e) => setLancamentoInput(e.target.value)}
+                        <Label htmlFor="lancamento-produto">Nome do Produto</Label>
+                        <ProductCombobox 
+                            products={uniqueProducts}
+                            value={produtoNome}
+                            setValue={setProdutoNome}
+                            disabled={isLoadingAllEntradas}
                         />
                     </div>
-                     <Button type="submit" size="icon" className="self-end" disabled={!lancamentoInput.trim()}>
+                     <div className="space-y-2 w-32">
+                        <Label htmlFor="produto-preco">Preço (R$)</Label>
+                        <Input 
+                            id="produto-preco"
+                            ref={precoInputRef}
+                            placeholder="25,90"
+                            value={produtoPreco}
+                            onChange={(e) => setProdutoPreco(e.target.value)}
+                            onKeyDown={(e) => { if(e.key === 'Enter') handleAddProduto(e) }}
+                        />
+                    </div>
+                     <Button type="submit" size="icon" disabled={!produtoNome.trim() || !produtoPreco.trim()}>
                         <Plus className="h-4 w-4"/>
                     </Button>
                 </form>
