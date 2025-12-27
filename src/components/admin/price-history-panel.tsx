@@ -1,3 +1,4 @@
+
 'use client';
 
 import * as React from 'react';
@@ -8,7 +9,6 @@ import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import type { EntradaMercadoria, Fornecedor, PriceHistoryEntry } from '@/types';
 
-import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Loader2, Search } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';

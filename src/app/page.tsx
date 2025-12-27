@@ -33,7 +33,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
-import { Save, Loader2, History, Settings } from "lucide-react";
+import { Save, Loader2, History, Settings, Wrench } from "lucide-react";
 import { addDocumentNonBlocking, deleteDocumentNonBlocking, setDocumentNonBlocking, updateDocumentNonBlocking } from "@/firebase/non-blocking-updates";
 
 import ItemForm from "@/components/item-form";
@@ -115,7 +115,7 @@ export default function Home() {
 
   const [isPasswordModalOpen, setIsPasswordModalOpen] = useState(false);
   const [passwordInput, setPasswordInput] = useState('');
-  const [passwordAction, setPasswordAction] = useState<'reports' | 'stock' | null>(null);
+  const [passwordAction, setPasswordAction] = useState<'reports' | 'stock' | 'admin' | null>(null);
 
 
   const { toast } = useToast();
@@ -622,7 +622,7 @@ export default function Home() {
     }
   };
 
-  const handleOpenPasswordModal = (action: 'reports' | 'stock') => {
+  const handleOpenPasswordModal = (action: 'reports' | 'stock' | 'admin') => {
     setPasswordAction(action);
     setPasswordInput('');
     setIsPasswordModalOpen(true);
@@ -635,6 +635,8 @@ export default function Home() {
           router.push('/reports');
         } else if (passwordAction === 'stock') {
           setIsStockEditModalOpen(true);
+        } else if (passwordAction === 'admin') {
+          router.push('/admin');
         }
     } else {
         toast({
@@ -855,6 +857,10 @@ export default function Home() {
             <Button variant="outline" className="w-full md:w-auto" onClick={() => handleOpenPasswordModal('stock')}>
                 <Settings className="mr-2 h-4 w-4" />
                 Gerir Estoque
+            </Button>
+             <Button variant="outline" className="w-full md:w-auto" onClick={() => handleOpenPasswordModal('admin')}>
+                <Wrench className="mr-2 h-4 w-4" />
+                Admin
             </Button>
         </div>
       </div>

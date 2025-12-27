@@ -88,3 +88,31 @@ export interface DailyReport {
   // Raw items for the day
   items: Item[];
 }
+
+// Admin Section Types
+
+export interface Fornecedor {
+  id: string;
+  nome: string;
+}
+
+export interface ContaAPagar {
+  id: string;
+  fornecedorId: string;
+  descricao: string;
+  valor: number;
+  dataVencimento: string; // YYYY-MM-DD
+  estaPaga: boolean;
+}
+
+export interface EntradaMercadoria {
+  id: string;
+  produtoNome: string;
+  fornecedorId: string;
+  data: string; // ISO string
+  quantidade: number;
+  precoUnitario: number;
+  valorTotal: number;
+}
+
+export type PriceHistoryEntry = EntradaMercadoria & { fornecedorNome: string };

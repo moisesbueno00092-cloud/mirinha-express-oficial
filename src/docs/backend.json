@@ -111,6 +111,42 @@
       "required": [
         "userId", "reportDate", "createdAt", "totalGeral", "totalAVista", "totalFiado", "items"
       ]
+    },
+    "Fornecedor": {
+        "title": "Fornecedor",
+        "description": "Representa um fornecedor de mercadorias.",
+        "type": "object",
+        "properties": {
+            "nome": { "type": "string" }
+        },
+        "required": ["nome"]
+    },
+    "ContaAPagar": {
+        "title": "Conta a Pagar",
+        "description": "Representa uma conta a pagar para um fornecedor.",
+        "type": "object",
+        "properties": {
+            "fornecedorId": { "type": "string" },
+            "descricao": { "type": "string" },
+            "valor": { "type": "number" },
+            "dataVencimento": { "type": "string", "format": "date" },
+            "estaPaga": { "type": "boolean" }
+        },
+        "required": ["fornecedorId", "descricao", "valor", "dataVencimento", "estaPaga"]
+    },
+    "EntradaMercadoria": {
+        "title": "Entrada de Mercadoria",
+        "description": "Registo de uma entrada de mercadoria, que alimenta o histórico de preços.",
+        "type": "object",
+        "properties": {
+            "produtoNome": { "type": "string" },
+            "fornecedorId": { "type": "string" },
+            "data": { "type": "string", "format": "date-time" },
+            "quantidade": { "type": "number" },
+            "precoUnitario": { "type": "number" },
+            "valorTotal": { "type": "number" }
+        },
+        "required": ["produtoNome", "fornecedorId", "data", "quantidade", "precoUnitario", "valorTotal"]
     }
   },
   "auth": {
@@ -166,6 +202,30 @@
                 "$ref": "#/backend/entities/DailyReport"
             },
             "description": "Stores consolidated daily sales reports."
+        }
+      },
+      {
+        "path": "/fornecedores/{fornecedorId}",
+        "definition": {
+            "entityName": "Fornecedor",
+            "schema": { "$ref": "#/backend/entities/Fornecedor" },
+            "description": "Armazena a lista de fornecedores."
+        }
+      },
+      {
+        "path": "/contas_a_pagar/{contaId}",
+        "definition": {
+            "entityName": "ContaAPagar",
+            "schema": { "$ref": "#/backend/entities/ContaAPagar" },
+            "description": "Armazena as contas a pagar."
+        }
+      },
+      {
+        "path": "/entradas_mercadorias/{entradaId}",
+        "definition": {
+            "entityName": "EntradaMercadoria",
+            "schema": { "$ref": "#/backend/entities/EntradaMercadoria" },
+            "description": "Histórico de todas as entradas de mercadorias para consulta de preços."
         }
       }
     ]
