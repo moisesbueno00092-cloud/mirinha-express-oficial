@@ -201,8 +201,8 @@ const ReportDetail = ({ report, bomboniereItems }: { report: DailyReport, bombon
                 <div className="space-y-1 text-sm">
                   <div className="flex justify-between items-center"><span className="text-purple-400">Vendas Salão:</span> <span className="font-mono">{formatCurrency(report.totalVendasSalao)}</span></div>
                   <div className="flex justify-between items-center"><span className="text-blue-400">Vendas Rua:</span> <span className="font-mono">{formatCurrency(report.totalVendasRua)}</span></div>
-                  <div className="flex justify-between items-center"><span className="text-destructive">Fiado Salão:</span> <span className="font-mono">{formatCurrency(report.totalFiadoSalao)}</span></div>
-                  <div className="flex justify-between items-center"><span className="text-destructive">Fiado Rua:</span> <span className="font-mono">{formatCurrency(report.totalFiadoRua)}</span></div>
+                  <div className="flex justify-between items-center"><span className="text-destructive">Fiado Salão:</span> <span className="font-mono text-destructive">{formatCurrency(report.totalFiadoSalao)}</span></div>
+                  <div className="flex justify-between items-center"><span className="text-destructive">Fiado Rua:</span> <span className="font-mono text-destructive">{formatCurrency(report.totalFiadoRua)}</span></div>
                 </div>
               </div>
               <Separator/>
@@ -241,7 +241,7 @@ const ReportDetail = ({ report, bomboniereItems }: { report: DailyReport, bombon
                             {renderTitledItemCountList(bomboniereSalao, "Bomboniere", "text-purple-400")}
                             {report.totalBomboniereSalao > 0 && (
                                 <div className="mt-2 pt-2 border-t border-dashed">
-                                    <div className="grid grid-cols-2 items-end text-xs">
+                                     <div className="grid grid-cols-2 items-end text-xs">
                                         <span className="text-muted-foreground">({totalBomboniereSalaoItens} itens)</span>
                                         <div className="flex justify-end items-center gap-2">
                                             <span className="font-semibold text-purple-400">Total:</span>
