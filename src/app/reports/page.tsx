@@ -148,6 +148,18 @@ const ReportDetail = ({ report, bomboniereItems }: { report: DailyReport, bombon
 
     const totalBomboniereSalaoItens = useMemo(() => Object.values(bomboniereSalao).reduce((acc, count) => acc + count, 0), [bomboniereSalao]);
     const totalBomboniereRuaItens = useMemo(() => Object.values(bomboniereRua).reduce((acc, count) => acc + count, 0), [bomboniereRua]);
+    const totalLanchesSalaoItens = useMemo(() => Object.values(lanchesSalao).reduce((acc, count) => acc + count, 0), [lanchesSalao]);
+    const totalLanchesRuaItens = useMemo(() => Object.values(lanchesRua).reduce((acc, count) => acc + count, 0), [lanchesRua]);
+    
+    const totalLanchesSalaoValor = useMemo(() => {
+        const totalSalao = (report.totalVendasSalao || 0) + (report.totalFiadoSalao || 0);
+        return totalSalao - (report.totalBomboniereSalao || 0);
+    }, [report]);
+
+    const totalLanchesRuaValor = useMemo(() => {
+        const totalRua = (report.totalVendasRua || 0) + (report.totalFiadoRua || 0);
+        return totalRua - (report.totalBomboniereRua || 0);
+    }, [report]);
 
 
   return (
@@ -197,6 +209,17 @@ const ReportDetail = ({ report, bomboniereItems }: { report: DailyReport, bombon
                         <div>
                             <h4 className="font-medium text-sm text-purple-400 mb-1">Salão</h4>
                             {renderItemCountList(lanchesSalao)}
+                            {totalLanchesSalaoItens > 0 && (
+                                <div className="mt-2 pt-2 border-t border-dashed">
+                                     <div className="grid grid-cols-2 items-end text-xs">
+                                        <span className="text-muted-foreground">({totalLanchesSalaoItens} itens)</span>
+                                        <div className="flex justify-end items-center gap-2">
+                                            <span className="font-semibold text-purple-400">Total:</span>
+                                            <span className="font-bold font-mono text-purple-400">{formatCurrency(totalLanchesSalaoValor)}</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
                             {renderItemCountList(bomboniereSalao, "Bomboniere", "text-purple-400")}
                             {report.totalBomboniereSalao > 0 && (
                                 <div className="mt-2 pt-2 border-t border-dashed">
@@ -213,6 +236,17 @@ const ReportDetail = ({ report, bomboniereItems }: { report: DailyReport, bombon
                         <div>
                             <h4 className="font-medium text-sm text-blue-400 mb-1">Rua</h4>
                             {renderItemCountList(lanchesRua)}
+                             {totalLanchesRuaItens > 0 && (
+                                <div className="mt-2 pt-2 border-t border-dashed">
+                                     <div className="grid grid-cols-2 items-end text-xs">
+                                        <span className="text-muted-foreground">({totalLanchesRuaItens} itens)</span>
+                                        <div className="flex justify-end items-center gap-2">
+                                            <span className="font-semibold text-blue-400">Total:</span>
+                                            <span className="font-bold font-mono text-blue-400">{formatCurrency(totalLanchesRuaValor)}</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
                             {renderItemCountList(bomboniereRua, "Bomboniere", "text-blue-400")}
                              {report.totalBomboniereRua > 0 && (
                                 <div className="mt-2 pt-2 border-t border-dashed">
