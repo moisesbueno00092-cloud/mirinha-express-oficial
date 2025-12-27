@@ -195,7 +195,6 @@ const ReportDetail = ({ report, bomboniereItems }: { report: DailyReport, bombon
                 <div className="space-y-1 text-sm">
                   <div className="flex justify-between items-center text-muted-foreground"><span>Total Entregas:</span> <span className="font-mono font-bold text-foreground">{report.totalEntregas || 0} ({formatCurrency(report.totalTaxas)})</span></div>
                   <div className="flex justify-between items-center text-muted-foreground"><span>Total Geral (Itens):</span> <span className="font-mono font-bold text-foreground">{report.totalItens || 0}</span></div>
-                  <div className="flex justify-between items-center text-muted-foreground"><span>Total Itens (Rua):</span> <span className="font-mono font-bold text-foreground">{report.totalItensRua || 0}</span></div>
                 </div>
               </div>
             </div>
@@ -209,7 +208,7 @@ const ReportDetail = ({ report, bomboniereItems }: { report: DailyReport, bombon
                             {renderItemCountList(lanchesSalao)}
                             {totalLanchesSalaoItens > 0 && (
                                 <div className="mt-2 pt-2 border-t border-dashed">
-                                     <div className="grid grid-cols-2 items-end text-xs">
+                                    <div className="grid grid-cols-2 items-end text-xs">
                                         <span className="text-muted-foreground">({totalLanchesSalaoItens} itens)</span>
                                         <div className="flex justify-end items-center gap-2">
                                             <span className="font-semibold text-purple-400">Total:</span>
