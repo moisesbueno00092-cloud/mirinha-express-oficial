@@ -94,7 +94,7 @@ export default function MercadoriasPanel() {
 
         if (value.trim() && !/\s\d/.test(value)) {
             const filtered = uniqueProductNames.filter(name =>
-                name.toLowerCase().includes(value.toLowerCase())
+                name.toLowerCase().startsWith(value.toLowerCase())
             );
             setSuggestions(filtered);
             setIsSuggestionsOpen(filtered.length > 0);
@@ -112,22 +112,22 @@ export default function MercadoriasPanel() {
     };
 
     const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
-        if (!isSuggestionsOpen) return;
-
-        if (e.key === 'ArrowDown') {
-            e.preventDefault();
-            setActiveIndex(prev => (prev + 1) % suggestions.length);
-        } else if (e.key === 'ArrowUp') {
-            e.preventDefault();
-            setActiveIndex(prev => (prev - 1 + suggestions.length) % suggestions.length);
-        } else if (e.key === 'Enter' || e.key === 'Tab') {
-             if (suggestions.length > 0 && activeIndex >= 0) {
+        if (isSuggestionsOpen) {
+            if (e.key === 'ArrowDown') {
                 e.preventDefault();
-                handleSuggestionClick(suggestions[activeIndex]);
+                setActiveIndex(prev => (prev + 1) % suggestions.length);
+            } else if (e.key === 'ArrowUp') {
+                e.preventDefault();
+                setActiveIndex(prev => (prev - 1 + suggestions.length) % suggestions.length);
+            } else if (e.key === 'Enter' || e.key === 'Tab') {
+                 if (suggestions.length > 0 && activeIndex >= 0) {
+                    e.preventDefault();
+                    handleSuggestionClick(suggestions[activeIndex]);
+                }
+            } else if (e.key === 'Escape') {
+                e.preventDefault();
+                setIsSuggestionsOpen(false);
             }
-        } else if (e.key === 'Escape') {
-            e.preventDefault();
-            setIsSuggestionsOpen(false);
         }
     };
 
@@ -362,4 +362,3 @@ export default function MercadoriasPanel() {
         </div>
     );
 }
-
