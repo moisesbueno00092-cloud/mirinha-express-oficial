@@ -205,7 +205,6 @@ const ReportDetail = ({ report, bomboniereItems }: { report: DailyReport, bombon
               <Separator/>
               <div>
                 <div className="space-y-1 text-sm">
-                  <div className="flex justify-between items-center"><span>Total KG:</span> <span className="font-mono">{formatCurrency(report.totalKg)}</span></div>
                   <div className="flex justify-between items-center"><span>Total Geral Bomboniere:</span> <span className="font-mono">{formatCurrency(totalGeralBomboniere)}</span></div>
                 </div>
               </div>
@@ -440,5 +439,3 @@ export default function ReportsPage() {
     </>
   );
 }
-
-    
