@@ -97,11 +97,10 @@ const ContasTable = ({ contas, fornecedorMap, onStatusChange, onDeleteRequest }:
                         return (
                             <TableRow key={conta.id} className={cn(status.isUrgent && 'bg-destructive/10')}>
                                 <TableCell>
-                                    <div className="font-medium flex items-center gap-2">
-                                        <div className="w-3 h-3 rounded-full" style={{ backgroundColor: fornecedor?.color || '#ccc' }}></div>
+                                    <div className="font-medium" style={{ color: fornecedor?.color || 'inherit' }}>
                                         {fornecedor?.nome || 'N/A'}
                                     </div>
-                                    <div className="text-sm text-muted-foreground pl-5">{conta.descricao}</div>
+                                    <div className="text-sm text-muted-foreground">{conta.descricao}</div>
                                 </TableCell>
                                 <TableCell className={cn(status.isUrgent && 'font-semibold text-foreground')}>{formatDate(conta.dataVencimento)}</TableCell>
                                 <TableCell>
@@ -429,3 +428,5 @@ export default function ContasAPagarPanel() {
         </div>
     );
 }
+
+    
