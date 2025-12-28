@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useMemo, useRef, useEffect } from 'react';
@@ -18,6 +19,7 @@ import { DatePicker } from '../ui/date-picker';
 import { Popover, PopoverContent, PopoverTrigger } from '../ui/popover';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
 import FornecedoresEditModal from './fornecedores-edit-modal';
+import { ScrollArea } from '../ui/scroll-area';
 
 
 interface LancamentoProduto {
@@ -52,6 +54,7 @@ export default function MercadoriasPanel() {
     const [isSuggestionsOpen, setIsSuggestionsOpen] = useState(false);
     const lancamentoInputRef = useRef<HTMLInputElement>(null);
     const [isFornecedoresModalOpen, setIsFornecedoresModalOpen] = useState(false);
+    const productListRef = useRef<HTMLDivElement>(null);
 
 
     const fornecedoresQuery = useMemoFirebase(
@@ -77,6 +80,16 @@ export default function MercadoriasPanel() {
         };
         ensureDeliveryProvider();
     }, [firestore, fornecedores, isLoadingFornecedores]);
+
+    useEffect(() => {
+        if (productListRef.current) {
+            const { scrollHeight, clientHeight } = productListRef.current;
+            productListRef.current.scrollTo({
+                top: scrollHeight - clientHeight,
+                behavior: 'smooth'
+            });
+        }
+    }, [produtosLancados]);
     
     const productSuggestions = useMemo((): ProductSuggestion[] => {
         if (!allEntradas) return [];
@@ -425,25 +438,27 @@ export default function MercadoriasPanel() {
                 {produtosLancados.length > 0 && (
                      <div className="space-y-2">
                         <h3 className="text-sm font-medium text-muted-foreground">Produtos nesta Entrada</h3>
-                        <div className="rounded-md border">
-                            {produtosLancados.map(p => (
-                                <div key={p.id} className="flex items-center justify-between p-2 border-b last:border-b-0">
-                                    <div className='flex flex-col'>
-                                        <span>{p.produtoNome}</span>
-                                        <span className="text-xs text-muted-foreground">{p.quantidade} x {formatCurrency(p.precoUnitario)}</span>
+                        <ScrollArea className="rounded-md border h-48" ref={productListRef}>
+                            <div className="p-1">
+                                {produtosLancados.map(p => (
+                                    <div key={p.id} className="flex items-center justify-between p-2 border-b last:border-b-0">
+                                        <div className='flex flex-col'>
+                                            <span>{p.produtoNome}</span>
+                                            <span className="text-xs text-muted-foreground">{p.quantidade} x {formatCurrency(p.precoUnitario)}</span>
+                                        </div>
+                                        <div className="flex items-center gap-2">
+                                            <span className="font-mono">{formatCurrency(p.preco || 0)}</span>
+                                            <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => handleEditProduto(p)}>
+                                                <Pencil className="h-4 w-4 text-blue-500" />
+                                            </Button>
+                                            <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => handleRemoveProduto(p.id)}>
+                                                <Trash2 className="h-4 w-4 text-destructive" />
+                                            </Button>
+                                        </div>
                                     </div>
-                                    <div className="flex items-center gap-2">
-                                        <span className="font-mono">{formatCurrency(p.preco || 0)}</span>
-                                        <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => handleEditProduto(p)}>
-                                            <Pencil className="h-4 w-4 text-blue-500" />
-                                        </Button>
-                                        <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => handleRemoveProduto(p.id)}>
-                                            <Trash2 className="h-4 w-4 text-destructive" />
-                                        </Button>
-                                    </div>
-                                </div>
-                            ))}
-                        </div>
+                                ))}
+                            </div>
+                        </ScrollArea>
                          <div className="flex justify-end items-center gap-4 pt-2 font-semibold">
                             <span>Total da Compra:</span>
                             <span className="text-xl text-primary">{formatCurrency(totalCompra)}</span>
