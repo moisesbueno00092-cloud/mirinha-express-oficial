@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useMemo, useRef, useEffect } from 'react';
@@ -23,7 +22,9 @@ import FornecedoresEditModal from './fornecedores-edit-modal';
 interface LancamentoProduto {
     id: number;
     produtoNome: string;
-    preco: number;
+    preco: number; // This will be the total price (quantity * unit price)
+    quantidade: number;
+    precoUnitario: number;
 }
 
 interface ProductSuggestion {
@@ -153,19 +154,42 @@ export default function MercadoriasPanel() {
             return;
         }
 
-        const nome = input.substring(0, lastSpaceIndex).trim();
+        let nomeParte = input.substring(0, lastSpaceIndex).trim();
         const precoStr = input.substring(lastSpaceIndex + 1).replace(',', '.');
-        const preco = parseFloat(precoStr);
+        const precoUnitario = parseFloat(precoStr);
 
-        if (!nome || isNaN(preco) || preco <= 0) {
-            toast({ variant: 'destructive', title: 'Entrada inválida', description: 'Nome ou preço do produto inválido.' });
+        if (isNaN(precoUnitario) || precoUnitario <= 0) {
+            toast({ variant: 'destructive', title: 'Entrada inválida', description: 'Preço do produto inválido.' });
+            return;
+        }
+
+        // Regex para encontrar "Xun" (ex: 5un, 10un)
+        const unRegex = /(\d+)(un)\b/i;
+        const unMatch = nomeParte.match(unRegex);
+
+        let quantidade = 1;
+        let precoTotal = precoUnitario;
+        let nomeFinal = nomeParte;
+
+        if (unMatch) {
+            quantidade = parseInt(unMatch[1], 10);
+            precoTotal = quantidade * precoUnitario;
+            // O nome final mantém a sigla "Xun" para visualização, mas o nome do produto real é sem a sigla.
+            // O nome do produto será extraído antes de salvar.
+            nomeFinal = nomeParte;
+        }
+
+        if (!nomeFinal.trim()) {
+             toast({ variant: 'destructive', title: 'Entrada inválida', description: 'Nome do produto não pode ser vazio.' });
             return;
         }
 
         setProdutosLancados(prev => [...prev, {
             id: Date.now(),
-            produtoNome: nome,
-            preco,
+            produtoNome: nomeFinal,
+            preco: precoTotal,
+            quantidade,
+            precoUnitario,
         }]);
 
         setLancamentoInput('');
@@ -190,7 +214,7 @@ export default function MercadoriasPanel() {
     }
     
     const handleEditProduto = (produto: LancamentoProduto) => {
-        setLancamentoInput(`${produto.produtoNome} ${String(produto.preco).replace('.', ',')}`);
+        setLancamentoInput(`${produto.produtoNome} ${String(produto.precoUnitario).replace('.', ',')}`);
         handleRemoveProduto(produto.id);
         setTimeout(() => lancamentoInputRef.current?.focus(), 0);
     }
@@ -227,13 +251,18 @@ export default function MercadoriasPanel() {
             const batch = writeBatch(firestore);
             const entradasCollection = collection(firestore, 'entradas_mercadorias');
             
+            const unRegex = /\s*\d+un\b/i;
+
             produtosLancados.forEach(produto => {
+                 // Remove o "Xun" do nome do produto antes de salvar no histórico
+                const produtoNomeLimpo = produto.produtoNome.replace(unRegex, '').trim();
+
                 const novaEntrada: Omit<EntradaMercadoria, 'id'> = {
-                    produtoNome: produto.produtoNome.trim(),
+                    produtoNome: produtoNomeLimpo,
                     fornecedorId: fornecedorId,
                     data: new Date().toISOString(),
-                    quantidade: 1, 
-                    precoUnitario: produto.preco,
+                    quantidade: produto.quantidade,
+                    precoUnitario: produto.precoUnitario,
                     valorTotal: produto.preco,
                 };
                 const docRef = doc(entradasCollection);
@@ -306,20 +335,21 @@ export default function MercadoriasPanel() {
                     <div className="space-y-2 self-end">
                         <Label htmlFor="vencimento">Data de Vencimento da Fatura</Label>
                         <DatePicker date={dataVencimento} setDate={setDataVencimento} />
+                        <p className="text-xs text-muted-foreground">Deixe em branco para pagamento no dia (à vista).</p>
                     </div>
                 </div>
                 
                 <Separator />
 
                 <div className="space-y-2">
-                    <Label htmlFor='lancamento-input'>Lançamento de Produto (Nome e Preço)</Label>
+                    <Label htmlFor='lancamento-input'>Lançamento de Produto (Nome, Quantidade e Preço Unitário)</Label>
                     <Popover open={isSuggestionsOpen} onOpenChange={setIsSuggestionsOpen}>
                         <PopoverTrigger asChild>
                             <form onSubmit={handleAddProduto} className="flex items-start gap-2">
                                 <Input
                                     id='lancamento-input'
                                     ref={lancamentoInputRef}
-                                    placeholder="Ex: Coca-cola 2L 10,50"
+                                    placeholder="Ex: Coca 2L 10,50 ou Detergente 5un 2,30"
                                     value={lancamentoInput}
                                     onChange={(e) => setLancamentoInput(e.target.value)}
                                     className='w-full'
