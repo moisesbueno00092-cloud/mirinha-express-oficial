@@ -88,6 +88,27 @@ export default function MercadoriasPanel() {
         };
         ensureDeliveryProvider();
     }, [firestore, fornecedores, isLoadingFornecedores]);
+
+    useEffect(() => {
+        const assignMissingColors = async () => {
+            if (!firestore || !fornecedores || fornecedores.length === 0) return;
+
+            const fornecedoresToUpdate = fornecedores.filter(f => !f.color);
+
+            if (fornecedoresToUpdate.length > 0) {
+                console.log(`Found ${fornecedoresToUpdate.length} suppliers without colors. Updating them...`);
+                const batch = writeBatch(firestore);
+                fornecedoresToUpdate.forEach(f => {
+                    const docRef = doc(firestore, 'fornecedores', f.id);
+                    batch.update(docRef, { color: generatePastelColor() });
+                });
+                await batch.commit();
+                console.log("Suppliers updated with new colors.");
+            }
+        };
+
+        assignMissingColors();
+    }, [firestore, fornecedores]);
     
     const productSuggestions = useMemo((): ProductSuggestion[] => {
         if (!allEntradas) return [];
