@@ -13,7 +13,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Loader2, Plus, PlusCircle, Trash2, Pencil, Settings } from 'lucide-react';
 import { Separator } from '../ui/separator';
-import { format as formatDateFn, addMonths } from 'date-fns';
+import { format as formatDateFn, addDays } from 'date-fns';
 import { addDocumentNonBlocking } from '@/firebase/non-blocking-updates';
 import { DatePicker } from '../ui/date-picker';
 import { Popover, PopoverContent, PopoverTrigger } from '../ui/popover';
@@ -296,7 +296,7 @@ export default function MercadoriasPanel() {
             const batch = writeBatch(firestore);
 
             for (let i = 0; i < parcelas; i++) {
-                const vencimentoParcela = addMonths(vencimentoBase, i);
+                const vencimentoParcela = addDays(vencimentoBase, i * 7);
                 const novaConta: Omit<ContaAPagar, 'id'> = {
                     descricao: `Compra de mercadorias - ${fornecedorNome} (${i + 1}/${parcelas})`,
                     fornecedorId: fornecedorId,
@@ -506,4 +506,3 @@ export default function MercadoriasPanel() {
         </>
     );
 }
-
