@@ -39,7 +39,7 @@ export default function MercadoriasPanel() {
     const { toast } = useToast();
 
     const [fornecedorId, setFornecedorId] = useState<string | undefined>(undefined);
-    const [dataVencimento, setDataVencimento] = usePersistentState<Date | undefined>('mercadorias.dataVencimento', undefined);
+    const [dataVencimento, setDataVencimento] = useState<Date | undefined>(undefined);
     const [produtosLancados, setProdutosLancados] = useState<LancamentoProduto[]>([]);
     
     const [isSubmitting, setIsSubmitting] = useState(false);
@@ -157,7 +157,7 @@ export default function MercadoriasPanel() {
         const unMatch = input.match(unRegex);
 
         if (unMatch) {
-            nomeParte = `${unMatch[1].trim()} ${unMatch[2]}un`;
+            nomeParte = `${unMatch[1].trim()}`;
             quantidade = parseInt(unMatch[2], 10);
             precoUnitarioStr = unMatch[3];
         } else {
@@ -192,7 +192,7 @@ export default function MercadoriasPanel() {
 
         setProdutosLancados(prev => [...prev, {
             id: Date.now(),
-            produtoNome: nomeParte, 
+            produtoNome: unMatch ? `${nomeParte} ${unMatch[2]}un` : nomeParte, 
             preco: precoTotal,
             quantidade,
             precoUnitario: precoUnitario,
