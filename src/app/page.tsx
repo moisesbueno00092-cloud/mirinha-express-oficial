@@ -482,7 +482,10 @@ export default function Home() {
   const handleSaveEdit = async () => {
     if (editingItem && editInputValue) {
       await handleUpsertItem(editInputValue, editingItem);
-      setEditingItem(null);
+      // Use setTimeout to allow state update for `lastAddedItem` to render before closing the dialog
+      setTimeout(() => {
+        setEditingItem(null);
+      }, 0);
     }
   };
   
