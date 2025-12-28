@@ -29,7 +29,7 @@ export default function AdminPage() {
   const [activeTab, setActiveTab] = useState('mercadorias');
   const [isPasswordModalOpen, setIsPasswordModalOpen] = useState(false);
   const [passwordInput, setPasswordInput] = useState('');
-  const [isFuncionariosUnlocked, setIsFuncionariosUnlocked] = useState(false);
+  const [isFuncionariosUnlocked, setIsFuncionariosUnlocked] = useState(true); // Changed to true
   const { toast } = useToast();
 
   const handleTabChange = (value: string) => {
