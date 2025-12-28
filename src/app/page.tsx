@@ -826,7 +826,7 @@ export default function Home() {
         </DialogContent>
       </Dialog>
 
-      <LastItemDisplay data={lastAddedItem} onClose={() => setLastAddedItem(null)} />
+      <LastItemDisplay data={lastAddedItem} />
 
       <div className="container mx-auto max-w-4xl p-2 sm:p-4 lg:p-8 pb-36">
         <header className="mb-6 flex flex-col items-center justify-center text-center">
@@ -913,9 +913,3 @@ export default function Home() {
     </>
   );
 }
-
-    
-
-    
-
-    
