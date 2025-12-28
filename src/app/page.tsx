@@ -6,7 +6,7 @@ import { useRouter } from 'next/navigation';
 import type { Item, Group, PredefinedItem, SelectedBomboniereItem, BomboniereItem, FavoriteClient, DailyReport, ItemCount } from "@/types";
 import { PREDEFINED_PRICES, DELIVERY_FEE, BOMBONIERE_ITEMS_DEFAULT } from "@/lib/constants";
 import { useAuth, useCollection, useFirestore, useMemoFirebase, useUser } from "@/firebase";
-import { collection, doc, query, where, orderBy, deleteDoc, writeBatch, DocumentReference, addDoc, setDoc } from "firebase/firestore";
+import { collection, doc, query, where, orderBy, deleteDoc, writeBatch, DocumentReference, addDoc } from "firebase/firestore";
 import { parseCustomItemPrice } from "@/ai/flows/parse-custom-item-price";
 
 import { Button } from "@/components/ui/button";
@@ -382,16 +382,16 @@ originalGroup = group;
         
         if (currentItem?.id) {
             const docRef = doc(orderItemsCollectionRef, currentItem.id);
-            await setDoc(docRef, finalItem, { merge: true });
+            setDocumentNonBlocking(docRef, finalItem, { merge: true });
             toast({
                 duration: 4000,
                 component: <ToastContent item={{...finalItem, id: currentItem.id}} title="Lançamento Atualizado" />,
             });
         } else {
-            const docRef = await addDoc(orderItemsCollectionRef, finalItem);
+            addDocumentNonBlocking(orderItemsCollectionRef, finalItem);
             toast({
                 duration: 4000,
-                component: <ToastContent item={{...finalItem, id: docRef.id}} title="Lançamento Adicionado" />,
+                component: <ToastContent item={{...finalItem, id: 'new-item'}} title="Lançamento Adicionado" />,
             });
         }
         
@@ -499,9 +499,9 @@ originalGroup = group;
     setEditInputValue(item.originalCommand || '');
   };
 
-  const handleSaveEdit = async () => {
+  const handleSaveEdit = () => {
     if (editingItem && editInputValue) {
-      await handleUpsertItem(editInputValue, editingItem);
+      handleUpsertItem(editInputValue, editingItem);
       setEditingItem(null);
     }
   };
@@ -750,10 +750,10 @@ originalGroup = group;
               onChange={(e) => setEditInputValue(e.target.value)}
               placeholder="Comando original..."
               className="h-10 flex-1 sm:h-12 text-base"
-              onKeyDown={async (e) => {
+              onKeyDown={(e) => {
                 if (e.key === 'Enter') {
                   e.preventDefault();
-                  await handleSaveEdit();
+                  handleSaveEdit();
                 }
               }}
               disabled={isProcessing}
@@ -932,3 +932,5 @@ originalGroup = group;
     </>
   );
 }
+
+    
