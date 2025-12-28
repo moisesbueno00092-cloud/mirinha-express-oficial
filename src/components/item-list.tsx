@@ -152,7 +152,7 @@ export const renderItemName = (item: Item) => {
     }
 
     return (
-        <>
+        <div>
             {item.customerName && (
                 <div className="flex items-center gap-1.5 mb-2">
                     <User className="h-3 w-3 text-amber-500" />
@@ -160,7 +160,7 @@ export const renderItemName = (item: Item) => {
                 </div>
             )}
             <div className="flex flex-wrap gap-2 items-start">{itemElements}</div>
-        </>
+        </div>
     );
 }
 
@@ -234,3 +234,5 @@ export default function ItemList({ items, onEdit, onDelete, isLoading, onSaveFav
     </div>
   );
 }
+
+    
