@@ -35,10 +35,10 @@ interface ProductSuggestion {
     lastPrice: number;
 }
 
-const generatePastelColor = () => {
+const generateStrongColor = () => {
   const h = Math.floor(Math.random() * 360);
-  const s = Math.floor(Math.random() * 20) + 70; // 70-90% saturation
-  const l = Math.floor(Math.random() * 20) + 75; // 75-95% lightness
+  const s = Math.floor(Math.random() * 21) + 80; // 80-100% saturation
+  const l = Math.floor(Math.random() * 21) + 40; // 40-60% lightness
   return `hsl(${h}, ${s}%, ${l}%)`;
 };
 
@@ -100,7 +100,7 @@ export default function MercadoriasPanel() {
                 const batch = writeBatch(firestore);
                 fornecedoresToUpdate.forEach(f => {
                     const docRef = doc(firestore, 'fornecedores', f.id);
-                    batch.update(docRef, { color: generatePastelColor() });
+                    batch.update(docRef, { color: generateStrongColor() });
                 });
                 await batch.commit();
                 console.log("Suppliers updated with new colors.");
@@ -171,7 +171,7 @@ export default function MercadoriasPanel() {
 
         setIsAddingFornecedor(true);
         try {
-            const newColor = generatePastelColor();
+            const newColor = generateStrongColor();
             const newFornecedor = {
                 nome: newFornecedorName.trim(),
                 color: newColor
