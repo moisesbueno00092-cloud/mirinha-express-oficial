@@ -363,15 +363,15 @@ export default function Home() {
         };
 
         const orderItemsCollectionRef = collection(firestore, "order_items");
-        let displayTitle = "Lançamento Adicionado";
-
+        
         if (currentItem?.id) {
-            displayTitle = "Lançamento Atualizado";
+            const displayTitle = "Lançamento Atualizado";
             const docRef = doc(orderItemsCollectionRef, currentItem.id);
             await setDoc(docRef, finalItem, { merge: true });
             setLastAddedItem({ item: { ...finalItem, id: currentItem.id }, title: displayTitle });
             setEditingItem(null);
         } else {
+            const displayTitle = "Lançamento Adicionado";
             const docRef = await addDoc(orderItemsCollectionRef, finalItem);
             setLastAddedItem({ item: { ...finalItem, id: docRef.id }, title: displayTitle });
         }
