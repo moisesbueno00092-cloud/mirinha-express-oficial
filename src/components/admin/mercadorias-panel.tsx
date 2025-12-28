@@ -55,7 +55,7 @@ export default function MercadoriasPanel() {
     const lancamentoInputRef = useRef<HTMLInputElement>(null);
     const [isFornecedoresModalOpen, setIsFornecedoresModalOpen] = useState(false);
 
-    const scrollAreaRef = useRef<HTMLDivElement>(null);
+    const scrollViewportRef = useRef<HTMLDivElement>(null);
 
     const fornecedoresQuery = useMemoFirebase(
         () => firestore ? query(collection(firestore, 'fornecedores'), orderBy('nome', 'asc')) : null,
@@ -129,9 +129,9 @@ export default function MercadoriasPanel() {
     }, [lancamentoInput, productSuggestions]);
     
     useEffect(() => {
-        if (scrollAreaRef.current) {
-            scrollAreaRef.current.scrollTo({
-                top: scrollAreaRef.current.scrollHeight,
+        if (scrollViewportRef.current) {
+            scrollViewportRef.current.scrollTo({
+                top: scrollViewportRef.current.scrollHeight,
                 behavior: 'smooth',
             });
         }
@@ -437,8 +437,8 @@ export default function MercadoriasPanel() {
                 {produtosLancados.length > 0 && (
                      <div className="space-y-2">
                         <h3 className="text-sm font-medium text-muted-foreground">Produtos nesta Entrada</h3>
-                        <ScrollArea className="rounded-md border h-48">
-                            <div className="p-1" ref={scrollAreaRef}>
+                        <ScrollArea className="rounded-md border h-48" viewportRef={scrollViewportRef}>
+                            <div className="p-1">
                                 {produtosLancados.map(p => (
                                     <div key={p.id} className="flex items-center justify-between p-2 border-b last:border-b-0">
                                         <div className='flex flex-col'>
@@ -480,3 +480,4 @@ export default function MercadoriasPanel() {
         </>
     );
 }
+
