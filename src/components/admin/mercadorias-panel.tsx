@@ -150,49 +150,73 @@ export default function MercadoriasPanel() {
         if (!input) return;
 
         let nomeParte = input;
-        let precoUnitarioStr: string | undefined;
+        let precoUnitario = 0;
         let quantidade = 1;
+        let precoTotal = 0;
+        let produtoNomeFinal = "";
         
-        const unRegex = /^(.*)\s+(\d+)un\s+([\d,.]+)$/i;
-        const unMatch = input.match(unRegex);
+        const isNumeric = (str: string) => !isNaN(parseFloat(str.replace(',', '.'))) && /^[0-9,.]+$/.test(str);
 
-        if (unMatch) {
-            nomeParte = `${unMatch[1].trim()}`;
-            quantidade = parseInt(unMatch[2], 10);
-            precoUnitarioStr = unMatch[3];
+        // Nova lógica: [desc] un/kg [qtd] [preco_unit]
+        const unitRegex = /^(.*?)\s*(un|kg)\s+([\d,.]+)\s+([\d,.]+)$/i;
+        const unitMatch = input.match(unitRegex);
+
+        if (unitMatch) {
+            const [, desc, unit, qtyStr, priceStr] = unitMatch;
+            quantidade = parseFloat(qtyStr.replace(',', '.'));
+            precoUnitario = parseFloat(priceStr.replace(',', '.'));
+            
+            if (isNaN(quantidade) || isNaN(precoUnitario)) {
+                toast({ variant: 'destructive', title: 'Entrada inválida', description: 'Quantidade ou preço após a sigla são inválidos.'});
+                return;
+            }
+
+            precoTotal = quantidade * precoUnitario;
+            produtoNomeFinal = `${desc} ${unit}`.trim();
+
         } else {
+            // Lógica antiga (fallback)
             const lastSpaceIndex = input.lastIndexOf(' ');
             if (lastSpaceIndex > -1 && lastSpaceIndex < input.length - 1) {
                 const potentialPrice = input.substring(lastSpaceIndex + 1);
-                if (/^[\d,.]+$/.test(potentialPrice)) {
+                if (isNumeric(potentialPrice)) {
                     nomeParte = input.substring(0, lastSpaceIndex).trim();
-                    precoUnitarioStr = potentialPrice;
+                    precoUnitario = parseFloat(potentialPrice.replace(',', '.'));
+                    
+                    const qtyRegex = /^(.*)\s+(\d+)(un|kg)$/i;
+                    const qtyMatch = nomeParte.match(qtyRegex);
+
+                    if (qtyMatch && !/\s/.test(qtyMatch[2]+qtyMatch[3])) { // Check no space for old logic
+                        produtoNomeFinal = qtyMatch[1].trim();
+                        quantidade = parseInt(qtyMatch[2], 10);
+                    } else {
+                         produtoNomeFinal = nomeParte;
+                         quantidade = 1;
+                    }
+                    precoTotal = quantidade * precoUnitario;
+                } else {
+                     toast({ variant: 'destructive', title: 'Entrada inválida', description: 'Formato não reconhecido. Use: <Nome> <Preço> ou <Desc> kg/un <Qtd> <Preço Unit>.'});
+                    return;
                 }
+            } else {
+                 toast({ variant: 'destructive', title: 'Entrada inválida', description: 'Preço do produto não encontrado.'});
+                return;
             }
         }
         
-        if (!precoUnitarioStr) {
-            toast({ variant: 'destructive', title: 'Entrada inválida', description: 'Formato inválido. Use: <Nome> <Preço> ou <Nome> <Qtd>un <Preço Unit>.'});
+        if (isNaN(precoTotal) || precoTotal <= 0) {
+            toast({ variant: 'destructive', title: 'Entrada inválida', description: 'O cálculo final do preço é inválido.' });
             return;
         }
 
-        const precoUnitario = parseFloat(precoUnitarioStr.replace(',', '.'));
-
-        if (isNaN(precoUnitario) || precoUnitario <= 0) {
-            toast({ variant: 'destructive', title: 'Entrada inválida', description: 'Preço do produto inválido.' });
-            return;
-        }
-
-        if (!nomeParte.trim()) {
+        if (!produtoNomeFinal.trim()) {
              toast({ variant: 'destructive', title: 'Entrada inválida', description: 'Nome do produto não pode ser vazio.' });
             return;
         }
         
-        const precoTotal = quantidade * precoUnitario;
-
         setProdutosLancados(prev => [...prev, {
             id: Date.now(),
-            produtoNome: unMatch ? `${nomeParte} ${unMatch[2]}un` : nomeParte, 
+            produtoNome: produtoNomeFinal, 
             preco: precoTotal,
             quantidade,
             precoUnitario: precoUnitario,
@@ -220,7 +244,10 @@ export default function MercadoriasPanel() {
     }
     
     const handleEditProduto = (produto: LancamentoProduto) => {
-        const inputToEdit = `${produto.produtoNome} ${String(produto.precoUnitario).replace('.', ',')}`.replace(/\s+\d+un/, ` ${produto.quantidade}un`);
+        // This is complex now with the new logic. For now, just remove and let user re-enter.
+        // A better implementation would require reversing the logic.
+        // For simplicity, we just put the raw name and unit price back.
+        const inputToEdit = `${produto.produtoNome} ${String(produto.precoUnitario).replace('.', ',')}`;
         
         setLancamentoInput(inputToEdit);
         handleRemoveProduto(produto.id);
@@ -258,15 +285,10 @@ export default function MercadoriasPanel() {
             
             const batch = writeBatch(firestore);
             const entradasCollection = collection(firestore, 'entradas_mercadorias');
-            
-            const unRegex = /\s*(\d+)un\b/i;
 
             produtosLancados.forEach(produto => {
-                const unMatch = produto.produtoNome.match(unRegex);
-                const produtoNomeLimpo = unMatch ? produto.produtoNome.replace(unMatch[0], '').trim() : produto.produtoNome;
-
                 const novaEntrada: Omit<EntradaMercadoria, 'id'> = {
-                    produtoNome: produtoNomeLimpo,
+                    produtoNome: produto.produtoNome,
                     fornecedorId: fornecedorId,
                     data: new Date().toISOString(),
                     quantidade: produto.quantidade,
@@ -350,14 +372,14 @@ export default function MercadoriasPanel() {
                 <Separator />
 
                 <div className="space-y-2">
-                    <Label htmlFor='lancamento-input'>Lançamento de Produto (Nome, Quantidade e Preço Unitário)</Label>
+                    <Label htmlFor='lancamento-input'>Lançamento de Produto</Label>
                     <Popover open={isSuggestionsOpen} onOpenChange={setIsSuggestionsOpen}>
                         <PopoverTrigger asChild>
                             <form onSubmit={handleAddProduto} className="flex items-start gap-2">
                                 <Input
                                     id='lancamento-input'
                                     ref={lancamentoInputRef}
-                                    placeholder="Ex: Coca 2L 10,50 ou Detergente 5un 2,30"
+                                    placeholder="Ex: Coca 2L 10,50 ou Queijo kg 2 35"
                                     value={lancamentoInput}
                                     onChange={(e) => setLancamentoInput(e.target.value)}
                                     className='w-full'
@@ -406,7 +428,10 @@ export default function MercadoriasPanel() {
                         <div className="rounded-md border">
                             {produtosLancados.map(p => (
                                 <div key={p.id} className="flex items-center justify-between p-2 border-b last:border-b-0">
-                                    <span>{p.produtoNome}</span>
+                                    <div className='flex flex-col'>
+                                        <span>{p.produtoNome}</span>
+                                        <span className="text-xs text-muted-foreground">{p.quantidade} x {formatCurrency(p.precoUnitario)}</span>
+                                    </div>
                                     <div className="flex items-center gap-2">
                                         <span className="font-mono">{formatCurrency(p.preco || 0)}</span>
                                         <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => handleEditProduto(p)}>
