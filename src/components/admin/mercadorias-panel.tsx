@@ -54,7 +54,6 @@ export default function MercadoriasPanel() {
     const [produtosLancados, setProdutosLancados] = usePersistentState<LancamentoProduto[]>('mercadorias.produtosLancados', []);
 
     const dataVencimento = useMemo(() => parseDateString(rawVencimento), [rawVencimento]);
-    const setDataVencimento = (date: Date | undefined) => setRawVencimento(date?.toISOString());
     
     const [isSubmitting, setIsSubmitting] = useState(false);
     
@@ -179,24 +178,23 @@ export default function MercadoriasPanel() {
             return;
         }
 
-        const unRegex = /(.*?)\s*(\d+)un$/i;
+        const unRegex = /^(.*?)\s*(\d+)un$/i;
         const unMatch = nomeParte.match(unRegex);
 
         let quantidade = 1;
         let precoTotal = precoUnitario;
-        let nomeFinal = nomeParte;
         let nomeSalvo = nomeParte;
         let precoUnitarioFinal = precoUnitario;
-
+        
         if (unMatch) {
-            nomeFinal = unMatch[1].trim(); 
+            nomeSalvo = nomeParte; // Full name with '5un'
+            nomeParte = unMatch[1].trim(); // Name part only
             quantidade = parseInt(unMatch[2], 10);
             precoTotal = quantidade * precoUnitario;
-        } else {
-            nomeSalvo = nomeParte;
         }
 
-        if (!nomeFinal.trim()) {
+
+        if (!nomeParte.trim()) {
              toast({ variant: 'destructive', title: 'Entrada inválida', description: 'Nome do produto não pode ser vazio.' });
             return;
         }
@@ -353,7 +351,7 @@ export default function MercadoriasPanel() {
                     </div>
                     <div className="space-y-2 self-end">
                         <Label htmlFor="vencimento">Data de Vencimento da Fatura</Label>
-                        <DatePicker date={dataVencimento} setDate={setDataVencimento} />
+                        <DatePicker date={dataVencimento} setDate={(date) => setRawVencimento(date?.toISOString())} />
                         <p className="text-xs text-muted-foreground">Deixe em branco para pagamento no dia (à vista).</p>
                     </div>
                 </div>
