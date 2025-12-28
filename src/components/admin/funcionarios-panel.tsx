@@ -5,7 +5,7 @@ import { useState, useMemo, useEffect } from 'react';
 import { useCollection, useFirestore, useMemoFirebase } from '@/firebase';
 import { collection, query, orderBy, doc } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
-import { format, parse, isValid } from 'date-fns';
+import { format, parse, isValid, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { addDocumentNonBlocking, updateDocumentNonBlocking } from '@/firebase/non-blocking-updates';
 import type { Funcionario } from '@/types';
@@ -35,31 +35,43 @@ const FuncionarioFormModal = ({
 }) => {
     const [nome, setNome] = useState('');
     const [cargo, setCargo] = useState('');
-    const [dataAdmissao, setDataAdmissao] = useState<Date | undefined>(undefined);
     const [status, setStatus] = useState<'Ativo' | 'Inativo'>('Ativo');
+    const [dia, setDia] = useState('');
+    const [mes, setMes] = useState('');
+    const [ano, setAno] = useState('');
     const [isSaving, setIsSaving] = useState(false);
     const { toast } = useToast();
 
     useEffect(() => {
-        if (funcionario) {
-            setNome(funcionario.nome || '');
-            setCargo(funcionario.cargo || '');
-            setStatus(funcionario.status || 'Ativo');
-            if (funcionario.dataAdmissao && isValid(parse(funcionario.dataAdmissao, 'yyyy-MM-dd', new Date()))) {
-                setDataAdmissao(parse(funcionario.dataAdmissao, 'yyyy-MM-dd', new Date()));
+        if (isOpen) {
+            if (funcionario) {
+                setNome(funcionario.nome || '');
+                setCargo(funcionario.cargo || '');
+                setStatus(funcionario.status || 'Ativo');
+                if (funcionario.dataAdmissao && isValid(parseISO(funcionario.dataAdmissao))) {
+                    const date = parseISO(funcionario.dataAdmissao);
+                    setDia(format(date, 'dd'));
+                    setMes(format(date, 'MM'));
+                    setAno(format(date, 'yyyy'));
+                } else {
+                    setDia('');
+                    setMes('');
+                    setAno('');
+                }
             } else {
-                setDataAdmissao(undefined);
+                setNome('');
+                setCargo('');
+                setStatus('Ativo');
+                const today = new Date();
+                setDia(format(today, 'dd'));
+                setMes(format(today, 'MM'));
+                setAno(format(today, 'yyyy'));
             }
-        } else {
-            setNome('');
-            setCargo('');
-            setDataAdmissao(new Date());
-            setStatus('Ativo');
         }
     }, [funcionario, isOpen]);
 
     const handleSave = () => {
-        if (!nome.trim() || !cargo.trim() || !dataAdmissao) {
+        if (!nome.trim() || !cargo.trim() || !dia.trim() || !mes.trim() || !ano.trim()) {
             toast({
                 variant: 'destructive',
                 title: 'Erro de Validação',
@@ -68,11 +80,23 @@ const FuncionarioFormModal = ({
             return;
         }
 
+        const dateStr = `${ano}-${mes.padStart(2, '0')}-${dia.padStart(2, '0')}`;
+        const parsedDate = parse(dateStr, 'yyyy-MM-dd', new Date());
+
+        if (!isValid(parsedDate)) {
+             toast({
+                variant: 'destructive',
+                title: 'Data Inválida',
+                description: 'Por favor, insira uma data válida (DD/MM/AAAA).',
+            });
+            return;
+        }
+
         setIsSaving(true);
         const dataToSave = {
             nome: nome.trim(),
             cargo: cargo.trim(),
-            dataAdmissao: format(dataAdmissao, 'yyyy-MM-dd'),
+            dataAdmissao: format(parsedDate, 'yyyy-MM-dd'),
             status,
         };
         onSave(dataToSave);
@@ -95,8 +119,12 @@ const FuncionarioFormModal = ({
                         <Input id="cargo" value={cargo} onChange={(e) => setCargo(e.target.value)} placeholder="Ex: Cozinheiro, Atendente" />
                     </div>
                     <div className="space-y-2">
-                        <Label htmlFor="dataAdmissao">Data de Admissão</Label>
-                        <DatePicker date={dataAdmissao} setDate={setDataAdmissao} />
+                        <Label>Data de Admissão</Label>
+                        <div className="grid grid-cols-3 gap-2">
+                            <Input value={dia} onChange={(e) => setDia(e.target.value)} placeholder="DD" maxLength={2} />
+                            <Input value={mes} onChange={(e) => setMes(e.target.value)} placeholder="MM" maxLength={2} />
+                            <Input value={ano} onChange={(e) => setAno(e.target.value)} placeholder="AAAA" maxLength={4} />
+                        </div>
                     </div>
                      {funcionario?.id && (
                         <div className="flex items-center space-x-2">
