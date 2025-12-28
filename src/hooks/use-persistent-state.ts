@@ -13,7 +13,8 @@ function usePersistentState<T>(key: string, initialState: T): [T, Dispatch<SetSt
     setIsInitialized(true);
     try {
       const item = window.localStorage.getItem(key);
-      if (item) {
+      // Ensure the item is not null, not undefined, and not the string 'undefined'
+      if (item && item !== 'undefined') {
         setState(JSON.parse(item));
       }
     } catch (error) {
@@ -27,7 +28,12 @@ function usePersistentState<T>(key: string, initialState: T): [T, Dispatch<SetSt
     // This effect runs whenever 'state' changes, but only after initialization.
     if (isInitialized) {
       try {
-        window.localStorage.setItem(key, JSON.stringify(state));
+        // Prevent storing 'undefined' as a string
+        if (state === undefined) {
+          window.localStorage.removeItem(key);
+        } else {
+          window.localStorage.setItem(key, JSON.stringify(state));
+        }
       } catch (error) {
         console.error(`Error setting localStorage key “${key}”:`, error);
       }
