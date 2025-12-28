@@ -481,7 +481,7 @@ originalGroup = group;
   const handleSaveEdit = async () => {
     if (editingItem && editInputValue) {
       await handleUpsertItem(editInputValue, editingItem);
-      setEditingItem(null);
+      // setEditingItem(null); // This is now handled by onOpenChange
     }
   };
   
@@ -718,7 +718,7 @@ originalGroup = group;
         </AlertDialogContent>
       </AlertDialog>
 
-      <Dialog open={!!editingItem} onOpenChange={!isProcessing ? (open) => !open && setEditingItem(null) : undefined}>
+      <Dialog open={!!editingItem} onOpenChange={(open) => !open && setEditingItem(null)}>
         <DialogContent className="sm:max-w-[425px]">
           <DialogHeader>
             <DialogTitle>Editar Lançamento</DialogTitle>
