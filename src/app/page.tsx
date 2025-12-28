@@ -480,11 +480,11 @@ export default function Home() {
   };
 
   const handleSaveEdit = async () => {
-    if(editingItem && editInputValue) {
+    if (editingItem && editInputValue) {
       await handleUpsertItem(editInputValue, editingItem);
     }
     setEditingItem(null);
-  }
+  };
   
   const summary = useMemo(() => {
     if (!items) {
