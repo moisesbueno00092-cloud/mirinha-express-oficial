@@ -387,10 +387,10 @@ export default function Home() {
         setIsProcessing(false);
         if (!editingItem) {
           setRawInput("");
-          if (inputRef.current) {
-            inputRef.current.focus();
-          }
         }
+        setTimeout(() => {
+          inputRef.current?.focus();
+        }, 0);
     }
   };
 
@@ -913,3 +913,5 @@ export default function Home() {
     </>
   );
 }
+
+    
