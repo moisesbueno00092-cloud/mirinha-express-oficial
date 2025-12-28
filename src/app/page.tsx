@@ -376,8 +376,6 @@ export default function Home() {
             setLastAddedItem({ item: { ...finalItem, id: docRef.id }, title: displayTitle });
         }
         
-        setRawInput("");
-
     } catch (error) {
         console.error("Error upserting item:", error);
         toast({
