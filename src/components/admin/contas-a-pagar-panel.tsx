@@ -5,10 +5,10 @@ import { useMemo, useState } from 'react';
 import { useCollection, useFirestore, useMemoFirebase } from '@/firebase';
 import { collection, query, orderBy, doc } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
-import { format, isPast, isSameMonth, isSameYear, parseISO, startOfMonth, endOfMonth, startOfYear, endOfYear, isToday, isWithinInterval, startOfWeek, endOfWeek, subDays } from 'date-fns';
+import { format, isPast, isToday, isWithinInterval, startOfWeek, endOfWeek, subDays, startOfMonth, endOfMonth, startOfYear, endOfYear, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
-import type { ContaAPagar, Fornecedor, EntradaMercadoria, DailyReport, ItemCount } from '@/types';
+import type { ContaAPagar, Fornecedor, EntradaMercadoria } from '@/types';
 import { updateDocumentNonBlocking, deleteDocumentNonBlocking } from '@/firebase/non-blocking-updates';
 
 import {
@@ -25,7 +25,7 @@ import { Switch } from '@/components/ui/switch';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { Loader2, Trash2, Search, History, TrendingUp, CalendarDays, AlertTriangle, AreaChart } from 'lucide-react';
+import { Loader2, Trash2, Search, History, TrendingUp, CalendarDays, AreaChart } from 'lucide-react';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -226,6 +226,8 @@ const ExpenseReport = ({ contasPagas, fornecedorMap, period }: { contasPagas: Co
         </Card>
     )
 }
+
+type FilterType = 'all' | 'vencidas' | 'hoje' | 'semana' | 'mes';
 
 export default function ContasAPagarPanel() {
     const firestore = useFirestore();
@@ -567,3 +569,5 @@ export default function ContasAPagarPanel() {
         </div>
     );
 }
+
+    

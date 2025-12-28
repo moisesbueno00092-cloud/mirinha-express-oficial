@@ -123,3 +123,5 @@ export interface Funcionario {
     dataAdmissao: string; // YYYY-MM-DD
     status: 'Ativo' | 'Inativo';
 }
+
+    
