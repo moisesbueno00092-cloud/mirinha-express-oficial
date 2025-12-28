@@ -13,7 +13,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Loader2, Plus, PlusCircle, Trash2, Pencil, Settings } from 'lucide-react';
 import { Separator } from '../ui/separator';
-import { format as formatDateFn } from 'date-fns';
+import { format as formatDateFn, addMonths } from 'date-fns';
 import { addDocumentNonBlocking } from '@/firebase/non-blocking-updates';
 import { DatePicker } from '../ui/date-picker';
 import { Popover, PopoverContent, PopoverTrigger } from '../ui/popover';
@@ -43,6 +43,7 @@ export default function MercadoriasPanel() {
     const [fornecedorId, setFornecedorId] = useState<string | undefined>(undefined);
     const [dataVencimento, setDataVencimento] = useState<Date | undefined>(undefined);
     const [produtosLancados, setProdutosLancados] = useState<LancamentoProduto[]>([]);
+    const [numParcelas, setNumParcelas] = useState('1');
     
     const [isSubmitting, setIsSubmitting] = useState(false);
     
@@ -271,6 +272,7 @@ export default function MercadoriasPanel() {
         setDataVencimento(undefined);
         setProdutosLancados([]);
         setLancamentoInput('');
+        setNumParcelas('1');
     }
 
     const handleRegisterEntry = async () => {
@@ -282,21 +284,29 @@ export default function MercadoriasPanel() {
 
         try {
             const fornecedorNome = fornecedores?.find(f => f.id === fornecedorId)?.nome || 'Fornecedor desconhecido';
+            const parcelas = parseInt(numParcelas, 10);
             
-            const vencimentoFinal = dataVencimento || new Date();
+            const vencimentoBase = dataVencimento || new Date();
             const estaPaga = !dataVencimento;
 
-            const novaConta: Omit<ContaAPagar, 'id'> = {
-                descricao: `Compra de mercadorias - ${fornecedorNome}`,
-                fornecedorId: fornecedorId,
-                valor: totalCompra,
-                dataVencimento: formatDateFn(vencimentoFinal, 'yyyy-MM-dd'),
-                estaPaga: estaPaga,
-            };
-            await addDocumentNonBlocking(collection(firestore, 'contas_a_pagar'), novaConta);
+            const valorParcela = totalCompra / parcelas;
             
-            const batch = writeBatch(firestore);
+            const contasCollection = collection(firestore, 'contas_a_pagar');
             const entradasCollection = collection(firestore, 'entradas_mercadorias');
+            const batch = writeBatch(firestore);
+
+            for (let i = 0; i < parcelas; i++) {
+                const vencimentoParcela = addMonths(vencimentoBase, i);
+                const novaConta: Omit<ContaAPagar, 'id'> = {
+                    descricao: `Compra de mercadorias - ${fornecedorNome} (${i + 1}/${parcelas})`,
+                    fornecedorId: fornecedorId,
+                    valor: valorParcela,
+                    dataVencimento: formatDateFn(vencimentoParcela, 'yyyy-MM-dd'),
+                    estaPaga: estaPaga,
+                };
+                const contaDocRef = doc(contasCollection);
+                batch.set(contaDocRef, novaConta);
+            }
 
             produtosLancados.forEach(produto => {
                 const novaEntrada: Omit<EntradaMercadoria, 'id'> = {
@@ -307,13 +317,13 @@ export default function MercadoriasPanel() {
                     precoUnitario: produto.precoUnitario,
                     valorTotal: produto.preco,
                 };
-                const docRef = doc(entradasCollection);
-                batch.set(docRef, novaEntrada);
+                const entradaDocRef = doc(entradasCollection);
+                batch.set(entradaDocRef, novaEntrada);
             });
             
             await batch.commit();
 
-            toast({ title: 'Sucesso!', description: 'Entrada de mercadoria e conta a pagar registadas.' });
+            toast({ title: 'Sucesso!', description: 'Entrada de mercadoria e conta(s) a pagar registadas.' });
             resetForm();
         } catch (error) {
             console.error("Erro ao registar entrada:", error);
@@ -374,10 +384,26 @@ export default function MercadoriasPanel() {
                             </Button>
                         </div>
                     </div>
-                    <div className="space-y-2 self-end">
-                        <Label htmlFor="vencimento">Data de Vencimento da Fatura</Label>
-                        <DatePicker date={dataVencimento} setDate={setDataVencimento} />
-                        <p className="text-xs text-muted-foreground">Deixe em branco para pagamento no dia (à vista).</p>
+                    <div className="grid grid-cols-2 gap-4">
+                       <div className="space-y-2 self-end">
+                            <Label htmlFor="vencimento">Vencimento da 1ª Parcela</Label>
+                            <DatePicker date={dataVencimento} setDate={setDataVencimento} />
+                            <p className="text-xs text-muted-foreground">Deixe em branco para pagamento à vista.</p>
+                        </div>
+                         <div className="space-y-2 self-end">
+                            <Label htmlFor="parcelas">Nº de Parcelas</Label>
+                            <Select value={numParcelas} onValueChange={setNumParcelas} disabled={!dataVencimento}>
+                                <SelectTrigger id="parcelas">
+                                    <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    {Array.from({ length: 12 }, (_, i) => i + 1).map(p => (
+                                        <SelectItem key={p} value={String(p)}>{p}x</SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                             <p className="text-xs text-muted-foreground">Ativo se data for selecionada.</p>
+                        </div>
                     </div>
                 </div>
                 
@@ -472,7 +498,7 @@ export default function MercadoriasPanel() {
                         disabled={isSubmitting || !fornecedorId || produtosLancados.length === 0}
                     >
                         {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                        Registar Entrada e Criar Conta a Pagar
+                        Registar Entrada e Criar Conta(s)
                     </Button>
                 </div>
 
