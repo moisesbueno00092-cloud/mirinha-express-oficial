@@ -148,6 +148,18 @@
             "valorTotal": { "type": "number" }
         },
         "required": ["produtoNome", "fornecedorId", "data", "quantidade", "precoUnitario", "valorTotal"]
+    },
+    "Funcionario": {
+        "title": "Funcionário",
+        "description": "Representa um funcionário/colaborador da empresa.",
+        "type": "object",
+        "properties": {
+            "nome": { "type": "string" },
+            "cargo": { "type": "string" },
+            "dataAdmissao": { "type": "string", "format": "date" },
+            "status": { "type": "string", "enum": ["Ativo", "Inativo"] }
+        },
+        "required": ["nome", "cargo", "dataAdmissao", "status"]
     }
   },
   "auth": {
@@ -227,6 +239,14 @@
             "entityName": "EntradaMercadoria",
             "schema": { "$ref": "#/backend/entities/EntradaMercadoria" },
             "description": "Histórico de todas as entradas de mercadorias para consulta de preços."
+        }
+      },
+      {
+        "path": "/funcionarios/{funcionarioId}",
+        "definition": {
+          "entityName": "Funcionario",
+          "schema": { "$ref": "#/backend/entities/Funcionario" },
+          "description": "Armazena os dados dos funcionários."
         }
       }
     ]

@@ -115,3 +115,11 @@ export interface EntradaMercadoria {
   precoUnitario: number;
   valorTotal: number;
 }
+
+export interface Funcionario {
+    id: string;
+    nome: string;
+    cargo: string;
+    dataAdmissao: string; // YYYY-MM-DD
+    status: 'Ativo' | 'Inativo';
+}

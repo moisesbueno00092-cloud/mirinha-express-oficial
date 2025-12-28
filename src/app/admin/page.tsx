@@ -22,6 +22,7 @@ import { useToast } from '@/hooks/use-toast';
 
 import MercadoriasPanel from '@/components/admin/mercadorias-panel';
 import ContasAPagarPanel from '@/components/admin/contas-a-pagar-panel';
+import FuncionariosPanel from '@/components/admin/funcionarios-panel';
 
 
 export default function AdminPage() {
@@ -150,10 +151,7 @@ export default function AdminPage() {
                 </CardHeader>
                 <CardContent>
                   {isFuncionariosUnlocked ? (
-                    <div className="text-center text-muted-foreground p-8 flex flex-col items-center gap-4">
-                        <Construction className="h-12 w-12" />
-                        <p>Funcionalidade de Recursos Humanos em construção.</p>
-                    </div>
+                    <FuncionariosPanel />
                   ) : <div className="text-center text-muted-foreground p-8">Acesso restrito.</div>}
                 </CardContent>
               </Card>
