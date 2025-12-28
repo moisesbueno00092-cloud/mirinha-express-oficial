@@ -115,7 +115,7 @@ export default function Home() {
 
   const [isPasswordModalOpen, setIsPasswordModalOpen] = useState(false);
   const [passwordInput, setPasswordInput] = useState('');
-  const [passwordAction, setPasswordAction] = useState<'reports' | 'stock' | 'admin' | null>(null);
+  const [passwordAction, setPasswordAction] = useState<'reports' | 'stock' | null>(null);
 
 
   const { toast } = useToast();
@@ -643,7 +643,7 @@ export default function Home() {
     }
   };
 
-  const handleOpenPasswordModal = (action: 'reports' | 'stock' | 'admin') => {
+  const handleOpenPasswordModal = (action: 'reports' | 'stock') => {
     setPasswordAction(action);
     setPasswordInput('');
     setIsPasswordModalOpen(true);
@@ -656,8 +656,6 @@ export default function Home() {
           router.push('/reports');
         } else if (passwordAction === 'stock') {
           setIsStockEditModalOpen(true);
-        } else if (passwordAction === 'admin') {
-          router.push('/admin');
         }
     } else {
         toast({
@@ -879,9 +877,9 @@ export default function Home() {
                 <Settings className="mr-2 h-4 w-4" />
                 Gerir Estoque
             </Button>
-             <Button variant="outline" className="w-full md:w-auto" onClick={() => handleOpenPasswordModal('admin')}>
+             <Button variant="outline" className="w-full md:w-auto" onClick={() => router.push('/admin')}>
                 <Wrench className="mr-2 h-4 w-4" />
-                Admin
+                Gestão Administrativa
             </Button>
         </div>
       </div>
