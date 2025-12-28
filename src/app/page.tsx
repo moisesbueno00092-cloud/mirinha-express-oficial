@@ -827,7 +827,6 @@ export default function Home() {
       </Dialog>
 
       <LastItemDisplay 
-        key={lastAddedItem?.item.id} 
         data={lastAddedItem} 
         onClose={() => setLastAddedItem(null)}
       />
