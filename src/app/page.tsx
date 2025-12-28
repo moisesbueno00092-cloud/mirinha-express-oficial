@@ -719,7 +719,7 @@ export default function Home() {
         </AlertDialogContent>
       </AlertDialog>
 
-      <Dialog open={!!editingItem} onOpenChange={(open) => !open && setEditingItem(null)}>
+      <Dialog open={!!editingItem} onOpenChange={!isProcessing ? (open) => !open && setEditingItem(null) : undefined}>
         <DialogContent className="sm:max-w-[425px]">
           <DialogHeader>
             <DialogTitle>Editar Lançamento</DialogTitle>
@@ -736,10 +736,11 @@ export default function Home() {
                   await handleSaveEdit();
                 }
               }}
+              disabled={isProcessing}
             />
           </div>
           <DialogFooter>
-            <Button type="button" variant="secondary" onClick={() => setEditingItem(null)}>Cancelar</Button>
+            <Button type="button" variant="secondary" onClick={() => setEditingItem(null)} disabled={isProcessing}>Cancelar</Button>
             <Button type="submit" onClick={handleSaveEdit} disabled={isProcessing}>
                 {isProcessing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
                  Salvar
@@ -940,7 +941,3 @@ export default function Home() {
     </>
   );
 }
-
-    
-
-    
