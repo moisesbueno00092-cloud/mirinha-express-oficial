@@ -3,7 +3,7 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
-import { ArrowLeft, Box, HandCoins, Users } from 'lucide-react';
+import { ArrowLeft, Box, HandCoins, Users, Construction } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -22,7 +22,7 @@ import { useToast } from '@/hooks/use-toast';
 
 import MercadoriasPanel from '@/components/admin/mercadorias-panel';
 import ContasAPagarPanel from '@/components/admin/contas-a-pagar-panel';
-import FuncionariosPanel from '@/components/admin/funcionarios-panel';
+
 
 export default function AdminPage() {
   const [activeTab, setActiveTab] = useState('mercadorias');
@@ -149,7 +149,12 @@ export default function AdminPage() {
                   <CardDescription>Gira a sua equipa de funcionários.</CardDescription>
                 </CardHeader>
                 <CardContent>
-                  {isFuncionariosUnlocked ? <FuncionariosPanel /> : <div className="text-center text-muted-foreground p-8">Acesso restrito.</div>}
+                  {isFuncionariosUnlocked ? (
+                    <div className="text-center text-muted-foreground p-8 flex flex-col items-center gap-4">
+                        <Construction className="h-12 w-12" />
+                        <p>Funcionalidade de Recursos Humanos em construção.</p>
+                    </div>
+                  ) : <div className="text-center text-muted-foreground p-8">Acesso restrito.</div>}
                 </CardContent>
               </Card>
             </TabsContent>
