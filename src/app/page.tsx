@@ -481,7 +481,7 @@ originalGroup = group;
   const handleSaveEdit = async () => {
     if (editingItem && editInputValue) {
       await handleUpsertItem(editInputValue, editingItem);
-      // setEditingItem(null); // This is now handled by onOpenChange
+      setEditingItem(null);
     }
   };
   
@@ -940,7 +940,3 @@ originalGroup = group;
     </>
   );
 }
-
-    
-
-    
