@@ -116,3 +116,10 @@ export interface EntradaMercadoria {
 }
 
 export type PriceHistoryEntry = EntradaMercadoria & { fornecedorNome: string };
+
+export interface Funcionario {
+    id: string;
+    nome: string;
+    funcao: string;
+    salario: number;
+}
