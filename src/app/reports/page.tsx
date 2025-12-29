@@ -11,7 +11,7 @@ import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
-import { Loader2, ArrowLeft, Trash2, ChevronDown, Calendar, AreaChart, TrendingUp, BarChart } from 'lucide-react';
+import { Loader2, ArrowLeft, Trash2, ChevronDown, Calendar, AreaChart, TrendingUp, BarChart, Info } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import {
   AlertDialog,
@@ -29,6 +29,8 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from "@/components/ui/accordion"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+
 
 import {
   ChartContainer,
@@ -37,7 +39,7 @@ import {
 } from "@/components/ui/chart"
 import { PieChart, Pie, Cell, ResponsiveContainer } from "recharts"
 
-import type { DailyReport, ItemCount, BomboniereItem } from '@/types';
+import type { DailyReport, ItemCount, BomboniereItem, Item } from '@/types';
 import DailyTimelineChart from '@/components/daily-timeline-chart';
 import { cn } from '@/lib/utils';
 
@@ -48,7 +50,7 @@ const formatCurrency = (value: number | undefined | null) => {
     }).format(value || 0);
 };
 
-const ReportDetail = ({ report, bomboniereItems }: { report: DailyReport, bomboniereItems: BomboniereItem[] }) => {
+const ReportDetail = ({ report, bomboniereItems, isAggregate = false }: { report: DailyReport, bomboniereItems: BomboniereItem[], isAggregate?: boolean }) => {
     
     const bomboniereNameMap = useMemo(() => {
       const map = new Map<string, string>();
@@ -92,7 +94,7 @@ const ReportDetail = ({ report, bomboniereItems }: { report: DailyReport, bombon
         { name: 'Vendas Rua', value: report.totalVendasRua, fill: 'hsl(var(--chart-2))' },
         { name: 'Fiado Salão', value: report.totalFiadoSalao, fill: 'hsl(var(--chart-3))' },
         { name: 'Fiado Rua', value: report.totalFiadoRua, fill: 'hsl(var(--chart-5))' },
-    ];
+    ].filter(item => item.value > 0);
 
     const chartConfig = {
         "Vendas Salão": { label: "Vendas Salão", color: "hsl(var(--primary))" },
@@ -183,7 +185,8 @@ const ReportDetail = ({ report, bomboniereItems }: { report: DailyReport, bombon
     <Card>
         <CardHeader className="flex flex-row items-start justify-between">
             <div>
-                <CardTitle className="text-lg">Resumo do Dia - FATURAMENTO</CardTitle>
+                <CardTitle className="text-lg">{isAggregate ? "Resumo Agregado" : "Resumo do Dia"} - FATURAMENTO</CardTitle>
+                {isAggregate && <CardDescription>{report.totalPedidos} pedidos em {report.id} dias</CardDescription>}
             </div>
             <div className="text-right">
                 <p className="text-3xl font-bold text-primary">{formatCurrency(report.totalGeral)}</p>
@@ -283,7 +286,7 @@ const ReportDetail = ({ report, bomboniereItems }: { report: DailyReport, bombon
               <Separator />
               <div>
                   <h3 className="font-semibold mb-2">Proporção de Vendas</h3>
-                  <ChartContainer config={chartConfig} className="mx-auto aspect-square h-[180px]">
+                  <ChartContainer config={chartConfig as any} className="mx-auto aspect-square h-[180px]">
                       <ResponsiveContainer width="100%" height="100%">
                           <PieChart>
                               <ChartTooltip
@@ -306,7 +309,7 @@ const ReportDetail = ({ report, bomboniereItems }: { report: DailyReport, bombon
               </div>
             </div>
           </div>
-          {report.items && report.items.length > 0 && (
+          {report.items && report.items.length > 0 && !isAggregate && (
             <>
               <Separator />
               <div className="mt-6 grid grid-cols-1 md:grid-cols-2 gap-8">
@@ -320,45 +323,87 @@ const ReportDetail = ({ report, bomboniereItems }: { report: DailyReport, bombon
   )
 }
 
-const AggregateReportCard = ({ title, icon: Icon, reports }: { title: string, icon: React.ElementType, reports: DailyReport[] }) => {
-    const summary = useMemo(() => {
+const AggregateReport = ({ title, icon: Icon, reports, bomboniereItems }: { title: string, icon: React.ElementType, reports: DailyReport[], bomboniereItems: BomboniereItem[] }) => {
+    
+    const aggregateReport = useMemo((): DailyReport => {
+        if (!reports || reports.length === 0) {
+            return { 
+                id: '0',
+                userId: '', reportDate: '', createdAt: '',
+                totalGeral: 0, totalAVista: 0, totalFiado: 0, totalVendasSalao: 0, totalVendasRua: 0,
+                totalFiadoSalao: 0, totalFiadoRua: 0, totalKg: 0, totalTaxas: 0, totalBomboniereSalao: 0,
+                totalBomboniereRua: 0, totalItens: 0, totalPedidos: 0, totalEntregas: 0, totalItensRua: 0,
+                contagemTotal: {}, contagemRua: {}, items: []
+            };
+        }
+
+        const initial: DailyReport = {
+            id: String(reports.length), // Use ID to store the count of days
+            userId: reports[0].userId,
+            reportDate: '',
+            createdAt: '',
+            totalGeral: 0, totalAVista: 0, totalFiado: 0, totalVendasSalao: 0, totalVendasRua: 0,
+            totalFiadoSalao: 0, totalFiadoRua: 0, totalKg: 0, totalTaxas: 0, totalBomboniereSalao: 0,
+            totalBomboniereRua: 0, totalItens: 0, totalPedidos: 0, totalEntregas: 0, totalItensRua: 0,
+            contagemTotal: {}, contagemRua: {}, items: []
+        };
+        
         return reports.reduce((acc, report) => {
-            acc.totalGeral += report.totalGeral;
-            acc.totalAVista += report.totalAVista;
-            acc.totalFiado += report.totalFiado;
-            acc.totalPedidos += report.totalPedidos;
+            acc.totalGeral += report.totalGeral || 0;
+            acc.totalAVista += report.totalAVista || 0;
+            acc.totalFiado += report.totalFiado || 0;
+            acc.totalVendasSalao += report.totalVendasSalao || 0;
+            acc.totalVendasRua += report.totalVendasRua || 0;
+            acc.totalFiadoSalao += report.totalFiadoSalao || 0;
+            acc.totalFiadoRua += report.totalFiadoRua || 0;
+            acc.totalKg += report.totalKg || 0;
+            acc.totalTaxas += report.totalTaxas || 0;
+            acc.totalBomboniereSalao += report.totalBomboniereSalao || 0;
+            acc.totalBomboniereRua += report.totalBomboniereRua || 0;
+            acc.totalItens += report.totalItens || 0;
+            acc.totalPedidos += report.totalPedidos || 0;
+            acc.totalEntregas += report.totalEntregas || 0;
+            acc.totalItensRua += report.totalItensRua || 0;
+
+            for (const key in report.contagemTotal) {
+                acc.contagemTotal[key] = (acc.contagemTotal[key] || 0) + report.contagemTotal[key];
+            }
+            for (const key in report.contagemRua) {
+                acc.contagemRua[key] = (acc.contagemRua[key] || 0) + report.contagemRua[key];
+            }
+            
+            // Note: Aggregating timeline items would be too complex/slow for a large number of reports.
+            // So we leave acc.items empty. The timeline chart is hidden for aggregates.
+            
             return acc;
-        }, {
-            totalGeral: 0,
-            totalAVista: 0,
-            totalFiado: 0,
-            totalPedidos: 0,
-        });
+        }, initial);
     }, [reports]);
 
+    if (reports.length === 0) {
+        return (
+             <Card>
+                <CardHeader>
+                    <CardTitle className="flex items-center gap-2 text-lg">
+                        <Icon className="h-5 w-5 text-muted-foreground"/>
+                        {title}
+                    </CardTitle>
+                </CardHeader>
+                <CardContent className="text-center text-muted-foreground p-10">
+                    <Info className="mx-auto h-8 w-8 mb-2"/>
+                    Nenhum relatório encontrado para este período.
+                </CardContent>
+            </Card>
+        )
+    }
+
     return (
-        <Card>
-            <CardHeader className="pb-4">
-                <CardTitle className="flex items-center gap-2 text-lg">
-                    <Icon className="h-5 w-5 text-muted-foreground"/>
-                    {title}
-                </CardTitle>
-            </CardHeader>
-            <CardContent>
-                <div className="text-2xl font-bold text-primary">{formatCurrency(summary.totalGeral)}</div>
-                <p className="text-xs text-muted-foreground">{summary.totalPedidos} pedidos em {reports.length} dias</p>
-                <div className="mt-4 space-y-1 text-sm">
-                    <div className="flex justify-between">
-                        <span className="text-green-500">À Vista:</span>
-                        <span className="font-mono">{formatCurrency(summary.totalAVista)}</span>
-                    </div>
-                     <div className="flex justify-between">
-                        <span className="text-destructive">Fiado:</span>
-                        <span className="font-mono">{formatCurrency(summary.totalFiado)}</span>
-                    </div>
-                </div>
-            </CardContent>
-        </Card>
+        <div>
+             <h2 className="text-xl font-semibold mb-4 flex items-center gap-3">
+                <Icon className="h-6 w-6 text-muted-foreground"/>
+                {title}
+             </h2>
+             <ReportDetail report={aggregateReport} bomboniereItems={bomboniereItems} isAggregate={true} />
+        </div>
     )
 }
 
@@ -385,9 +430,21 @@ export default function ReportsPage() {
     const startOfThisYear = startOfYear(now);
     const endOfThisYear = endOfYear(now);
 
-    const weekly = savedReports.filter(r => isWithinInterval(parseISO(r.reportDate), { start: startOfThisWeek, end: endOfThisWeek }));
-    const monthly = savedReports.filter(r => isWithinInterval(parseISO(r.reportDate), { start: startOfThisMonth, end: endOfThisMonth }));
-    const yearly = savedReports.filter(r => isWithinInterval(parseISO(r.reportDate), { start: startOfThisYear, end: endOfThisYear }));
+    const weekly = savedReports.filter(r => {
+        try {
+            return isWithinInterval(parseISO(r.reportDate), { start: startOfThisWeek, end: endOfThisWeek })
+        } catch { return false }
+    });
+    const monthly = savedReports.filter(r => {
+        try {
+            return isWithinInterval(parseISO(r.reportDate), { start: startOfThisMonth, end: endOfThisMonth })
+        } catch { return false }
+    });
+    const yearly = savedReports.filter(r => {
+        try {
+            return isWithinInterval(parseISO(r.reportDate), { start: startOfThisYear, end: endOfThisYear })
+        } catch { return false }
+    });
 
     return { weeklyReports: weekly, monthlyReports: monthly, yearlyReports: yearly };
   }, [savedReports]);
@@ -471,69 +528,78 @@ export default function ReportsPage() {
         </header>
 
         <main className="space-y-8">
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <AggregateReportCard title="Faturamento Semanal" icon={BarChart} reports={weeklyReports} />
-                <AggregateReportCard title="Faturamento Mensal" icon={Calendar} reports={monthlyReports} />
-                <AggregateReportCard title="Faturamento Anual" icon={TrendingUp} reports={yearlyReports} />
-            </div>
+            <Tabs defaultValue="semanal" className="w-full">
+                <TabsList className="grid w-full grid-cols-4">
+                    <TabsTrigger value="semanal">Semanal</TabsTrigger>
+                    <TabsTrigger value="mensal">Mensal</TabsTrigger>
+                    <TabsTrigger value="anual">Anual</TabsTrigger>
+                    <TabsTrigger value="diario">Histórico Diário</TabsTrigger>
+                </TabsList>
+                <TabsContent value="semanal" className="pt-4">
+                    <AggregateReport title="Relatório Semanal Agregado" icon={BarChart} reports={weeklyReports} bomboniereItems={bomboniereItems || []} />
+                </TabsContent>
+                <TabsContent value="mensal" className="pt-4">
+                     <AggregateReport title="Relatório Mensal Agregado" icon={Calendar} reports={monthlyReports} bomboniereItems={bomboniereItems || []} />
+                </TabsContent>
+                <TabsContent value="anual" className="pt-4">
+                     <AggregateReport title="Relatório Anual Agregado" icon={TrendingUp} reports={yearlyReports} bomboniereItems={bomboniereItems || []} />
+                </TabsContent>
+                <TabsContent value="diario" className="pt-4">
+                     <h2 className="text-xl font-semibold mb-4">Relatórios Diários Salvos</h2>
+                    {savedReports && savedReports.length > 0 && bomboniereItems ? (
+                      <Accordion type="single" collapsible className="w-full space-y-2">
+                        {savedReports.map(report => {
+                          const { day, month, dayOfWeek, fullDate } = getFormattedDate(report.reportDate);
+                          return (
+                              <AccordionItem value={report.id} key={report.id} className="border-b-0">
+                                  <div className="bg-card p-2 rounded-lg border flex items-center gap-4">
+                                      <div className="bg-primary text-primary-foreground rounded-md flex flex-col items-center justify-center w-16 h-16 shrink-0">
+                                          <span className="text-2xl font-bold leading-none">{day}</span>
+                                          <span className="text-xs font-semibold uppercase">{month}</span>
+                                      </div>
 
-            <Separator />
+                                      <div className="flex-grow">
+                                          <p className="font-semibold text-foreground capitalize">{dayOfWeek}</p>
+                                          <p className="text-sm text-muted-foreground">{fullDate}</p>
+                                      </div>
 
-          <div>
-            <h2 className="text-xl font-semibold mb-4">Relatórios Diários</h2>
-            {savedReports && savedReports.length > 0 && bomboniereItems ? (
-              <Accordion type="single" collapsible className="w-full space-y-2">
-                {savedReports.map(report => {
-                  const { day, month, dayOfWeek, fullDate } = getFormattedDate(report.reportDate);
-                  return (
-                      <AccordionItem value={report.id} key={report.id} className="border-b-0">
-                          <div className="bg-card p-2 rounded-lg border flex items-center gap-4">
-                              <div className="bg-primary text-primary-foreground rounded-md flex flex-col items-center justify-center w-16 h-16 shrink-0">
-                                  <span className="text-2xl font-bold leading-none">{day}</span>
-                                  <span className="text-xs font-semibold uppercase">{month}</span>
-                              </div>
+                                      <div className="text-right mr-4">
+                                          <p className="text-xs text-muted-foreground">Total do Dia</p>
+                                          <p className="font-bold text-lg text-primary">{formatCurrency(report.totalGeral)}</p>
+                                      </div>
 
-                              <div className="flex-grow">
-                                  <p className="font-semibold text-foreground capitalize">{dayOfWeek}</p>
-                                  <p className="text-sm text-muted-foreground">{fullDate}</p>
-                              </div>
+                                      <AccordionTrigger className="p-2 rounded-md hover:bg-accent [&[data-state=open]>svg]:rotate-180">
+                                          <ChevronDown className="h-5 w-5 shrink-0 transition-transform duration-200" />
+                                      </AccordionTrigger>
 
-                              <div className="text-right mr-4">
-                                  <p className="text-xs text-muted-foreground">Total do Dia</p>
-                                  <p className="font-bold text-lg text-primary">{formatCurrency(report.totalGeral)}</p>
-                              </div>
-
-                              <AccordionTrigger className="p-2 rounded-md hover:bg-accent [&[data-state=open]>svg]:rotate-180">
-                                  <ChevronDown className="h-5 w-5 shrink-0 transition-transform duration-200" />
-                              </AccordionTrigger>
-
-                              <Button
-                                  variant="ghost"
-                                  size="icon"
-                                  className="h-9 w-9 shrink-0 text-muted-foreground hover:text-destructive"
-                                  onClick={(e) => {
-                                      e.stopPropagation();
-                                      handleDeleteReportRequest(report.id);
-                                  }}
-                                  >
-                                  <Trash2 className="h-4 w-4" />
-                              </Button>
-                          </div>
-                          <AccordionContent className="p-2 pt-2">
-                              <ReportDetail report={report} bomboniereItems={bomboniereItems} />
-                          </AccordionContent>
-                      </AccordionItem>
-                  )
-                })}
-              </Accordion>
-            ) : (
-              <Card>
-                <CardContent className="p-10 text-center text-muted-foreground">
-                  <p>Nenhum relatório salvo encontrado.</p>
-                </CardContent>
-              </Card>
-            )}
-          </div>
+                                      <Button
+                                          variant="ghost"
+                                          size="icon"
+                                          className="h-9 w-9 shrink-0 text-muted-foreground hover:text-destructive"
+                                          onClick={(e) => {
+                                              e.stopPropagation();
+                                              handleDeleteReportRequest(report.id);
+                                          }}
+                                          >
+                                          <Trash2 className="h-4 w-4" />
+                                      </Button>
+                                  </div>
+                                  <AccordionContent className="p-2 pt-2">
+                                      <ReportDetail report={report} bomboniereItems={bomboniereItems} />
+                                  </AccordionContent>
+                              </AccordionItem>
+                          )
+                        })}
+                      </Accordion>
+                    ) : (
+                      <Card>
+                        <CardContent className="p-10 text-center text-muted-foreground">
+                          <p>Nenhum relatório salvo encontrado.</p>
+                        </CardContent>
+                      </Card>
+                    )}
+                </TabsContent>
+            </Tabs>
         </main>
       </div>
     </>
