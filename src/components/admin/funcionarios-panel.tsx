@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect, useRef } from 'react';
 import { useCollection, useFirestore, useMemoFirebase } from '@/firebase';
 import { collection, query, where, orderBy, doc } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
@@ -17,7 +17,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { Badge } from '@/components/ui/badge';
-import { PlusCircle, Loader2, Pencil, User, Briefcase, Calendar, Info, DollarSign, History } from 'lucide-react';
+import { PlusCircle, Loader2, Pencil, User, Briefcase, Calendar, Info, DollarSign, History, Send } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
 import { Textarea } from '../ui/textarea';
@@ -199,7 +199,6 @@ const FuncionarioFormModal = ({
                 setStatus(funcionario.status || 'Ativo');
                 if (funcionario.dataAdmissao) {
                     try {
-                        // Correctly handle date parsing from yyyy-MM-dd
                         const parsedDate = parse(funcionario.dataAdmissao, 'yyyy-MM-dd', new Date());
                          if(isValid(parsedDate)){
                            setDataAdmissao(parsedDate);
@@ -385,6 +384,59 @@ const FuncionarioCard = ({
     )
 }
 
+const LancamentoRapidoForm = ({
+    onLancamentoSubmit,
+    isProcessing,
+  }: {
+    onLancamentoSubmit: (command: string) => Promise<void>;
+    isProcessing: boolean;
+  }) => {
+    const [command, setCommand] = useState('');
+  
+    const handleSubmit = (e: React.FormEvent) => {
+      e.preventDefault();
+      if (!command.trim()) return;
+      onLancamentoSubmit(command).then(() => {
+        setCommand('');
+      });
+    };
+  
+    return (
+      <Card className="mb-4">
+        <CardHeader>
+          <CardTitle className="text-lg">Lançamento Rápido</CardTitle>
+          <CardDescription>
+            Use o formato: [Nome do Funcionário] [tipo de lançamento] [valor]. Ex: João Silva vale 50
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <form onSubmit={handleSubmit} className="flex gap-2">
+            <Input
+              type="text"
+              placeholder="Ex: João vale 50"
+              value={command}
+              onChange={(e) => setCommand(e.target.value)}
+              className="h-10 flex-1"
+              disabled={isProcessing}
+            />
+            <Button
+              type="submit"
+              className="h-10 px-4"
+              disabled={isProcessing || !command.trim()}
+            >
+              {isProcessing ? (
+                <Loader2 className="h-5 w-5 animate-spin" />
+              ) : (
+                <Send className="h-5 w-5" />
+              )}
+            </Button>
+          </form>
+        </CardContent>
+      </Card>
+    );
+};
+  
+
 export default function FuncionariosPanel() {
     const firestore = useFirestore();
     const { toast } = useToast();
@@ -393,6 +445,8 @@ export default function FuncionariosPanel() {
     const [isLancamentoModalOpen, setIsLancamentoModalOpen] = useState(false);
     const [editingFuncionario, setEditingFuncionario] = useState<Funcionario | null>(null);
     const [statusFilter, setStatusFilter] = useState<'Todos' | 'Ativo' | 'Inativo'>('Ativo');
+    const [isLancamentoRapidoProcessing, setIsLancamentoRapidoProcessing] = useState(false);
+
 
     const funcionariosQuery = useMemoFirebase(
         () => firestore ? query(collection(firestore, 'funcionarios'), orderBy('nome', 'asc')) : null,
@@ -423,27 +477,80 @@ export default function FuncionariosPanel() {
         const funcionariosCollection = collection(firestore, 'funcionarios');
 
         if (editingFuncionario?.id) {
-            // Update
             const docRef = doc(funcionariosCollection, editingFuncionario.id);
             updateDocumentNonBlocking(docRef, data);
             toast({ title: 'Sucesso!', description: 'Funcionário atualizado.' });
         } else {
-            // Create
             addDocumentNonBlocking(funcionariosCollection, data);
             toast({ title: 'Sucesso!', description: 'Funcionário adicionado.' });
         }
         setIsFormModalOpen(false);
     };
 
-    const handleSaveLancamento = (data: Omit<FuncionarioLancamentoFinanceiro, 'id' | 'funcionarioId'>) => {
-        if (!firestore || !editingFuncionario) return;
+    const handleSaveLancamento = (data: Omit<FuncionarioLancamentoFinanceiro, 'id' | 'funcionarioId'>, funcionarioId?: string) => {
+        const targetFuncionarioId = funcionarioId || editingFuncionario?.id;
+        if (!firestore || !targetFuncionarioId) return;
 
         const lancamentosCollection = collection(firestore, 'funcionario_lancamentos');
-        const dataToSave = { ...data, funcionarioId: editingFuncionario.id };
+        const dataToSave = { ...data, funcionarioId: targetFuncionarioId };
 
         addDocumentNonBlocking(lancamentosCollection, dataToSave);
-        toast({ title: 'Sucesso!', description: 'Lançamento financeiro adicionado.' });
-        // Don't close the modal, so user can add more
+        toast({ title: 'Sucesso!', description: `Lançamento de ${data.tipo} adicionado.` });
+    };
+
+    const handleLancamentoRapidoSubmit = async (command: string) => {
+        if (!firestore || !funcionarios) return;
+        setIsLancamentoRapidoProcessing(true);
+      
+        const parts = command.trim().split(' ');
+        if (parts.length < 3) {
+          toast({ variant: 'destructive', title: 'Comando inválido', description: 'Formato esperado: [Nome] [tipo] [valor]' });
+          setIsLancamentoRapidoProcessing(false);
+          return;
+        }
+      
+        const valorStr = parts.pop()!;
+        const tipoStr = parts.pop()!;
+        const nomeFuncionario = parts.join(' ');
+      
+        const valor = parseFloat(valorStr.replace(',', '.'));
+        if (isNaN(valor) || valor <= 0) {
+          toast({ variant: 'destructive', title: 'Valor inválido', description: 'O valor do lançamento não é um número válido.' });
+          setIsLancamentoRapidoProcessing(false);
+          return;
+        }
+      
+        const tipo = tipoStr.toLowerCase() as FuncionarioLancamentoFinanceiro['tipo'];
+        const validTipos: FuncionarioLancamentoFinanceiro['tipo'][] = ['vale', 'bonus', 'desconto'];
+        if (!validTipos.includes(tipo)) {
+          toast({ variant: 'destructive', title: 'Tipo inválido', description: `O tipo "${tipoStr}" não é reconhecido. Use: vale, bonus, desconto.` });
+          setIsLancamentoRapidoProcessing(false);
+          return;
+        }
+      
+        // Find funcionario (case-insensitive, partial match)
+        const targetFuncionario = funcionarios.find(f => 
+          f.nome.toLowerCase().includes(nomeFuncionario.toLowerCase())
+        );
+      
+        if (!targetFuncionario) {
+          toast({ variant: 'destructive', title: 'Funcionário não encontrado', description: `Nenhum funcionário encontrado com o nome "${nomeFuncionario}".` });
+          setIsLancamentoRapidoProcessing(false);
+          return;
+        }
+      
+        const dataToSave = {
+          mesReferencia: format(new Date(), 'yyyy-MM'),
+          tipo,
+          valor,
+          data: new Date().toISOString(),
+          descricao: `Lançamento rápido via comando: ${command}`,
+        };
+      
+        handleSaveLancamento(dataToSave, targetFuncionario.id);
+        toast({ title: 'Sucesso!', description: `Lançamento de ${formatCurrency(valor)} para ${targetFuncionario.nome}.` });
+        
+        setIsLancamentoRapidoProcessing(false);
     };
 
     return (
@@ -463,6 +570,11 @@ export default function FuncionariosPanel() {
             />
 
             <div className="space-y-4">
+                <LancamentoRapidoForm
+                    onLancamentoSubmit={handleLancamentoRapidoSubmit}
+                    isProcessing={isLancamentoRapidoProcessing}
+                />
+                
                 <div className="flex justify-between items-center">
                      <div className="flex items-center gap-2">
                         <Label htmlFor="status-filter">Filtrar por status:</Label>
@@ -501,5 +613,3 @@ export default function FuncionariosPanel() {
         </>
     );
 }
-
-    
