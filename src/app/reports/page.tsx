@@ -528,22 +528,13 @@ export default function ReportsPage() {
         </header>
 
         <main className="space-y-8">
-            <Tabs defaultValue="semanal" className="w-full">
+            <Tabs defaultValue="diario" className="w-full">
                 <TabsList className="grid w-full grid-cols-4">
+                    <TabsTrigger value="diario">Histórico Diário</TabsTrigger>
                     <TabsTrigger value="semanal">Semanal</TabsTrigger>
                     <TabsTrigger value="mensal">Mensal</TabsTrigger>
                     <TabsTrigger value="anual">Anual</TabsTrigger>
-                    <TabsTrigger value="diario">Histórico Diário</TabsTrigger>
                 </TabsList>
-                <TabsContent value="semanal" className="pt-4">
-                    <AggregateReport title="Relatório Semanal Agregado" icon={BarChart} reports={weeklyReports} bomboniereItems={bomboniereItems || []} />
-                </TabsContent>
-                <TabsContent value="mensal" className="pt-4">
-                     <AggregateReport title="Relatório Mensal Agregado" icon={Calendar} reports={monthlyReports} bomboniereItems={bomboniereItems || []} />
-                </TabsContent>
-                <TabsContent value="anual" className="pt-4">
-                     <AggregateReport title="Relatório Anual Agregado" icon={TrendingUp} reports={yearlyReports} bomboniereItems={bomboniereItems || []} />
-                </TabsContent>
                 <TabsContent value="diario" className="pt-4">
                      <h2 className="text-xl font-semibold mb-4">Relatórios Diários Salvos</h2>
                     {savedReports && savedReports.length > 0 && bomboniereItems ? (
@@ -598,6 +589,15 @@ export default function ReportsPage() {
                         </CardContent>
                       </Card>
                     )}
+                </TabsContent>
+                <TabsContent value="semanal" className="pt-4">
+                    <AggregateReport title="Relatório Semanal Agregado" icon={BarChart} reports={weeklyReports} bomboniereItems={bomboniereItems || []} />
+                </TabsContent>
+                <TabsContent value="mensal" className="pt-4">
+                     <AggregateReport title="Relatório Mensal Agregado" icon={Calendar} reports={monthlyReports} bomboniereItems={bomboniereItems || []} />
+                </TabsContent>
+                <TabsContent value="anual" className="pt-4">
+                     <AggregateReport title="Relatório Anual Agregado" icon={TrendingUp} reports={yearlyReports} bomboniereItems={bomboniereItems || []} />
                 </TabsContent>
             </Tabs>
         </main>
