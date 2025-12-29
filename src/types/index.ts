@@ -122,6 +122,15 @@ export interface Funcionario {
     cargo: string;
     dataAdmissao: string; // YYYY-MM-DD
     status: 'Ativo' | 'Inativo';
+    salarioBase: number;
 }
 
-    
+export interface FuncionarioLancamentoFinanceiro {
+    id: string;
+    funcionarioId: string;
+    mesReferencia: string; // YYYY-MM
+    tipo: 'vale' | 'bonus' | 'desconto' | 'pagamento';
+    valor: number;
+    data: string; // ISO string
+    descricao: string;
+}

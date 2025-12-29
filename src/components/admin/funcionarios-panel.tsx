@@ -3,24 +3,166 @@
 
 import { useState, useMemo, useEffect } from 'react';
 import { useCollection, useFirestore, useMemoFirebase } from '@/firebase';
-import { collection, query, orderBy, doc } from 'firebase/firestore';
+import { collection, query, where, orderBy, doc } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import { format, parse, isValid, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { addDocumentNonBlocking, updateDocumentNonBlocking } from '@/firebase/non-blocking-updates';
-import type { Funcionario } from '@/types';
+import type { Funcionario, FuncionarioLancamentoFinanceiro } from '@/types';
 
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription, DialogClose } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { DatePicker } from '@/components/ui/date-picker';
 import { Switch } from '@/components/ui/switch';
 import { Badge } from '@/components/ui/badge';
-import { PlusCircle, Loader2, Pencil, User, Briefcase, Calendar, Info } from 'lucide-react';
+import { PlusCircle, Loader2, Pencil, User, Briefcase, Calendar, Info, DollarSign, History } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
+import { Textarea } from '../ui/textarea';
+import { ScrollArea } from '../ui/scroll-area';
+
+const formatCurrency = (value: number | undefined | null) => {
+    return new Intl.NumberFormat("pt-BR", {
+      style: "currency",
+      currency: "BRL",
+    }).format(value || 0);
+};
+
+const LancamentoFinanceiroModal = ({
+    isOpen,
+    onClose,
+    funcionario,
+    onSave,
+}: {
+    isOpen: boolean;
+    onClose: () => void;
+    funcionario: Funcionario | null;
+    onSave: (data: Omit<FuncionarioLancamentoFinanceiro, 'id' | 'funcionarioId'>) => void;
+}) => {
+    const firestore = useFirestore();
+    const [tipo, setTipo] = useState<'vale' | 'bonus' | 'desconto'>('vale');
+    const [valor, setValor] = useState('');
+    const [descricao, setDescricao] = useState('');
+    const [isSaving, setIsSaving] = useState(false);
+    const { toast } = useToast();
+
+    const lancamentosQuery = useMemoFirebase(
+      () => firestore && funcionario ? query(
+        collection(firestore, 'funcionario_lancamentos'), 
+        where("funcionarioId", "==", funcionario.id),
+        orderBy('data', 'desc')
+      ) : null,
+      [firestore, funcionario]
+    );
+
+    const { data: lancamentos, isLoading } = useCollection<FuncionarioLancamentoFinanceiro>(lancamentosQuery);
+
+    useEffect(() => {
+        if (isOpen) {
+            setTipo('vale');
+            setValor('');
+            setDescricao('');
+        }
+    }, [isOpen]);
+
+    const handleSave = () => {
+        const valorNumerico = parseFloat(valor.replace(',', '.'));
+        if (!valor.trim() || isNaN(valorNumerico) || valorNumerico <= 0) {
+            toast({ variant: 'destructive', title: 'Valor Inválido', description: 'Por favor, insira um valor numérico válido.'});
+            return;
+        }
+
+        setIsSaving(true);
+        const dataToSave = {
+            mesReferencia: format(new Date(), 'yyyy-MM'),
+            tipo,
+            valor: valorNumerico,
+            data: new Date().toISOString(),
+            descricao: descricao.trim() || `Lançamento de ${tipo}`,
+        };
+        onSave(dataToSave);
+        setIsSaving(false);
+        setValor('');
+        setDescricao('');
+    };
+
+    const tipoLancamentoStyle = {
+      vale: 'text-yellow-500',
+      bonus: 'text-green-500',
+      desconto: 'text-destructive',
+      pagamento: 'text-blue-500'
+    }
+
+    return (
+        <Dialog open={isOpen} onOpenChange={onClose}>
+            <DialogContent className="max-w-2xl">
+                <DialogHeader>
+                    <DialogTitle>Lançamentos Financeiros: {funcionario?.nome}</DialogTitle>
+                    <DialogDescription>Registe vales, bónus ou descontos para este funcionário.</DialogDescription>
+                </DialogHeader>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 py-4">
+                  <div className="space-y-4">
+                      <div className="space-y-2">
+                          <Label>Tipo de Lançamento</Label>
+                          <Select value={tipo} onValueChange={(v) => setTipo(v as any)}>
+                              <SelectTrigger><SelectValue/></SelectTrigger>
+                              <SelectContent>
+                                  <SelectItem value="vale">Vale / Adiantamento</SelectItem>
+                                  <SelectItem value="bonus">Bónus / Comissão</SelectItem>
+                                  <SelectItem value="desconto">Desconto (Faltas, etc)</SelectItem>
+                              </SelectContent>
+                          </Select>
+                      </div>
+                      <div className="space-y-2">
+                          <Label htmlFor="valor">Valor (R$)</Label>
+                          <Input id="valor" value={valor} onChange={(e) => setValor(e.target.value)} placeholder="0,00" />
+                      </div>
+                      <div className="space-y-2">
+                          <Label htmlFor="descricao">Descrição (Opcional)</Label>
+                          <Textarea id="descricao" value={descricao} onChange={(e) => setDescricao(e.target.value)} placeholder="Ex: Adiantamento para despesa pessoal" />
+                      </div>
+                      <Button onClick={handleSave} disabled={isSaving} className="w-full">
+                          {isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+                          Adicionar Lançamento
+                      </Button>
+                  </div>
+                  <div className="space-y-2">
+                      <Label className="flex items-center gap-2"><History className="h-4 w-4" /> Histórico de Lançamentos</Label>
+                       <ScrollArea className="h-64 rounded-md border">
+                          {isLoading ? (
+                            <div className="flex justify-center items-center h-full"><Loader2 className="h-6 w-6 animate-spin"/></div>
+                          ) : lancamentos && lancamentos.length > 0 ? (
+                              <div className="p-2 text-sm">
+                                {lancamentos.map(lanc => (
+                                  <div key={lanc.id} className="flex justify-between items-start p-2 border-b last:border-b-0">
+                                      <div>
+                                          <p className={cn("font-semibold capitalize", tipoLancamentoStyle[lanc.tipo])}>{lanc.tipo}</p>
+                                          <p className="text-xs text-muted-foreground">{lanc.descricao}</p>
+                                          <p className="text-xs text-muted-foreground">{format(parseISO(lanc.data), 'dd/MM/yyyy HH:mm')}</p>
+                                      </div>
+                                      <p className={cn("font-mono font-semibold", tipoLancamentoStyle[lanc.tipo])}>{formatCurrency(lanc.valor)}</p>
+                                  </div>
+                                ))}
+                              </div>
+                          ) : (
+                            <div className="flex justify-center items-center h-full text-sm text-muted-foreground">Nenhum lançamento.</div>
+                          )}
+                       </ScrollArea>
+                  </div>
+                </div>
+
+                <DialogFooter>
+                    <DialogClose asChild>
+                        <Button variant="outline">Fechar</Button>
+                    </DialogClose>
+                </DialogFooter>
+            </DialogContent>
+        </Dialog>
+    );
+};
+
 
 const FuncionarioFormModal = ({
     isOpen,
@@ -35,10 +177,9 @@ const FuncionarioFormModal = ({
 }) => {
     const [nome, setNome] = useState('');
     const [cargo, setCargo] = useState('');
+    const [salarioBase, setSalarioBase] = useState('');
     const [status, setStatus] = useState<'Ativo' | 'Inativo'>('Ativo');
-    const [dia, setDia] = useState('');
-    const [mes, setMes] = useState('');
-    const [ano, setAno] = useState('');
+    const [dataAdmissao, setDataAdmissao] = useState<Date | undefined>();
     const [isSaving, setIsSaving] = useState(false);
     const { toast } = useToast();
 
@@ -47,47 +188,34 @@ const FuncionarioFormModal = ({
             if (funcionario) {
                 setNome(funcionario.nome || '');
                 setCargo(funcionario.cargo || '');
+                setSalarioBase(String(funcionario.salarioBase || ''));
                 setStatus(funcionario.status || 'Ativo');
-                if (funcionario.dataAdmissao && isValid(parseISO(funcionario.dataAdmissao))) {
-                    const date = parseISO(funcionario.dataAdmissao);
-                    setDia(format(date, 'dd'));
-                    setMes(format(date, 'MM'));
-                    setAno(format(date, 'yyyy'));
+                if (funcionario.dataAdmissao) {
+                    try {
+                        setDataAdmissao(parse(funcionario.dataAdmissao, 'yyyy-MM-dd', new Date()));
+                    } catch {
+                        setDataAdmissao(undefined);
+                    }
                 } else {
-                    setDia('');
-                    setMes('');
-                    setAno('');
+                     setDataAdmissao(new Date());
                 }
             } else {
                 setNome('');
                 setCargo('');
+                setSalarioBase('');
                 setStatus('Ativo');
-                const today = new Date();
-                setDia(format(today, 'dd'));
-                setMes(format(today, 'MM'));
-                setAno(format(today, 'yyyy'));
+                setDataAdmissao(new Date());
             }
         }
     }, [funcionario, isOpen]);
 
     const handleSave = () => {
-        if (!nome.trim() || !cargo.trim() || !dia.trim() || !mes.trim() || !ano.trim()) {
+        const salarioNum = parseFloat(salarioBase.replace(',', '.'));
+        if (!nome.trim() || !cargo.trim() || !dataAdmissao || !salarioBase.trim() || isNaN(salarioNum)) {
             toast({
                 variant: 'destructive',
                 title: 'Erro de Validação',
-                description: 'Por favor, preencha todos os campos obrigatórios.',
-            });
-            return;
-        }
-
-        const dateStr = `${ano}-${mes.padStart(2, '0')}-${dia.padStart(2, '0')}`;
-        const parsedDate = parse(dateStr, 'yyyy-MM-dd', new Date());
-
-        if (!isValid(parsedDate)) {
-             toast({
-                variant: 'destructive',
-                title: 'Data Inválida',
-                description: 'Por favor, insira uma data válida (DD/MM/AAAA).',
+                description: 'Por favor, preencha todos os campos obrigatórios com valores válidos.',
             });
             return;
         }
@@ -96,8 +224,9 @@ const FuncionarioFormModal = ({
         const dataToSave = {
             nome: nome.trim(),
             cargo: cargo.trim(),
-            dataAdmissao: format(parsedDate, 'yyyy-MM-dd'),
+            dataAdmissao: format(dataAdmissao, 'yyyy-MM-dd'),
             status,
+            salarioBase: salarioNum,
         };
         onSave(dataToSave);
         setIsSaving(false);
@@ -114,20 +243,26 @@ const FuncionarioFormModal = ({
                         <Label htmlFor="nome">Nome Completo</Label>
                         <Input id="nome" value={nome} onChange={(e) => setNome(e.target.value)} placeholder="Nome do funcionário" />
                     </div>
-                    <div className="space-y-2">
-                        <Label htmlFor="cargo">Cargo</Label>
-                        <Input id="cargo" value={cargo} onChange={(e) => setCargo(e.target.value)} placeholder="Ex: Cozinheiro, Atendente" />
+                    <div className="grid grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                            <Label htmlFor="cargo">Cargo</Label>
+                            <Input id="cargo" value={cargo} onChange={(e) => setCargo(e.target.value)} placeholder="Ex: Cozinheiro, Atendente" />
+                        </div>
+                         <div className="space-y-2">
+                            <Label htmlFor="salario">Salário Base (R$)</Label>
+                            <Input id="salario" value={salarioBase} onChange={(e) => setSalarioBase(e.target.value)} placeholder="0,00" />
+                        </div>
                     </div>
                     <div className="space-y-2">
                         <Label>Data de Admissão</Label>
                         <div className="grid grid-cols-3 gap-2">
-                            <Input value={dia} onChange={(e) => setDia(e.target.value)} placeholder="DD" maxLength={2} />
-                            <Input value={mes} onChange={(e) => setMes(e.target.value)} placeholder="MM" maxLength={2} />
-                            <Input value={ano} onChange={(e) => setAno(e.target.value)} placeholder="AAAA" maxLength={4} />
+                            <Input value={dataAdmissao ? format(dataAdmissao, 'dd') : ''} onChange={e => setDataAdmissao(d => parse(e.target.value, 'dd', d || new Date()))} placeholder="DD" maxLength={2} />
+                            <Input value={dataAdmissao ? format(dataAdmissao, 'MM') : ''} onChange={e => setDataAdmissao(d => parse(e.target.value, 'MM', d || new Date()))} placeholder="MM" maxLength={2} />
+                            <Input value={dataAdmissao ? format(dataAdmissao, 'yyyy') : ''} onChange={e => setDataAdmissao(d => parse(e.target.value, 'yyyy', d || new Date()))} placeholder="AAAA" maxLength={4} />
                         </div>
                     </div>
                      {funcionario?.id && (
-                        <div className="flex items-center space-x-2">
+                        <div className="flex items-center space-x-2 pt-4">
                             <Label htmlFor="status-switch">Status</Label>
                              <Switch
                                 id="status-switch"
@@ -152,9 +287,24 @@ const FuncionarioFormModal = ({
     );
 };
 
-const FuncionarioCard = ({ funcionario, onEdit }: { funcionario: Funcionario, onEdit: (f: Funcionario) => void }) => {
-    const admissionDate = parse(funcionario.dataAdmissao, 'yyyy-MM-dd', new Date());
-    const formattedDate = isValid(admissionDate) ? format(admissionDate, 'dd/MM/yyyy', { locale: ptBR }) : 'Data inválida';
+const FuncionarioCard = ({ 
+    funcionario, 
+    onEdit,
+    onOpenLancamentos
+}: { 
+    funcionario: Funcionario, 
+    onEdit: (f: Funcionario) => void 
+    onOpenLancamentos: (f: Funcionario) => void;
+}) => {
+    let formattedDate = 'Data inválida';
+    if(funcionario.dataAdmissao) {
+      try {
+          const admissionDate = parse(funcionario.dataAdmissao, 'yyyy-MM-dd', new Date());
+          if(isValid(admissionDate)) {
+            formattedDate = format(admissionDate, 'dd/MM/yyyy', { locale: ptBR });
+          }
+      } catch (e) { /* ignore error, keep default */ }
+    }
 
     return (
         <Card className="flex flex-col">
@@ -170,8 +320,16 @@ const FuncionarioCard = ({ funcionario, onEdit }: { funcionario: Funcionario, on
                     <Calendar className="h-4 w-4" />
                     <span>Admissão: {formattedDate}</span>
                 </div>
+                <div className="text-sm text-muted-foreground flex items-center gap-2">
+                    <DollarSign className="h-4 w-4 text-green-500" />
+                    <span>Salário Base: <span className="font-semibold text-foreground">{formatCurrency(funcionario.salarioBase)}</span></span>
+                </div>
             </CardContent>
-            <div className="p-4 pt-0 text-right">
+            <div className="p-4 pt-0 flex justify-end gap-1">
+                <Button variant="outline" size="sm" onClick={() => onOpenLancamentos(funcionario)}>
+                    <History className="mr-2 h-4 w-4"/>
+                    Lançamentos
+                </Button>
                 <Button variant="ghost" size="sm" onClick={() => onEdit(funcionario)}>
                     <Pencil className="mr-2 h-4 w-4"/>
                     Editar
@@ -185,8 +343,9 @@ export default function FuncionariosPanel() {
     const firestore = useFirestore();
     const { toast } = useToast();
     
-    const [isModalOpen, setIsModalOpen] = useState(false);
-    const [editingFuncionario, setEditingFuncionario] = useState<Partial<Funcionario> | null>(null);
+    const [isFormModalOpen, setIsFormModalOpen] = useState(false);
+    const [isLancamentoModalOpen, setIsLancamentoModalOpen] = useState(false);
+    const [editingFuncionario, setEditingFuncionario] = useState<Funcionario | null>(null);
     const [statusFilter, setStatusFilter] = useState<'Todos' | 'Ativo' | 'Inativo'>('Ativo');
 
     const funcionariosQuery = useMemoFirebase(
@@ -202,9 +361,14 @@ export default function FuncionariosPanel() {
         return funcionarios.filter(f => f.status === statusFilter);
     }, [funcionarios, statusFilter]);
 
-    const handleOpenModal = (funcionario: Funcionario | null = null) => {
+    const handleOpenFormModal = (funcionario: Funcionario | null = null) => {
         setEditingFuncionario(funcionario);
-        setIsModalOpen(true);
+        setIsFormModalOpen(true);
+    };
+
+    const handleOpenLancamentoModal = (funcionario: Funcionario) => {
+        setEditingFuncionario(funcionario);
+        setIsLancamentoModalOpen(true);
     };
 
     const handleSaveFuncionario = (data: Omit<Funcionario, 'id'>) => {
@@ -222,16 +386,34 @@ export default function FuncionariosPanel() {
             addDocumentNonBlocking(funcionariosCollection, data);
             toast({ title: 'Sucesso!', description: 'Funcionário adicionado.' });
         }
-        setIsModalOpen(false);
+        setIsFormModalOpen(false);
+    };
+
+    const handleSaveLancamento = (data: Omit<FuncionarioLancamentoFinanceiro, 'id' | 'funcionarioId'>) => {
+        if (!firestore || !editingFuncionario) return;
+
+        const lancamentosCollection = collection(firestore, 'funcionario_lancamentos');
+        const dataToSave = { ...data, funcionarioId: editingFuncionario.id };
+
+        addDocumentNonBlocking(lancamentosCollection, dataToSave);
+        toast({ title: 'Sucesso!', description: 'Lançamento financeiro adicionado.' });
+        // Don't close the modal, so user can add more
     };
 
     return (
         <>
             <FuncionarioFormModal 
-                isOpen={isModalOpen}
-                onClose={() => setIsModalOpen(false)}
+                isOpen={isFormModalOpen}
+                onClose={() => setIsFormModalOpen(false)}
                 funcionario={editingFuncionario}
                 onSave={handleSaveFuncionario}
+            />
+            
+            <LancamentoFinanceiroModal
+                isOpen={isLancamentoModalOpen}
+                onClose={() => setIsLancamentoModalOpen(false)}
+                funcionario={editingFuncionario}
+                onSave={handleSaveLancamento}
             />
 
             <div className="space-y-4">
@@ -249,7 +431,7 @@ export default function FuncionariosPanel() {
                             </SelectContent>
                         </Select>
                     </div>
-                    <Button onClick={() => handleOpenModal()}>
+                    <Button onClick={() => handleOpenFormModal()}>
                         <PlusCircle className="mr-2 h-4 w-4" />
                         Adicionar Funcionário
                     </Button>
@@ -260,7 +442,7 @@ export default function FuncionariosPanel() {
                 ) : filteredFuncionarios.length > 0 ? (
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                         {filteredFuncionarios.map(f => (
-                           <FuncionarioCard key={f.id} funcionario={f} onEdit={handleOpenModal} />
+                           <FuncionarioCard key={f.id} funcionario={f} onEdit={handleOpenFormModal} onOpenLancamentos={handleOpenLancamentoModal} />
                         ))}
                     </div>
                 ) : (

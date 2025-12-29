@@ -157,9 +157,24 @@
             "nome": { "type": "string" },
             "cargo": { "type": "string" },
             "dataAdmissao": { "type": "string", "format": "date" },
-            "status": { "type": "string", "enum": ["Ativo", "Inativo"] }
+            "status": { "type": "string", "enum": ["Ativo", "Inativo"] },
+            "salarioBase": { "type": "number" }
         },
-        "required": ["nome", "cargo", "dataAdmissao", "status"]
+        "required": ["nome", "cargo", "dataAdmissao", "status", "salarioBase"]
+    },
+    "FuncionarioLancamentoFinanceiro": {
+        "title": "Lançamento Financeiro de Funcionário",
+        "description": "Representa uma transação financeira (vale, bônus, etc.) para um funcionário.",
+        "type": "object",
+        "properties": {
+            "funcionarioId": { "type": "string" },
+            "mesReferencia": { "type": "string", "description": "Mês de referência no formato YYYY-MM" },
+            "tipo": { "type": "string", "enum": ["vale", "bonus", "desconto", "pagamento"] },
+            "valor": { "type": "number" },
+            "data": { "type": "string", "format": "date-time" },
+            "descricao": { "type": "string" }
+        },
+        "required": ["funcionarioId", "mesReferencia", "tipo", "valor", "data", "descricao"]
     }
   },
   "auth": {
@@ -247,6 +262,14 @@
           "entityName": "Funcionario",
           "schema": { "$ref": "#/backend/entities/Funcionario" },
           "description": "Armazena os dados dos funcionários."
+        }
+      },
+      {
+        "path": "/funcionario_lancamentos/{lancamentoId}",
+        "definition": {
+            "entityName": "FuncionarioLancamentoFinanceiro",
+            "schema": { "$ref": "#/backend/entities/FuncionarioLancamentoFinanceiro" },
+            "description": "Histórico de todas as transações financeiras dos funcionários."
         }
       }
     ]
