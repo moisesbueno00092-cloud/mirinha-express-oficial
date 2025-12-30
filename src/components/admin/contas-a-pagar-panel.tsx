@@ -25,7 +25,7 @@ import { Switch } from '@/components/ui/switch';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { Loader2, Trash2, Search, History, TrendingUp, CalendarDays, AreaChart } from 'lucide-react';
+import { Loader2, Trash2, Search, History, TrendingUp, CalendarDays, AreaChart, ListTree } from 'lucide-react';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -225,6 +225,53 @@ const ExpenseReport = ({ contasPagas, fornecedorMap, period }: { contasPagas: Co
             </CardContent>
         </Card>
     )
+}
+
+const DetailedHistoryTable = ({ contas, fornecedorMap, onDeleteRequest }: {
+    contas: ContaAPagar[],
+    fornecedorMap: Map<string, Fornecedor>,
+    onDeleteRequest: (conta: ContaAPagar) => void,
+}) => {
+    if (contas.length === 0) {
+        return <p className="p-8 text-center text-sm text-muted-foreground">Nenhuma conta paga encontrada no histórico.</p>;
+    }
+
+    return (
+        <div className="rounded-md border mt-4">
+            <Table>
+                <TableHeader>
+                    <TableRow>
+                        <TableHead>Fornecedor/Descrição</TableHead>
+                        <TableHead>Data de Pagamento</TableHead>
+                        <TableHead className="text-right">Valor</TableHead>
+                        <TableHead className="text-right">Ações</TableHead>
+                    </TableRow>
+                </TableHeader>
+                <TableBody>
+                    {contas.map((conta) => {
+                        const fornecedor = fornecedorMap.get(conta.fornecedorId || '');
+                        return (
+                            <TableRow key={conta.id}>
+                                <TableCell>
+                                    <div className="font-medium" style={{ color: fornecedor?.color || 'inherit' }}>
+                                        {fornecedor?.nome || 'N/A'}
+                                    </div>
+                                    <div className="text-sm text-muted-foreground">{conta.descricao}</div>
+                                </TableCell>
+                                <TableCell>{formatDate(conta.dataVencimento)}</TableCell>
+                                <TableCell className="text-right font-mono font-semibold">{formatCurrency(conta.valor)}</TableCell>
+                                <TableCell className="text-right">
+                                     <Button variant="ghost" size="icon" onClick={() => onDeleteRequest(conta)}>
+                                        <Trash2 className="h-4 w-4 text-muted-foreground hover:text-destructive" />
+                                    </Button>
+                                </TableCell>
+                            </TableRow>
+                        );
+                    })}
+                </TableBody>
+            </Table>
+        </div>
+    );
 }
 
 type FilterType = 'all' | 'vencidas' | 'hoje' | 'semana' | 'mes';
@@ -434,7 +481,7 @@ export default function ContasAPagarPanel() {
             <div className="space-y-4">
                  <h3 className="text-lg font-semibold text-foreground flex items-center gap-2">
                     <AreaChart className="h-5 w-5" />
-                    Relatórios de Despesas
+                    Relatórios de Despesas Agregadas
                 </h3>
                 <div className="flex flex-wrap items-center gap-2">
                      <Button
@@ -467,42 +514,42 @@ export default function ContasAPagarPanel() {
             </div>
 
             <Separator />
+            
+            <div className="space-y-4">
+                <h3 className="text-lg font-semibold text-foreground flex items-center gap-2">
+                    <ListTree className="h-5 w-5" />
+                    Histórico Detalhado de Despesas Pagas
+                </h3>
+                {isLoading ? (
+                    <div className="flex justify-center p-8"><Loader2 className="h-8 w-8 animate-spin"/></div>
+                ) : (
+                    <DetailedHistoryTable contas={contasPagas} fornecedorMap={fornecedorMap} onDeleteRequest={handleDeleteRequest} />
+                )}
+            </div>
+
+
+            <Separator />
 
             <Card>
                 <CardHeader>
                     <CardTitle>Controle de Contas a Pagar</CardTitle>
-                    <CardDescription>Gira as suas contas pendentes e já pagas.</CardDescription>
+                    <CardDescription>Gira as suas contas pendentes.</CardDescription>
                 </CardHeader>
                 <CardContent>
-                    <Tabs defaultValue="a-pagar" className="w-full">
-                        <TabsList className="grid w-full grid-cols-2">
-                            <TabsTrigger value="a-pagar">A Pagar</TabsTrigger>
-                            <TabsTrigger value="pagas">Pagas</TabsTrigger>
-                        </TabsList>
-                        <TabsContent value="a-pagar">
-                            <div className="mt-4 space-y-4">
-                                <div className="flex flex-wrap items-center gap-2">
-                                    <FilterButton filter="all" label="Todas" count={0} />
-                                    <FilterButton filter="vencidas" label="Vencidas" count={counts.vencidas} />
-                                    <FilterButton filter="hoje" label="Vence Hoje" count={counts.hoje} />
-                                    <FilterButton filter="semana" label="Esta Semana" count={counts.semana} />
-                                    <FilterButton filter="mes" label="Este Mês" count={counts.mes} />
-                                </div>
-                                {isLoading ? (
-                                    <div className="flex justify-center p-8"><Loader2 className="h-8 w-8 animate-spin"/></div>
-                                ) : (
-                                    <ContasTable contas={filteredContasAPagar} fornecedorMap={fornecedorMap} onStatusChange={handleStatusChange} onDeleteRequest={handleDeleteRequest} />
-                                )}
-                            </div>
-                        </TabsContent>
-                        <TabsContent value="pagas">
-                            {isLoading ? (
-                                <div className="flex justify-center p-8"><Loader2 className="h-8 w-8 animate-spin"/></div>
-                            ) : (
-                                <ContasTable contas={contasPagas} fornecedorMap={fornecedorMap} onStatusChange={handleStatusChange} onDeleteRequest={handleDeleteRequest} />
-                            )}
-                        </TabsContent>
-                    </Tabs>
+                    <div className="mt-4 space-y-4">
+                        <div className="flex flex-wrap items-center gap-2">
+                            <FilterButton filter="all" label="Todas" count={0} />
+                            <FilterButton filter="vencidas" label="Vencidas" count={counts.vencidas} />
+                            <FilterButton filter="hoje" label="Vence Hoje" count={counts.hoje} />
+                            <FilterButton filter="semana" label="Esta Semana" count={counts.semana} />
+                            <FilterButton filter="mes" label="Este Mês" count={counts.mes} />
+                        </div>
+                        {isLoading ? (
+                            <div className="flex justify-center p-8"><Loader2 className="h-8 w-8 animate-spin"/></div>
+                        ) : (
+                            <ContasTable contas={filteredContasAPagar} fornecedorMap={fornecedorMap} onStatusChange={handleStatusChange} onDeleteRequest={handleDeleteRequest} />
+                        )}
+                    </div>
                 </CardContent>
             </Card>
 
@@ -569,3 +616,4 @@ export default function ContasAPagarPanel() {
         </div>
     );
 }
+
