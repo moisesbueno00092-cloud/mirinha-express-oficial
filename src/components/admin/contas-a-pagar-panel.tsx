@@ -25,7 +25,7 @@ import { Switch } from '@/components/ui/switch';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { Loader2, Trash2, Search, History, TrendingUp, CalendarDays, AreaChart, ListTree } from 'lucide-react';
+import { Loader2, Trash2, Search, History, TrendingUp, CalendarDays } from 'lucide-react';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -36,7 +36,6 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { Separator } from '../ui/separator';
 
 const formatCurrency = (value: number) => {
     return new Intl.NumberFormat("pt-BR", {
@@ -148,7 +147,7 @@ const ExpenseReport = ({ contasPagas, fornecedorMap, period }: { contasPagas: Co
         const relevantContas = contasPagas.filter(c => isWithinInterval(parseISO(c.dataVencimento + 'T00:00:00'), { start: startDate, end: now }));
         
         if (relevantContas.length === 0) {
-            return { suppliers: [], totalExpenses: 0, totalCount: 0 };
+            return { suppliers: [], totalExpenses: 0 };
         }
 
         const supplierMap = new Map<string, { count: number, totalValue: number }>();
@@ -173,10 +172,8 @@ const ExpenseReport = ({ contasPagas, fornecedorMap, period }: { contasPagas: Co
                 ...data
             }))
             .sort((a,b) => b.totalValue - a.totalValue);
-        
-        const totalCount = suppliers.reduce((sum, s) => sum + s.count, 0);
 
-        return { suppliers, totalExpenses, totalCount };
+        return { suppliers, totalExpenses };
 
     }, [contasPagas, fornecedorMap, period]);
 
@@ -193,7 +190,6 @@ const ExpenseReport = ({ contasPagas, fornecedorMap, period }: { contasPagas: Co
                   <div className="text-right">
                       <p className="text-xs text-muted-foreground">Despesa Total</p>
                       <p className="text-2xl font-bold text-destructive">{formatCurrency(aggregatedData.totalExpenses)}</p>
-                      <p className="text-xs text-muted-foreground mt-1">{aggregatedData.totalCount} contas pagas</p>
                   </div>
                 </div>
             </CardHeader>
@@ -203,10 +199,10 @@ const ExpenseReport = ({ contasPagas, fornecedorMap, period }: { contasPagas: Co
                 ) : (
                     <div className="rounded-md border max-h-[400px] overflow-y-auto">
                         <Table>
-                            <TableHeader className="sticky top-0 bg-muted">
+                            <TableHeader>
                                 <TableRow>
                                     <TableHead>Fornecedor</TableHead>
-                                    <TableHead className="text-right">Nº de Contas</TableHead>
+                                    <TableHead>Nº de Contas</TableHead>
                                     <TableHead className="text-right">Valor Total</TableHead>
                                 </TableRow>
                             </TableHeader>
@@ -214,7 +210,7 @@ const ExpenseReport = ({ contasPagas, fornecedorMap, period }: { contasPagas: Co
                                 {aggregatedData.suppliers.map(supplier => (
                                     <TableRow key={supplier.id}>
                                         <TableCell className="font-medium" style={{ color: supplier.color }}>{supplier.name}</TableCell>
-                                        <TableCell className="text-right font-mono">{supplier.count}</TableCell>
+                                        <TableCell>{supplier.count}</TableCell>
                                         <TableCell className="text-right font-mono font-semibold">{formatCurrency(supplier.totalValue)}</TableCell>
                                     </TableRow>
                                 ))}
@@ -225,53 +221,6 @@ const ExpenseReport = ({ contasPagas, fornecedorMap, period }: { contasPagas: Co
             </CardContent>
         </Card>
     )
-}
-
-const DetailedHistoryTable = ({ contas, fornecedorMap, onDeleteRequest }: {
-    contas: ContaAPagar[],
-    fornecedorMap: Map<string, Fornecedor>,
-    onDeleteRequest: (conta: ContaAPagar) => void,
-}) => {
-    if (contas.length === 0) {
-        return <p className="p-8 text-center text-sm text-muted-foreground">Nenhuma conta paga encontrada no histórico.</p>;
-    }
-
-    return (
-        <div className="rounded-md border mt-4">
-            <Table>
-                <TableHeader>
-                    <TableRow>
-                        <TableHead>Fornecedor/Descrição</TableHead>
-                        <TableHead>Data de Pagamento</TableHead>
-                        <TableHead className="text-right">Valor</TableHead>
-                        <TableHead className="text-right">Ações</TableHead>
-                    </TableRow>
-                </TableHeader>
-                <TableBody>
-                    {contas.map((conta) => {
-                        const fornecedor = fornecedorMap.get(conta.fornecedorId || '');
-                        return (
-                            <TableRow key={conta.id}>
-                                <TableCell>
-                                    <div className="font-medium" style={{ color: fornecedor?.color || 'inherit' }}>
-                                        {fornecedor?.nome || 'N/A'}
-                                    </div>
-                                    <div className="text-sm text-muted-foreground">{conta.descricao}</div>
-                                </TableCell>
-                                <TableCell>{formatDate(conta.dataVencimento)}</TableCell>
-                                <TableCell className="text-right font-mono font-semibold">{formatCurrency(conta.valor)}</TableCell>
-                                <TableCell className="text-right">
-                                     <Button variant="ghost" size="icon" onClick={() => onDeleteRequest(conta)}>
-                                        <Trash2 className="h-4 w-4 text-muted-foreground hover:text-destructive" />
-                                    </Button>
-                                </TableCell>
-                            </TableRow>
-                        );
-                    })}
-                </TableBody>
-            </Table>
-        </div>
-    );
 }
 
 type FilterType = 'all' | 'vencidas' | 'hoje' | 'semana' | 'mes';
@@ -361,8 +310,6 @@ export default function ContasAPagarPanel() {
         const countHoje = aPagar.filter(c => isToday(parseISO(c.dataVencimento + 'T00:00:00'))).length;
         const countSemana = aPagar.filter(c => isWithinInterval(parseISO(c.dataVencimento + 'T00:00:00'), { start: today, end: endOfCurrentWeek })).length;
         const countMes = aPagar.filter(c => isWithinInterval(parseISO(c.dataVencimento + 'T00:00:00'), { start: today, end: endOfCurrentMonth })).length;
-        
-        pagas.sort((a, b) => new Date(b.dataVencimento).getTime() - new Date(a.dataVencimento).getTime());
 
         return { 
             contasAPagar: aPagar, 
@@ -476,59 +423,35 @@ export default function ContasAPagarPanel() {
                 </Card>
             </div>
 
-            <Separator />
-            
-            <div className="space-y-4">
-                 <h3 className="text-lg font-semibold text-foreground flex items-center gap-2">
-                    <AreaChart className="h-5 w-5" />
-                    Relatórios de Despesas Agregadas
-                </h3>
-                <div className="flex flex-wrap items-center gap-2">
-                     <Button
-                        variant={expenseReportPeriod === 'week' ? "default" : "outline"}
-                        size="sm"
-                        onClick={() => setExpenseReportPeriod('week')}
-                    >
-                        Semanal
-                    </Button>
-                     <Button
-                        variant={expenseReportPeriod === 'month' ? "default" : "outline"}
-                        size="sm"
-                        onClick={() => setExpenseReportPeriod('month')}
-                    >
-                        Mensal
-                    </Button>
-                     <Button
-                        variant={expenseReportPeriod === 'year' ? "default" : "outline"}
-                        size="sm"
-                        onClick={() => setExpenseReportPeriod('year')}
-                    >
-                        Anual
-                    </Button>
-                </div>
-                {isLoading ? (
-                     <div className="flex justify-center p-8"><Loader2 className="h-8 w-8 animate-spin"/></div>
-                ) : (
-                    <ExpenseReport contasPagas={contasPagas || []} fornecedorMap={fornecedorMap} period={expenseReportPeriod} />
-                )}
+             <div className="flex flex-wrap items-center gap-2">
+                 <Button
+                    variant={expenseReportPeriod === 'week' ? "default" : "outline"}
+                    size="sm"
+                    onClick={() => setExpenseReportPeriod('week')}
+                >
+                    Relatório Semanal
+                </Button>
+                 <Button
+                    variant={expenseReportPeriod === 'month' ? "default" : "outline"}
+                    size="sm"
+                    onClick={() => setExpenseReportPeriod('month')}
+                >
+                    Relatório Mensal
+                </Button>
+                 <Button
+                    variant={expenseReportPeriod === 'year' ? "default" : "outline"}
+                    size="sm"
+                    onClick={() => setExpenseReportPeriod('year')}
+                >
+                    Relatório Anual
+                </Button>
             </div>
 
-            <Separator />
-            
-            <div className="space-y-4">
-                <h3 className="text-lg font-semibold text-foreground flex items-center gap-2">
-                    <ListTree className="h-5 w-5" />
-                    Histórico Detalhado de Despesas Pagas
-                </h3>
-                {isLoading ? (
-                    <div className="flex justify-center p-8"><Loader2 className="h-8 w-8 animate-spin"/></div>
-                ) : (
-                    <DetailedHistoryTable contas={contasPagas} fornecedorMap={fornecedorMap} onDeleteRequest={handleDeleteRequest} />
-                )}
-            </div>
-
-
-            <Separator />
+            {isLoading ? (
+                 <div className="flex justify-center p-8"><Loader2 className="h-8 w-8 animate-spin"/></div>
+            ) : (
+                <ExpenseReport contasPagas={contasPagas || []} fornecedorMap={fornecedorMap} period={expenseReportPeriod} />
+            )}
 
             <Card>
                 <CardHeader>
@@ -553,67 +476,68 @@ export default function ContasAPagarPanel() {
                 </CardContent>
             </Card>
 
-            <Separator className="my-8" />
-
             <div className="space-y-4">
-                 <h3 className="text-lg font-semibold text-foreground flex items-center gap-2">
-                    <History className="h-5 w-5" />
-                    Histórico de Preços de Compras
-                </h3>
-                <div className="relative">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                    <Input 
-                        placeholder="Buscar por nome do produto para ver o histórico..."
-                        value={searchQuery}
-                        onChange={(e) => setSearchQuery(e.target.value)}
-                        className="pl-10"
-                    />
-                </div>
-                {searchQuery.trim() && (
-                  <div className="rounded-md border">
-                      <Table>
-                          <TableHeader>
-                              <TableRow>
-                                  <TableHead>Data</TableHead>
-                                  <TableHead>Produto</TableHead>
-                                  <TableHead>Fornecedor</TableHead>
-                                  <TableHead className="text-right">Preço Unitário</TableHead>
-                              </TableRow>
-                          </TableHeader>
-                          <TableBody>
-                              {isLoadingAllEntradas || isLoadingFornecedores ? (
-                                  <TableRow>
-                                      <TableCell colSpan={4} className="h-24 text-center">
-                                          <Loader2 className="h-6 w-6 animate-spin mx-auto text-muted-foreground" />
-                                      </TableCell>
-                                  </TableRow>
-                              ) : filteredEntradas.length > 0 ? (
-                                  filteredEntradas.map((entry) => {
-                                      const fornecedor = fornecedorMap.get(entry.fornecedorId);
-                                      return (
-                                        <TableRow key={entry.id}>
-                                            <TableCell>{format(new Date(entry.data), 'dd/MM/yy HH:mm')}</TableCell>
-                                            <TableCell className="font-medium">{entry.produtoNome}</TableCell>
-                                            <TableCell style={{ color: fornecedor?.color || 'inherit' }}>
-                                                {fornecedor?.nome || 'Desconhecido'}
-                                            </TableCell>
-                                            <TableCell className="text-right font-mono">{formatCurrency(entry.precoUnitario)}</TableCell>
-                                        </TableRow>
-                                      )
-                                  })
-                              ) : (
-                                  <TableRow>
-                                      <TableCell colSpan={4} className="h-24 text-center text-muted-foreground">
-                                          Nenhum resultado para sua busca.
-                                      </TableCell>
-                                  </TableRow>
-                              )}
-                          </TableBody>
-                      </Table>
-                  </div>
-                )}
+                <Card>
+                    <CardHeader>
+                        <CardTitle>Histórico de Preços de Compras</CardTitle>
+                        <CardDescription>Pesquise um produto para ver a variação de preços ao longo do tempo.</CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                         <div className="relative">
+                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                            <Input 
+                                placeholder="Buscar por nome do produto..."
+                                value={searchQuery}
+                                onChange={(e) => setSearchQuery(e.target.value)}
+                                className="pl-10"
+                            />
+                        </div>
+                        {searchQuery.trim() && (
+                          <div className="rounded-md border mt-4">
+                              <Table>
+                                  <TableHeader>
+                                      <TableRow>
+                                          <TableHead>Data</TableHead>
+                                          <TableHead>Produto</TableHead>
+                                          <TableHead>Fornecedor</TableHead>
+                                          <TableHead className="text-right">Preço Unitário</TableHead>
+                                      </TableRow>
+                                  </TableHeader>
+                                  <TableBody>
+                                      {isLoadingAllEntradas || isLoadingFornecedores ? (
+                                          <TableRow>
+                                              <TableCell colSpan={4} className="h-24 text-center">
+                                                  <Loader2 className="h-6 w-6 animate-spin mx-auto text-muted-foreground" />
+                                              </TableCell>
+                                          </TableRow>
+                                      ) : filteredEntradas.length > 0 ? (
+                                          filteredEntradas.map((entry) => {
+                                              const fornecedor = fornecedorMap.get(entry.fornecedorId);
+                                              return (
+                                                <TableRow key={entry.id}>
+                                                    <TableCell>{format(new Date(entry.data), 'dd/MM/yy HH:mm')}</TableCell>
+                                                    <TableCell className="font-medium">{entry.produtoNome}</TableCell>
+                                                    <TableCell style={{ color: fornecedor?.color || 'inherit' }}>
+                                                        {fornecedor?.nome || 'Desconhecido'}
+                                                    </TableCell>
+                                                    <TableCell className="text-right font-mono">{formatCurrency(entry.precoUnitario)}</TableCell>
+                                                </TableRow>
+                                              )
+                                          })
+                                      ) : (
+                                          <TableRow>
+                                              <TableCell colSpan={4} className="h-24 text-center text-muted-foreground">
+                                                  Nenhum resultado para sua busca.
+                                              </TableCell>
+                                          </TableRow>
+                                      )}
+                                  </TableBody>
+                              </Table>
+                          </div>
+                        )}
+                    </CardContent>
+                </Card>
             </div>
         </div>
     );
 }
-
