@@ -14,13 +14,13 @@ import { Info, BookOpen } from 'lucide-react';
 import { PREDEFINED_PRICES } from '@/lib/constants';
 
 const productNames: Record<string, string> = {
-    PP: "Pão com Pernil",
-    P: "Pão com Carne",
-    M: "Misto Quente",
-    G: "Grelhado",
-    GG: "Grelhado com Ovo",
-    KITM: "Kit Misto",
-    KITG: "Kit Grelhado",
+    PP: "Marmita extra pequena",
+    P: "Pequena",
+    M: "Média",
+    G: "Grande",
+    GG: "Extra Grande",
+    KITM: "Kit Família Médio",
+    KITG: "Kit Família Grande",
     PF: "Prato Feito",
     SL: "Salada de Frutas",
     SLKIT: "Kit Salada",
