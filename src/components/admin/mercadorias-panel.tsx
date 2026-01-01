@@ -20,6 +20,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '../ui/popover';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
 import FornecedoresEditModal from './fornecedores-edit-modal';
 import { ScrollArea } from '../ui/scroll-area';
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 
 
 interface LancamentoProduto {
@@ -440,55 +441,76 @@ export default function MercadoriasPanel() {
                 
                 <Separator />
 
-                <div className="space-y-2">
-                    <Label htmlFor='lancamento-input'>Lançamento de Produto</Label>
-                    <Popover open={isSuggestionsOpen} onOpenChange={setIsSuggestionsOpen}>
-                        <PopoverTrigger asChild>
-                            <form onSubmit={handleAddProduto} className="flex items-start gap-2">
-                                <Input
-                                    id='lancamento-input'
-                                    ref={lancamentoInputRef}
-                                    placeholder="Ex: Coca 2L 10,50 ou Queijo kg 2 35"
-                                    value={lancamentoInput}
-                                    onChange={(e) => setLancamentoInput(e.target.value)}
-                                    className='w-full'
-                                    autoComplete='off'
-                                    onBlur={() => setTimeout(() => setIsSuggestionsOpen(false), 150)}
-                                    onFocus={() => {
-                                      const trimmedInput = lancamentoInput.trim();
-                                      if (trimmedInput !== '' && suggestions.length > 0) {
-                                          setIsSuggestionsOpen(true);
-                                      }
-                                    }}
-                                />
-                                 <Button 
-                                    type="submit"
-                                    size="icon"
-                                    className="h-10 w-10 shrink-0"
-                                    disabled={!lancamentoInput.trim()}
+                <div className="space-y-4">
+                    <div>
+                        <Label htmlFor='lancamento-input'>Lançamento de Produto</Label>
+                        <Popover open={isSuggestionsOpen} onOpenChange={setIsSuggestionsOpen}>
+                            <PopoverTrigger asChild>
+                                <form onSubmit={handleAddProduto} className="flex items-start gap-2 mt-2">
+                                    <Input
+                                        id='lancamento-input'
+                                        ref={lancamentoInputRef}
+                                        placeholder="Use os formatos abaixo..."
+                                        value={lancamentoInput}
+                                        onChange={(e) => setLancamentoInput(e.target.value)}
+                                        className='w-full'
+                                        autoComplete='off'
+                                        onBlur={() => setTimeout(() => setIsSuggestionsOpen(false), 150)}
+                                        onFocus={() => {
+                                        const trimmedInput = lancamentoInput.trim();
+                                        if (trimmedInput !== '' && suggestions.length > 0) {
+                                            setIsSuggestionsOpen(true);
+                                        }
+                                        }}
+                                    />
+                                    <Button 
+                                        type="submit"
+                                        size="icon"
+                                        className="h-10 w-10 shrink-0"
+                                        disabled={!lancamentoInput.trim()}
+                                    >
+                                        <Plus className="h-5 w-5" />
+                                    </Button>
+                                </form>
+                            </PopoverTrigger>
+                            <PopoverContent 
+                            className='w-[--radix-popover-trigger-width] p-0' 
+                            onOpenAutoFocus={(e) => e.preventDefault()}
+                            >
+                            <ul className='max-h-60 overflow-y-auto'>
+                                {suggestions.map((suggestion, index) => (
+                                <li
+                                    key={index}
+                                    className='px-3 py-2 text-sm cursor-pointer hover:bg-accent flex items-center gap-2'
+                                    onMouseDown={() => handleSelectSuggestion(suggestion)}
                                 >
-                                    <Plus className="h-5 w-5" />
-                                </Button>
-                            </form>
-                        </PopoverTrigger>
-                        <PopoverContent 
-                          className='w-[--radix-popover-trigger-width] p-0' 
-                          onOpenAutoFocus={(e) => e.preventDefault()}
-                        >
-                          <ul className='max-h-60 overflow-y-auto'>
-                            {suggestions.map((suggestion, index) => (
-                              <li
-                                key={index}
-                                className='px-3 py-2 text-sm cursor-pointer hover:bg-accent flex items-center gap-2'
-                                onMouseDown={() => handleSelectSuggestion(suggestion)}
-                              >
-                                <span>{suggestion.name}</span>
-                                <span className='font-mono text-sm text-green-500'>{formatCurrency(suggestion.lastPrice)}</span>
-                              </li>
-                            ))}
-                          </ul>
-                        </PopoverContent>
-                    </Popover>
+                                    <span>{suggestion.name}</span>
+                                    <span className='font-mono text-sm text-green-500'>{formatCurrency(suggestion.lastPrice)}</span>
+                                </li>
+                                ))}
+                            </ul>
+                            </PopoverContent>
+                        </Popover>
+                    </div>
+                     <Alert>
+                        <AlertTitle>Formatos de Lançamento</AlertTitle>
+                        <AlertDescription>
+                            <ul className="list-disc pl-5 space-y-1 mt-2 text-xs">
+                                <li>
+                                    <span className="font-semibold">Item único com preço total:</span>
+                                    <br />
+                                    <span className="font-mono text-muted-foreground">Ex: Caixa de Tomate 55,00</span>
+                                </li>
+                                <li>
+                                    <span className="font-semibold">Múltiplos itens ou por peso:</span> (Produto + "un" ou "kg" + Quantidade + Preço Unitário)
+                                    <br />
+                                    <span className="font-mono text-muted-foreground">Ex: Queijo kg 2 35</span> (2kg a 35,00/kg)
+                                    <br />
+                                    <span className="font-mono text-muted-foreground">Ex: Coca-cola un 12 8,50</span> (12 unidades a 8,50/un)
+                                </li>
+                            </ul>
+                        </AlertDescription>
+                    </Alert>
                 </div>
                 
                 {produtosLancados.length > 0 && (
@@ -538,3 +560,4 @@ export default function MercadoriasPanel() {
     );
 }
 
+    
