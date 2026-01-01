@@ -483,7 +483,7 @@ export default function MercadoriasPanel() {
                                 <Input
                                     id='lancamento-input'
                                     ref={lancamentoInputRef}
-                                    placeholder="Use os formatos da ajuda (⚙️)..."
+                                    placeholder="adicionar produtos..."
                                     value={lancamentoInput}
                                     onChange={(e) => setLancamentoInput(e.target.value)}
                                     className='w-full'
@@ -572,5 +572,3 @@ export default function MercadoriasPanel() {
         </>
     );
 }
-
-    
