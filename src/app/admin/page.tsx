@@ -3,7 +3,7 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
-import { ArrowLeft, Box, HandCoins, History, Users, Wrench } from 'lucide-react';
+import { ArrowLeft, Box, HandCoins, History, Users, Wrench, BookOpen } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 
 import { Button } from '@/components/ui/button';
