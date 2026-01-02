@@ -134,3 +134,13 @@ export interface FuncionarioLancamentoFinanceiro {
     descricao?: string;
     quantidade?: number; // Para armazenar horas ou dias
 }
+
+export interface VerbasRescisorias {
+    saldoSalario: number;
+    avisoPrevio: number;
+    feriasVencidas: number;
+    feriasProporcionais: number;
+    tercoFerias: number;
+    decimoTerceiroProporcional: number;
+    total: number;
+}
