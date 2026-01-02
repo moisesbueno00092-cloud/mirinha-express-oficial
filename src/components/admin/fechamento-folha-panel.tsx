@@ -13,7 +13,7 @@ import { Button } from '../ui/button';
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@/components/ui/select';
 import { Label } from '../ui/label';
 import { Separator } from '../ui/separator';
-import { Loader2, FileText, Download } from 'lucide-react';
+import { Loader2, FileText, Download, Printer } from 'lucide-react';
 import { Badge } from '../ui/badge';
 import { cn } from '@/lib/utils';
 
@@ -135,7 +135,25 @@ export default function FechamentoFolhaPanel({ funcionario }: FechamentoFolhaPan
         }
     }, [funcionario.salarioBase, lancamentosDoPeriodo]);
     
-    const jaFechado = useMemo(() => holeritesDoMes && holeritesDoMes.length > 0, [holeritesDoMes]);
+    const holeriteSalvo = useMemo(() => (holeritesDoMes && holeritesDoMes.length > 0) ? holeritesDoMes[0] : null, [holeritesDoMes]);
+    const jaFechado = !!holeriteSalvo;
+
+    const displayData = useMemo(() => {
+        if (jaFechado && holeriteSalvo) {
+            return {
+                salarioBase: holeriteSalvo.salarioBase,
+                totalVencimentos: holeriteSalvo.totalVencimentos,
+                totalDescontos: holeriteSalvo.totalDescontos,
+                valorLiquido: holeriteSalvo.valorLiquido,
+                lancamentos: holeriteSalvo.lancamentos || [],
+            };
+        }
+        return {
+            ...holeriteCalculado,
+            lancamentos: lancamentosDoPeriodo,
+        };
+    }, [jaFechado, holeriteSalvo, holeriteCalculado, lancamentosDoPeriodo]);
+
 
     const handleFecharMes = async () => {
         if (!firestore || !funcionario) return;
@@ -224,10 +242,10 @@ export default function FechamentoFolhaPanel({ funcionario }: FechamentoFolhaPan
                                     <p className="font-medium text-green-500">Vencimentos</p>
                                     <div className="flex justify-between text-sm">
                                         <span>Salário Base</span>
-                                        <span className="font-mono">{formatCurrency(holeriteCalculado.salarioBase)}</span>
+                                        <span className="font-mono">{formatCurrency(displayData.salarioBase)}</span>
                                     </div>
-                                    {lancamentosDoPeriodo.filter(l => ['bonus', 'hora_extra', 'comissao'].includes(l.tipo)).map(lanc => (
-                                        <div key={lanc.id} className="flex justify-between text-sm text-muted-foreground">
+                                    {displayData.lancamentos.filter(l => ['bonus', 'hora_extra', 'comissao'].includes(l.tipo)).map((lanc, index) => (
+                                        <div key={`venc-${lanc.id || index}`} className="flex justify-between text-sm text-muted-foreground">
                                             <span>{tipoLancamentoStyle[lanc.tipo]?.label || lanc.tipo}</span>
                                             <span className="font-mono">{formatCurrency(lanc.valor)}</span>
                                         </div>
@@ -236,7 +254,7 @@ export default function FechamentoFolhaPanel({ funcionario }: FechamentoFolhaPan
                                 <Separator />
                                 <div className="flex justify-between font-semibold text-sm">
                                     <span>Total de Vencimentos</span>
-                                    <span className="font-mono text-green-500">{formatCurrency(holeriteCalculado.totalVencimentos)}</span>
+                                    <span className="font-mono text-green-500">{formatCurrency(displayData.totalVencimentos)}</span>
                                 </div>
                             </div>
                             
@@ -244,20 +262,20 @@ export default function FechamentoFolhaPanel({ funcionario }: FechamentoFolhaPan
                                 {/* Descontos */}
                                 <div className="space-y-1">
                                     <p className="font-medium text-red-500">Descontos</p>
-                                     {lancamentosDoPeriodo.filter(l => ['vale', 'desconto', 'falta'].includes(l.tipo)).map(lanc => (
-                                        <div key={lanc.id} className="flex justify-between text-sm text-muted-foreground">
+                                     {displayData.lancamentos.filter(l => ['vale', 'desconto', 'falta'].includes(l.tipo)).map((lanc, index) => (
+                                        <div key={`desc-${lanc.id || index}`} className="flex justify-between text-sm text-muted-foreground">
                                             <span>{tipoLancamentoStyle[lanc.tipo]?.label || lanc.tipo}</span>
                                             <span className="font-mono">-{formatCurrency(lanc.valor)}</span>
                                         </div>
                                     ))}
-                                    {lancamentosDoPeriodo.filter(l => ['vale', 'desconto', 'falta'].includes(l.tipo)).length === 0 && (
+                                    {displayData.lancamentos.filter(l => ['vale', 'desconto', 'falta'].includes(l.tipo)).length === 0 && (
                                         <p className="text-xs text-muted-foreground text-center py-2">Nenhum desconto no período.</p>
                                     )}
                                 </div>
                                 <Separator />
                                 <div className="flex justify-between font-semibold text-sm">
                                     <span>Total de Descontos</span>
-                                    <span className="font-mono text-red-500">{formatCurrency(holeriteCalculado.totalDescontos)}</span>
+                                    <span className="font-mono text-red-500">{formatCurrency(displayData.totalDescontos)}</span>
                                 </div>
                             </div>
 
@@ -265,15 +283,15 @@ export default function FechamentoFolhaPanel({ funcionario }: FechamentoFolhaPan
 
                             <div className="flex justify-between items-center text-lg font-bold text-primary p-3 bg-muted/50 rounded-lg">
                                 <span>Valor Líquido a Pagar</span>
-                                <span className="font-mono">{formatCurrency(holeriteCalculado.valorLiquido)}</span>
+                                <span className="font-mono">{formatCurrency(displayData.valorLiquido)}</span>
                             </div>
                         </div>
 
                         <div className="border-l border-border pl-8">
                              <h4 className="font-semibold mb-2">Lançamentos do Mês</h4>
                              <div className="space-y-2 max-h-80 overflow-y-auto pr-2">
-                                {lancamentosDoPeriodo.length > 0 ? lancamentosDoPeriodo.map(lanc => (
-                                    <div key={lanc.id} className="text-xs p-2 rounded-md border bg-card">
+                                {displayData.lancamentos.length > 0 ? displayData.lancamentos.map((lanc, index) => (
+                                    <div key={lanc.id || `lanc-hist-${index}`} className="text-xs p-2 rounded-md border bg-card">
                                         <div className="flex justify-between items-center">
                                             <Badge className={cn(tipoLancamentoStyle[lanc.tipo]?.className, 'text-white text-xs')}>{tipoLancamentoStyle[lanc.tipo]?.label || lanc.tipo}</Badge>
                                             <span className={cn('font-semibold font-mono', ['bonus', 'hora_extra', 'comissao'].includes(lanc.tipo) ? 'text-green-500' : 'text-red-500')}>
@@ -293,10 +311,17 @@ export default function FechamentoFolhaPanel({ funcionario }: FechamentoFolhaPan
                     </div>
                 )}
                  <div className="flex justify-end pt-6">
-                    <Button onClick={handleFecharMes} disabled={isSubmitting || isLoading || jaFechado}>
-                        {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : <Download className="mr-2 h-4 w-4" />}
-                        Fechar e Salvar Mês
-                    </Button>
+                    {jaFechado ? (
+                        <Button disabled>
+                            <Printer className="mr-2 h-4 w-4" />
+                            Gerar PDF (em breve)
+                        </Button>
+                    ) : (
+                        <Button onClick={handleFecharMes} disabled={isSubmitting || isLoading || jaFechado}>
+                            {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : <Download className="mr-2 h-4 w-4" />}
+                            Fechar e Salvar Mês
+                        </Button>
+                    )}
                 </div>
             </CardContent>
         </Card>
