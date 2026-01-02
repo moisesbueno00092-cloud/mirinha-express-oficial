@@ -168,13 +168,12 @@
         "type": "object",
         "properties": {
             "funcionarioId": { "type": "string" },
-            "mesReferencia": { "type": "string", "description": "Mês de referência no formato YYYY-MM" },
-            "tipo": { "type": "string", "enum": ["vale", "bonus", "desconto", "pagamento"] },
+            "tipo": { "type": "string", "enum": ["vale", "hora_extra", "comissao", "falta"] },
             "valor": { "type": "number" },
             "data": { "type": "string", "format": "date-time" },
             "descricao": { "type": "string" }
         },
-        "required": ["funcionarioId", "mesReferencia", "tipo", "valor", "data", "descricao"]
+        "required": ["funcionarioId", "tipo", "valor", "data"]
     }
   },
   "auth": {
@@ -265,11 +264,11 @@
         }
       },
       {
-        "path": "/funcionario_lancamentos/{lancamentoId}",
+        "path": "/funcionarios/{funcionarioId}/lancamentos/{lancamentoId}",
         "definition": {
             "entityName": "FuncionarioLancamentoFinanceiro",
             "schema": { "$ref": "#/backend/entities/FuncionarioLancamentoFinanceiro" },
-            "description": "Histórico de todas as transações financeiras dos funcionários."
+            "description": "Histórico de todas as transações financeiras de um funcionário."
         }
       }
     ]

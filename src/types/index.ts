@@ -128,9 +128,8 @@ export interface Funcionario {
 export interface FuncionarioLancamentoFinanceiro {
     id: string;
     funcionarioId: string;
-    mesReferencia: string; // YYYY-MM
-    tipo: 'vale' | 'bonus' | 'desconto' | 'pagamento';
+    tipo: 'vale' | 'hora_extra' | 'comissao' | 'falta';
     valor: number;
     data: string; // ISO string
-    descricao: string;
+    descricao?: string;
 }

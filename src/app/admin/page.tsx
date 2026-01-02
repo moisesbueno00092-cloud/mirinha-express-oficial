@@ -3,22 +3,92 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
-import { ArrowLeft, Box, HandCoins, History } from 'lucide-react';
+import { ArrowLeft, Box, HandCoins, History, Users, Wrench } from 'lucide-react';
+import { useToast } from '@/hooks/use-toast';
 
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+
 
 import MercadoriasPanel from '@/components/admin/mercadorias-panel';
 import ContasAPagarPanel from '@/components/admin/contas-a-pagar-panel';
 import HistoricoFinanceiroPanel from '@/components/admin/historico-financeiro-panel';
+import FuncionariosPanel from '@/components/admin/funcionarios-panel';
 
 
 export default function AdminPage() {
   const [activeTab, setActiveTab] = useState('mercadorias');
+  const [isPasswordModalOpen, setIsPasswordModalOpen] = useState(false);
+  const [passwordInput, setPasswordInput] = useState('');
+  const [passwordAction, setPasswordAction] = useState<'rh' | null>(null);
+  const [isRhUnlocked, setIsRhUnlocked] = useState(false);
+  const { toast } = useToast();
+
+  const handleOpenPasswordModal = (action: 'rh') => {
+    if (action === 'rh' && isRhUnlocked) {
+      setActiveTab('rh');
+      return;
+    }
+    setPasswordAction(action);
+    setPasswordInput('');
+    setIsPasswordModalOpen(true);
+  }
+
+  const handlePasswordSubmit = () => {
+    if (passwordInput === 'jujubb3110') {
+        setIsPasswordModalOpen(false);
+        if (passwordAction === 'rh') {
+          setIsRhUnlocked(true);
+          setActiveTab('rh');
+        }
+    } else {
+        toast({
+            variant: 'destructive',
+            title: 'Senha Incorreta',
+            description: 'A senha para aceder a esta funcionalidade está incorreta.'
+        })
+    }
+  }
  
   return (
     <>
+      <Dialog open={isPasswordModalOpen} onOpenChange={setIsPasswordModalOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Acesso Restrito</DialogTitle>
+            <DialogDescription>
+              Por favor, insira a senha para continuar.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="password" className="text-right">
+                Senha
+              </Label>
+              <Input
+                id="password"
+                type="password"
+                value={passwordInput}
+                onChange={(e) => setPasswordInput(e.target.value)}
+                className="col-span-3"
+                autoFocus
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') handlePasswordSubmit();
+                }}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsPasswordModalOpen(false)}>Cancelar</Button>
+            <Button onClick={handlePasswordSubmit}>Aceder</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+      
       <div className="container mx-auto max-w-7xl p-2 sm:p-4 lg:p-8">
         <header className="mb-6 flex items-center justify-between">
           <div className="flex items-center gap-4">
@@ -29,14 +99,14 @@ export default function AdminPage() {
             </Link>
             <div>
               <h1 className="text-2xl sm:text-3xl font-bold text-foreground">Gestão Administrativa</h1>
-              <p className="text-muted-foreground">Controle de mercadorias e contas.</p>
+              <p className="text-muted-foreground">Controle de mercadorias, contas e RH.</p>
             </div>
           </div>
         </header>
 
         <main>
           <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-            <TabsList className="grid w-full grid-cols-3 h-auto">
+            <TabsList className="grid w-full grid-cols-4 h-auto">
               <TabsTrigger value="mercadorias" className="flex flex-col sm:flex-row gap-2 py-2">
                 <Box className="h-5 w-5" />
                 <span>Mercadorias</span>
@@ -48,6 +118,19 @@ export default function AdminPage() {
               <TabsTrigger value="historico" className="flex flex-col sm:flex-row gap-2 py-2">
                 <History className="h-5 w-5" />
                 <span>Histórico</span>
+              </TabsTrigger>
+               <TabsTrigger 
+                  value="rh" 
+                  className="flex flex-col sm:flex-row gap-2 py-2"
+                  onClick={(e) => {
+                    if (!isRhUnlocked) {
+                      e.preventDefault();
+                      handleOpenPasswordModal('rh');
+                    }
+                  }}
+               >
+                <Users className="h-5 w-5" />
+                <span>Recursos Humanos</span>
               </TabsTrigger>
             </TabsList>
             
@@ -81,6 +164,17 @@ export default function AdminPage() {
                 </CardHeader>
                 <CardContent>
                   <HistoricoFinanceiroPanel />
+                </CardContent>
+              </Card>
+            </TabsContent>
+            <TabsContent value="rh" forceMount>
+               <Card className={activeTab === 'rh' ? 'block' : 'hidden'}>
+                <CardHeader>
+                  <CardTitle>Recursos Humanos</CardTitle>
+                  <CardDescription>Gestão de colaboradores, admissões e lançamentos financeiros.</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  {isRhUnlocked ? <FuncionariosPanel /> : <p className='text-center text-muted-foreground p-8'>Acesso bloqueado. Por favor, insira a senha.</p>}
                 </CardContent>
               </Card>
             </TabsContent>
