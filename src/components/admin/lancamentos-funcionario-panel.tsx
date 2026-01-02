@@ -241,7 +241,7 @@ export default function LancamentosFuncionarioPanel({ funcionarios, selectedFunc
                                             <FormControl>
                                                 <SelectTrigger>
                                                     <SelectValue placeholder="Selecione o tipo" />
-                                                </Trigger>
+                                                </SelectTrigger>
                                             </FormControl>
                                             <SelectContent>
                                                 <SelectItem value="vale">Vale (Adiantamento)</SelectItem>
