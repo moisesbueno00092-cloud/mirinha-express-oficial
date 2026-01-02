@@ -42,7 +42,6 @@ import BomboniereModal from "@/components/bomboniere-modal";
 import StockEditModal from "@/components/stock-edit-modal";
 import MirinhaLogo from "@/components/mirinha-logo";
 import FavoritesMenu from "@/components/favorites-menu";
-import HelpSheet from "@/components/help-sheet";
 import { createUserWithEmailAndPassword, signInWithEmailAndPassword } from "firebase/auth";
 import { format, startOfDay, endOfDay, isWithinInterval } from "date-fns";
 import { cn } from "@/lib/utils";
@@ -853,9 +852,6 @@ originalGroup = group;
             <div className="flex flex-col items-center justify-center text-center flex-grow">
               <MirinhaLogo className="w-64 sm:w-80 h-auto text-primary" />
               <p className="text-muted-foreground -mt-2 text-sm sm:text-base">Controle de Pedidos</p>
-            </div>
-            <div className="absolute top-4 right-4">
-                <HelpSheet />
             </div>
         </header>
 

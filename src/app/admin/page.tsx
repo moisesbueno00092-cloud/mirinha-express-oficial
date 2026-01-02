@@ -12,6 +12,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import HelpSheet from '@/components/help-sheet';
 
 
 import MercadoriasPanel from '@/components/admin/mercadorias-panel';
@@ -169,9 +170,12 @@ export default function AdminPage() {
             </TabsContent>
             <TabsContent value="rh" forceMount>
                <Card className={activeTab === 'rh' ? 'block' : 'hidden'}>
-                <CardHeader>
-                  <CardTitle>Recursos Humanos</CardTitle>
-                  <CardDescription>Gestão de colaboradores, admissões e lançamentos financeiros.</CardDescription>
+                <CardHeader className='flex-row items-start justify-between'>
+                  <div>
+                    <CardTitle>Recursos Humanos</CardTitle>
+                    <CardDescription>Gestão de colaboradores, admissões e lançamentos financeiros.</CardDescription>
+                  </div>
+                  <HelpSheet />
                 </CardHeader>
                 <CardContent>
                   {isRhUnlocked ? <FuncionariosPanel /> : <p className='text-center text-muted-foreground p-8'>Acesso bloqueado. Por favor, insira a senha.</p>}

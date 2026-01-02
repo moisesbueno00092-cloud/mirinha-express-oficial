@@ -12,60 +12,29 @@ import {
   SheetTrigger,
 } from '@/components/ui/sheet';
 import { Settings, BookOpen } from 'lucide-react';
-import { PREDEFINED_PRICES } from '@/lib/constants';
-
-const productNames: Record<string, string> = {
-    PP: "Marmita extra pequena",
-    P: "Pequena",
-    M: "Média",
-    G: "Grande",
-    GG: "Extra Grande",
-    KITM: "Kit Família Médio",
-    KITG: "Kit Família Grande",
-    PF: "Prato Feito",
-    SL: "Salada de Frutas",
-    SLKIT: "Kit Salada",
-    S: "X-Salada",
-    KG: "Quilo (Refeição)"
-}
 
 export default function HelpSheet() {
   return (
     <Sheet>
       <SheetTrigger asChild>
-        <Button variant="outline" size="icon" className="h-9 w-9">
+        <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground">
           <Settings className="h-4 w-4" />
-          <span className="sr-only">Ajuda e Informações</span>
+          <span className="sr-only">Ajuda e Informações de RH</span>
         </Button>
       </SheetTrigger>
       <SheetContent className="w-[380px] sm:w-[540px]">
         <SheetHeader>
-          <SheetTitle className="flex items-center gap-2"><BookOpen className="h-5 w-5"/> Guia de Referência Rápida</SheetTitle>
+          <SheetTitle className="flex items-center gap-2"><BookOpen className="h-5 w-5"/> Guia Rápido do Módulo de RH</SheetTitle>
           <SheetDescription>
-            Aqui estão todas as regras, códigos e siglas utilizados no sistema.
+            Um guia passo a passo para utilizar todas as funcionalidades de Recursos Humanos.
           </SheetDescription>
         </SheetHeader>
         <div className="space-y-6 py-6 text-sm">
-            
-            <section>
-                <h3 className="font-semibold text-lg mb-2 text-primary">Lançamento de Pedidos (Página Principal)</h3>
-                <ul className="space-y-2 list-disc pl-5 text-muted-foreground">
-                    <li><span className="font-semibold text-foreground">`R [itens]`</span>: Pedido para <span className="font-bold">R</span>ua (aplica taxa de entrega padrão).</li>
-                    <li><span className="font-semibold text-foreground">`F [nome] [itens]`</span>: Pedido <span className="font-bold">F</span>iado para um cliente no salão.</li>
-                    <li><span className="font-semibold text-foreground">`FR [nome] [itens]`</span>: Pedido <span className="font-bold">F</span>iado para <span className="font-bold">R</span>ua.</li>
-                    <li><span className="font-semibold text-foreground">`... E`</span>: Adicionar a letra <span className="font-bold">E</span> no final isenta a taxa de entrega.</li>
-                    <li><span className="font-semibold text-foreground">`... TX [valor]`</span>: Define uma <span className="font-bold">T</span>a<span className="font-bold">X</span>a de entrega personalizada.</li>
-                    <li><span className="font-semibold text-foreground">`KG [preço]`</span>: Lançamento de um prato por <span className="font-bold">K</span>ilo<span className="font-bold">G</span>rama.</li>
-                    <li><span className="font-semibold text-foreground">`[Qtd][Item] [Preço]`</span>: Para itens da bomboniere com preço personalizado. Ex: <span className="font-mono">`2bala 0.75`</span></li>
-                </ul>
-            </section>
-
              <section>
-                <h3 className="font-semibold text-lg mb-2 text-primary">Módulo de RH (Gestão Administrativa)</h3>
                 <div className="space-y-4 text-muted-foreground">
                     <div>
                         <h4 className="font-semibold text-foreground">Passo 1: Aceder ao Módulo</h4>
-                        <p>Vá para <span className="font-mono text-xs p-1 bg-muted rounded">Gestão Administrativa</span> e clique no separador <span className="font-semibold">Recursos Humanos</span>. Introduza a senha para aceder.</p>
+                        <p>Aceda a este módulo através do separador <span className="font-semibold">Recursos Humanos</span> na página de Gestão Administrativa. Introduza a senha para aceder.</p>
                     </div>
                     <div>
                         <h4 className="font-semibold text-foreground">Passo 2: Cadastrar um Colaborador</h4>
@@ -100,31 +69,6 @@ export default function HelpSheet() {
                     </div>
                 </div>
             </section>
-
-            <section>
-                <h3 className="font-semibold text-lg mb-2 text-primary">Siglas de Produtos</h3>
-                <div className="grid grid-cols-2 gap-x-4 gap-y-1">
-                    {Object.keys(PREDEFINED_PRICES).map(key => (
-                         <div key={key} className="flex items-baseline gap-2">
-                             <span className="font-mono font-bold text-foreground w-8">{key}:</span>
-                             <span className="text-muted-foreground">{productNames[key] || key}</span>
-                         </div>
-                    ))}
-                    <div className="flex items-baseline gap-2">
-                        <span className="font-mono font-bold text-foreground w-8">KG:</span>
-                        <span className="text-muted-foreground">Refeição por Quilo</span>
-                    </div>
-                </div>
-            </section>
-
-            <section>
-                <h3 className="font-semibold text-lg mb-2 text-primary">Entrada de Mercadorias (Admin)</h3>
-                 <ul className="space-y-2 list-disc pl-5 text-muted-foreground">
-                    <li><span className="font-semibold text-foreground">`[Produto] [Preço Total]`</span>: Para itens únicos. Ex: <span className="font-mono">`Caixa de Tomate 55,00`</span></li>
-                    <li><span className="font-semibold text-foreground">`[Produto] un/kg [Qtd] [Preço Unitário]`</span>: Para múltiplos itens ou por peso. Ex: <span className="font-mono">`Queijo kg 2 35`</span> (2kg a 35,00/kg).</li>
-                </ul>
-            </section>
-
         </div>
       </SheetContent>
     </Sheet>
