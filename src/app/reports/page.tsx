@@ -4,7 +4,7 @@
 import { useState, useMemo } from 'react';
 import { useUser, useFirestore, useCollection, useMemoFirebase } from '@/firebase';
 import { collection, query, orderBy, doc, deleteDoc } from 'firebase/firestore';
-import { format, parseISO, startOfWeek, endOfWeek, startOfMonth, endOfMonth, startOfYear, endOfYear, isWithinInterval } from 'date-fns';
+import { format, parseISO, startOfWeek, endOfWeek, startOfMonth, endOfMonth, startOfYear, endOfYear, isWithinInterval, setYear } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 
 import Link from 'next/link';
@@ -42,6 +42,8 @@ import { PieChart, Pie, Cell, ResponsiveContainer } from "recharts"
 import type { DailyReport, ItemCount, BomboniereItem, Item } from '@/types';
 import DailyTimelineChart from '@/components/daily-timeline-chart';
 import { cn } from '@/lib/utils';
+import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@/components/ui/select';
+import { Label } from '@/components/ui/label';
 
 const formatCurrency = (value: number | undefined | null) => {
     return new Intl.NumberFormat("pt-BR", {
@@ -407,28 +409,40 @@ const AggregateReport = ({ title, icon: Icon, reports, bomboniereItems }: { titl
     )
 }
 
+const generateYearOptions = () => {
+    const currentYear = new Date().getFullYear();
+    const years = [];
+    for (let i = currentYear + 1; i >= currentYear - 5; i--) {
+        years.push(i);
+    }
+    return years;
+}
+
 export default function ReportsPage() {
   const { user, isUserLoading } = useUser();
   const firestore = useFirestore();
   const { toast } = useToast();
   
+  const [reportToDelete, setReportToDelete] = useState<string | null>(null);
+  const [selectedYear, setSelectedYear] = useState<number>(new Date().getFullYear());
+  const yearOptions = useMemo(() => generateYearOptions(), []);
+
   const dailyReportsRef = useMemoFirebase(() => (firestore && user ? query(collection(firestore, 'daily_reports'), orderBy('reportDate', 'desc')) : null), [firestore, user]);
   const bomboniereItemsRef = useMemoFirebase(() => (firestore ? query(collection(firestore, 'bomboniere_items'), orderBy('name', 'asc')) : null), [firestore]);
 
   const { data: savedReports, isLoading: isLoadingReports } = useCollection<DailyReport>(dailyReportsRef);
   const { data: bomboniereItems, isLoading: isLoadingBomboniere } = useCollection<BomboniereItem>(bomboniereItemsRef);
   
-  const [reportToDelete, setReportToDelete] = useState<string | null>(null);
-
   const { weeklyReports, monthlyReports, yearlyReports } = useMemo(() => {
     if (!savedReports) return { weeklyReports: [], monthlyReports: [], yearlyReports: [] };
-    const now = new Date();
-    const startOfThisWeek = startOfWeek(now, { locale: ptBR });
-    const endOfThisWeek = endOfWeek(now, { locale: ptBR });
-    const startOfThisMonth = startOfMonth(now);
-    const endOfThisMonth = endOfMonth(now);
-    const startOfThisYear = startOfYear(now);
-    const endOfThisYear = endOfYear(now);
+    const referenceDate = setYear(new Date(), selectedYear);
+
+    const startOfThisWeek = startOfWeek(referenceDate, { locale: ptBR });
+    const endOfThisWeek = endOfWeek(referenceDate, { locale: ptBR });
+    const startOfThisMonth = startOfMonth(referenceDate);
+    const endOfThisMonth = endOfMonth(referenceDate);
+    const startOfThisYear = startOfYear(referenceDate);
+    const endOfThisYear = endOfYear(referenceDate);
 
     const weekly = savedReports.filter(r => {
         try {
@@ -447,7 +461,7 @@ export default function ReportsPage() {
     });
 
     return { weeklyReports: weekly, monthlyReports: monthly, yearlyReports: yearly };
-  }, [savedReports]);
+  }, [savedReports, selectedYear]);
 
   const handleDeleteReportRequest = (reportId: string) => {
     setReportToDelete(reportId);
@@ -513,7 +527,7 @@ export default function ReportsPage() {
       </AlertDialog>
 
       <div className="container mx-auto max-w-5xl p-2 sm:p-4 lg:p-8">
-        <header className="mb-6 flex items-center justify-between">
+        <header className="mb-6 flex items-start justify-between">
           <div className="flex items-center gap-4">
             <Link href="/" passHref>
               <Button variant="outline" size="icon">
@@ -524,6 +538,19 @@ export default function ReportsPage() {
               <h1 className="text-2xl sm:text-3xl font-bold text-foreground">Relatórios de Vendas</h1>
               <p className="text-muted-foreground">Relatórios agregados e detalhamento por dia.</p>
             </div>
+          </div>
+          <div className='w-32 space-y-1'>
+            <Label htmlFor="report-year" className="text-xs text-muted-foreground">Ano do Relatório</Label>
+             <Select value={String(selectedYear)} onValueChange={(value) => setSelectedYear(Number(value))}>
+                <SelectTrigger id="report-year">
+                    <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                    {yearOptions.map(year => (
+                        <SelectItem key={year} value={String(year)}>{year}</SelectItem>
+                    ))}
+                </SelectContent>
+            </Select>
           </div>
         </header>
 

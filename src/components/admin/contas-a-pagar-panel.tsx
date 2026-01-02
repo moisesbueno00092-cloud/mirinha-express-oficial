@@ -5,7 +5,7 @@ import { useMemo, useState } from 'react';
 import { useCollection, useFirestore, useMemoFirebase } from '@/firebase';
 import { collection, query, orderBy, doc } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
-import { format, isPast, isToday, isWithinInterval, startOfWeek, endOfWeek, subDays, startOfMonth, endOfMonth, startOfYear, endOfYear, parseISO } from 'date-fns';
+import { format, isPast, isToday, isWithinInterval, startOfWeek, endOfWeek, subDays, startOfMonth, endOfMonth, startOfYear, endOfYear, parseISO, setYear } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
 import type { ContaAPagar, Fornecedor, EntradaMercadoria } from '@/types';
@@ -36,6 +36,8 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '../ui/select';
+import { ScrollArea } from '../ui/scroll-area';
 
 const formatCurrency = (value: number) => {
     return new Intl.NumberFormat("pt-BR", {
@@ -131,20 +133,20 @@ const ContasTable = ({ contas, fornecedorMap, onStatusChange, onDeleteRequest }:
 
 type ReportPeriod = 'week' | 'month' | 'year';
 
-const ExpenseReport = ({ contasPagas, fornecedorMap, period }: { contasPagas: ContaAPagar[], fornecedorMap: Map<string, Fornecedor>, period: ReportPeriod }) => {
+const ExpenseReport = ({ contasPagas, fornecedorMap, period, year }: { contasPagas: ContaAPagar[], fornecedorMap: Map<string, Fornecedor>, period: ReportPeriod, year: number }) => {
     const aggregatedData = useMemo(() => {
-        const now = new Date();
+        const referenceDate = setYear(new Date(), year);
         let startDate: Date;
 
         if (period === 'week') {
-            startDate = startOfWeek(now, { locale: ptBR });
+            startDate = startOfWeek(referenceDate, { locale: ptBR });
         } else if (period === 'month') {
-            startDate = startOfMonth(now);
+            startDate = startOfMonth(referenceDate);
         } else { // year
-            startDate = startOfYear(now);
+            startDate = startOfYear(referenceDate);
         }
-
-        const relevantContas = contasPagas.filter(c => isWithinInterval(parseISO(c.dataVencimento + 'T00:00:00'), { start: startDate, end: now }));
+        
+        const relevantContas = contasPagas.filter(c => isWithinInterval(parseISO(c.dataVencimento + 'T00:00:00'), { start: startDate, end: referenceDate }));
         
         if (relevantContas.length === 0) {
             return { suppliers: [], totalExpenses: 0 };
@@ -175,7 +177,7 @@ const ExpenseReport = ({ contasPagas, fornecedorMap, period }: { contasPagas: Co
 
         return { suppliers, totalExpenses };
 
-    }, [contasPagas, fornecedorMap, period]);
+    }, [contasPagas, fornecedorMap, period, year]);
 
     const periodLabel = { week: 'Semanal', month: 'Mensal', year: 'Anual' }[period];
     
@@ -225,18 +227,18 @@ const ExpenseReport = ({ contasPagas, fornecedorMap, period }: { contasPagas: Co
 
 type ComprasReportPeriod = 'month' | 'year';
 
-const ComprasReport = ({ allEntradas, period }: { allEntradas: EntradaMercadoria[], period: ComprasReportPeriod }) => {
+const ComprasReport = ({ allEntradas, period, year }: { allEntradas: EntradaMercadoria[], period: ComprasReportPeriod, year: number }) => {
     const aggregatedData = useMemo(() => {
-        const now = new Date();
+        const referenceDate = setYear(new Date(), year);
         let startDate: Date;
 
         if (period === 'month') {
-            startDate = startOfMonth(now);
+            startDate = startOfMonth(referenceDate);
         } else { // year
-            startDate = startOfYear(now);
+            startDate = startOfYear(referenceDate);
         }
 
-        const relevantEntradas = allEntradas.filter(e => isWithinInterval(parseISO(e.data), { start: startDate, end: now }));
+        const relevantEntradas = allEntradas.filter(e => isWithinInterval(parseISO(e.data), { start: startDate, end: referenceDate }));
         
         if (relevantEntradas.length === 0) {
             return { products: [], totalValue: 0 };
@@ -265,7 +267,7 @@ const ComprasReport = ({ allEntradas, period }: { allEntradas: EntradaMercadoria
 
         return { products, totalValue };
 
-    }, [allEntradas, period]);
+    }, [allEntradas, period, year]);
 
     const periodLabel = { month: 'Mensal', year: 'Anual' }[period];
     
@@ -315,6 +317,15 @@ const ComprasReport = ({ allEntradas, period }: { allEntradas: EntradaMercadoria
 
 type FilterType = 'all' | 'vencidas' | 'hoje' | 'semana' | 'mes';
 
+const generateYearOptions = () => {
+    const currentYear = new Date().getFullYear();
+    const years = [];
+    for (let i = currentYear + 1; i >= currentYear - 5; i--) {
+        years.push(i);
+    }
+    return years;
+}
+
 export default function ContasAPagarPanel() {
     const firestore = useFirestore();
     const { toast } = useToast();
@@ -324,6 +335,9 @@ export default function ContasAPagarPanel() {
     const [activeFilter, setActiveFilter] = useState<FilterType>('all');
     const [expenseReportPeriod, setExpenseReportPeriod] = useState<ReportPeriod>('month');
     const [comprasReportPeriod, setComprasReportPeriod] = useState<ComprasReportPeriod>('month');
+    const [selectedYear, setSelectedYear] = useState<number>(new Date().getFullYear());
+    const yearOptions = useMemo(() => generateYearOptions(), []);
+
 
     const contasQuery = useMemoFirebase(
         () => firestore ? query(collection(firestore, 'contas_a_pagar'), orderBy('dataVencimento', 'asc')) : null,
@@ -359,11 +373,11 @@ export default function ContasAPagarPanel() {
     }, [allEntradas, searchQuery]);
     
     const { contasAPagar, contasPagas, expenseSummary, counts } = useMemo(() => {
-        const now = new Date();
-        const startOfCurrentMonth = startOfMonth(now);
-        const endOfCurrentMonth = endOfMonth(now);
-        const startOfCurrentYear = startOfYear(now);
-        const endOfCurrentYear = endOfYear(now);
+        const referenceDate = setYear(new Date(), selectedYear);
+        const startOfSelectedMonth = startOfMonth(referenceDate);
+        const endOfSelectedMonth = endOfMonth(referenceDate);
+        const startOfSelectedYear = startOfYear(referenceDate);
+        const endOfSelectedYear = endOfYear(referenceDate);
         
         let monthTotal = 0;
         let yearTotal = 0;
@@ -377,10 +391,10 @@ export default function ContasAPagarPanel() {
                 const dueDate = parseISO(conta.dataVencimento + 'T00:00:00');
                 if (conta.estaPaga) {
                     pagas.push(conta);
-                    if (isWithinInterval(dueDate, { start: startOfCurrentMonth, end: endOfCurrentMonth })) {
+                    if (isWithinInterval(dueDate, { start: startOfSelectedMonth, end: endOfSelectedMonth })) {
                         monthTotal += conta.valor;
                     }
-                    if (isWithinInterval(dueDate, { start: startOfCurrentYear, end: endOfCurrentYear })) {
+                    if (isWithinInterval(dueDate, { start: startOfSelectedYear, end: endOfSelectedYear })) {
                         yearTotal += conta.valor;
                     }
                 } else {
@@ -408,7 +422,7 @@ export default function ContasAPagarPanel() {
             counts: { vencidas: countVencidas, hoje: countHoje, semana: countSemana, mes: countMes }
         };
 
-    }, [allContas]);
+    }, [allContas, selectedYear]);
 
     const filteredContasAPagar = useMemo(() => {
         if (activeFilter === 'all') return contasAPagar;
@@ -492,7 +506,7 @@ export default function ContasAPagarPanel() {
                 </AlertDialogContent>
             </AlertDialog>
             
-             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 <Card>
                     <CardHeader className="flex flex-row items-center justify-between pb-2">
                         <CardTitle className="text-sm font-medium">Pagas Este Mês</CardTitle>
@@ -500,6 +514,7 @@ export default function ContasAPagarPanel() {
                     </CardHeader>
                     <CardContent>
                         {isLoadingContas ? <Loader2 className="h-6 w-6 animate-spin"/> : <div className="text-2xl font-bold">{formatCurrency(expenseSummary.month)}</div>}
+                         <p className="text-xs text-muted-foreground">no ano de {selectedYear}</p>
                     </CardContent>
                 </Card>
                  <Card>
@@ -509,8 +524,24 @@ export default function ContasAPagarPanel() {
                     </CardHeader>
                     <CardContent>
                         {isLoadingContas ? <Loader2 className="h-6 w-6 animate-spin"/> : <div className="text-2xl font-bold">{formatCurrency(expenseSummary.year)}</div>}
+                         <p className="text-xs text-muted-foreground">no ano de {selectedYear}</p>
                     </CardContent>
                 </Card>
+                <div className="flex items-end">
+                    <div className='w-full space-y-2'>
+                        <Label htmlFor="report-year">Ano do Relatório</Label>
+                        <Select value={String(selectedYear)} onValueChange={(value) => setSelectedYear(Number(value))}>
+                            <SelectTrigger id="report-year">
+                                <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                                {yearOptions.map(year => (
+                                    <SelectItem key={year} value={String(year)}>{year}</SelectItem>
+                                ))}
+                            </SelectContent>
+                        </Select>
+                    </div>
+                </div>
             </div>
 
             <Card>
@@ -546,7 +577,7 @@ export default function ContasAPagarPanel() {
                     {isLoading ? (
                          <div className="flex justify-center p-8"><Loader2 className="h-8 w-8 animate-spin"/></div>
                     ) : (
-                        <ExpenseReport contasPagas={contasPagas || []} fornecedorMap={fornecedorMap} period={expenseReportPeriod} />
+                        <ExpenseReport contasPagas={contasPagas || []} fornecedorMap={fornecedorMap} period={expenseReportPeriod} year={selectedYear} />
                     )}
                 </CardContent>
             </Card>
@@ -576,7 +607,7 @@ export default function ContasAPagarPanel() {
                     {isLoading ? (
                         <div className="flex justify-center p-8"><Loader2 className="h-8 w-8 animate-spin"/></div>
                     ) : (
-                        <ComprasReport allEntradas={allEntradas || []} period={comprasReportPeriod} />
+                        <ComprasReport allEntradas={allEntradas || []} period={comprasReportPeriod} year={selectedYear} />
                     )}
                 </CardContent>
              </Card>
