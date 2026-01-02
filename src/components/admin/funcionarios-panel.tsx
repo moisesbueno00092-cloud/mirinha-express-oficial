@@ -29,6 +29,7 @@ import { Badge } from '../ui/badge';
 import { cn } from '@/lib/utils';
 import LancamentosFuncionarioPanel from './lancamentos-funcionario-panel';
 import { Separator } from '../ui/separator';
+import DireitosProvisionamentoPanel from './direitos-provisionamento-panel';
 
 const formatCurrency = (value: number) => {
     return new Intl.NumberFormat("pt-BR", {
@@ -140,6 +141,11 @@ export default function FuncionariosPanel() {
       }
     };
     
+    const selectedFuncionario = useMemo(() => {
+        if (!selectedFuncionarioId) return null;
+        return funcionarios?.find(f => f.id === selectedFuncionarioId) || null;
+    }, [selectedFuncionarioId, funcionarios]);
+
     return (
         <div className="space-y-6">
             <Card>
@@ -225,6 +231,13 @@ export default function FuncionariosPanel() {
                 />
             )}
             
+            {selectedFuncionario && (
+                 <>
+                    <Separator className="my-8" />
+                    <DireitosProvisionamentoPanel funcionario={selectedFuncionario} />
+                 </>
+            )}
+
             {(selectedFuncionarioId || (funcionarios && funcionarios.length > 0)) && <Separator className="my-8" />}
 
             {(selectedFuncionarioId || (funcionarios && funcionarios.length > 0)) && (
