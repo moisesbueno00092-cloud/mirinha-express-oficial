@@ -1,6 +1,7 @@
+
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -116,7 +117,7 @@ export default function LancamentosFuncionarioPanel({ funcionarios, selectedFunc
       },
     });
     
-     React.useEffect(() => {
+     useEffect(() => {
         form.setValue('funcionarioId', selectedFuncionarioId || '');
     }, [selectedFuncionarioId, form]);
 
