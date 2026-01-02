@@ -42,7 +42,6 @@ import { PieChart, Pie, Cell, ResponsiveContainer } from "recharts"
 import type { DailyReport, ItemCount, BomboniereItem, Item } from '@/types';
 import DailyTimelineChart from '@/components/daily-timeline-chart';
 import { cn } from '@/lib/utils';
-import HelpSheet from '@/components/help-sheet';
 
 const formatCurrency = (value: number | undefined | null) => {
     return new Intl.NumberFormat("pt-BR", {
@@ -526,7 +525,6 @@ export default function ReportsPage() {
               <p className="text-muted-foreground">Relatórios agregados e detalhamento por dia.</p>
             </div>
           </div>
-          <HelpSheet />
         </header>
 
         <main className="space-y-8">

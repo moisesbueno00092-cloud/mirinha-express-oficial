@@ -19,7 +19,6 @@ import {
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
-import HelpSheet from '@/components/help-sheet';
 
 import MercadoriasPanel from '@/components/admin/mercadorias-panel';
 import ContasAPagarPanel from '@/components/admin/contas-a-pagar-panel';
@@ -103,7 +102,6 @@ export default function AdminPage() {
               <p className="text-muted-foreground">Controle de mercadorias, contas e funcionários.</p>
             </div>
           </div>
-          <HelpSheet />
         </header>
 
         <main>
