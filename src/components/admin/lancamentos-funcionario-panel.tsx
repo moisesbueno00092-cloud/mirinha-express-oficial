@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -102,10 +102,9 @@ const LancamentosList = ({ lancamentos }: { lancamentos: FuncionarioLancamentoFi
 interface LancamentosFuncionarioPanelProps {
     funcionarios: Funcionario[];
     selectedFuncionarioId: string | null;
-    onSelectFuncionario: (id: string | null) => void;
 }
 
-export default function LancamentosFuncionarioPanel({ funcionarios, selectedFuncionarioId, onSelectFuncionario }: LancamentosFuncionarioPanelProps) {
+export default function LancamentosFuncionarioPanel({ funcionarios, selectedFuncionarioId }: LancamentosFuncionarioPanelProps) {
     const firestore = useFirestore();
     const { toast } = useToast();
     
@@ -121,7 +120,7 @@ export default function LancamentosFuncionarioPanel({ funcionarios, selectedFunc
 
     const tipoLancamento = form.watch('tipo');
     
-    useEffect(() => {
+    React.useEffect(() => {
         form.setValue('funcionarioId', selectedFuncionarioId || '');
     }, [selectedFuncionarioId, form]);
 
@@ -215,10 +214,10 @@ export default function LancamentosFuncionarioPanel({ funcionarios, selectedFunc
                                 render={({ field }) => (
                                     <FormItem>
                                         <FormLabel>Colaborador</FormLabel>
-                                        <Select onValueChange={field.onChange} value={field.value}>
+                                        <Select onValueChange={field.onChange} value={field.value} disabled>
                                             <FormControl>
                                                 <SelectTrigger>
-                                                    <SelectValue placeholder="Selecione um colaborador" />
+                                                    <SelectValue placeholder="Selecione um colaborador na lista" />
                                                 </SelectTrigger>
                                             </FormControl>
                                             <SelectContent>
@@ -284,7 +283,7 @@ export default function LancamentosFuncionarioPanel({ funcionarios, selectedFunc
                             />
 
                             <div className="flex justify-end pt-2">
-                                <Button type="submit" disabled={form.formState.isSubmitting}>
+                                <Button type="submit" disabled={form.formState.isSubmitting || !selectedFuncionarioId}>
                                     {form.formState.isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : <PlusCircle className="mr-2 h-4 w-4" />}
                                     Registar Lançamento
                                 </Button>

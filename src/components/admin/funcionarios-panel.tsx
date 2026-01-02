@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useMemo } from 'react';
@@ -235,21 +236,17 @@ export default function FuncionariosPanel() {
             {selectedFuncionario && (
                  <>
                     <Separator className="my-8" />
+                    <LancamentosFuncionarioPanel
+                        funcionarios={funcionarios || []}
+                        selectedFuncionarioId={selectedFuncionarioId}
+                    />
+                    <Separator className="my-8" />
                     <DireitosProvisionamentoPanel funcionario={selectedFuncionario} />
                     <Separator className="my-8" />
                     <FechamentoFolhaPanel funcionario={selectedFuncionario} />
                  </>
             )}
 
-            {(selectedFuncionarioId || (funcionarios && funcionarios.length > 0)) && <Separator className="my-8" />}
-
-            {(selectedFuncionarioId || (funcionarios && funcionarios.length > 0)) && (
-                <LancamentosFuncionarioPanel
-                    funcionarios={funcionarios || []}
-                    selectedFuncionarioId={selectedFuncionarioId}
-                    onSelectFuncionario={setSelectedFuncionarioId}
-                />
-            )}
         </div>
     );
 }
