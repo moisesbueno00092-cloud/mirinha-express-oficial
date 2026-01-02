@@ -138,16 +138,20 @@ const ExpenseReport = ({ contasPagas, fornecedorMap, period, year }: { contasPag
     const aggregatedData = useMemo(() => {
         const referenceDate = setYear(new Date(), year);
         let startDate: Date;
+        let endDate: Date;
 
         if (period === 'week') {
             startDate = startOfWeek(referenceDate, { locale: ptBR });
+            endDate = endOfWeek(referenceDate, { locale: ptBR });
         } else if (period === 'month') {
             startDate = startOfMonth(referenceDate);
+            endDate = endOfMonth(referenceDate);
         } else { // year
             startDate = startOfYear(referenceDate);
+            endDate = endOfYear(referenceDate);
         }
         
-        const relevantContas = contasPagas.filter(c => isWithinInterval(parseISO(c.dataVencimento + 'T00:00:00'), { start: startDate, end: referenceDate }));
+        const relevantContas = contasPagas.filter(c => isWithinInterval(parseISO(c.dataVencimento + 'T00:00:00'), { start: startDate, end: endDate }));
         
         if (relevantContas.length === 0) {
             return { suppliers: [], totalExpenses: 0 };
@@ -232,14 +236,17 @@ const ComprasReport = ({ allEntradas, period, year }: { allEntradas: EntradaMerc
     const aggregatedData = useMemo(() => {
         const referenceDate = setYear(new Date(), year);
         let startDate: Date;
+        let endDate: Date;
 
         if (period === 'month') {
             startDate = startOfMonth(referenceDate);
+            endDate = endOfMonth(referenceDate);
         } else { // year
             startDate = startOfYear(referenceDate);
+            endDate = endOfYear(referenceDate);
         }
 
-        const relevantEntradas = allEntradas.filter(e => isWithinInterval(parseISO(e.data), { start: startDate, end: referenceDate }));
+        const relevantEntradas = allEntradas.filter(e => isWithinInterval(parseISO(e.data), { start: startDate, end: endDate }));
         
         if (relevantEntradas.length === 0) {
             return { products: [], totalValue: 0 };
@@ -410,6 +417,7 @@ export default function ContasAPagarPanel() {
         today.setHours(0,0,0,0);
         const startOfCurrentWeek = startOfWeek(today, { locale: ptBR });
         const endOfCurrentWeek = endOfWeek(today, { locale: ptBR });
+        const endOfCurrentMonth = endOfMonth(today);
 
         const countVencidas = aPagar.filter(c => isPast(parseISO(c.dataVencimento + 'T00:00:00')) && !isToday(parseISO(c.dataVencimento + 'T00:00:00'))).length;
         const countHoje = aPagar.filter(c => isToday(parseISO(c.dataVencimento + 'T00:00:00'))).length;
