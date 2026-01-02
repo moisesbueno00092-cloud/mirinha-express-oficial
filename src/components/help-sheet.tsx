@@ -38,7 +38,7 @@ export default function HelpSheet() {
           <span className="sr-only">Ajuda e Informações</span>
         </Button>
       </SheetTrigger>
-      <SheetContent className="w-[350px] sm:w-[540px]">
+      <SheetContent className="w-[380px] sm:w-[540px]">
         <SheetHeader>
           <SheetTitle className="flex items-center gap-2"><BookOpen className="h-5 w-5"/> Guia de Referência Rápida</SheetTitle>
           <SheetDescription>
@@ -58,6 +58,47 @@ export default function HelpSheet() {
                     <li><span className="font-semibold text-foreground">`KG [preço]`</span>: Lançamento de um prato por <span className="font-bold">K</span>ilo<span className="font-bold">G</span>rama.</li>
                     <li><span className="font-semibold text-foreground">`[Qtd][Item] [Preço]`</span>: Para itens da bomboniere com preço personalizado. Ex: <span className="font-mono">`2bala 0.75`</span></li>
                 </ul>
+            </section>
+
+             <section>
+                <h3 className="font-semibold text-lg mb-2 text-primary">Módulo de RH (Gestão Administrativa)</h3>
+                <div className="space-y-4 text-muted-foreground">
+                    <div>
+                        <h4 className="font-semibold text-foreground">Passo 1: Aceder ao Módulo</h4>
+                        <p>Vá para <span className="font-mono text-xs p-1 bg-muted rounded">Gestão Administrativa</span> e clique no separador <span className="font-semibold">Recursos Humanos</span>. Introduza a senha para aceder.</p>
+                    </div>
+                    <div>
+                        <h4 className="font-semibold text-foreground">Passo 2: Cadastrar um Colaborador</h4>
+                        <p>Preencha os campos Nome, Cargo, Salário Base e Data de Admissão no painel "Cadastro de Colaborador" e clique em "Cadastrar".</p>
+                    </div>
+                    <div>
+                        <h4 className="font-semibold text-foreground">Passo 3: Realizar Lançamentos Financeiros</h4>
+                        <p>No painel "Gestão Financeira de Pessoal", selecione o colaborador e o tipo de lançamento:</p>
+                        <ul className="list-decimal pl-6 mt-2 space-y-1">
+                            <li><span className="font-semibold text-foreground">Vale, Bónus, Comissão, Desconto:</span> Introduza o <span className="font-bold">valor monetário</span> direto. Ex: Para um vale de R$50, introduza `50`.</li>
+                            <li><span className="font-semibold text-foreground">Hora Extra:</span> Introduza a <span className="font-bold">quantidade de horas</span>. O sistema calcula o valor a pagar com base no salário (com acréscimo de 50%).</li>
+                            <li><span className="font-semibold text-foreground">Falta:</span> Introduza a <span className="font-bold">quantidade de dias</span> de ausência. O sistema calcula o desconto com base no salário diário.</li>
+                        </ul>
+                    </div>
+                    <div>
+                        <h4 className="font-semibold text-foreground">Passo 4: Consultar Direitos e Simular Rescisão</h4>
+                        <p>Após selecionar um colaborador na lista, o painel <span className="font-semibold">"Direitos e Provisões"</span> aparecerá. Nele pode:</p>
+                        <ul className="list-disc pl-6 mt-2 space-y-1">
+                            <li>Verificar o status das <span className="font-bold">férias</span> e o tempo de casa.</li>
+                            <li>Acompanhar a provisão acumulada do <span className="font-bold">13º Salário</span>.</li>
+                            <li>Clicar em <span className="font-semibold">"Simular Rescisão"</span> para estimar os custos de um desligamento, escolhendo a data e o motivo.</li>
+                        </ul>
+                    </div>
+                    <div>
+                        <h4 className="font-semibold text-foreground">Passo 5: Fechar a Folha de Pagamento (Holerite)</h4>
+                        <p>No painel <span className="font-semibold">"Fechamento de Folha"</span> (que também aparece ao selecionar um funcionário):</p>
+                         <ul className="list-disc pl-6 mt-2 space-y-1">
+                            <li>Selecione o <span className="font-bold">mês</span> e o <span className="font-bold">ano</span> desejados.</li>
+                            <li>O sistema exibirá um <span className="font-bold">demonstrativo</span> com todos os vencimentos e descontos, calculando o valor líquido.</li>
+                            <li>Clique em <span className="font-semibold">"Fechar e Salvar Mês"</span> para arquivar o holerite e criar um histórico. Um mês fechado não pode ser alterado.</li>
+                        </ul>
+                    </div>
+                </div>
             </section>
 
             <section>
@@ -81,15 +122,6 @@ export default function HelpSheet() {
                  <ul className="space-y-2 list-disc pl-5 text-muted-foreground">
                     <li><span className="font-semibold text-foreground">`[Produto] [Preço Total]`</span>: Para itens únicos. Ex: <span className="font-mono">`Caixa de Tomate 55,00`</span></li>
                     <li><span className="font-semibold text-foreground">`[Produto] un/kg [Qtd] [Preço Unitário]`</span>: Para múltiplos itens ou por peso. Ex: <span className="font-mono">`Queijo kg 2 35`</span> (2kg a 35,00/kg).</li>
-                </ul>
-            </section>
-
-            <section>
-                <h3 className="font-semibold text-lg mb-2 text-primary">Lançamentos de RH (Admin)</h3>
-                 <ul className="space-y-2 list-disc pl-5 text-muted-foreground">
-                    <li><span className="font-semibold text-foreground">`[Nome Funcionário] [tipo] [valor]`</span>: Lançamento rápido.</li>
-                    <li><span className="font-bold">Tipos válidos:</span> <span className="font-mono">vale</span>, <span className="font-mono">bonus</span>, <span className="font-mono">desconto</span>.</li>
-                     <li><span className="font-bold">Exemplo:</span> <span className="font-mono">`João Silva vale 50`</span></li>
                 </ul>
             </section>
 
