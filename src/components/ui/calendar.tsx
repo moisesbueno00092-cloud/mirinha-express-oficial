@@ -17,7 +17,7 @@ export type CalendarProps = React.ComponentProps<typeof DayPicker>
 function CustomHead({ ...props }: HeadProps) {
     const { locale, classNames, ...rest } = props;
     const weekdays = Array.from({ length: 7 }, (_, i) => {
-        const date = new Date(Date.UTC(2023, 0, 1 + i));
+        const date = new Date(Date.UTC(2023, 0, 1 + i)); // Use a consistent start date for weekdays
         return format(date, 'ccc', { locale: props.locale });
     });
 
@@ -33,6 +33,7 @@ function CustomHead({ ...props }: HeadProps) {
         </thead>
     );
 }
+
 
 function Calendar({
   className,
