@@ -19,18 +19,17 @@ function Calendar({
   ...props
 }: CalendarProps) {
   
+  // Custom Head component to ensure proper flex alignment
   function CustomHead({ ...props }: HeadProps) {
-    // Correctly get the weekdays array from locale
     const weekdays = props.locale?.weekdaysShort || ['D', 'S', 'T', 'Q', 'Q', 'S', 'S'];
-
     return (
-      <div className="flex">
+      <tr className="flex">
         {weekdays.map((day, i) => (
-          <div key={i} className="w-9 text-muted-foreground rounded-md font-normal text-[0.8rem] flex items-center justify-center">
+          <th key={i} scope="col" className="w-9 font-normal text-[0.8rem] text-muted-foreground">
              {day.charAt(0)}
-          </div>
+          </th>
         ))}
-      </div>
+      </tr>
     );
   }
 
@@ -53,8 +52,8 @@ function Calendar({
         nav_button_previous: "absolute left-1",
         nav_button_next: "absolute right-1",
         table: "w-full border-collapse space-y-1",
-        // head_row: "flex", // removed
-        // head_cell: "text-muted-foreground rounded-md w-9 font-normal text-[0.8rem]", // removed
+        head_row: "flex", // Keep this to ensure the row is flex container
+        head_cell: "text-muted-foreground rounded-md w-9 font-normal text-[0.8rem]",
         row: "flex w-full mt-2",
         cell: "h-9 w-9 text-center text-sm p-0 relative [&:has([aria-selected].day-range-end)]:rounded-r-md [&:has([aria-selected].day-outside)]:bg-accent/50 [&:has([aria-selected])]:bg-accent first:[&:has([aria-selected])]:rounded-l-md last:[&:has([aria-selected])]:rounded-r-md focus-within:relative focus-within:z-20",
         day: cn(
@@ -73,7 +72,7 @@ function Calendar({
         ...classNames,
       }}
       components={{
-        Head: CustomHead,
+        Head: CustomHead, // Replace the default head with our custom aligned one
         IconLeft: ({ ...props }) => <ChevronLeft className="h-4 w-4" />,
         IconRight: ({ ...props }) => <ChevronRight className="h-4 w-4" />,
         Dropdown: ({ value, onChange, children, ...props }: DropdownProps) => {
