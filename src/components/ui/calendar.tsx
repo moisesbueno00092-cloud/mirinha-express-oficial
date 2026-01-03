@@ -14,13 +14,13 @@ export type CalendarProps = React.ComponentProps<typeof DayPicker>
 
 function CustomHead({ locale, showWeekNumber }: HeadProps) {
     const weekdays = locale?.options?.weekStartsOn !== undefined
-        ? [...Array(7)].map((_, i) => locale.localize?.day((i + locale.options.weekStartsOn) % 7, { width: 'short' }))
+        ? [...Array(7)].map((_, i) => locale.localize?.day((i + locale.options.weekStartsOn!) % 7, { width: 'short' }))
         : ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
 
     return (
         <thead>
             <tr className="flex">
-                {showWeekNumber && <th></th>}
+                {showWeekNumber && <th scope="col"></th>}
                 {weekdays.map((weekday, i) => (
                     <th key={i} scope="col" className="flex h-9 w-9 items-center justify-center p-0 font-normal text-[0.8rem] text-muted-foreground">
                         {weekday}
