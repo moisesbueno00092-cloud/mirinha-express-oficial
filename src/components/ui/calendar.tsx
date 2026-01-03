@@ -64,7 +64,7 @@ function Calendar({
         Dropdown: ({ value, onChange, children, ...props }: DropdownProps) => {
           const options = React.Children.toArray(
             children
-          ) as React.ReactElement<React.HTMLProps<HTMLOptionElement>>[];
+          ) as React.ReactElement<React.HTMLProps<HTMLOptionElement>>;
           const currentYear = new Date().getFullYear();
           const fromYear = props.fromYear || currentYear - 100;
           const toYear = props.toYear || currentYear;
