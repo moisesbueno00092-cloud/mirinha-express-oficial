@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useMemo, useRef, useEffect } from 'react';
@@ -12,7 +11,7 @@ import { parseRomaneio } from '@/ai/flows/parse-romaneio-flow';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Loader2, Plus, PlusCircle, Trash2, Pencil, Settings, Camera } from 'lucide-react';
+import { Loader2, Plus, PlusCircle, Trash2, Pencil, Settings, Camera, Video } from 'lucide-react';
 import { Separator } from '../ui/separator';
 import { format as formatDateFn, addDays } from 'date-fns';
 import { addDocumentNonBlocking } from '@/firebase/non-blocking-updates';
@@ -22,6 +21,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '.
 import FornecedoresEditModal from './fornecedores-edit-modal';
 import { ScrollArea } from '../ui/scroll-area';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger, SheetDescription } from '@/components/ui/sheet';
+import CameraCaptureSheet from './camera-capture-sheet';
 
 
 interface LancamentoProduto {
@@ -66,6 +66,7 @@ export default function MercadoriasPanel() {
     const lancamentoInputRef = useRef<HTMLInputElement>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);
     const [isFornecedoresModalOpen, setIsFornecedoresModalOpen] = useState(false);
+    const [isCameraSheetOpen, setIsCameraSheetOpen] = useState(false);
 
     const scrollViewportRef = useRef<HTMLDivElement>(null);
 
@@ -310,65 +311,69 @@ export default function MercadoriasPanel() {
         setNumParcelas('1');
     }
     
+    const processImage = async (dataUri: string, source: 'file' | 'camera') => {
+        setIsParsingRomaneio(true);
+        toast({ title: 'A analisar a imagem...', description: 'A IA está a processar a foto. Isto pode demorar alguns segundos.' });
+    
+        try {
+            const { items } = await parseRomaneio({ romaneioPhoto: dataUri });
+    
+            if (items.length === 0) {
+                toast({ variant: 'destructive', title: 'Nenhum item encontrado', description: 'A IA não conseguiu extrair itens da imagem fornecida.' });
+                return;
+            }
+    
+            const newProdutos: LancamentoProduto[] = items.map(item => {
+                const valorTotal = item.valorTotal;
+                const quantidade = item.quantidade > 0 ? item.quantidade : 1;
+                const precoUnitario = valorTotal / quantidade;
+    
+                return {
+                    id: Date.now() + Math.random(),
+                    produtoNome: item.produtoNome,
+                    quantidade,
+                    precoUnitario,
+                    preco: valorTotal,
+                };
+            });
+    
+            setProdutosLancados(prev => [...prev, ...newProdutos]);
+            toast({ title: 'Sucesso!', description: `${newProdutos.length} itens foram extraídos e adicionados à lista.` });
+            
+            if (source === 'camera') {
+                setIsCameraSheetOpen(false);
+            }
+    
+        } catch (error) {
+            console.error('Erro ao analisar a imagem:', error);
+            toast({ variant: 'destructive', title: 'Erro de Análise', description: 'Não foi possível extrair os itens. Tente uma imagem mais nítida.' });
+        } finally {
+            setIsParsingRomaneio(false);
+        }
+    };
+    
     const handleRomaneioUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
         const files = event.target.files;
         if (!files || files.length === 0) return;
-
+    
         setIsParsingRomaneio(true);
         toast({ title: "A analisar o(s) romaneio(s)...", description: `A IA está a processar ${files.length} imagem(ns). Isto pode demorar alguns segundos.` });
-
-        let allNewProdutos: LancamentoProduto[] = [];
-        let filesProcessed = 0;
-
+    
         for (const file of Array.from(files)) {
-            try {
-                const dataUri = await new Promise<string>((resolve, reject) => {
-                    const reader = new FileReader();
-                    reader.readAsDataURL(file);
-                    reader.onload = () => resolve(reader.result as string);
-                    reader.onerror = (error) => reject(error);
-                });
-
-                const { items } = await parseRomaneio({ romaneioPhoto: dataUri });
-
-                const newProdutosFromFile: LancamentoProduto[] = items.map(item => {
-                    const valorTotal = item.valorTotal;
-                    const quantidade = item.quantidade > 0 ? item.quantidade : 1;
-                    const precoUnitario = valorTotal / quantidade;
-                    
-                    return {
-                        id: Date.now() + Math.random(),
-                        produtoNome: item.produtoNome,
-                        quantidade: quantidade,
-                        precoUnitario: precoUnitario,
-                        preco: valorTotal,
-                    };
-                });
-                
-                allNewProdutos = allNewProdutos.concat(newProdutosFromFile);
-                filesProcessed++;
-                
-            } catch (error) {
-                console.error(`Erro ao analisar o ficheiro ${file.name}:`, error);
-                toast({ variant: 'destructive', title: `Erro de Análise no ficheiro ${file.name}`, description: 'Não foi possível extrair os itens. Tente uma imagem mais nítida.' });
-                // Continue to next file even if one fails
-            }
+            const dataUri = await new Promise<string>((resolve, reject) => {
+                const reader = new FileReader();
+                reader.readAsDataURL(file);
+                reader.onload = () => resolve(reader.result as string);
+                reader.onerror = (error) => reject(error);
+            });
+            await processImage(dataUri, 'file'); // Re-use the processing logic
         }
-        
-        if (allNewProdutos.length > 0) {
-            setProdutosLancados(prev => [...prev, ...allNewProdutos]);
-            toast({ title: "Sucesso!", description: `${allNewProdutos.length} itens de ${filesProcessed} romaneios foram extraídos e adicionados à lista.` });
-        } else {
-             toast({ variant: 'destructive', title: 'Nenhum item encontrado', description: 'A IA não conseguiu extrair itens das imagens fornecidas.' });
-        }
-
-
+    
         setIsParsingRomaneio(false);
-        // Reset file input to allow uploading the same file again
         if (fileInputRef.current) {
             fileInputRef.current.value = '';
         }
-    }
+    };
 
     const handleRegisterEntry = async () => {
         if (!firestore || !fornecedorId || produtosLancados.length === 0) {
@@ -446,6 +451,16 @@ export default function MercadoriasPanel() {
                 onClose={() => setIsFornecedoresModalOpen(false)}
                 fornecedores={fornecedores || []}
             />
+             <CameraCaptureSheet
+                isOpen={isCameraSheetOpen}
+                onClose={() => setIsCameraSheetOpen(false)}
+                onCapture={async (dataUri) => {
+                    if (dataUri) {
+                        await processImage(dataUri, 'camera');
+                    }
+                }}
+                isProcessing={isParsingRomaneio}
+            />
             <input 
                 type="file" 
                 ref={fileInputRef} 
@@ -516,6 +531,15 @@ export default function MercadoriasPanel() {
                     <div className="flex items-center justify-between">
                         <Label htmlFor='lancamento-input'>Lançamento de Produto</Label>
                          <div className="flex items-center gap-2">
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => setIsCameraSheetOpen(true)}
+                                disabled={isParsingRomaneio}
+                            >
+                                {isParsingRomaneio ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : <Video className="mr-2 h-4 w-4"/>}
+                                Usar Câmera
+                            </Button>
                              <Button
                                 variant="outline"
                                 size="sm"
