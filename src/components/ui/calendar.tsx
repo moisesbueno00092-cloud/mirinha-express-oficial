@@ -84,7 +84,7 @@ function Calendar({
                 value={selectedValue}
                 onValueChange={handleSelect}
               >
-                <SelectTrigger className="h-7 w-auto min-w-[7rem] px-2 text-xs focus:ring-0">
+                <SelectTrigger className="h-7 w-auto min-w-[7rem] px-2 text-xs focus:ring-0 border-0">
                   <SelectValue placeholder={options[Number(value)].props.children} />
                 </SelectTrigger>
                 <SelectContent>
@@ -111,7 +111,7 @@ function Calendar({
                 value={selectedValue}
                 onValueChange={handleSelect}
               >
-                <SelectTrigger className="h-7 w-[4.5rem] px-2 text-xs focus:ring-0">
+                <SelectTrigger className="h-7 w-[4.5rem] px-2 text-xs focus:ring-0 border-0">
                   <SelectValue placeholder={value} />
                 </SelectTrigger>
                 <SelectContent>
