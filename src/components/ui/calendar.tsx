@@ -29,7 +29,7 @@ function Calendar({
         month: "space-y-4",
         caption: "flex justify-center pt-1 relative items-center",
         caption_label: "text-sm font-medium hidden",
-        caption_dropdowns: "flex items-center gap-1.5",
+        caption_dropdowns: "flex justify-center gap-1.5",
         nav: "space-x-1 flex items-center",
         nav_button: cn(
           buttonVariants({ variant: "outline" }),
@@ -84,7 +84,7 @@ function Calendar({
                 value={selectedValue}
                 onValueChange={handleSelect}
               >
-                <SelectTrigger className="h-7 w-auto min-w-[7rem] px-2 text-xs focus:ring-0 border-0">
+                <SelectTrigger className="h-7 w-auto min-w-[7rem] px-2 text-xs focus:ring-0 border-0 bg-transparent">
                   <SelectValue placeholder={options[Number(value)].props.children} />
                 </SelectTrigger>
                 <SelectContent>
@@ -111,7 +111,7 @@ function Calendar({
                 value={selectedValue}
                 onValueChange={handleSelect}
               >
-                <SelectTrigger className="h-7 w-[4.5rem] px-2 text-xs focus:ring-0 border-0">
+                <SelectTrigger className="h-7 w-[4.5rem] px-2 text-xs focus:ring-0 border-0 bg-transparent">
                   <SelectValue placeholder={value} />
                 </SelectTrigger>
                 <SelectContent>
