@@ -2,7 +2,7 @@
 
 import * as React from "react"
 import { ChevronLeft, ChevronRight } from "lucide-react"
-import { DayPicker, DropdownProps } from "react-day-picker"
+import { DayPicker, DropdownProps, HeadRowProps } from "react-day-picker"
 import { ptBR } from 'date-fns/locale';
 
 import { cn } from "@/lib/utils"
@@ -12,12 +12,15 @@ import { ScrollArea } from "./scroll-area";
 
 export type CalendarProps = React.ComponentProps<typeof DayPicker>
 
-function formatWeekdayName(day: Date, options: { locale?: any }) {
-    const weekday = day.toLocaleDateString(options.locale?.code || 'pt-BR', { weekday: 'short' });
+function CustomHeadRow({ weekdayNames }: HeadRowProps) {
     return (
-        <div className="flex items-center justify-center h-full w-full">
-            {weekday.charAt(0).toUpperCase()}
-        </div>
+      <tr>
+        {weekdayNames.map((day, i) => (
+          <th key={i} scope="col" className="h-9 w-9 p-0 font-normal text-[0.8rem] text-muted-foreground">
+            {day.slice(0, 1)}
+          </th>
+        ))}
+      </tr>
     );
 }
 
@@ -32,7 +35,6 @@ function Calendar({
       locale={ptBR}
       showOutsideDays={showOutsideDays}
       className={cn("p-3", className)}
-      formatters={{ formatWeekdayName }}
       classNames={{
         months: "flex flex-col sm:flex-row space-y-4 sm:space-x-4 sm:space-y-0",
         month: "space-y-4",
@@ -48,7 +50,6 @@ function Calendar({
         nav_button_next: "absolute right-1",
         table: "w-full border-collapse space-y-1",
         head_row: "flex",
-        head_cell: "text-muted-foreground rounded-md w-9 font-normal text-[0.8rem]",
         row: "flex w-full mt-2",
         cell: "h-9 w-9 text-center text-sm p-0 relative [&:has([aria-selected].day-range-end)]:rounded-r-md [&:has([aria-selected].day-outside)]:bg-accent/50 [&:has([aria-selected])]:bg-accent first:[&:has([aria-selected])]:rounded-l-md last:[&:has([aria-selected])]:rounded-r-md focus-within:relative focus-within:z-20",
         day: cn(
@@ -69,6 +70,7 @@ function Calendar({
       components={{
         IconLeft: ({ ...props }) => <ChevronLeft className="h-4 w-4" />,
         IconRight: ({ ...props }) => <ChevronRight className="h-4 w-4" />,
+        HeadRow: CustomHeadRow,
         Dropdown: ({ value, onChange, children, ...props }: DropdownProps) => {
           const options = React.Children.toArray(
             children
