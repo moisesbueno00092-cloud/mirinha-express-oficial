@@ -78,5 +78,4 @@ export default function FavoritesMenu({ favoriteClients, onSelectClient, onDelet
     </DropdownMenu>
   );
 }
-
     
