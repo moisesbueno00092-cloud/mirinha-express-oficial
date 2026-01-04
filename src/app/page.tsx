@@ -3,7 +3,7 @@
 
 import { useMemo, useState, useRef, useEffect } from "react";
 import { useRouter } from 'next/navigation';
-import type { Item, Group, PredefinedItem, SelectedBomboniereItem, BomboniereItem, DailyReport, ItemCount } from "@/types";
+import type { Item, Group, PredefinedItem, SelectedBomboniereItem, BomboniereItem, DailyReport, ItemCount, FiadoCustomer } from "@/types";
 import { PREDEFINED_PRICES, DELIVERY_FEE, BOMBONIERE_ITEMS_DEFAULT } from "@/lib/constants";
 import { useAuth, useCollection, useFirestore, useMemoFirebase, useUser } from "@/firebase";
 import { collection, doc, query, where, orderBy, deleteDoc, writeBatch, DocumentReference, addDoc } from "firebase/firestore";
@@ -27,6 +27,7 @@ import {
   DialogHeader,
   DialogTitle,
   DialogFooter,
+  DialogDescription,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
@@ -833,3 +834,5 @@ originalGroup = group;
     </>
   );
 }
+
+    
