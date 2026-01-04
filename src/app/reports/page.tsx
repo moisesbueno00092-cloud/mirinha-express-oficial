@@ -312,15 +312,6 @@ const ReportDetail = ({ report, bomboniereItems, isAggregate = false }: { report
               </div>
             </div>
           </div>
-          {report.items && report.items.length > 0 && !isAggregate && (
-            <>
-              <Separator />
-              <div className="mt-6 grid grid-cols-1 md:grid-cols-2 gap-8">
-                 <DailyTimelineChart items={report.items} dataType="total" title="Picos de Vendas (Valor)" color="primary" />
-                 <DailyTimelineChart items={report.items} dataType="quantity" title="Picos de Vendas (Quantidade)" color="chart-2" />
-              </div>
-            </>
-          )}
         </CardContent>
     </Card>
   )

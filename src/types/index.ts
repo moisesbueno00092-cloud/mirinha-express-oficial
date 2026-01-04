@@ -77,8 +77,8 @@ export interface DailyReport {
   contagemTotal: ItemCount;
   contagemRua: ItemCount;
 
-  // Raw items for the day
-  items: Item[];
+  // Raw items for the day - REMOVED TO PREVENT PERMISSION ISSUES
+  // items: Item[];
 }
 
 // Admin Section Types
