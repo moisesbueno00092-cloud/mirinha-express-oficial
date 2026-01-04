@@ -24,15 +24,12 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { DatePicker } from '@/components/ui/date-picker';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
-import { Loader2, UserPlus, Users, UserX, FolderClock, Briefcase } from 'lucide-react';
+import { Loader2, UserPlus, Users, UserX, Briefcase } from 'lucide-react';
 import { Badge } from '../ui/badge';
 import { cn } from '@/lib/utils';
 import LancamentosFuncionarioPanel from './lancamentos-funcionario-panel';
 import { Separator } from '../ui/separator';
 import DireitosProvisionamentoPanel from './direitos-provisionamento-panel';
-import FechamentoFolhaPanel from './fechamento-folha-panel';
-import FechamentoFavoritosPanel from './fechamento-favoritos-panel';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '../ui/tabs';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -297,63 +294,23 @@ export default function FuncionariosPanel() {
 
             <Separator className="my-8" />
             
-             <Tabs defaultValue="lancamentos">
-                <TabsList className="grid w-full grid-cols-2">
-                    <TabsTrigger value="lancamentos">Lançamentos & Direitos</TabsTrigger>
-                    <TabsTrigger value="fechamentos">Fechamentos</TabsTrigger>
-                </TabsList>
-                <TabsContent value="lancamentos" className="space-y-6 pt-4">
-                    {selectedFuncionario ? (
-                        <>
-                            <LancamentosFuncionarioPanel
-                                funcionarios={funcionarios || []}
-                                selectedFuncionarioId={selectedFuncionarioId}
-                            />
-                            <Separator className="my-8" />
-                            <DireitosProvisionamentoPanel funcionario={selectedFuncionario} />
-                        </>
-                    ) : (
-                         <Card className="mt-4">
-                            <CardContent className="p-10 text-center text-muted-foreground">
-                                <Briefcase className="mx-auto h-8 w-8 mb-2"/>
-                                <p>Selecione um colaborador na lista acima para ver os seus lançamentos e direitos.</p>
-                            </CardContent>
-                        </Card>
-                    )}
-                </TabsContent>
-                <TabsContent value="fechamentos" className="pt-4">
-                    <Tabs defaultValue="clientes_favoritos" className="w-full">
-                         <TabsList className="grid w-full grid-cols-2">
-                            <TabsTrigger value="clientes_favoritos">Clientes Favoritos</TabsTrigger>
-                            <TabsTrigger value="folha_pagamento">Folha de Pagamento</TabsTrigger>
-                        </TabsList>
-                        <TabsContent value="clientes_favoritos" className="pt-4">
-                            <Card>
-                                <CardHeader>
-                                    <CardTitle className="flex items-center gap-2"><Users className="h-5 w-5" /> Fecho Mensal de Clientes Favoritos</CardTitle>
-                                    <CardDescription>Consulte e liquide os saldos mensais dos seus clientes favoritos.</CardDescription>
-                                </CardHeader>
-                                <CardContent>
-                                   <FechamentoFavoritosPanel />
-                                </CardContent>
-                            </Card>
-                        </TabsContent>
-                        <TabsContent value="folha_pagamento" className="pt-4">
-                            {selectedFuncionario ? (
-                                <FechamentoFolhaPanel funcionario={selectedFuncionario} />
-                            ) : (
-                                <Card>
-                                    <CardContent className="p-10 text-center text-muted-foreground">
-                                        <FolderClock className="mx-auto h-8 w-8 mb-2"/>
-                                        <p>Selecione um colaborador na lista de colaboradores para fazer o fecho da sua folha de pagamento.</p>
-                                    </CardContent>
-                                </Card>
-                            )}
-                        </TabsContent>
-                    </Tabs>
-                </TabsContent>
-             </Tabs>
-
+            {selectedFuncionario ? (
+                <div className="space-y-6">
+                    <LancamentosFuncionarioPanel
+                        funcionarios={funcionarios || []}
+                        selectedFuncionarioId={selectedFuncionarioId}
+                    />
+                    <Separator className="my-8" />
+                    <DireitosProvisionamentoPanel funcionario={selectedFuncionario} />
+                </div>
+            ) : (
+                    <Card>
+                    <CardContent className="p-10 text-center text-muted-foreground">
+                        <Briefcase className="mx-auto h-8 w-8 mb-2"/>
+                        <p>Selecione um colaborador na lista acima para ver os seus lançamentos e direitos.</p>
+                    </CardContent>
+                </Card>
+            )}
         </div>
     );
 }
