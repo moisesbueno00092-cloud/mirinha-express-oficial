@@ -160,9 +160,3 @@ export interface SavedFavorite {
   name: string;
   command: string;
 }
-
-export interface FiadoCustomer {
-    name: string;
-    lastCommand: string;
-    lastDate: string;
-}

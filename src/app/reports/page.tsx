@@ -570,7 +570,7 @@ export default function ReportsPage() {
                   </SelectContent>
               </Select>
             </div>
-             <Button variant="outline" className="w-auto" onClick={() => router.push('/fiados')}>
+             <Button variant="outline" className="w-auto" onClick={() => router.push('/clientes')}>
                 <Users className="mr-2 h-4 w-4" />
                 Clientes
             </Button>

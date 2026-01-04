@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useMemo } from 'react';
@@ -66,7 +65,7 @@ const monthOptions = [
 ];
 
 
-export default function FiadosReportPage() {
+export default function ClientesReportPage() {
   const { user, isUserLoading } = useUser();
   const firestore = useFirestore();
   
@@ -237,5 +236,3 @@ export default function FiadosReportPage() {
     </div>
   );
 }
-
-    
