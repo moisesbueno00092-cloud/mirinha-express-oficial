@@ -38,16 +38,8 @@ export interface Item {
   predefinedItems?: PredefinedItem[]; // For items like M, P, G etc.
   bomboniereItems?: SelectedBomboniereItem[];
 
-  // For favorite client entries
+  // For fiado entries
   customerName?: string;
-  customerId?: string; // ID from FavoriteClient
-}
-
-export interface FavoriteClient {
-  id: string;
-  userId: string;
-  name: string;
-  command: string;
 }
 
 export type ItemCount = { [itemName: string]: number };
@@ -164,16 +156,3 @@ export interface ParsedRomaneioItem {
   quantidade: number;
   valorTotal: number;
 }
-
-export interface FavoriteClientEntry {
-  id: string;
-  favoriteClientId: string;
-  orderItemId: string;
-  userId: string;
-  timestamp: string; // ISO string
-  total: number;
-  estaPago: boolean;
-}
-    
-
-    

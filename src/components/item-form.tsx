@@ -24,8 +24,7 @@ export default function ItemForm({
     onItemSubmit, 
     onOpenBomboniere,
     isProcessing,
-    inputRef,
-    children
+    inputRef
 }: ItemFormProps) {
   
   return (
@@ -45,7 +44,6 @@ export default function ItemForm({
               className="h-10 flex-1 sm:h-12 text-base"
               disabled={isProcessing}
             />
-            {children}
             <Button 
                 type="button" 
                 variant="outline"

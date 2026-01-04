@@ -3,7 +3,7 @@
 
 import { useMemo, useState, useRef, useEffect } from "react";
 import { useRouter } from 'next/navigation';
-import type { Item, Group, PredefinedItem, SelectedBomboniereItem, BomboniereItem, FavoriteClient, DailyReport, ItemCount, FavoriteClientEntry } from "@/types";
+import type { Item, Group, PredefinedItem, SelectedBomboniereItem, BomboniereItem, DailyReport, ItemCount } from "@/types";
 import { PREDEFINED_PRICES, DELIVERY_FEE, BOMBONIERE_ITEMS_DEFAULT } from "@/lib/constants";
 import { useAuth, useCollection, useFirestore, useMemoFirebase, useUser } from "@/firebase";
 import { collection, doc, query, where, orderBy, deleteDoc, writeBatch, DocumentReference, addDoc } from "firebase/firestore";
@@ -27,11 +27,8 @@ import {
   DialogHeader,
   DialogTitle,
   DialogFooter,
-  DialogClose,
-  DialogDescription,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { Save, Loader2, History, Settings, Wrench } from "lucide-react";
 import { addDocumentNonBlocking, deleteDocumentNonBlocking, setDocumentNonBlocking, updateDocumentNonBlocking } from "@/firebase/non-blocking-updates";
@@ -41,10 +38,10 @@ import ItemList, { renderItemName, groupBadgeStyles } from "@/components/item-li
 import BomboniereModal from "@/components/bomboniere-modal";
 import StockEditModal from "@/components/stock-edit-modal";
 import MirinhaLogo from "@/components/mirinha-logo";
-import FavoritesMenu from "@/components/favorites-menu";
 import { createUserWithEmailAndPassword, signInWithEmailAndPassword } from "firebase/auth";
 import { format, startOfDay, endOfDay, isWithinInterval } from "date-fns";
 import { cn } from "@/lib/utils";
+import { Label } from "@/components/ui/label";
 
 const formatCurrency = (value: number) => {
   return new Intl.NumberFormat("pt-BR", {
@@ -108,14 +105,9 @@ export default function Home() {
   
   const bomboniereItemsRef = useMemoFirebase(() => (firestore ? query(collection(firestore, 'bomboniere_items'), orderBy('name', 'asc')) : null), [firestore]);
   
-  const favoriteClientsQuery = useMemoFirebase(
-    () => (firestore && user ? query(collection(firestore, "favorite_clients"), where("userId", "==", user.uid)) : null),
-    [firestore, user]
-  );
 
   const { data: allItems, isLoading: isLoadingItems, error: firestoreError } = useCollection<Item>(userOrderItemsQuery);
   const { data: bomboniereItems, isLoading: isLoadingBomboniere } = useCollection<BomboniereItem>(bomboniereItemsRef);
-  const { data: favoriteClients, isLoading: isLoadingFavorites } = useCollection<FavoriteClient>(favoriteClientsQuery);
   
   const [isProcessing, setIsProcessing] = useState(false);
   const [isSavingReport, setIsSavingReport] = useState(false);
@@ -126,11 +118,6 @@ export default function Home() {
   const [isStockEditModalOpen, setIsStockEditModalOpen] = useState(false);
   const [rawInput, setRawInput] = useState("");
   const inputRef = useRef<HTMLInputElement>(null);
-  
-  const [isSaveFavoriteOpen, setIsSaveFavoriteOpen] = useState(false);
-  const [itemToSaveAsFavorite, setItemToSaveAsFavorite] = useState<Item | null>(null);
-  const [favoriteName, setFavoriteName] = useState("");
-  const [favoriteToDelete, setFavoriteToDelete] = useState<string | null>(null);
   
   const [isPasswordModalOpen, setIsPasswordModalOpen] = useState(false);
   const [passwordInput, setPasswordInput] = useState('');
@@ -164,7 +151,7 @@ export default function Home() {
     }
   }, [firestore, bomboniereItems, isLoadingBomboniere]);
 
-  const handleUpsertItem = async (rawInputToProcess: string, currentItem?: Item | null, favoriteClient?: FavoriteClient) => {
+  const handleUpsertItem = async (rawInputToProcess: string, currentItem?: Item | null) => {
     setIsProcessing(true);
     if (!user || !firestore) {
         toast({ variant: "destructive", title: "Erro", description: "Utilizador não autenticado." });
@@ -181,7 +168,7 @@ export default function Home() {
         let deliveryFeeApplicable = false;
         let isTaxExempt = false;
         let originalGroup: Group | null = null;
-        let customerName: string | undefined = favoriteClient?.name;
+        let customerName: string | undefined;
         
         const partsWithExemption = mainInput.split(' ').filter(part => part.trim() !== '');
         if (partsWithExemption.map(p => p.toUpperCase()).includes('E')) {
@@ -372,7 +359,6 @@ originalGroup = group;
             total,
             originalCommand: rawInputToProcess,
             ...(customerName && { customerName }),
-            ...(favoriteClient && { customerId: favoriteClient.id }),
             ...(individualPrices.length > 0 ? { individualPrices } : {}),
             ...(predefinedItems.length > 0 ? { predefinedItems } : {}),
             ...(processedBomboniereItems.length > 0 ? { bomboniereItems: processedBomboniereItems } : {}),
@@ -389,19 +375,6 @@ originalGroup = group;
             });
         } else {
             const docRef = await addDoc(orderItemsCollectionRef, finalItem);
-            
-            if (favoriteClient) {
-              const favoriteClientEntry: Omit<FavoriteClientEntry, 'id'> = {
-                favoriteClientId: favoriteClient.id,
-                orderItemId: docRef.id,
-                userId: user.uid,
-                timestamp: timestamp,
-                total: total,
-                estaPago: false,
-              };
-              const favClientEntriesCollectionRef = collection(firestore, "favorite_client_entries");
-              addDocumentNonBlocking(favClientEntriesCollectionRef, favoriteClientEntry as any);
-            }
             
             toast({
                 duration: 4000,
@@ -465,47 +438,6 @@ originalGroup = group;
     e.preventDefault();
     if (!rawInput.trim()) return;
     await handleUpsertItem(rawInput);
-  };
-  
-  const handleSaveFavoriteRequest = (item: Item) => {
-    if (!item.originalCommand) {
-        toast({ variant: 'destructive', title: 'Erro', description: 'Este lançamento não pode ser salvo como favorito.' });
-        return;
-    }
-    setItemToSaveAsFavorite(item);
-    setFavoriteName(item.customerName || '');
-    setIsSaveFavoriteOpen(true);
-  };
-
-  const confirmSaveFavorite = async () => {
-    if (!firestore || !user || !itemToSaveAsFavorite || !favoriteName.trim() || !itemToSaveAsFavorite.originalCommand) return;
-    
-    const newFavorite: Omit<FavoriteClient, 'id'> = {
-      userId: user.uid,
-      name: favoriteName.trim(),
-      command: itemToSaveAsFavorite.originalCommand,
-    };
-    
-    const favClientsCollectionRef = collection(firestore, "favorite_clients");
-    addDocumentNonBlocking(favClientsCollectionRef, newFavorite);
-    toast({ title: 'Sucesso', description: `"${favoriteName.trim()}" foi salvo como favorito.` });
-    setIsSaveFavoriteOpen(false);
-  };
-  
-  const handleSelectFavorite = (client: FavoriteClient) => {
-    handleUpsertItem(client.command, null, client);
-  };
-  
-  const handleDeleteFavoriteRequest = (clientId: string) => {
-    setFavoriteToDelete(clientId);
-  };
-
-  const confirmDeleteFavorite = () => {
-    if (!firestore || !favoriteToDelete || !user) return;
-    const docRef = doc(firestore, "favorite_clients", favoriteToDelete);
-    deleteDocumentNonBlocking(docRef);
-    toast({ title: 'Sucesso', description: 'Favorito removido.', variant: 'destructive' });
-    setFavoriteToDelete(null);
   };
 
   const handleEditRequest = (item: Item) => {
@@ -738,21 +670,6 @@ originalGroup = group;
         </AlertDialogContent>
       </AlertDialog>
 
-      <AlertDialog open={!!favoriteToDelete} onOpenChange={(open) => !open && setFavoriteToDelete(null)}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Excluir Favorito?</AlertDialogTitle>
-            <AlertDialogDescription>
-              Essa ação não pode ser desfeita. Isso excluirá permanentemente o cliente favorito.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancelar</AlertDialogCancel>
-            <AlertDialogAction onClick={confirmDeleteFavorite}>Confirmar</AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-
       <Dialog open={!!editingItem} onOpenChange={(open) => !open && setEditingItem(null)}>
         <DialogContent className="sm:max-w-[425px]">
           <DialogHeader>
@@ -795,38 +712,6 @@ originalGroup = group;
         onClose={() => setIsStockEditModalOpen(false)}
         bomboniereItems={bomboniereItems || []}
       />
-
-      <Dialog open={isSaveFavoriteOpen} onOpenChange={setIsSaveFavoriteOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Salvar como Favorito</DialogTitle>
-            <DialogDescription>
-              Dê um nome para este cliente favorito. O comando "{itemToSaveAsFavorite?.originalCommand}" será salvo.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="grid gap-4 py-4">
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="favorite-name" className="text-right">
-                Nome
-              </Label>
-              <Input
-                id="favorite-name"
-                value={favoriteName}
-                onChange={(e) => setFavoriteName(e.target.value)}
-                className="col-span-3"
-                autoFocus
-                onKeyDown={async (e) => {
-                  if (e.key === 'Enter') await confirmSaveFavorite();
-                }}
-              />
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setIsSaveFavoriteOpen(false)}>Cancelar</Button>
-            <Button onClick={confirmSaveFavorite} disabled={!favoriteName.trim()}>Salvar Favorito</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
 
       <Dialog open={isPasswordModalOpen} onOpenChange={setIsPasswordModalOpen}>
         <DialogContent>
@@ -877,14 +762,7 @@ originalGroup = group;
             onOpenBomboniere={() => setBomboniereModalOpen(true)}
             isProcessing={isProcessing}
             inputRef={inputRef}
-          >
-             <FavoritesMenu 
-              favoriteClients={favoriteClients || []}
-              onSelectClient={handleSelectFavorite}
-              onDeleteClient={handleDeleteFavoriteRequest}
-              isLoading={isLoadingFavorites}
-             />
-          </ItemForm>
+          />
           
           <Card>
             <CardContent className="p-2 sm:p-6">
@@ -893,7 +771,6 @@ originalGroup = group;
                 onEdit={handleEditRequest}
                 onDelete={handleDeleteRequest}
                 isLoading={isLoadingItems}
-                onSaveFavorite={handleSaveFavoriteRequest}
               />
             </CardContent>
           </Card>
@@ -948,5 +825,3 @@ originalGroup = group;
     </>
   );
 }
-
-    
