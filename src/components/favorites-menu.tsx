@@ -81,5 +81,3 @@ export default function FavoritesMenu({ allItems, onSelect }: FavoritesMenuProps
     </DropdownMenu>
   );
 }
-
-    

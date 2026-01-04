@@ -162,5 +162,3 @@ export interface FiadoCustomer {
     lastCommand: string;
     lastSeen: string;
 }
-
-    
