@@ -160,3 +160,5 @@ export interface SavedFavorite {
   name: string;
   command: string;
 }
+
+    

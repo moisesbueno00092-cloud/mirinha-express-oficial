@@ -40,7 +40,7 @@ import {
 } from "@/components/ui/chart"
 import { PieChart, Pie, Cell, ResponsiveContainer } from "recharts"
 
-import type { DailyReport, ItemCount, BomboniereItem, Item } from '@/types';
+import type { DailyReport, ItemCount, BomboniereItem } from '@/types';
 import DailyTimelineChart from '@/components/daily-timeline-chart';
 import { cn } from '@/lib/utils';
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@/components/ui/select';
@@ -126,7 +126,7 @@ const ReportDetail = ({ report, bomboniereItems, isAggregate = false }: { report
         const { lanches: lanchesRua, bomboniere: bomboniereRua } = separateItemsByCategory(contagemRua);
         
         return { lanchesSalao, bomboniereSalao, lanchesRua, bomboniereRua };
-    }, [report.contagemTotal, report.contagemRua, bomboniereItems, separateItemsByCategory]);
+    }, [report.contagemTotal, report.contagemRua, bomboniereItems]);
 
     const renderItemCountList = (counts: ItemCount) => {
       if (!counts || Object.keys(counts).length === 0) {
@@ -575,9 +575,10 @@ export default function ReportsPage() {
 
         <main className="space-y-8">
             <Tabs defaultValue="agregado" className="w-full">
-                <TabsList className="grid w-full grid-cols-2">
+                <TabsList className="grid w-full grid-cols-3">
                     <TabsTrigger value="agregado">Relatório Agregado</TabsTrigger>
                     <TabsTrigger value="diario">Histórico Diário</TabsTrigger>
+                     <TabsTrigger value="fiados" onClick={() => router.push('/fiados')}>Relatório Fiados</TabsTrigger>
                 </TabsList>
                 
                 <TabsContent value="agregado">
@@ -608,7 +609,7 @@ export default function ReportsPage() {
                                           <p className="font-bold text-lg text-primary">{formatCurrency(report.totalGeral)}</p>
                                       </div>
 
-                                      <AccordionTrigger className="p-2 rounded-md hover:bg-accent [&[data-state=open]>svg]:rotate-180">
+                                      <AccordionTrigger>
                                           <ChevronDown className="h-5 w-5 shrink-0 transition-transform duration-200" />
                                       </AccordionTrigger>
 
@@ -639,9 +640,12 @@ export default function ReportsPage() {
                       </Card>
                     )}
                 </TabsContent>
+                <TabsContent value="fiados" />
             </Tabs>
         </main>
       </div>
     </>
   );
 }
+
+    
