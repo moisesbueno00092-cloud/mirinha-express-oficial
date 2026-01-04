@@ -101,10 +101,10 @@ export default function Home() {
     ensureUser();
   }, [user, isUserLoading, auth]);
 
-  const userOrderItemsQuery = useMemoFirebase(
-    () => (firestore && user ? query(collection(firestore, "order_items"), where("userId", "==", user.uid)) : null),
-    [firestore, user]
-  );
+  const userOrderItemsQuery = useMemoFirebase(() => {
+    if (!firestore || !user) return null;
+    return query(collection(firestore, "order_items"), where("userId", "==", user.uid));
+  }, [firestore, user]);
   
   const bomboniereItemsRef = useMemoFirebase(() => (firestore ? query(collection(firestore, 'bomboniere_items'), orderBy('name', 'asc')) : null), [firestore]);
   
@@ -918,3 +918,5 @@ originalGroup = group;
     </>
   );
 }
+
+    

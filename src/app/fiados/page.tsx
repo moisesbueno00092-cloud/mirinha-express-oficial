@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useMemo } from 'react';
@@ -73,7 +74,10 @@ export default function FiadosReportPage() {
   const [selectedMonth, setSelectedMonth] = useState<string>(String(new Date().getMonth()));
   const yearOptions = useMemo(() => generateYearOptions(), []);
 
-  const allItemsQuery = useMemoFirebase(() => (firestore && user ? query(collection(firestore, 'order_items'), where("userId", "==", user.uid), orderBy('timestamp', 'desc')) : null), [firestore, user]);
+  const allItemsQuery = useMemoFirebase(() => {
+    if (!firestore || !user) return null;
+    return query(collection(firestore, 'order_items'), where("userId", "==", user.uid), orderBy('timestamp', 'desc'));
+  }, [firestore, user]);
   const { data: allItems, isLoading: isLoadingItems } = useCollection<Item>(allItemsQuery);
 
   const customerReport = useMemo(() => {
@@ -233,3 +237,5 @@ export default function FiadosReportPage() {
     </div>
   );
 }
+
+    
