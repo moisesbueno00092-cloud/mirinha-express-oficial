@@ -86,7 +86,7 @@
         "totalItensRua": { "type": "number" },
         "contagemTotal": { "type": "object" },
         "contagemRua": { "type": "object" },
-        "items": { "type": "array", "items": { "$ref": "#/backend/entities/OrderItem" }}
+        "items": { "type": "array", "items": { "$ref": "#/entities/OrderItem" }}
       },
       "required": [
         "userId", "reportDate", "createdAt", "totalGeral", "totalAVista", "totalFiado"
@@ -171,7 +171,7 @@
             "valorLiquido": { "type": "number" },
             "lancamentos": { 
                 "type": "array",
-                "items": { "$ref": "#/backend/entities/FuncionarioLancamentoFinanceiro" }
+                "items": { "$ref": "#/entities/FuncionarioLancamentoFinanceiro" }
             }
         },
         "required": ["funcionarioId", "mes", "ano", "dataFechamento", "salarioBase", "totalVencimentos", "totalDescontos", "valorLiquido"]
