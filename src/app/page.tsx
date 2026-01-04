@@ -32,7 +32,7 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
-import { Save, Loader2, History, Settings, Wrench, Users, Star } from "lucide-react";
+import { Save, Loader2, History, Settings, Wrench, Users, Star, PiggyBank } from "lucide-react";
 import { addDocumentNonBlocking, deleteDocumentNonBlocking, setDocumentNonBlocking, updateDocumentNonBlocking } from "@/firebase/non-blocking-updates";
 
 import ItemForm from "@/components/item-form";
@@ -874,6 +874,10 @@ originalGroup = group;
             >
                 {isSavingReport ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
                 Salvar Relatório Final
+            </Button>
+            <Button variant="outline" className="w-full md:w-auto" onClick={() => router.push('/fiados')}>
+                <PiggyBank className="mr-2 h-4 w-4" />
+                Ver Relatório de Fiados
             </Button>
             <Button variant="outline" className="w-full md:w-auto" onClick={() => router.push('/reports')}>
                 <History className="mr-2 h-4 w-4" />

@@ -12,7 +12,7 @@ import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
-import { Loader2, ArrowLeft, Trash2, ChevronDown, Calendar, AreaChart, TrendingUp, BarChart, Info, Settings, Users } from 'lucide-react';
+import { Loader2, ArrowLeft, Trash2, ChevronDown, Calendar, AreaChart, TrendingUp, BarChart, Info, Settings, Users, PiggyBank } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import {
   AlertDialog,
@@ -579,6 +579,10 @@ export default function ReportsPage() {
                   </SelectContent>
               </Select>
             </div>
+             <Button variant="outline" className="w-auto" onClick={() => router.push('/fiados')}>
+                <PiggyBank className="mr-2 h-4 w-4" />
+                Fiados
+            </Button>
           </div>
         </header>
 
