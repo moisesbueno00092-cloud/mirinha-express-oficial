@@ -76,8 +76,6 @@ export interface DailyReport {
   // Detailed counts
   contagemTotal: ItemCount;
   contagemRua: ItemCount;
-
-  items: Item[];
 }
 
 // Admin Section Types

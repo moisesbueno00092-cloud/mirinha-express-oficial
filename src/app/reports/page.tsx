@@ -327,7 +327,7 @@ const AggregateReport = ({ reports, bomboniereItems }: { reports: DailyReport[],
                 totalGeral: 0, totalAVista: 0, totalFiado: 0, totalVendasSalao: 0, totalVendasRua: 0,
                 totalFiadoSalao: 0, totalFiadoRua: 0, totalKg: 0, totalTaxas: 0, totalBomboniereSalao: 0,
                 totalBomboniereRua: 0, totalItens: 0, totalPedidos: 0, totalEntregas: 0, totalItensRua: 0,
-                contagemTotal: {}, contagemRua: {}, items: []
+                contagemTotal: {}, contagemRua: {},
             };
         }
 
@@ -339,7 +339,7 @@ const AggregateReport = ({ reports, bomboniereItems }: { reports: DailyReport[],
             totalGeral: 0, totalAVista: 0, totalFiado: 0, totalVendasSalao: 0, totalVendasRua: 0,
             totalFiadoSalao: 0, totalFiadoRua: 0, totalKg: 0, totalTaxas: 0, totalBomboniereSalao: 0,
             totalBomboniereRua: 0, totalItens: 0, totalPedidos: 0, totalEntregas: 0, totalItensRua: 0,
-            contagemTotal: {}, contagemRua: {}, items: []
+            contagemTotal: {}, contagemRua: {},
         };
         
         return reports.reduce((acc, report) => {
@@ -571,8 +571,8 @@ export default function ReportsPage() {
               </Select>
             </div>
              <Button variant="outline" className="w-auto" onClick={() => router.push('/fiados')}>
-                <PiggyBank className="mr-2 h-4 w-4" />
-                Fiados
+                <Users className="mr-2 h-4 w-4" />
+                Clientes
             </Button>
           </div>
         </header>

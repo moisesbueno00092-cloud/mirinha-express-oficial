@@ -305,7 +305,7 @@ originalGroup = group;
                 } catch(e) {
                     console.error("AI parsing failed, skipping part:", part, e);
                 }
-            } else if (!isNumeric(part) && /^[a-zA-Z\s]+$/.test(part) && (group.startsWith('Fiado'))) {
+            } else if (!isNumeric(part) && /^[a-zA-Z\s]+$/.test(part) && (group.startsWith('Fiado') || !customerName)) {
                 potentialCustomerNameParts.push(part);
             }
         }
@@ -617,7 +617,6 @@ originalGroup = group;
       totalItensRua: totalItensRua,
       contagemTotal: contagemTotal,
       contagemRua: contagemRua,
-      items: items,
     };
 
     try {
@@ -876,8 +875,8 @@ originalGroup = group;
                 Salvar Relatório Final
             </Button>
             <Button variant="outline" className="w-full md:w-auto" onClick={() => router.push('/fiados')}>
-                <PiggyBank className="mr-2 h-4 w-4" />
-                Ver Relatório de Fiados
+                <Users className="mr-2 h-4 w-4" />
+                Relatório de Clientes
             </Button>
             <Button variant="outline" className="w-full md:w-auto" onClick={() => router.push('/reports')}>
                 <History className="mr-2 h-4 w-4" />

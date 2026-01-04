@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useMemo } from 'react';
@@ -77,18 +76,18 @@ export default function FiadosReportPage() {
   const allItemsQuery = useMemoFirebase(() => (firestore && user ? query(collection(firestore, 'order_items'), where("userId", "==", user.uid), orderBy('timestamp', 'desc')) : null), [firestore, user]);
   const { data: allItems, isLoading: isLoadingItems } = useCollection<Item>(allItemsQuery);
 
-  const fiadoReport = useMemo(() => {
-    if (!allItems) return { clients: [], totalFiadoMonth: 0 };
+  const customerReport = useMemo(() => {
+    if (!allItems) return { clients: [], totalMonth: 0 };
     
     let referenceDate = setMonth(setYear(new Date(), selectedYear), parseInt(selectedMonth));
     const startDate = startOfMonth(referenceDate);
     const endDate = endOfMonth(referenceDate);
     
     const clientData: Record<string, { total: number, items: Item[] }> = {};
-    let totalFiadoMonth = 0;
+    let totalMonth = 0;
 
-    const fiadoItemsThisMonth = allItems.filter(item => {
-        if (!item.group?.includes('Fiado') || !item.customerName) return false;
+    const itemsThisMonth = allItems.filter(item => {
+        if (!item.customerName) return false;
         try {
             const itemDate = parseISO(item.timestamp);
             return isWithinInterval(itemDate, { start: startDate, end: endDate });
@@ -97,21 +96,21 @@ export default function FiadosReportPage() {
         }
     });
 
-    fiadoItemsThisMonth.forEach(item => {
+    itemsThisMonth.forEach(item => {
         const clientName = item.customerName!;
         if (!clientData[clientName]) {
             clientData[clientName] = { total: 0, items: [] };
         }
         clientData[clientName].total += item.total;
         clientData[clientName].items.push(item);
-        totalFiadoMonth += item.total;
+        totalMonth += item.total;
     });
 
     const clients = Object.entries(clientData)
       .map(([name, data]) => ({ name, ...data }))
       .sort((a,b) => a.name.localeCompare(b.name));
 
-    return { clients, totalFiadoMonth };
+    return { clients, totalMonth };
 
   }, [allItems, selectedYear, selectedMonth]);
 
@@ -134,7 +133,7 @@ export default function FiadosReportPage() {
               </Button>
             </Link>
             <div>
-              <h1 className="text-2xl sm:text-3xl font-bold text-foreground">Relatório de Fiados</h1>
+              <h1 className="text-2xl sm:text-3xl font-bold text-foreground">Relatório de Clientes</h1>
               <p className="text-muted-foreground">Consolidado mensal das contas de clientes.</p>
             </div>
           </div>
@@ -172,8 +171,8 @@ export default function FiadosReportPage() {
             <Card>
                 <CardHeader>
                     <CardTitle className="flex items-center justify-between">
-                        <span>Total em Aberto no Mês</span>
-                        <span className="text-destructive">{formatCurrency(fiadoReport.totalFiadoMonth)}</span>
+                        <span>Total de Clientes no Mês</span>
+                        <span className="text-primary">{formatCurrency(customerReport.totalMonth)}</span>
                     </CardTitle>
                     <CardDescription>
                         {format(setMonth(new Date(), parseInt(selectedMonth)), 'MMMM', { locale: ptBR })} de {selectedYear}
@@ -183,9 +182,9 @@ export default function FiadosReportPage() {
         
             <h2 className="text-xl font-semibold">Clientes do Mês</h2>
 
-            {fiadoReport.clients.length > 0 ? (
+            {customerReport.clients.length > 0 ? (
                 <Accordion type="multiple" className="w-full space-y-2">
-                    {fiadoReport.clients.map(client => (
+                    {customerReport.clients.map(client => (
                         <AccordionItem value={client.name} key={client.name} className="border-b-0">
                             <div className="bg-card p-2 rounded-lg border flex items-center gap-4">
                                 <div className="bg-amber-500 text-white rounded-md flex items-center justify-center w-12 h-12 shrink-0">
@@ -196,7 +195,7 @@ export default function FiadosReportPage() {
                                 </div>
                                 <div className="text-right mr-4">
                                     <p className="text-xs text-muted-foreground">Total do Mês</p>
-                                    <p className="font-bold text-lg text-destructive">{formatCurrency(client.total)}</p>
+                                    <p className="font-bold text-lg text-primary">{formatCurrency(client.total)}</p>
                                 </div>
                                 <AccordionTrigger className="p-2 rounded-md hover:bg-accent [&[data-state=open]>svg]:rotate-180" />
                             </div>
@@ -226,7 +225,7 @@ export default function FiadosReportPage() {
                 <Card>
                     <CardContent className="p-10 text-center text-muted-foreground">
                         <PiggyBank className="mx-auto h-8 w-8 mb-2"/>
-                        <p>Nenhum lançamento fiado para este mês.</p>
+                        <p>Nenhum lançamento para clientes encontrado neste mês.</p>
                     </CardContent>
                 </Card>
             )}

@@ -46,6 +46,10 @@
         },
         "total": {
           "type": "number"
+        },
+        "customerName": {
+            "type": "string",
+            "description": "The name of the customer for fiado or favorite orders."
         }
       },
       "required": ["userId", "name", "price", "group", "quantity", "timestamp", "total"]
@@ -85,8 +89,7 @@
         "totalEntregas": { "type": "number" },
         "totalItensRua": { "type": "number" },
         "contagemTotal": { "type": "object" },
-        "contagemRua": { "type": "object" },
-        "items": { "type": "array", "items": { "$ref": "#/entities/OrderItem" }}
+        "contagemRua": { "type": "object" }
       },
       "required": [
         "userId", "reportDate", "createdAt", "totalGeral", "totalAVista", "totalFiado"
