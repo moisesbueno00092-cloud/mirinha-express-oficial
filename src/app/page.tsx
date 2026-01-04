@@ -30,7 +30,7 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
-import { Save, Loader2, History, Settings, Wrench } from "lucide-react";
+import { Save, Loader2, History, Settings, Wrench, Users } from "lucide-react";
 import { addDocumentNonBlocking, deleteDocumentNonBlocking, setDocumentNonBlocking, updateDocumentNonBlocking } from "@/firebase/non-blocking-updates";
 
 import ItemForm from "@/components/item-form";
@@ -42,6 +42,7 @@ import { createUserWithEmailAndPassword, signInWithEmailAndPassword } from "fire
 import { format, startOfDay, endOfDay, isWithinInterval } from "date-fns";
 import { cn } from "@/lib/utils";
 import { Label } from "@/components/ui/label";
+import FavoritesMenu from "@/components/favorites-menu";
 
 const formatCurrency = (value: number) => {
   return new Intl.NumberFormat("pt-BR", {
@@ -298,7 +299,7 @@ originalGroup = group;
                 } catch(e) {
                     console.error("AI parsing failed, skipping part:", part, e);
                 }
-            } else if (!customerName && !isNumeric(part) && /^[a-zA-Z\s]+$/.test(part) && (group.startsWith('Fiado'))) {
+            } else if (!isNumeric(part) && /^[a-zA-Z\s]+$/.test(part) && (group.startsWith('Fiado'))) {
                 potentialCustomerNameParts.push(part);
             }
         }
@@ -444,6 +445,11 @@ originalGroup = group;
     setEditingItem(item);
     setEditInputValue(item.originalCommand || '');
   };
+  
+  const handleFavoriteSelect = (command: string) => {
+      setRawInput(command);
+      setTimeout(() => inputRef.current?.focus(), 0);
+  }
 
   const handleSaveEdit = () => {
     if (editingItem && editInputValue) {
@@ -762,7 +768,9 @@ originalGroup = group;
             onOpenBomboniere={() => setBomboniereModalOpen(true)}
             isProcessing={isProcessing}
             inputRef={inputRef}
-          />
+          >
+            <FavoritesMenu allItems={allItems || []} onSelect={handleFavoriteSelect} />
+          </ItemForm>
           
           <Card>
             <CardContent className="p-2 sm:p-6">

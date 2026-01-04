@@ -24,14 +24,18 @@ export default function ItemForm({
     onItemSubmit, 
     onOpenBomboniere,
     isProcessing,
-    inputRef
+    inputRef,
+    children
 }: ItemFormProps) {
   
   return (
     <Card>
       <CardHeader className="flex-row items-center justify-between p-4 sm:p-6">
         <CardTitle className="text-xl sm:text-2xl">Adicionar Novo Item</CardTitle>
-        <LaunchGuideSheet />
+        <div className="flex items-center gap-2">
+            {children}
+            <LaunchGuideSheet />
+        </div>
       </CardHeader>
       <CardContent className="p-4 sm:p-6 pt-0">
         <form onSubmit={onItemSubmit} className="flex gap-2">

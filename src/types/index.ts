@@ -156,3 +156,10 @@ export interface ParsedRomaneioItem {
   quantidade: number;
   valorTotal: number;
 }
+
+// App-specific types
+export interface FiadoCustomer {
+    name: string;
+    lastCommand: string;
+    lastSeen: string;
+}
