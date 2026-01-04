@@ -3,11 +3,12 @@
 
 import { useMemo, useState, useRef, useEffect } from "react";
 import { useRouter } from 'next/navigation';
-import type { Item, Group, PredefinedItem, SelectedBomboniereItem, BomboniereItem, DailyReport, ItemCount, FiadoCustomer } from "@/types";
+import type { Item, Group, PredefinedItem, SelectedBomboniereItem, BomboniereItem, DailyReport, ItemCount, SavedFavorite } from "@/types";
 import { PREDEFINED_PRICES, DELIVERY_FEE, BOMBONIERE_ITEMS_DEFAULT } from "@/lib/constants";
 import { useAuth, useCollection, useFirestore, useMemoFirebase, useUser } from "@/firebase";
 import { collection, doc, query, where, orderBy, deleteDoc, writeBatch, DocumentReference, addDoc } from "firebase/firestore";
 import { parseCustomItemPrice } from "@/ai/flows/parse-custom-item-price";
+import usePersistentState from "@/hooks/use-persistent-state";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -31,7 +32,7 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
-import { Save, Loader2, History, Settings, Wrench, Users } from "lucide-react";
+import { Save, Loader2, History, Settings, Wrench, Users, Star } from "lucide-react";
 import { addDocumentNonBlocking, deleteDocumentNonBlocking, setDocumentNonBlocking, updateDocumentNonBlocking } from "@/firebase/non-blocking-updates";
 
 import ItemForm from "@/components/item-form";
@@ -39,11 +40,11 @@ import ItemList, { renderItemName, groupBadgeStyles } from "@/components/item-li
 import BomboniereModal from "@/components/bomboniere-modal";
 import StockEditModal from "@/components/stock-edit-modal";
 import MirinhaLogo from "@/components/mirinha-logo";
+import FavoritesMenu from "@/components/favorites-menu";
 import { createUserWithEmailAndPassword, signInWithEmailAndPassword } from "firebase/auth";
 import { format, startOfDay, endOfDay, isWithinInterval } from "date-fns";
 import { cn } from "@/lib/utils";
 import { Label } from "@/components/ui/label";
-import FavoritesMenu from "@/components/favorites-menu";
 
 const formatCurrency = (value: number) => {
   return new Intl.NumberFormat("pt-BR", {
@@ -124,6 +125,10 @@ export default function Home() {
   const [isPasswordModalOpen, setIsPasswordModalOpen] = useState(false);
   const [passwordInput, setPasswordInput] = useState('');
   const [passwordAction, setPasswordAction] = useState<'reports' | 'stock' | null>(null);
+
+  const [savedFavorites, setSavedFavorites] = usePersistentState<SavedFavorite[]>('savedFavorites', []);
+  const [favoriteToSave, setFavoriteToSave] = useState<Item | null>(null);
+  const [favoriteName, setFavoriteName] = useState('');
 
 
   const { toast } = useToast();
@@ -446,11 +451,6 @@ originalGroup = group;
     setEditingItem(item);
     setEditInputValue(item.originalCommand || '');
   };
-  
-  const handleFavoriteSelect = (command: string) => {
-      setRawInput(command);
-      setTimeout(() => inputRef.current?.focus(), 0);
-  }
 
   const handleSaveEdit = () => {
     if (editingItem && editInputValue) {
@@ -459,6 +459,50 @@ originalGroup = group;
     }
   };
   
+  const handleFavoriteSelect = (command: string) => {
+      setRawInput(command);
+      setTimeout(() => inputRef.current?.focus(), 0);
+  }
+
+  const handleFavoriteSaveRequest = (item: Item) => {
+      if (!item.originalCommand) {
+          toast({ variant: 'destructive', title: 'Não é possível favoritar', description: 'Este lançamento não possui um comando original para ser guardado.' });
+          return;
+      }
+      setFavoriteToSave(item);
+      setFavoriteName(item.customerName || '');
+  }
+  
+  const handleConfirmSaveFavorite = () => {
+      if (!favoriteToSave || !favoriteToSave.originalCommand || !favoriteName.trim()) {
+          toast({ variant: 'destructive', title: 'Erro', description: 'O nome do favorito não pode estar em branco.' });
+          return;
+      }
+  
+      const newFavorite: SavedFavorite = {
+          id: String(Date.now()),
+          name: favoriteName,
+          command: favoriteToSave.originalCommand,
+      };
+  
+      setSavedFavorites(prev => {
+          const existing = prev.find(f => f.command.toLowerCase() === newFavorite.command.toLowerCase());
+          if (existing) {
+              return prev.map(f => f.id === existing.id ? { ...f, name: newFavorite.name } : f);
+          }
+          return [...prev, newFavorite].sort((a,b) => a.name.localeCompare(b.name));
+      });
+  
+      toast({ title: 'Sucesso!', description: `"${favoriteName}" foi guardado nos seus favoritos.` });
+      setFavoriteToSave(null);
+      setFavoriteName('');
+  }
+
+  const handleFavoriteDelete = (id: string) => {
+    setSavedFavorites(prev => prev.filter(f => f.id !== id));
+    toast({ title: 'Favorito removido.', variant: 'destructive' });
+  }
+
   const summary = useMemo(() => {
     if (!items) {
       return { total: 0, totalAVista: 0, totalFiado: 0, totalEntregas: 0, totalTaxas: 0 };
@@ -706,6 +750,38 @@ originalGroup = group;
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <Dialog open={!!favoriteToSave} onOpenChange={(open) => !open && setFavoriteToSave(null)}>
+        <DialogContent className="sm:max-w-[425px]">
+            <DialogHeader>
+                <DialogTitle>Guardar nos Favoritos</DialogTitle>
+                <DialogDescription>Dê um nome a este lançamento para o encontrar facilmente mais tarde.</DialogDescription>
+            </DialogHeader>
+            <div className="py-4">
+                <Label htmlFor="favorite-name">Nome do Favorito</Label>
+                <Input
+                    id="favorite-name"
+                    value={favoriteName}
+                    onChange={(e) => setFavoriteName(e.target.value)}
+                    placeholder="Ex: Pedido do João"
+                    className="mt-2"
+                    autoFocus
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        e.preventDefault();
+                        handleConfirmSaveFavorite();
+                      }
+                    }}
+                />
+            </div>
+            <DialogFooter>
+                <Button type="button" variant="secondary" onClick={() => setFavoriteToSave(null)}>Cancelar</Button>
+                <Button type="button" onClick={handleConfirmSaveFavorite}>
+                    <Star className="mr-2 h-4 w-4" /> Guardar
+                </Button>
+            </DialogFooter>
+        </DialogContent>
+      </Dialog>
       
       <BomboniereModal 
         isOpen={isBomboniereModalOpen}
@@ -770,7 +846,11 @@ originalGroup = group;
             isProcessing={isProcessing}
             inputRef={inputRef}
           >
-            <FavoritesMenu allItems={allItems || []} onSelect={handleFavoriteSelect} />
+            <FavoritesMenu 
+              savedFavorites={savedFavorites}
+              onSelect={handleFavoriteSelect} 
+              onDelete={handleFavoriteDelete} 
+            />
           </ItemForm>
           
           <Card>
@@ -779,6 +859,8 @@ originalGroup = group;
                 items={items}
                 onEdit={handleEditRequest}
                 onDelete={handleDeleteRequest}
+                onFavorite={handleFavoriteSaveRequest}
+                savedFavorites={savedFavorites}
                 isLoading={isLoadingItems}
               />
             </CardContent>

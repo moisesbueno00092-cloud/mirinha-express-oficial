@@ -1,4 +1,5 @@
 
+
 export type Group = 'Vendas salão' | 'Fiados salão' | 'Fiados rua' | 'Vendas rua';
 
 export interface PredefinedItem {
@@ -157,8 +158,8 @@ export interface ParsedRomaneioItem {
 }
 
 // App-specific types
-export interface FiadoCustomer {
-    name: string;
-    lastCommand: string;
-    lastSeen: string;
+export interface SavedFavorite {
+  id: string;
+  name: string;
+  command: string;
 }

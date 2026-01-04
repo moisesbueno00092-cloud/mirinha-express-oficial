@@ -1,7 +1,7 @@
 
 "use client";
 
-import type { Item, Group } from "@/types";
+import type { Item, Group, SavedFavorite } from "@/types";
 import { DELIVERY_FEE } from "@/lib/constants";
 import {
   Table,
@@ -13,7 +13,7 @@ import {
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Pencil, Trash2, Loader2, User } from "lucide-react";
+import { Pencil, Trash2, Loader2, User, Star } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 
@@ -21,6 +21,8 @@ interface ItemListProps {
   items: Item[];
   onEdit: (item: Item) => void;
   onDelete: (id: string) => void;
+  onFavorite: (item: Item) => void;
+  savedFavorites: SavedFavorite[];
   isLoading: boolean;
 }
 
@@ -163,7 +165,7 @@ export const renderItemName = (item: Item) => {
     );
 }
 
-export default function ItemList({ items, onEdit, onDelete, isLoading }: ItemListProps) {
+export default function ItemList({ items, onEdit, onDelete, onFavorite, savedFavorites, isLoading }: ItemListProps) {
   if (isLoading) {
     return (
       <div className="flex justify-center items-center py-10">
@@ -179,6 +181,11 @@ export default function ItemList({ items, onEdit, onDelete, isLoading }: ItemLis
       </div>
     );
   }
+
+  const isFavorited = (item: Item) => {
+    if (!item.originalCommand) return false;
+    return savedFavorites.some(fav => fav.command === item.originalCommand);
+  };
 
   return (
     <div className="overflow-x-auto">
@@ -215,6 +222,9 @@ export default function ItemList({ items, onEdit, onDelete, isLoading }: ItemLis
               <TableCell className="text-right px-2 sm:px-4 align-top">{formatTimestamp(item.timestamp)}</TableCell>
               <TableCell className="p-0 align-top">
                 <div className="flex justify-end">
+                   <Button variant="ghost" size="icon" onClick={() => onFavorite(item)} disabled={!item.originalCommand || isFavorited(item)}>
+                    <Star className={cn("h-4 w-4", isFavorited(item) ? "text-yellow-400 fill-yellow-400" : "text-muted-foreground")} />
+                  </Button>
                   <Button variant="ghost" size="icon" onClick={() => onEdit(item)}>
                     <Pencil className="h-4 w-4" />
                   </Button>

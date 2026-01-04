@@ -1,8 +1,6 @@
 
 'use client';
 
-import { useMemo } from 'react';
-import { Item, FiadoCustomer } from '@/types';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -12,72 +10,99 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { Button } from '@/components/ui/button';
-import { Users, History } from 'lucide-react';
-import { formatDistanceToNow } from 'date-fns';
-import { ptBR } from 'date-fns/locale';
+import { Star, Trash2 } from 'lucide-react';
+import type { SavedFavorite } from '@/types';
+import { ScrollArea } from './ui/scroll-area';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { useState } from 'react';
 
 interface FavoritesMenuProps {
-  allItems: Item[];
+  savedFavorites: SavedFavorite[];
   onSelect: (command: string) => void;
+  onDelete: (id: string) => void;
 }
 
-export default function FavoritesMenu({ allItems, onSelect }: FavoritesMenuProps) {
-  const fiadoCustomers = useMemo<FiadoCustomer[]>(() => {
-    if (!allItems) return [];
+export default function FavoritesMenu({ savedFavorites, onSelect, onDelete }: FavoritesMenuProps) {
+  const [favoriteToDelete, setFavoriteToDelete] = useState<SavedFavorite | null>(null);
 
-    const customerMap = new Map<string, FiadoCustomer>();
+  const handleDeleteRequest = (e: React.MouseEvent, favorite: SavedFavorite) => {
+    e.stopPropagation();
+    e.preventDefault();
+    setFavoriteToDelete(favorite);
+  }
 
-    // Sort items by timestamp descending to easily find the latest
-    const sortedItems = [...allItems].sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
-
-    for (const item of sortedItems) {
-      if (item.group.includes('Fiado') && item.customerName && item.originalCommand) {
-        const lowerCaseName = item.customerName.toLowerCase();
-        if (!customerMap.has(lowerCaseName)) {
-          customerMap.set(lowerCaseName, {
-            name: item.customerName,
-            lastCommand: item.originalCommand,
-            lastSeen: item.timestamp,
-          });
-        }
-      }
+  const confirmDelete = () => {
+    if (favoriteToDelete) {
+        onDelete(favoriteToDelete.id);
+        setFavoriteToDelete(null);
     }
+  }
 
-    return Array.from(customerMap.values());
-  }, [allItems]);
-
-  if (fiadoCustomers.length === 0) {
+  if (savedFavorites.length === 0) {
     return null;
   }
 
   return (
-    <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <Button variant="secondary">
-          <Users className="mr-2 h-4 w-4" />
-          Fiados
-        </Button>
-      </DropdownMenuTrigger>
-      <DropdownMenuContent className="w-64">
-        <DropdownMenuLabel className="flex items-center gap-2">
-            <History className="h-4 w-4 text-muted-foreground" />
-            <span>Últimos Pedidos Fiado</span>
-        </DropdownMenuLabel>
-        <DropdownMenuSeparator />
-        {fiadoCustomers.map((customer) => (
-          <DropdownMenuItem key={customer.name} onSelect={() => onSelect(customer.lastCommand)}>
-            <div className="flex flex-col w-full">
-              <span className="font-semibold">{customer.name}</span>
-              <span className="text-xs text-muted-foreground truncate">
-                {customer.lastCommand}
-              </span>
-               <span className="text-xs text-muted-foreground/80 mt-1">
-                {formatDistanceToNow(new Date(customer.lastSeen), { addSuffix: true, locale: ptBR })}
-              </span>
-            </div>
-          </DropdownMenuItem>
-        ))}
-      </DropdownMenuContent>
-    </DropdownMenu>
+    <>
+      <AlertDialog open={!!favoriteToDelete} onOpenChange={(open) => !open && setFavoriteToDelete(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Excluir Favorito?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Tem certeza de que deseja remover "{favoriteToDelete?.name}" dos seus favoritos?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmDelete}>Excluir</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button variant="secondary">
+            <Star className="mr-2 h-4 w-4" />
+            Favoritos
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent className="w-64">
+          <DropdownMenuLabel className="flex items-center gap-2">
+            <Star className="h-4 w-4 text-muted-foreground" />
+            <span>Lançamentos Guardados</span>
+          </DropdownMenuLabel>
+          <DropdownMenuSeparator />
+          <ScrollArea className="h-[200px]">
+            {savedFavorites.map((favorite) => (
+              <DropdownMenuItem key={favorite.id} onSelect={() => onSelect(favorite.command)} className="justify-between">
+                <div className="flex flex-col w-full overflow-hidden">
+                  <span className="font-semibold">{favorite.name}</span>
+                  <span className="text-xs text-muted-foreground truncate">
+                    {favorite.command}
+                  </span>
+                </div>
+                <Button 
+                    variant="ghost" 
+                    size="icon" 
+                    className="h-7 w-7 shrink-0 text-muted-foreground hover:text-destructive"
+                    onClick={(e) => handleDeleteRequest(e, favorite)}
+                >
+                    <Trash2 className="h-4 w-4" />
+                </Button>
+              </DropdownMenuItem>
+            ))}
+          </ScrollArea>
+        </DropdownMenuContent>
+      </DropdownMenu>
+    </>
   );
 }
