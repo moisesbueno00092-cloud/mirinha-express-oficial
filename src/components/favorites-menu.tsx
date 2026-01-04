@@ -27,7 +27,7 @@ import { useState } from 'react';
 
 interface FavoritesMenuProps {
   savedFavorites: SavedFavorite[];
-  onSelect: (command: string) => void;
+  onSelect: (favorite: SavedFavorite) => void;
   onDelete: (id: string) => void;
 }
 
@@ -83,7 +83,7 @@ export default function FavoritesMenu({ savedFavorites, onSelect, onDelete }: Fa
           <DropdownMenuSeparator />
           <ScrollArea className="h-[200px]">
             {savedFavorites.map((favorite) => (
-              <DropdownMenuItem key={favorite.id} onSelect={() => onSelect(favorite.command)} className="justify-between">
+              <DropdownMenuItem key={favorite.id} onSelect={() => onSelect(favorite)} className="justify-between">
                 <div className="flex flex-col w-full overflow-hidden">
                   <span className="font-semibold">{favorite.name}</span>
                   <span className="text-xs text-muted-foreground truncate">

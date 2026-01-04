@@ -158,7 +158,7 @@ export default function Home() {
     }
   }, [firestore, bomboniereItems, isLoadingBomboniere]);
 
-  const handleUpsertItem = async (rawInputToProcess: string, currentItem?: Item | null) => {
+  const handleUpsertItem = async (rawInputToProcess: string, currentItem?: Item | null, favoriteName?: string) => {
     setIsProcessing(true);
     if (!user || !firestore) {
         toast({ variant: "destructive", title: "Erro", description: "Utilizador não autenticado." });
@@ -175,7 +175,7 @@ export default function Home() {
         let deliveryFeeApplicable = false;
         let isTaxExempt = false;
         let originalGroup: Group | null = null;
-        let customerName: string | undefined;
+        let customerName: string | undefined = favoriteName;
         
         const partsWithExemption = mainInput.split(' ').filter(part => part.trim() !== '');
         if (partsWithExemption.map(p => p.toUpperCase()).includes('E')) {
@@ -459,9 +459,8 @@ originalGroup = group;
     }
   };
   
-  const handleFavoriteSelect = (command: string) => {
-      setRawInput(command);
-      setTimeout(() => inputRef.current?.focus(), 0);
+  const handleFavoriteSelect = (favorite: SavedFavorite) => {
+    handleUpsertItem(favorite.command, null, favorite.name);
   }
 
   const handleFavoriteSaveRequest = (item: Item) => {
