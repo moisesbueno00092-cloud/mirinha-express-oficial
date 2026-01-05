@@ -3,7 +3,7 @@
 
 import { useMemo, useState, useRef, useEffect } from "react";
 import { useRouter } from 'next/navigation';
-import type { Item, Group, PredefinedItem, SelectedBomboniereItem, BomboniereItem, DailyReport, ItemCount, SavedFavorite } from "@/types";
+import type { Item, Group, PredefinedItem, SelectedBomboniereItem, BomboniereItem, DailyReport, ItemCount, SavedFavorite, User } from "@/types";
 import { PREDEFINED_PRICES, DELIVERY_FEE, BOMBONIERE_ITEMS_DEFAULT } from "@/lib/constants";
 import { useAuth, useCollection, useFirestore, useMemoFirebase, useUser } from "@/firebase";
 import { collection, doc, query, where, orderBy, deleteDoc, writeBatch, DocumentReference, addDoc, serverTimestamp, Timestamp } from "firebase/firestore";
@@ -40,7 +40,6 @@ import BomboniereModal from "@/components/bomboniere-modal";
 import StockEditModal from "@/components/stock-edit-modal";
 import MirinhaLogo from "@/components/mirinha-logo";
 import FavoritesMenu from "@/components/favorites-menu";
-import { signInAnonymously } from "firebase/auth";
 import { format, isToday, parseISO } from "date-fns";
 import { cn } from "@/lib/utils";
 import { Label } from "@/components/ui/label";
@@ -71,9 +70,8 @@ const ToastContent = ({ item, title }: { item: Partial<Item>; title: string }) =
 );
 
 
-function LancheTrackerPage() {
+function LancheTrackerPage({ user }: { user: User }) {
   const firestore = useFirestore();
-  const { user } = useUser();
   const router = useRouter();
 
   const bomboniereItemsRef = useMemoFirebase(() => (firestore ? query(collection(firestore, 'bomboniere_items'), orderBy('name', 'asc')) : null), [firestore]);
@@ -744,20 +742,8 @@ function LancheTrackerPage() {
 }
 
 export default function Home() {
-  const auth = useAuth();
   const { user, isUserLoading } = useUser();
 
-  useEffect(() => {
-    // We only need to sign in anonymously if there's no user and auth is not loading
-    if (auth && !user && !isUserLoading) {
-      signInAnonymously(auth).catch((error) => {
-        console.error("Anonymous sign-in failed:", error);
-      });
-    }
-  }, [user, isUserLoading, auth]);
-
-  // While user state is loading, or if there is no user yet, show a full-page loader.
-  // This prevents any component from attempting to fetch data before auth is ready.
   if (isUserLoading || !user) {
     return (
       <div className="flex h-screen w-full items-center justify-center">
@@ -766,8 +752,7 @@ export default function Home() {
     );
   }
 
-  // Once the user object is available, render the main page content.
-  return <LancheTrackerPage />;
+  return <LancheTrackerPage user={user} />;
 }
 
     

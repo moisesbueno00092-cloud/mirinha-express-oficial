@@ -1,5 +1,9 @@
 
 
+import type { User as FirebaseUser } from 'firebase/auth';
+
+export type User = FirebaseUser;
+
 export type Group = 'Vendas salão' | 'Fiados salão' | 'Fiados rua' | 'Vendas rua';
 
 export interface PredefinedItem {

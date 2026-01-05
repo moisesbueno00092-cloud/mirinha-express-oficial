@@ -9,8 +9,6 @@ import {
   FirestoreError,
   QuerySnapshot,
   CollectionReference,
-  query,
-  where,
 } from 'firebase/firestore';
 import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError } from '@/firebase/errors';
@@ -40,11 +38,10 @@ export interface InternalQuery extends Query<DocumentData> {
   }
 }
 
-// Function to check if a query object has a 'userId' filter.
 const isUserIdFilteredQuery = (q: any): q is InternalQuery => {
     if (q && q._query && Array.isArray(q._query.filters)) {
         return q._query.filters.some((f: any) => 
-            f.field && Array.isArray(f.field.segments) && f.field.segments.join('/') === 'userId'
+            f.field && Array.isArray(f.field.segments) && f.field.segments.join('/') === 'userId' && f.op === '==' && f.value
         );
     }
     return false;
@@ -63,7 +60,6 @@ export function useCollection<T = any>(
   const { user, isUserLoading } = useUser();
 
   useEffect(() => {
-    // If the query is null, not ready, or auth state is still loading, do nothing and wait.
     if (!memoizedTargetRefOrQuery || isUserLoading) {
       setIsLoading(true);
       return;
@@ -73,15 +69,13 @@ export function useCollection<T = any>(
         ? (memoizedTargetRefOrQuery as CollectionReference).path
         : (memoizedTargetRefOrQuery as unknown as InternalQuery)._query.path.canonicalString();
 
-    // CRITICAL SECURITY CHECK: For protected collections, ensure userId filter exists.
-    if (path === 'order_items' && !isUserIdFilteredQuery(memoizedTargetRefOrQuery)) {
-        // This is an unsafe query because the `userId` filter hasn't been applied yet,
-        // likely due to `user` not being available in the parent component's memo.
-        // We will simply wait for the memoized query to update with the correct filter.
-        setIsLoading(true); // Keep loading state until a valid query is provided.
+    const isProtectedPath = path === 'order_items';
+
+    if (isProtectedPath && !isUserIdFilteredQuery(memoizedTargetRefOrQuery)) {
+        setIsLoading(true);
+        setData(null);
         return;
     }
-
 
     setIsLoading(true);
     setError(null);
@@ -112,7 +106,7 @@ export function useCollection<T = any>(
     );
 
     return () => unsubscribe();
-  }, [memoizedTargetRefOrQuery, isUserLoading, user]); // Add isUserLoading and user as dependencies
+  }, [memoizedTargetRefOrQuery, isUserLoading, user]);
 
   if(memoizedTargetRefOrQuery && !memoizedTargetRefOrQuery.__memo) {
     throw new Error('Query was not properly memoized using useMemoFirebase. This can cause infinite loops.');
@@ -121,3 +115,4 @@ export function useCollection<T = any>(
   return { data, isLoading, error };
 }
 
+    
