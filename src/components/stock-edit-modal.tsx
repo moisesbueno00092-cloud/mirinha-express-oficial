@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogClose } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -32,79 +32,110 @@ interface StockEditModalProps {
   bomboniereItems: BomboniereItem[];
 }
 
-type EditableItem = Omit<BomboniereItem, 'id' | 'estoque'> & { id?: string; estoque: string | number; price: string | number; };
+type EditableItem = BomboniereItem;
 
-const formatCurrency = (value: number) => {
-    return new Intl.NumberFormat("pt-BR", {
-      style: "currency",
-      currency: "BRL",
-    }).format(value);
+const useDebouncedEffect = (effect: () => void, deps: React.DependencyList, delay: number) => {
+    useEffect(() => {
+        const handler = setTimeout(() => effect(), delay);
+        return () => clearTimeout(handler);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [...deps, delay]);
 };
+
 
 export default function StockEditModal({ isOpen, onClose, bomboniereItems: initialItems }: StockEditModalProps) {
   const firestore = useFirestore();
   const { toast } = useToast();
   
-  const [items, setItems] = usePersistentState<EditableItem[]>('bomboniere-stock-draft', []);
-  const [isProcessing, setIsProcessing] = useState(false);
+  const [localItems, setLocalItems] = useState<EditableItem[]>([]);
+  const [debouncedItems, setDebouncedItems] = useState<EditableItem[]>([]);
   const [itemToDelete, setItemToDelete] = useState<EditableItem | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
-  const [isInitialized, setIsInitialized] = useState(false);
-
 
   useEffect(() => {
     if (isOpen) {
-      if (!isInitialized || items.length === 0) {
-          const sortedItems = [...initialItems].sort((a,b) => a.name.localeCompare(b.name));
-          setItems(sortedItems.map(item => ({...item, price: item.price ?? '', estoque: item.estoque ?? 0})));
-          setIsInitialized(true);
-      }
-      setSearchTerm("");
+      const sortedItems = [...initialItems].sort((a,b) => a.name.localeCompare(b.name));
+      setLocalItems(sortedItems);
+      setDebouncedItems(sortedItems);
     }
-  }, [isOpen, initialItems, isInitialized, items.length, setItems]);
+  }, [isOpen, initialItems]);
+
+  useDebouncedEffect(() => {
+    setDebouncedItems(localItems);
+  }, [localItems], 500); // 500ms debounce delay
+
+
+  useEffect(() => {
+      if (!firestore || !isOpen) return;
+
+      const changedItems = debouncedItems.filter(debouncedItem => {
+          const originalItem = initialItems.find(item => item.id === debouncedItem.id);
+          if (!originalItem) return false; // Should not happen for existing items
+          return (
+              originalItem.name !== debouncedItem.name ||
+              originalItem.price !== debouncedItem.price ||
+              originalItem.estoque !== debouncedItem.estoque
+          );
+      });
+
+      if (changedItems.length > 0) {
+          changedItems.forEach(item => {
+              if (item.id) {
+                const docRef = doc(firestore, 'bomboniere_items', item.id);
+                updateDocumentNonBlocking(docRef, {
+                    name: item.name,
+                    price: item.price,
+                    estoque: item.estoque
+                });
+              }
+          });
+      }
+  }, [debouncedItems, firestore, initialItems, isOpen]);
 
 
   const filteredItems = useMemo(() => {
-    if (!searchTerm) return items.map((_, index) => index);
+    const itemsToFilter = localItems || [];
+    if (!searchTerm) return itemsToFilter;
     
-    return items.reduce((acc, item, index) => {
-        if (item.name.toLowerCase().includes(searchTerm.toLowerCase())) {
-            acc.push(index);
+    return itemsToFilter.filter(item => 
+      item.name.toLowerCase().includes(searchTerm.toLowerCase())
+    );
+  }, [localItems, searchTerm]);
+
+
+  const handleFieldChange = (id: string, field: keyof EditableItem, value: string | number) => {
+    setLocalItems(prevItems =>
+      prevItems.map(item => {
+        if (item.id === id) {
+          const finalValue = (field === 'price' || field === 'estoque') 
+            ? (String(value).trim() === '' ? 0 : parseFloat(String(value).replace(',', '.')))
+            : value;
+          
+          if(isNaN(finalValue as number)) return item;
+          
+          return { ...item, [field]: finalValue };
         }
-        return acc;
-    }, [] as number[]);
-  }, [items, searchTerm]);
-
-
-  const handleFieldChange = (index: number, field: keyof EditableItem, value: string) => {
-    const newItems = [...items];
-    const item = newItems[index];
-
-    if (field === 'price' || field === 'estoque') {
-        const numericValue = value.replace(/[^0-9,]/g, '');
-        (item[field] as any) = numericValue;
-    } else {
-        (item[field] as any) = value;
-    }
-    setItems(newItems);
+        return item;
+      })
+    );
   };
   
   const handleAddNewItem = () => {
-    setItems(prevItems => [...prevItems, { name: '', price: '', estoque: '' }]);
+    if (!firestore) return;
+    const newItemData = { name: 'Novo Item', price: 0, estoque: 0 };
+    addDocumentNonBlocking(collection(firestore, "bomboniere_items"), newItemData);
+
+    toast({ title: "Item Adicionado", description: "Um 'Novo Item' foi criado. Por favor, edite-o."});
+
     setTimeout(() => {
       const scrollArea = document.querySelector('[data-radix-scroll-area-viewport]');
       if (scrollArea) {
         scrollArea.scrollTo({ top: scrollArea.scrollHeight, behavior: 'smooth' });
       }
-    }, 100);
+    }, 500); // Give time for the new item to be received from Firestore and rendered
   };
 
-  const handleDeleteRequest = (item: EditableItem, index: number) => {
-      if (!item.id) { // unsaved item
-          const newItems = items.filter((_, i) => i !== index);
-          setItems(newItems);
-          return;
-      }
+  const handleDeleteRequest = (item: EditableItem) => {
       setItemToDelete(item);
   }
 
@@ -112,60 +143,8 @@ export default function StockEditModal({ isOpen, onClose, bomboniereItems: initi
       if (!firestore || !itemToDelete || !itemToDelete.id) return;
       const docRef = doc(firestore, 'bomboniere_items', itemToDelete.id);
       deleteDocumentNonBlocking(docRef);
-      setItems(prev => prev.filter(i => i.id !== itemToDelete.id)); // Also remove from draft
       toast({ title: "Sucesso", description: `"${itemToDelete.name}" foi removido.`});
       setItemToDelete(null);
-  }
-
-  const handleSaveAll = async () => {
-      if (!firestore) return;
-      setIsProcessing(true);
-
-      const bomboniereCollectionRef = collection(firestore, "bomboniere_items");
-      let hasError = false;
-
-      for (const item of items) {
-          const { name, price, estoque } = item;
-          // Estoque pode ser vazio (será tratado como 0), mas nome e preço são obrigatórios.
-          if (!name.trim() || String(price).trim() === '') {
-              toast({ variant: 'destructive', title: 'Erro de Validação', description: `O item "${name || 'novo'}" tem campos obrigatórios em branco.`});
-              hasError = true;
-              break;
-          }
-
-          const finalPrice = parseFloat(String(price).replace(',', '.'));
-          // Trata estoque vazio como 0
-          const finalStock = String(estoque).trim() === '' ? 0 : parseInt(String(estoque), 10);
-          
-          if(isNaN(finalPrice) || isNaN(finalStock)) {
-             toast({ variant: 'destructive', title: 'Erro de Validação', description: `O item "${name}" tem valores inválidos para preço ou estoque.`});
-             hasError = true;
-             break;
-          }
-
-          const itemData = { name: name.trim(), price: finalPrice, estoque: finalStock };
-
-          if (item.id) { // Update existing
-              const docRef = doc(bomboniereCollectionRef, item.id);
-              updateDocumentNonBlocking(docRef, itemData);
-          } else { // Add new
-              addDocumentNonBlocking(bomboniereCollectionRef, itemData);
-          }
-      }
-      
-      setIsProcessing(false);
-      
-      if (!hasError) {
-        toast({ title: "Sucesso", description: "Estoque da bomboniere atualizado." });
-        setItems([]); // Clear draft on successful save
-        setIsInitialized(false);
-        onClose();
-      }
-  };
-
-  const handleClose = () => {
-      // Don't clear draft state, just close the modal
-      onClose();
   }
   
 
@@ -186,10 +165,10 @@ export default function StockEditModal({ isOpen, onClose, bomboniereItems: initi
         </AlertDialogContent>
       </AlertDialog>
 
-      <Dialog open={isOpen} onOpenChange={handleClose}>
+      <Dialog open={isOpen} onOpenChange={onClose}>
         <DialogContent className="max-w-2xl">
             <DialogHeader>
-                <DialogTitle className="text-center">Gerir Estoque da Bomboniere</DialogTitle>
+                <DialogTitle className="text-center">Gerir Estoque da Bomboniere (Tempo Real)</DialogTitle>
             </DialogHeader>
             
             <div className="relative px-2">
@@ -211,25 +190,22 @@ export default function StockEditModal({ isOpen, onClose, bomboniereItems: initi
 
             <ScrollArea className="h-80 -mx-6">
               <div className="px-6 divide-y divide-border">
-                {filteredItems.map((itemIndex) => {
-                  const item = items[itemIndex];
-                  return (
-                    <div key={item.id || `new-${itemIndex}`} className="grid grid-cols-[2fr_1fr_1fr_auto] items-center gap-x-4 py-2">
+                {filteredItems.map((item) => (
+                    <div key={item.id} className="grid grid-cols-[2fr_1fr_1fr_auto] items-center gap-x-4 py-2">
                         <Input
-                            value={item.name}
-                            onChange={(e) => handleFieldChange(itemIndex, 'name', e.target.value)}
+                            defaultValue={item.name}
+                            onChange={(e) => handleFieldChange(item.id, 'name', e.target.value)}
                             placeholder="Nome do Item"
-                            className={cn(!item.id && "border-green-500")}
                         />
                         <Input
-                            value={String(item.price).replace('.', ',')}
-                            onChange={(e) => handleFieldChange(itemIndex, 'price', e.target.value)}
-                            className="text-right"
-                            placeholder="0,00"
+                           defaultValue={String(item.price).replace('.', ',')}
+                           onChange={(e) => handleFieldChange(item.id, 'price', e.target.value.replace(/[^0-9,]/g, ''))}
+                           className="text-right"
+                           placeholder="0,00"
                         />
                         <Input
-                            value={String(item.estoque)}
-                            onChange={(e) => handleFieldChange(itemIndex, 'estoque', e.target.value)}
+                            defaultValue={String(item.estoque)}
+                             onChange={(e) => handleFieldChange(item.id, 'estoque', e.target.value.replace(/[^0-9]/g, ''))}
                             type="text"
                             className="text-right"
                             placeholder="0"
@@ -238,13 +214,13 @@ export default function StockEditModal({ isOpen, onClose, bomboniereItems: initi
                             variant="ghost"
                             size="icon"
                             className="h-9 w-9 text-muted-foreground hover:text-destructive"
-                            onClick={() => handleDeleteRequest(item, itemIndex)}
+                            onClick={() => handleDeleteRequest(item)}
                         >
                             <Trash2 className="h-4 w-4" />
                         </Button>
                     </div>
-                  );
-                })}
+                  )
+                )}
               </div>
             </ScrollArea>
             
@@ -257,15 +233,13 @@ export default function StockEditModal({ isOpen, onClose, bomboniereItems: initi
 
             <DialogFooter className="mt-4">
               <DialogClose asChild>
-                  <Button variant="outline">Cancelar</Button>
+                  <Button variant="outline">Fechar</Button>
               </DialogClose>
-              <Button onClick={handleSaveAll} disabled={isProcessing}>
-                {isProcessing ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : <Save className="mr-2 h-4 w-4" />}
-                Salvar Tudo
-              </Button>
             </DialogFooter>
         </DialogContent>
       </Dialog>
     </>
   );
 }
+
+    
