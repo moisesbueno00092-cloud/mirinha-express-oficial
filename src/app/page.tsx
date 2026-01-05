@@ -6,7 +6,7 @@ import { useRouter } from 'next/navigation';
 import type { Item, Group, PredefinedItem, SelectedBomboniereItem, BomboniereItem, DailyReport, ItemCount, SavedFavorite, User } from "@/types";
 import { PREDEFINED_PRICES, DELIVERY_FEE, BOMBONIERE_ITEMS_DEFAULT } from "@/lib/constants";
 import { useAuth, useCollection, useFirestore, useMemoFirebase, useUser } from "@/firebase";
-import { collection, doc, query, where, orderBy, deleteDoc, writeBatch, DocumentReference, addDoc, serverTimestamp, Timestamp } from "firebase/firestore";
+import { collection, doc, query, where, orderBy, deleteDoc, writeBatch, DocumentReference, addDoc, serverTimestamp, Timestamp, getDocs } from "firebase/firestore";
 import { parseCustomItemPrice } from "@/ai/flows/parse-custom-item-price";
 import usePersistentState from "@/hooks/use-persistent-state";
 
@@ -75,20 +75,12 @@ function LancheTrackerPage({ user }: { user: User }) {
   const firestore = useFirestore();
   const router = useRouter();
 
-  const bomboniereItemsRef = useMemoFirebase(() => (firestore ? query(collection(firestore, 'bomboniere_items'), orderBy('name', 'asc')) : null), [firestore]);
+  // Manage items in local state
+  const [items, setItems] = useState<Item[]>([]);
+  const [isLoadingItems, setIsLoadingItems] = useState(true);
 
-  const userOrderItemsQuery = useMemoFirebase(
-    () => {
-      if (firestore && user?.uid) {
-        return query(collection(firestore, 'users', user.uid, 'order_items'), orderBy('timestamp', 'desc'));
-      }
-      return null; 
-    },
-    [firestore, user?.uid] 
-  );
-  
+  const bomboniereItemsRef = useMemoFirebase(() => (firestore ? query(collection(firestore, 'bomboniere_items'), orderBy('name', 'asc')) : null), [firestore]);
   const { data: bomboniereItems, isLoading: isLoadingBomboniere } = useCollection<BomboniereItem>(bomboniereItemsRef);
-  const { data: items, isLoading: isLoadingItems, error: itemsError } = useCollection<Item>(userOrderItemsQuery);
 
   const [isProcessing, setIsProcessing] = useState(false);
   const [isSavingReport, setIsSavingReport] = useState(false);
@@ -106,6 +98,36 @@ function LancheTrackerPage({ user }: { user: User }) {
   const [savedFavorites, setSavedFavorites] = usePersistentState<SavedFavorite[]>('savedFavorites', []);
   
   const { toast } = useToast();
+
+  useEffect(() => {
+    // Fetch initial data on load
+    const fetchInitialItems = async () => {
+      if (firestore && user?.uid) {
+        setIsLoadingItems(true);
+        try {
+          const userOrderItemsQuery = query(collection(firestore, 'users', user.uid, 'order_items'), orderBy('timestamp', 'desc'));
+          const snapshot = await getDocs(userOrderItemsQuery);
+          const fetchedItems: Item[] = [];
+          snapshot.forEach(doc => {
+            const data = doc.data();
+            // Convert Firestore Timestamp to ISO string if necessary
+            const timestamp = data.timestamp?.toDate ? data.timestamp.toDate().toISOString() : new Date().toISOString();
+            fetchedItems.push({ ...(data as Omit<Item, 'id' | 'timestamp'>), id: doc.id, timestamp });
+          });
+          setItems(fetchedItems);
+        } catch (error) {
+          console.error("Error fetching initial items:", error);
+          toast({ variant: "destructive", title: "Erro ao Carregar", description: "Não foi possível carregar os lançamentos existentes." });
+        } finally {
+          setIsLoadingItems(false);
+        }
+      } else {
+        setIsLoadingItems(false);
+      }
+    };
+    fetchInitialItems();
+  }, [firestore, user?.uid]);
+
 
   useEffect(() => {
     if (firestore && !isLoadingBomboniere && bomboniereItems && bomboniereItems.length === 0) {
@@ -312,14 +334,17 @@ function LancheTrackerPage({ user }: { user: User }) {
         
         consolidatedName = nameParts.join(' + ') || 'Lançamento';
         if (consolidatedName.length > 50) consolidatedName = 'Lançamento Misto';
+        
+        const localTimestamp = new Date().toISOString();
 
-        const finalItem: Omit<Item, 'id' | 'timestamp'> & { timestamp: Timestamp } = {
+        const finalItemForState: Item = {
+            id: currentItem?.id || String(Date.now()), // Temporary ID for new items
             userId: user.uid,
             name: consolidatedName,
             quantity: totalQuantity,
             price: totalPrice,
             group,
-            timestamp: serverTimestamp() as Timestamp,
+            timestamp: localTimestamp,
             deliveryFee,
             total,
             originalCommand: rawInputToProcess,
@@ -328,21 +353,34 @@ function LancheTrackerPage({ user }: { user: User }) {
             ...(predefinedItems.length > 0 ? { predefinedItems } : {}),
             ...(processedBomboniereItems.length > 0 ? { bomboniereItems: processedBomboniereItems } : {}),
         };
+        
+        const finalItemForFirestore = {
+            ...finalItemForState,
+            id: undefined, // remove id for firestore
+            timestamp: serverTimestamp(),
+        };
 
         const orderItemsCollectionRef = collection(firestore, 'users', user.uid, 'order_items');
         
         if (currentItem?.id) {
             const docRef = doc(orderItemsCollectionRef, currentItem.id);
-            await setDocumentNonBlocking(docRef, finalItem);
+            setDocumentNonBlocking(docRef, finalItemForFirestore); // No await
+            // Update local state
+            setItems(prevItems => prevItems.map(it => it.id === currentItem.id ? finalItemForState : it));
             toast({
                 duration: 4000,
-                component: <ToastContent item={{...finalItem, id: docRef.id, timestamp: new Date().toISOString() }} title="Lançamento Atualizado" />,
+                component: <ToastContent item={finalItemForState} title="Lançamento Atualizado" />,
             });
         } else {
-            const docRef = await addDoc(orderItemsCollectionRef, finalItem);
+            addDoc(orderItemsCollectionRef, finalItemForFirestore).then(docRef => {
+                // Update the temporary item in local state with the real ID from Firestore
+                 setItems(prevItems => prevItems.map(it => it.id === finalItemForState.id ? { ...finalItemForState, id: docRef.id } : it));
+            }); // No await
+             // Add to local state immediately with temporary ID
+            setItems(prevItems => [finalItemForState, ...prevItems]);
             toast({
                 duration: 4000,
-                component: <ToastContent item={{...finalItem, id: docRef.id, timestamp: new Date().toISOString() }} title="Lançamento Adicionado" />,
+                component: <ToastContent item={finalItemForState} title="Lançamento Adicionado" />,
             });
         }
         
@@ -393,8 +431,11 @@ function LancheTrackerPage({ user }: { user: User }) {
 
   const confirmDeleteItem = async () => {
     if (!firestore || !user?.uid || !itemToDelete) return;
+    // Optimistic UI update
+    setItems(prevItems => prevItems.filter(it => it.id !== itemToDelete));
+    
     const docRef = doc(firestore, 'users', user.uid, 'order_items', itemToDelete);
-    await deleteDocumentNonBlocking(docRef);
+    deleteDocumentNonBlocking(docRef); // Fire-and-forget
     toast({ title: "Item removido com sucesso.", variant: "destructive" });
     setItemToDelete(null);
   };
@@ -472,6 +513,8 @@ function LancheTrackerPage({ user }: { user: User }) {
       });
 
       await batch.commit();
+      
+      setItems(items.filter(item => !todaysItems.some(todayItem => todayItem.id === item.id)));
 
       toast({
         title: 'Relatório Salvo!',
@@ -520,9 +563,6 @@ function LancheTrackerPage({ user }: { user: User }) {
         const itemDate = parseISO(item.timestamp);
         return isToday(itemDate);
       } catch (e) {
-        if ((item.timestamp as any)?.toDate) {
-            return isToday((item.timestamp as any).toDate());
-        }
         return false;
       }
     });
@@ -595,16 +635,6 @@ function LancheTrackerPage({ user }: { user: User }) {
     return result;
   }, [todaysItems]);
   
-  if (itemsError) {
-    return (
-      <div className="flex h-screen w-full flex-col items-center justify-center text-center p-4">
-        <MirinhaLogo className="w-64 sm:w-80 h-auto text-primary mb-4" />
-        <p className="mt-4 text-destructive font-semibold">Ocorreu um erro ao carregar os dados.</p>
-        <p className="mt-2 text-muted-foreground text-sm max-w-md">{itemsError.message}</p>
-      </div>
-    )
-  }
-
   return (
     <>
       <BomboniereModal 
