@@ -14,7 +14,8 @@ service cloud.firestore {
       allow create: if request.auth != null && request.resource.data.userId == request.auth.uid;
       allow read, update, delete: if request.auth != null && get(/databases/$(database)/documents/order_items/$(orderItemId)).data.userId == request.auth.uid;
     }
-     match /daily_reports/{reportId} {
+    
+    match /daily_reports/{reportId} {
       allow create: if request.auth != null && request.resource.data.userId == request.auth.uid;
       // Permite a leitura de um único documento se o userId corresponder
       allow get, delete: if request.auth != null && get(/databases/$(database)/documents/daily_reports/$(reportId)).data.userId == request.auth.uid;

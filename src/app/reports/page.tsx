@@ -433,7 +433,7 @@ export default function ReportsPage() {
   const yearOptions = useMemo(() => generateYearOptions(), []);
 
   const reportsQuery = useMemoFirebase(
-    () => firestore && user ? query(collection(firestore, 'daily_reports'), where('userId', '==', user.uid)) : null,
+    () => firestore && user ? query(collection(firestore, 'daily_reports'), where('userId', '==', user.uid), orderBy('createdAt', 'desc')) : null,
     [firestore, user]
   );
   const bomboniereQuery = useMemoFirebase(
@@ -600,7 +600,7 @@ export default function ReportsPage() {
                         {sortedSavedReports.map(report => {
                           const { day, month, dayOfWeek, fullDate } = getFormattedDate(report.reportDate);
                           return (
-                              <AccordionItem value={report.id!} key={`${report.id}-${report.reportDate}`}>
+                              <AccordionItem value={report.id!} key={`${report.id}-${report.createdAt}`}>
                                   <div className="bg-card p-2 rounded-lg border flex items-center gap-4">
                                       <div className="bg-primary text-primary-foreground rounded-md flex flex-col items-center justify-center w-16 h-16 shrink-0">
                                           <span className="text-2xl font-bold leading-none">{day}</span>
