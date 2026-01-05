@@ -107,9 +107,6 @@ function LancheTrackerPage({ user }: { user: User }) {
   const [rawInput, setRawInput] = useState("");
   const inputRef = useRef<HTMLInputElement>(null);
   
-  const [isPasswordModalOpen, setIsPasswordModalOpen] = useState(false);
-  const [passwordInput, setPasswordInput] = useState('');
-  const [passwordAction, setPasswordAction] = useState<'reports' | 'stock' | 'admin' | null>(null);
   const [itemToDelete, setItemToDelete] = useState<string | null>(null);
   const [itemToEdit, setItemToEdit] = useState<Item | null>(null);
 
@@ -528,31 +525,6 @@ function LancheTrackerPage({ user }: { user: User }) {
     }
   };
 
-  const handleOpenPasswordModal = (action: 'reports' | 'stock' | 'admin') => {
-    setPasswordAction(action);
-    setPasswordInput('');
-    setIsPasswordModalOpen(true);
-  }
-
-  const handlePasswordSubmit = () => {
-    if (passwordInput === 'jujubb3110') {
-        setIsPasswordModalOpen(false);
-        if (passwordAction === 'reports') {
-          router.push('/reports');
-        } else if (passwordAction === 'stock') {
-          setIsStockEditModalOpen(true);
-        } else if (passwordAction === 'admin') {
-          router.push('/admin');
-        }
-    } else {
-        toast({
-            variant: 'destructive',
-            title: 'Senha Incorreta',
-            description: 'A senha para aceder a esta funcionalidade está incorreta.'
-        })
-    }
-  }
-
   const todaysItems = useMemo(() => {
     if (!items) return [];
     return items.filter(item => {
@@ -647,39 +619,6 @@ function LancheTrackerPage({ user }: { user: User }) {
         bomboniereItems={bomboniereItems || []}
       />
       
-      <Dialog open={isPasswordModalOpen} onOpenChange={setIsPasswordModalOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Acesso Restrito</DialogTitle>
-            <DialogDescription>
-              Por favor, insira a senha para continuar.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="grid gap-4 py-4">
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="password" className="text-right">
-                Senha
-              </Label>
-              <Input
-                id="password"
-                type="password"
-                value={passwordInput}
-                onChange={(e) => setPasswordInput(e.target.value)}
-                className="col-span-3"
-                autoFocus
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter') handlePasswordSubmit();
-                }}
-              />
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setIsPasswordModalOpen(false)}>Cancelar</Button>
-            <Button onClick={handlePasswordSubmit}>Aceder</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-      
       <AlertDialog open={!!itemToDelete} onOpenChange={(open) => !open && setItemToDelete(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
@@ -742,15 +681,15 @@ function LancheTrackerPage({ user }: { user: User }) {
                 {isSavingReport ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
                 Salvar Relatório
             </Button>
-            <Button variant="outline" className="w-full" onClick={() => handleOpenPasswordModal('reports')}>
+            <Button variant="outline" className="w-full" onClick={() => router.push('/reports')}>
                 <History className="mr-2 h-4 w-4" />
                 Relatórios Salvos
             </Button>
-            <Button variant="outline" className="w-full" onClick={() => handleOpenPasswordModal('stock')}>
+            <Button variant="outline" className="w-full" onClick={() => setIsStockEditModalOpen(true)}>
                 <Settings className="mr-2 h-4 w-4" />
                 Gerir Estoque
             </Button>
-             <Button variant="outline" className="w-full col-span-2 md:col-span-3" onClick={() => handleOpenPasswordModal('admin')}>
+             <Button variant="outline" className="w-full col-span-2 md:col-span-3" onClick={() => router.push('/admin')}>
                 <Wrench className="mr-2 h-4 w-4" />
                 Gestão Administrativa
             </Button>
@@ -817,5 +756,3 @@ export default function Home() {
   
   return <LancheTrackerPage user={user} />;
 }
-
-    
