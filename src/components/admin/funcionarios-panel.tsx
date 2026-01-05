@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useMemo } from 'react';
@@ -149,7 +150,7 @@ export default function FuncionariosPanel() {
       },
     });
 
-    const onSubmit = async (values: z.infer<typeof funcionarioSchema>) => {
+    const onSubmit = (values: z.infer<typeof funcionarioSchema>) => {
       if (!firestore) return;
       
       const novoFuncionario: Omit<Funcionario, 'id'> = {
@@ -158,14 +159,9 @@ export default function FuncionariosPanel() {
         status: 'Ativo',
       };
 
-      try {
-        await addDocumentNonBlocking(collection(firestore, 'funcionarios'), novoFuncionario);
-        toast({ title: "Sucesso!", description: `${values.nome} foi adicionado(a) à equipa.` });
-        form.reset();
-      } catch (error) {
-        console.error("Erro ao cadastrar funcionário: ", error);
-        toast({ variant: 'destructive', title: "Erro", description: "Não foi possível cadastrar o funcionário." });
-      }
+      addDocumentNonBlocking(collection(firestore, 'funcionarios'), novoFuncionario);
+      toast({ title: "Sucesso!", description: `${values.nome} foi adicionado(a) à equipa.` });
+      form.reset();
     };
     
     const selectedFuncionario = useMemo(() => {
@@ -314,3 +310,5 @@ export default function FuncionariosPanel() {
         </div>
     );
 }
+
+    

@@ -133,7 +133,7 @@ export default function LancamentosFuncionarioPanel({ funcionarios, selectedFunc
 
     const { data: lancamentos, isLoading: isLoadingLancamentos } = useCollection<FuncionarioLancamentoFinanceiro>(lancamentosQuery);
 
-    const onSubmit = async (values: LancamentoSchemaType) => {
+    const onSubmit = (values: LancamentoSchemaType) => {
       if (!firestore) return;
       
       const funcionario = funcionarios.find(f => f.id === values.funcionarioId);
@@ -167,21 +167,16 @@ export default function LancamentosFuncionarioPanel({ funcionarios, selectedFunc
         descricao: values.descricao,
         ...(values.tipo === 'hora_extra' || values.tipo === 'falta' ? { quantidade: values.valorOuQtd } : {})
       };
-
-      try {
-        const lancamentosCollectionRef = collection(firestore, 'funcionarios', values.funcionarioId, 'lancamentos');
-        await addDocumentNonBlocking(lancamentosCollectionRef, novoLancamento as any);
-        toast({ title: "Sucesso!", description: `Lançamento para ${funcionario.nome} registado.` });
-        form.reset({
-            funcionarioId: values.funcionarioId,
-            tipo: undefined,
-            valorOuQtd: 0,
-            descricao: ''
-        });
-      } catch (error) {
-        console.error("Erro ao registar lançamento: ", error);
-        toast({ variant: 'destructive', title: "Erro", description: "Não foi possível registar o lançamento." });
-      }
+      
+      const lancamentosCollectionRef = collection(firestore, 'funcionarios', values.funcionarioId, 'lancamentos');
+      addDocumentNonBlocking(lancamentosCollectionRef, novoLancamento as any);
+      toast({ title: "Sucesso!", description: `Lançamento para ${funcionario.nome} registado.` });
+      form.reset({
+          funcionarioId: values.funcionarioId,
+          tipo: undefined,
+          valorOuQtd: 0,
+          descricao: ''
+      });
     };
     
     const selectedFuncionario = useMemo(() => {
@@ -316,3 +311,5 @@ export default function LancamentosFuncionarioPanel({ funcionarios, selectedFunc
         </Card>
     );
 }
+
+    
