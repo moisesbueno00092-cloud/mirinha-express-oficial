@@ -75,16 +75,17 @@ function LancheTrackerPage({ user }: { user: User }) {
   const router = useRouter();
 
   const bomboniereItemsRef = useMemoFirebase(() => (firestore ? query(collection(firestore, 'bomboniere_items'), orderBy('name', 'asc')) : null), [firestore]);
-  
-  // A consulta SÓ é criada se 'firestore' e 'user.uid' existirem.
+
   const userOrderItemsQuery = useMemoFirebase(
     () => {
+      // **CRITICAL FIX**: Only create the query if user.uid is available.
+      // Otherwise, the query will be null and useCollection will not execute.
       if (firestore && user?.uid) {
         return query(collection(firestore, 'order_items'), where('userId', '==', user.uid), orderBy('timestamp', 'desc'));
       }
-      return null; // Retorna null se as condições não forem satisfeitas, impedindo a execução da consulta.
+      return null;
     },
-    [firestore, user?.uid]
+    [firestore, user?.uid] // Dependency on user.uid is crucial.
   );
   
   const { data: bomboniereItems, isLoading: isLoadingBomboniere } = useCollection<BomboniereItem>(bomboniereItemsRef);
@@ -750,7 +751,7 @@ function LancheTrackerPage({ user }: { user: User }) {
 export default function Home() {
   const { user, isUserLoading } = useUser();
 
-  // Mostra o ecrã de carregamento enquanto a autenticação está a ser verificada.
+  // Show a full-page loading screen while authentication is in progress.
   if (isUserLoading) {
     return (
       <div className="flex h-screen w-full flex-col items-center justify-center text-center p-4">
@@ -761,7 +762,7 @@ export default function Home() {
     );
   }
 
-  // Se, após o carregamento, não houver utilizador, mostra uma mensagem de erro ou um ecrã de login.
+  // If, after loading, there is no user, show an error.
   if (!user) {
      return (
       <div className="flex h-screen w-full flex-col items-center justify-center text-center p-4">
@@ -771,7 +772,7 @@ export default function Home() {
     );
   }
   
-  // Se houver um utilizador, renderiza a página principal.
+  // If there is a user, render the main page.
   return <LancheTrackerPage user={user} />;
 }
 
