@@ -76,7 +76,6 @@ function LancheTrackerPage() {
   const { user } = useUser();
   const router = useRouter();
 
-  // Firestore Queries
   const bomboniereItemsRef = useMemoFirebase(() => (firestore ? query(collection(firestore, 'bomboniere_items'), orderBy('name', 'asc')) : null), [firestore]);
   
   const userOrderItemsQuery = useMemoFirebase(
@@ -84,7 +83,6 @@ function LancheTrackerPage() {
     [firestore, user?.uid]
   );
   
-  // Data hooks
   const { data: bomboniereItems, isLoading: isLoadingBomboniere } = useCollection<BomboniereItem>(bomboniereItemsRef);
   const { data: items, isLoading: isLoadingItems } = useCollection<Item>(userOrderItemsQuery);
 
@@ -759,7 +757,7 @@ export default function Home() {
 
   if (isUserLoading || !user) {
     return (
-      <div className="flex h-screen items-center justify-center">
+      <div className="flex h-screen w-full items-center justify-center">
         <Loader2 className="h-12 w-12 animate-spin text-primary" />
       </div>
     );
@@ -767,5 +765,3 @@ export default function Home() {
 
   return <LancheTrackerPage />;
 }
-
-    
