@@ -817,3 +817,5 @@ export default function Home() {
   
   return <LancheTrackerPage user={user} />;
 }
+
+    
