@@ -446,7 +446,7 @@ export default function ReportsPage() {
 
   const isLoading = isUserLoading || isLoadingReports || isLoadingBomboniere;
 
-  const filteredReportsForAggregation = useMemo(() => {
+  const filteredReports = useMemo(() => {
     if (!savedReports) return [];
     
     let startDate: Date;
@@ -458,7 +458,7 @@ export default function ReportsPage() {
         startDate = startOfYear(referenceDate);
         endDate = endOfYear(referenceDate);
     } else {
-        const monthDate = setMonth(referenceDate, parseInt(selectedMonth, 10));
+        const monthDate = setMonth(new Date(selectedYear, 0, 1), parseInt(selectedMonth, 10));
         startDate = startOfMonth(monthDate);
         endDate = endOfMonth(monthDate);
     }
@@ -491,12 +491,6 @@ export default function ReportsPage() {
     setReportToDelete(null);
   };
   
-  const sortedSavedReports = useMemo(() => {
-    if (!savedReports) return [];
-    return [...savedReports].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-  }, [savedReports]);
-
-
   const getFormattedDate = (dateString: string) => {
     try {
         const date = parseISO(dateString + 'T12:00:00');
@@ -592,14 +586,14 @@ export default function ReportsPage() {
                 </TabsList>
                 
                 <TabsContent value="agregado">
-                     <AggregateReport reports={filteredReportsForAggregation} bomboniereItems={bomboniereItems || []} />
+                     <AggregateReport reports={filteredReports} bomboniereItems={bomboniereItems || []} />
                 </TabsContent>
 
                 <TabsContent value="diario" className="pt-4">
                      <h2 className="text-xl font-semibold mb-4">Relatórios Diários Salvos</h2>
-                    {sortedSavedReports && sortedSavedReports.length > 0 && bomboniereItems ? (
+                    {filteredReports && filteredReports.length > 0 && bomboniereItems ? (
                       <Accordion type="single" collapsible className="w-full space-y-2">
-                        {sortedSavedReports.map(report => {
+                        {filteredReports.map(report => {
                           const { day, month, dayOfWeek, fullDate } = getFormattedDate(report.reportDate);
                           return (
                               <AccordionItem value={report.id!} key={`${report.id}-${report.createdAt}`}>
@@ -645,7 +639,7 @@ export default function ReportsPage() {
                     ) : (
                       <Card>
                         <CardContent className="p-10 text-center text-muted-foreground">
-                          <p>Nenhum relatório salvo encontrado.</p>
+                          <p>Nenhum relatório salvo encontrado para o período selecionado.</p>
                         </CardContent>
                       </Card>
                     )}
