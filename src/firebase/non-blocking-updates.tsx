@@ -42,7 +42,7 @@ export function setDocumentNonBlocking(docRef: DocumentReference, data: any, opt
  * Returns the Promise for the new doc ref, but typically not awaited by caller.
  */
 export function addDocumentNonBlocking<T extends DocumentData>(colRef: CollectionReference<T>, data: T) {
-    addDoc(colRef, data).catch(error => {
+    addDoc(colRef, data as any).catch(error => {
         errorEmitter.emit(
             'permission-error',
             new FirestorePermissionError({

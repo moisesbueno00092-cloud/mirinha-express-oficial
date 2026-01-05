@@ -75,9 +75,8 @@ function LancheTrackerPage({ user }: { user: User }) {
   const firestore = useFirestore();
   const router = useRouter();
 
-  // Manage items in local state
-  const [items, setItems] = useState<Item[]>([]);
-  const [isLoadingItems, setIsLoadingItems] = useState(false);
+  const [items, setItems] = usePersistentState<Item[]>('lanche-tracker-items', []);
+  const [isLoadingItems, setIsLoadingItems] = useState(true);
 
   const bomboniereItemsRef = useMemoFirebase(() => (firestore ? query(collection(firestore, 'bomboniere_items'), orderBy('name', 'asc')) : null), [firestore]);
   const { data: bomboniereItemsFromDB, isLoading: isLoadingBomboniere } = useCollection<BomboniereItem>(bomboniereItemsRef);
@@ -88,6 +87,17 @@ function LancheTrackerPage({ user }: { user: User }) {
     }
     return BOMBONIERE_ITEMS_DEFAULT;
   }, [bomboniereItemsFromDB, isLoadingBomboniere]);
+
+  // This effect runs once on mount to clear old data
+  useEffect(() => {
+    const lastClearDate = localStorage.getItem('lastClearDate');
+    const today = new Date().toDateString();
+    if (lastClearDate !== today) {
+        setItems([]);
+        localStorage.setItem('lastClearDate', today);
+    }
+    setIsLoadingItems(false);
+  }, [setItems]);
 
 
   const [isProcessing, setIsProcessing] = useState(false);
@@ -337,24 +347,18 @@ function LancheTrackerPage({ user }: { user: User }) {
             ...(processedBomboniereItems.length > 0 ? { bomboniereItems: finalItemForState.bomboniereItems } : {}),
         };
 
-
         const orderItemsCollectionRef = collection(firestore, 'users', user.uid, 'order_items');
         
         if (currentItem?.id) {
             const docRef = doc(orderItemsCollectionRef, currentItem.id);
-            setDocumentNonBlocking(docRef, finalItemForFirestore); // No await
-            // Update local state
+            setDocumentNonBlocking(docRef, finalItemForFirestore);
             setItems(prevItems => prevItems.map(it => it.id === currentItem.id ? finalItemForState : it));
             toast({
                 duration: 4000,
                 component: <ToastContent item={finalItemForState} title="Lançamento Atualizado" />,
             });
         } else {
-            addDoc(orderItemsCollectionRef, finalItemForFirestore).then(docRef => {
-                // Update the temporary item in local state with the real ID from Firestore
-                 setItems(prevItems => prevItems.map(it => it.id === finalItemForState.id ? { ...finalItemForState, id: docRef.id } : it));
-            }); // No await
-             // Add to local state immediately with temporary ID
+            addDocumentNonBlocking(orderItemsCollectionRef, finalItemForFirestore);
             setItems(prevItems => [finalItemForState, ...prevItems]);
             toast({
                 duration: 4000,
@@ -409,11 +413,12 @@ function LancheTrackerPage({ user }: { user: User }) {
 
   const confirmDeleteItem = async () => {
     if (!firestore || !user?.uid || !itemToDelete) return;
-    // Optimistic UI update
+    const itemRef = items.find(it => it.id === itemToDelete);
+    if (itemRef) {
+        const docRef = doc(firestore, 'users', user.uid, 'order_items', itemToDelete);
+        deleteDocumentNonBlocking(docRef); // Fire-and-forget
+    }
     setItems(prevItems => prevItems.filter(it => it.id !== itemToDelete));
-    
-    const docRef = doc(firestore, 'users', user.uid, 'order_items', itemToDelete);
-    deleteDocumentNonBlocking(docRef); // Fire-and-forget
     toast({ title: "Item removido com sucesso.", variant: "destructive" });
     setItemToDelete(null);
   };
@@ -485,11 +490,14 @@ function LancheTrackerPage({ user }: { user: User }) {
 
       const userOrderItemsRef = collection(firestore, 'users', user.uid, 'order_items');
       todaysItems.forEach(item => {
-        const itemRef = doc(userOrderItemsRef, item.id);
-        deleteDocumentNonBlocking(itemRef);
+        // We only delete items that have a real Firestore ID (not a temporary one)
+        if (!String(item.id).includes('.')) { // Simple check if it's a temp ID
+            const itemRef = doc(userOrderItemsRef, item.id);
+            deleteDocumentNonBlocking(itemRef);
+        }
       });
       
-      setItems(items.filter(item => !todaysItems.some(todayItem => todayItem.id === item.id)));
+      setItems([]);
 
       toast({
         title: 'Relatório Salvo!',
