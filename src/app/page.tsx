@@ -78,7 +78,7 @@ export default function Home() {
   const router = useRouter();
   
   useEffect(() => {
-    if (!isUserLoading && !user && auth) {
+    if (auth && !isUserLoading && !user) {
       signInAnonymously(auth).catch((error) => {
         console.error("Anonymous sign-in failed:", error);
       });
@@ -107,9 +107,9 @@ export default function Home() {
   const { toast } = useToast();
 
   const userOrderItemsQuery = useMemoFirebase(() => {
-    if (!firestore || isUserLoading || !user?.uid) return null;
+    if (!firestore || !user?.uid) return null;
     return query(collection(firestore, 'order_items'), where('userId', '==', user.uid));
-  }, [firestore, user?.uid, isUserLoading]);
+  }, [firestore, user?.uid]);
 
   const { data: items, isLoading: isLoadingItems } = useCollection<Item>(userOrderItemsQuery);
 
