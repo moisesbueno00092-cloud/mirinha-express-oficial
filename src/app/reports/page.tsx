@@ -434,7 +434,7 @@ export default function ReportsPage() {
   const [selectedMonth, setSelectedMonth] = useState<string>('all');
   const yearOptions = useMemo(() => generateYearOptions(), []);
 
-  const dailyReportsRef = useMemoFirebase(() => (firestore && user ? query(collection(firestore, 'daily_reports'), where('userId', '==', user.uid), orderBy('reportDate', 'desc')) : null), [firestore, user]);
+  const dailyReportsRef = useMemoFirebase(() => (firestore && user ? query(collection(firestore, 'users', user.uid, 'daily_reports'), orderBy('reportDate', 'desc')) : null), [firestore, user]);
   const bomboniereItemsRef = useMemoFirebase(() => (firestore ? query(collection(firestore, 'bomboniere_items'), orderBy('name', 'asc')) : null), [firestore]);
 
   const { data: savedReports, isLoading: isLoadingReports } = useCollection<DailyReport>(dailyReportsRef);
@@ -472,9 +472,9 @@ export default function ReportsPage() {
   };
 
   const confirmDeleteReport = async () => {
-    if (!firestore || !reportToDelete) return;
+    if (!firestore || !user || !reportToDelete) return;
     try {
-      await deleteDoc(doc(firestore, "daily_reports", reportToDelete));
+      await deleteDoc(doc(firestore, "users", user.uid, "daily_reports", reportToDelete));
       toast({
         title: "Sucesso",
         description: "Relatório excluído permanentemente.",

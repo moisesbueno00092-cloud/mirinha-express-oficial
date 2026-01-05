@@ -486,7 +486,7 @@ function LancheTrackerPage({ user }: { user: User }) {
         contagemRua: totals.contagemRua
       };
       
-      const reportRef = doc(collection(firestore, 'daily_reports'));
+      const reportRef = doc(collection(firestore, 'users', user.uid, 'daily_reports'));
       setDocumentNonBlocking(reportRef, report);
 
       const userOrderItemsRef = collection(firestore, 'users', user.uid, 'order_items');
@@ -814,5 +814,3 @@ export default function Home() {
   
   return <LancheTrackerPage user={user} />;
 }
-
-    
