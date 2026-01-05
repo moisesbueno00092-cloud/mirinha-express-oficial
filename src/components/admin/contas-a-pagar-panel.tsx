@@ -228,6 +228,8 @@ export default function ContasAPagarPanel() {
         if (!firestore) return;
         const docRef = doc(firestore, 'contas_a_pagar', conta.id);
         updateDocumentNonBlocking(docRef, { estaPaga: isPaga });
+        // Optimistic UI update
+        setAllContas(prevContas => prevContas.map(c => c.id === conta.id ? { ...c, estaPaga: isPaga } : c));
         toast({
             title: `Conta ${isPaga ? 'marcada como paga' : 'marcada como em aberto'}.`,
             description: conta.descricao,
@@ -241,6 +243,7 @@ export default function ContasAPagarPanel() {
     const confirmDelete = () => {
         if (!firestore || !contaToDelete) return;
         deleteDocumentNonBlocking(doc(firestore, "contas_a_pagar", contaToDelete.id));
+        setAllContas(prevContas => prevContas.filter(c => c.id !== contaToDelete.id));
         toast({
             title: "Sucesso",
             description: "Conta a pagar removida.",
@@ -303,3 +306,4 @@ export default function ContasAPagarPanel() {
     );
 }
 
+    
