@@ -1,7 +1,7 @@
 
 'use client';
 
-import React, { DependencyList, createContext, useContext, ReactNode, useMemo, useState, useEffect } from 'react';
+import React, { createContext, useContext, ReactNode, useMemo, useState, useEffect } from 'react';
 import { FirebaseApp } from 'firebase/app';
 import { Firestore } from 'firebase/firestore';
 import { Auth, User, onAuthStateChanged } from 'firebase/auth';
@@ -43,8 +43,8 @@ export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
   firestore,
   auth,
 }) => {
-  const [user, setUser] = useState<User | null>(auth?.currentUser || null);
-  const [isUserLoading, setIsUserLoading] = useState(true);
+  const [user, setUser] = useState<User | null>(null);
+  const [isUserLoading, setIsUserLoading] = useState(true); // Start as true
   const [userError, setUserError] = useState<Error | null>(null);
 
   useEffect(() => {
@@ -55,18 +55,21 @@ export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
       return;
     }
 
+    // This listener handles the entire auth flow.
     const unsubscribe = onAuthStateChanged(
       auth,
       (firebaseUser) => {
+        // When onAuthStateChanged fires, the auth state is resolved.
+        // It provides either a user object or null.
         setUser(firebaseUser);
         setUserError(null);
-        setIsUserLoading(false);
+        setIsUserLoading(false); // We are no longer loading, regardless of user presence.
       },
       (error) => {
         console.error("FirebaseProvider: onAuthStateChanged error:", error);
         setUser(null);
         setUserError(error);
-        setIsUserLoading(false);
+        setIsUserLoading(false); // Also stop loading on error.
       }
     );
   
@@ -76,9 +79,9 @@ export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
 
   const contextValue = useMemo((): FirebaseContextState => {
     return {
-      firebaseApp: firebaseApp,
-      firestore: firestore,
-      auth: auth,
+      firebaseApp,
+      firestore,
+      auth,
       user,
       isUserLoading,
       userError,
@@ -124,7 +127,7 @@ export const useFirebaseApp = (): FirebaseApp => {
 
 type MemoFirebase <T> = T & {__memo?: boolean};
 
-export function useMemoFirebase<T>(factory: () => T, deps: DependencyList): T | (MemoFirebase<T>) {
+export function useMemoFirebase<T>(factory: () => T, deps: React.DependencyList): T | (MemoFirebase<T>) {
   const memoized = useMemo(factory, deps);
   
   if(typeof memoized !== 'object' || memoized === null) return memoized;
@@ -146,5 +149,3 @@ export const useUser = (): UserHookResult => {
   const { user, isUserLoading, userError } = useFirebaseContext();
   return { user, isUserLoading, userError };
 };
-
-    

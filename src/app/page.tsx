@@ -744,26 +744,29 @@ function LancheTrackerPage({ user }: { user: User }) {
 export default function Home() {
   const { user, isUserLoading } = useUser();
 
+  // This is the gatekeeper. It waits until the auth state is resolved.
   if (isUserLoading) {
     return (
       <div className="flex h-screen w-full items-center justify-center">
         <Loader2 className="h-12 w-12 animate-spin text-primary" />
+        <p className="sr-only">A carregar...</p>
       </div>
     );
   }
 
+  // If auth is resolved but there's no user, something is wrong with the auth setup.
+  // This state should ideally not be hit in this app's flow.
   if (!user) {
-    // This case might happen briefly between loading and user being set,
-    // or if auth fails. A more robust UI could be shown here.
     return (
-        <div className="flex h-screen w-full flex-col items-center justify-center">
+        <div className="flex h-screen w-full flex-col items-center justify-center text-center p-4">
+            <MirinhaLogo className="w-64 sm:w-80 h-auto text-primary mb-4" />
             <Loader2 className="h-12 w-12 animate-spin text-primary" />
             <p className="mt-4 text-muted-foreground">A aguardar autenticação...</p>
+            <p className="mt-2 text-xs text-destructive">Se esta mensagem persistir, verifique a sua conexão ou as configurações do Firebase.</p>
         </div>
     );
   }
 
+  // Once we have a user, render the main page content.
   return <LancheTrackerPage user={user} />;
 }
-
-    
