@@ -16,7 +16,7 @@ import { Loader2, Plus, PlusCircle, Trash2, Pencil, Settings, Camera, Video } fr
 import { Separator } from '../ui/separator';
 import { format as formatDateFn, addDays } from 'date-fns';
 import { addDocumentNonBlocking, commitBatch } from '@/firebase/non-blocking-updates';
-import { DatePicker } from '../ui/date-picker';
+import { Calendar } from '../ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '../ui/popover';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
 import FornecedoresEditModal from './fornecedores-edit-modal';
@@ -507,10 +507,15 @@ export default function MercadoriasPanel() {
                     <div className="grid grid-cols-2 gap-4">
                        <div className="space-y-2 self-end">
                             <Label htmlFor="vencimento">Vencimento da 1ª Parcela</Label>
-                            <DatePicker date={dataVencimento} setDate={setDataVencimento} />
+                            <Calendar
+                                mode="single"
+                                selected={dataVencimento}
+                                onSelect={setDataVencimento}
+                                className="rounded-md border"
+                            />
                             <p className="text-xs text-muted-foreground">Deixe em branco para pagamento à vista.</p>
                         </div>
-                         <div className="space-y-2 self-end">
+                         <div className="space-y-2 self-start pt-7">
                             <Label htmlFor="parcelas">Nº de Parcelas</Label>
                             <Select value={numParcelas} onValueChange={setNumParcelas} disabled={!dataVencimento}>
                                 <SelectTrigger id="parcelas">
@@ -681,4 +686,3 @@ export default function MercadoriasPanel() {
     );
 }
 
-    
