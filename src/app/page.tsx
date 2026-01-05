@@ -6,7 +6,7 @@ import { useRouter } from 'next/navigation';
 import type { Item, Group, PredefinedItem, SelectedBomboniereItem, BomboniereItem, DailyReport, ItemCount, SavedFavorite } from "@/types";
 import { PREDEFINED_PRICES, DELIVERY_FEE, BOMBONIERE_ITEMS_DEFAULT } from "@/lib/constants";
 import { useAuth, useCollection, useFirestore, useMemoFirebase, useUser } from "@/firebase";
-import { collection, doc, query, where, orderBy, deleteDoc, writeBatch, DocumentReference, addDoc } from "firebase/firestore";
+import { collection, doc, query, where, orderBy, deleteDoc, writeBatch, DocumentReference, addDoc, serverTimestamp, Timestamp } from "firebase/firestore";
 import { parseCustomItemPrice } from "@/ai/flows/parse-custom-item-price";
 import usePersistentState from "@/hooks/use-persistent-state";
 
@@ -103,13 +103,21 @@ export default function Home() {
 
   const userOrderItemsQuery = useMemoFirebase(() => {
     if (!firestore || !user) return null;
-    return query(collection(firestore, "order_items"), where("userId", "==", user.uid));
+    const start = startOfDay(new Date());
+    const end = endOfDay(new Date());
+
+    return query(
+        collection(firestore, "order_items"), 
+        where("userId", "==", user.uid),
+        where("timestamp", ">=", start.toISOString()),
+        where("timestamp", "<=", end.toISOString())
+    );
   }, [firestore, user]);
   
   const bomboniereItemsRef = useMemoFirebase(() => (firestore ? query(collection(firestore, 'bomboniere_items'), orderBy('name', 'asc')) : null), [firestore]);
   
 
-  const { data: allItems, isLoading: isLoadingItems, error: firestoreError } = useCollection<Item>(userOrderItemsQuery);
+  const { data: items, isLoading: isLoadingItems, error: firestoreError } = useCollection<Item>(userOrderItemsQuery);
   const { data: bomboniereItems, isLoading: isLoadingBomboniere } = useCollection<BomboniereItem>(bomboniereItemsRef);
   
   const [isProcessing, setIsProcessing] = useState(false);
@@ -132,20 +140,6 @@ export default function Home() {
 
 
   const { toast } = useToast();
-
-  const items = useMemo(() => {
-    if (!allItems) return [];
-    const start = startOfDay(new Date());
-    const end = endOfDay(new Date());
-    return allItems.filter(item => {
-      try {
-        if (!item.timestamp) return false;
-        return isWithinInterval(new Date(item.timestamp), { start, end });
-      } catch (e) {
-        return false;
-      }
-    });
-  }, [allItems]);
 
   useEffect(() => {
     if (firestore && !isLoadingBomboniere && bomboniereItems && bomboniereItems.length === 0) {
@@ -529,7 +523,7 @@ originalGroup = group;
   }, [items]);
 
   const handleSaveReport = async () => {
-    if (!firestore || !user || items.length === 0) {
+    if (!firestore || !user || !items || items.length === 0) {
       toast({ variant: 'destructive', title: 'Não é possível gerar o relatório', description: 'Não há lançamentos para o dia atual.' });
       return;
     }
@@ -854,7 +848,7 @@ originalGroup = group;
           <Card>
             <CardContent className="p-2 sm:p-6">
               <ItemList
-                items={items}
+                items={items || []}
                 onEdit={handleEditRequest}
                 onDelete={handleDeleteRequest}
                 onFavorite={handleFavoriteSaveRequest}
@@ -868,7 +862,7 @@ originalGroup = group;
         <div className="mt-8 mb-24 grid grid-cols-2 md:grid-cols-4 gap-2">
             <Button 
                 onClick={handleSaveReport}
-                disabled={isSavingReport || isLoadingItems || items.length === 0}
+                disabled={isSavingReport || isLoadingItems || !items || items.length === 0}
                 className="w-full"
             >
                 {isSavingReport ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
@@ -918,5 +912,3 @@ originalGroup = group;
     </>
   );
 }
-
-    
