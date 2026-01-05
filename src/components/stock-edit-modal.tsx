@@ -115,13 +115,14 @@ export default function StockEditModal({ isOpen, onClose, bomboniereItems: initi
       setIsProcessing(true);
 
       const bomboniereCollectionRef = collection(firestore, "bomboniere_items");
+      let hasError = false;
 
       for (const item of items) {
           const { name, price, estoque } = item;
           if (!name.trim() || String(price).trim() === '' || String(estoque).trim() === '') {
               toast({ variant: 'destructive', title: 'Erro de Validação', description: `O item "${name || 'novo'}" tem campos em branco.`});
-              setIsProcessing(false);
-              return;
+              hasError = true;
+              break;
           }
 
           const finalPrice = parseFloat(String(price).replace(',', '.'));
@@ -129,8 +130,8 @@ export default function StockEditModal({ isOpen, onClose, bomboniereItems: initi
           
           if(isNaN(finalPrice) || isNaN(finalStock)) {
              toast({ variant: 'destructive', title: 'Erro de Validação', description: `O item "${name}" tem valores inválidos para preço ou estoque.`});
-             setIsProcessing(false);
-             return;
+             hasError = true;
+             break;
           }
 
           const itemData = { name: name.trim(), price: finalPrice, estoque: finalStock };
@@ -139,13 +140,16 @@ export default function StockEditModal({ isOpen, onClose, bomboniereItems: initi
               const docRef = doc(bomboniereCollectionRef, item.id);
               updateDocumentNonBlocking(docRef, itemData);
           } else { // Add new
-              await addDocumentNonBlocking(bomboniereCollectionRef, itemData);
+              addDocumentNonBlocking(bomboniereCollectionRef, itemData);
           }
       }
       
       setIsProcessing(false);
-      toast({ title: "Sucesso", description: "Estoque da bomboniere atualizado." });
-      onClose();
+      
+      if (!hasError) {
+        toast({ title: "Sucesso", description: "Estoque da bomboniere atualizado." });
+        onClose();
+      }
   };
   
 
@@ -249,4 +253,3 @@ export default function StockEditModal({ isOpen, onClose, bomboniereItems: initi
     </>
   );
 }
-
