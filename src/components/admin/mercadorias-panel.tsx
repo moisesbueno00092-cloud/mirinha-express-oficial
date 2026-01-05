@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useMemo, useRef, useEffect } from 'react';
@@ -14,7 +15,7 @@ import { Label } from '@/components/ui/label';
 import { Loader2, Plus, PlusCircle, Trash2, Pencil, Settings, Camera, Video } from 'lucide-react';
 import { Separator } from '../ui/separator';
 import { format as formatDateFn, addDays } from 'date-fns';
-import { addDocumentNonBlocking } from '@/firebase/non-blocking-updates';
+import { addDocumentNonBlocking, commitBatch } from '@/firebase/non-blocking-updates';
 import { DatePicker } from '../ui/date-picker';
 import { Popover, PopoverContent, PopoverTrigger } from '../ui/popover';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
@@ -421,13 +422,14 @@ export default function MercadoriasPanel() {
                 batch.set(entradaDocRef, novaEntrada);
             });
             
-            await batch.commit();
+            await commitBatch(batch);
 
             toast({ title: 'Sucesso!', description: 'Entrada de mercadoria e conta(s) a pagar registadas.' });
             resetForm();
         } catch (error) {
+            // The commitBatch function will emit the specific error, so we don't need to toast here.
+            // We just need to catch the re-thrown error to stop execution flow.
             console.error("Erro ao registar entrada:", error);
-            toast({ variant: 'destructive', title: 'Erro', description: 'Não foi possível registar a entrada.' });
         } finally {
             setIsSubmitting(false);
         }
@@ -678,3 +680,5 @@ export default function MercadoriasPanel() {
         </>
     );
 }
+
+    
