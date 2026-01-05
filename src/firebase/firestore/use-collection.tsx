@@ -60,6 +60,7 @@ export function useCollection<T = any>(
   const { user, isUserLoading } = useUser();
 
   useEffect(() => {
+    // Se a query não estiver pronta, ou o utilizador estiver a carregar, esperamos.
     if (!memoizedTargetRefOrQuery || isUserLoading) {
       setIsLoading(true);
       return;
@@ -71,11 +72,22 @@ export function useCollection<T = any>(
 
     const isProtectedPath = path === 'order_items';
 
-    if (isProtectedPath && !isUserIdFilteredQuery(memoizedTargetRefOrQuery)) {
+    // Se for um caminho protegido, E não tivermos um ID de utilizador, esperamos.
+    if (isProtectedPath && !user?.uid) {
         setIsLoading(true);
         setData(null);
         return;
     }
+    
+    // Se for um caminho protegido, e a query não estiver a filtrar por userId, é um erro de programação.
+    // Mas, por segurança, não executamos a query.
+    if (isProtectedPath && !isUserIdFilteredQuery(memoizedTargetRefOrQuery)) {
+        setIsLoading(true);
+        setData(null);
+        // Poderíamos definir um erro aqui, mas esperar pelo UID resolverá isto.
+        return;
+    }
+
 
     setIsLoading(true);
     setError(null);
@@ -114,5 +126,3 @@ export function useCollection<T = any>(
   
   return { data, isLoading, error };
 }
-
-    
