@@ -42,7 +42,7 @@ import StockEditModal from "@/components/stock-edit-modal";
 import MirinhaLogo from "@/components/mirinha-logo";
 import FavoritesMenu from "@/components/favorites-menu";
 import { createUserWithEmailAndPassword, signInWithEmailAndPassword } from "firebase/auth";
-import { format, startOfDay, endOfDay, isWithinInterval } from "date-fns";
+import { format, startOfDay, endOfDay, isWithinInterval, isToday } from "date-fns";
 import { cn } from "@/lib/utils";
 import { Label } from "@/components/ui/label";
 
@@ -105,23 +105,31 @@ export default function Home() {
     if (!firestore || !user?.uid) {
       return null;
     }
-    const start = startOfDay(new Date());
-    const end = endOfDay(new Date());
-
     return query(
         collection(firestore, "order_items"), 
-        where("userId", "==", user.uid),
-        where("timestamp", ">=", Timestamp.fromDate(start)),
-        where("timestamp", "<=", Timestamp.fromDate(end))
+        where("userId", "==", user.uid)
     );
   }, [firestore, user?.uid]);
   
   const bomboniereItemsRef = useMemoFirebase(() => (firestore ? query(collection(firestore, 'bomboniere_items'), orderBy('name', 'asc')) : null), [firestore]);
   
 
-  const { data: items, isLoading: isLoadingItems, error: firestoreError } = useCollection<Item>(userOrderItemsQuery);
+  const { data: allItems, isLoading: isLoadingItems, error: firestoreError } = useCollection<Item>(userOrderItemsQuery);
   const { data: bomboniereItems, isLoading: isLoadingBomboniere } = useCollection<BomboniereItem>(bomboniereItemsRef);
   
+  const items = useMemo(() => {
+    if (!allItems) return [];
+    // Filter items for today on the client side
+    return allItems.filter(item => {
+        try {
+            const itemDate = new Date(item.timestamp);
+            return isToday(itemDate);
+        } catch(e) {
+            return false;
+        }
+    });
+  }, [allItems]);
+
   const [isProcessing, setIsProcessing] = useState(false);
   const [isSavingReport, setIsSavingReport] = useState(false);
   const [editingItem, setEditingItem] = useState<Item | null>(null);
@@ -351,13 +359,13 @@ originalGroup = group;
 
         const timestamp = new Date();
 
-        const finalItem: Omit<Item, 'id' | 'timestamp'> & { timestamp: Timestamp } = {
+        const finalItem: Omit<Item, 'id' | 'timestamp'> & { timestamp: string } = {
             userId: user.uid,
             name: consolidatedName,
             quantity: totalQuantity,
             price: totalPrice,
             group,
-            timestamp: Timestamp.fromDate(timestamp),
+            timestamp: timestamp.toISOString(),
             deliveryFee,
             total,
             originalCommand: rawInputToProcess,
@@ -374,14 +382,14 @@ originalGroup = group;
             setDocumentNonBlocking(docRef, finalItem, { merge: true });
             toast({
                 duration: 4000,
-                component: <ToastContent item={{...finalItem, id: currentItem.id, timestamp: finalItem.timestamp.toDate().toISOString()}} title="Lançamento Atualizado" />,
+                component: <ToastContent item={{...finalItem, id: currentItem.id }} title="Lançamento Atualizado" />,
             });
         } else {
             const docRef = await addDoc(orderItemsCollectionRef, finalItem);
             
             toast({
                 duration: 4000,
-                component: <ToastContent item={{...finalItem, id: docRef.id, timestamp: finalItem.timestamp.toDate().toISOString()}} title="Lançamento Adicionado" />,
+                component: <ToastContent item={{...finalItem, id: docRef.id }} title="Lançamento Adicionado" />,
             });
         }
         
