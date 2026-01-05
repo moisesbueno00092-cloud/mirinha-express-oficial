@@ -499,16 +499,7 @@ function LancheTrackerPage({ user }: { user: User }) {
             ...itemData,
             timestamp: serverTimestamp(),
           };
-          addDoc(userOrderItemsRef, finalItemForFirestore).catch(error => {
-              errorEmitter.emit(
-                  'permission-error',
-                  new FirestorePermissionError({
-                      path: userOrderItemsRef.path,
-                      operation: 'create',
-                      requestResourceData: finalItemForFirestore,
-                  })
-              );
-          });
+          addDocumentNonBlocking(userOrderItemsRef, finalItemForFirestore);
         } else {
           const itemRef = doc(userOrderItemsRef, item.id);
           deleteDocumentNonBlocking(itemRef);
@@ -821,5 +812,3 @@ export default function Home() {
   
   return <LancheTrackerPage user={user} />;
 }
-
-    
