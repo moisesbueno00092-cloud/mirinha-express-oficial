@@ -77,8 +77,8 @@ function LancheTrackerPage({ user }: { user: User }) {
   const bomboniereItemsRef = useMemoFirebase(() => (firestore ? query(collection(firestore, 'bomboniere_items'), orderBy('name', 'asc')) : null), [firestore]);
   
   const userOrderItemsQuery = useMemoFirebase(
-    () => (firestore && user?.uid ? query(collection(firestore, 'order_items'), where('userId', '==', user.uid), orderBy('timestamp', 'desc')) : null),
-    [firestore, user?.uid]
+    () => (firestore ? query(collection(firestore, 'order_items'), where('userId', '==', user.uid), orderBy('timestamp', 'desc')) : null),
+    [firestore, user.uid]
   );
   
   const { data: bomboniereItems, isLoading: isLoadingBomboniere } = useCollection<BomboniereItem>(bomboniereItemsRef);
@@ -753,10 +753,12 @@ export default function Home() {
   }
 
   if (!user) {
+    // This case might happen briefly between loading and user being set,
+    // or if auth fails. A more robust UI could be shown here.
     return (
         <div className="flex h-screen w-full flex-col items-center justify-center">
             <Loader2 className="h-12 w-12 animate-spin text-primary" />
-            <p className="mt-4 text-muted-foreground">Aguardando autenticação...</p>
+            <p className="mt-4 text-muted-foreground">A aguardar autenticação...</p>
         </div>
     );
   }
