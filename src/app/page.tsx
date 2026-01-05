@@ -77,7 +77,7 @@ function LancheTrackerPage({ user }: { user: User }) {
 
   // Manage items in local state
   const [items, setItems] = useState<Item[]>([]);
-  const [isLoadingItems, setIsLoadingItems] = useState(false); // No longer fetching on load
+  const [isLoadingItems, setIsLoadingItems] = useState(false);
 
   const bomboniereItemsRef = useMemoFirebase(() => (firestore ? query(collection(firestore, 'bomboniere_items'), orderBy('name', 'asc')) : null), [firestore]);
   const { data: bomboniereItemsFromDB, isLoading: isLoadingBomboniere } = useCollection<BomboniereItem>(bomboniereItemsRef);
@@ -321,12 +321,22 @@ function LancheTrackerPage({ user }: { user: User }) {
             ...(processedBomboniereItems.length > 0 ? { bomboniereItems: processedBomboniereItems } : {}),
         };
         
-        // Omit 'id' when sending to Firestore
-        const { id, ...itemForFirestore } = finalItemForState;
         const finalItemForFirestore = {
-            ...itemForFirestore,
+            userId: finalItemForState.userId,
+            name: finalItemForState.name,
+            quantity: finalItemForState.quantity,
+            price: finalItemForState.price,
+            group: finalItemForState.group,
             timestamp: serverTimestamp(),
+            deliveryFee: finalItemForState.deliveryFee,
+            total: finalItemForState.total,
+            originalCommand: finalItemForState.originalCommand,
+            ...(customerName && { customerName: finalItemForState.customerName }),
+            ...(individualPrices.length > 0 ? { individualPrices: finalItemForState.individualPrices } : {}),
+            ...(predefinedItems.length > 0 ? { predefinedItems: finalItemForState.predefinedItems } : {}),
+            ...(processedBomboniereItems.length > 0 ? { bomboniereItems: finalItemForState.bomboniereItems } : {}),
         };
+
 
         const orderItemsCollectionRef = collection(firestore, 'users', user.uid, 'order_items');
         
@@ -437,7 +447,7 @@ function LancheTrackerPage({ user }: { user: User }) {
     toast({ title: 'Favorito removido.', variant: 'destructive' });
   }
 
-  const handleSaveReport = async () => {
+  const handleSaveReport = () => {
     if (!user || !firestore || !todaysItems || todaysItems.length === 0) {
       toast({ variant: 'destructive', title: 'Impossível Salvar', description: 'Não há itens para gerar o relatório.' });
       return;
@@ -445,7 +455,6 @@ function LancheTrackerPage({ user }: { user: User }) {
     setIsSavingReport(true);
   
     try {
-      const batch = writeBatch(firestore);
       const reportDate = format(new Date(), 'yyyy-MM-dd');
       
       const report: DailyReport = {
@@ -472,15 +481,13 @@ function LancheTrackerPage({ user }: { user: User }) {
       };
       
       const reportRef = doc(collection(firestore, 'daily_reports'));
-      batch.set(reportRef, report);
+      setDocumentNonBlocking(reportRef, report);
 
       const userOrderItemsRef = collection(firestore, 'users', user.uid, 'order_items');
       todaysItems.forEach(item => {
         const itemRef = doc(userOrderItemsRef, item.id);
-        batch.delete(itemRef);
+        deleteDocumentNonBlocking(itemRef);
       });
-
-      await batch.commit();
       
       setItems(items.filter(item => !todaysItems.some(todayItem => todayItem.id === item.id)));
 
@@ -788,7 +795,5 @@ export default function Home() {
   
   return <LancheTrackerPage user={user} />;
 }
-
-    
 
     
