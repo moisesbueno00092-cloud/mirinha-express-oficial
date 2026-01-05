@@ -5,7 +5,7 @@ import React, { DependencyList, createContext, useContext, ReactNode, useMemo, u
 import { FirebaseApp } from 'firebase/app';
 import { Firestore } from 'firebase/firestore';
 import { Auth, User, onAuthStateChanged } from 'firebase/auth';
-import { FirebaseErrorListener } from '@/components/FirebaseErrorListener'
+import { FirebaseErrorListener } from '@/components/FirebaseErrorListener';
 
 interface FirebaseProviderProps {
   children: ReactNode;
@@ -43,26 +43,30 @@ export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
   firestore,
   auth,
 }) => {
-  const [userState, setUserState] = useState<UserHookResult>({
-    user: auth?.currentUser || null,
-    isUserLoading: true,
-    userError: null,
-  });
+  const [user, setUser] = useState<User | null>(auth?.currentUser || null);
+  const [isUserLoading, setIsUserLoading] = useState(true);
+  const [userError, setUserError] = useState<Error | null>(null);
 
   useEffect(() => {
     if (!auth) {
-      setUserState({ user: null, isUserLoading: false, userError: new Error("Auth service not provided.") });
+      setUser(null);
+      setUserError(new Error("Auth service not provided."));
+      setIsUserLoading(false);
       return;
     }
 
     const unsubscribe = onAuthStateChanged(
       auth,
-      (user) => {
-        setUserState({ user: user, isUserLoading: false, userError: null });
+      (firebaseUser) => {
+        setUser(firebaseUser);
+        setUserError(null);
+        setIsUserLoading(false);
       },
       (error) => {
         console.error("FirebaseProvider: onAuthStateChanged error:", error);
-        setUserState({ user: null, isUserLoading: false, userError: error });
+        setUser(null);
+        setUserError(error);
+        setIsUserLoading(false);
       }
     );
   
@@ -75,9 +79,11 @@ export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
       firebaseApp: firebaseApp,
       firestore: firestore,
       auth: auth,
-      ...userState,
+      user,
+      isUserLoading,
+      userError,
     };
-  }, [firebaseApp, firestore, auth, userState]);
+  }, [firebaseApp, firestore, auth, user, isUserLoading, userError]);
 
   return (
     <FirebaseContext.Provider value={contextValue}>
@@ -140,3 +146,5 @@ export const useUser = (): UserHookResult => {
   const { user, isUserLoading, userError } = useFirebaseContext();
   return { user, isUserLoading, userError };
 };
+
+    

@@ -77,8 +77,8 @@ function LancheTrackerPage({ user }: { user: User }) {
   const bomboniereItemsRef = useMemoFirebase(() => (firestore ? query(collection(firestore, 'bomboniere_items'), orderBy('name', 'asc')) : null), [firestore]);
   
   const userOrderItemsQuery = useMemoFirebase(
-    () => (firestore ? query(collection(firestore, 'order_items'), where('userId', '==', user.uid), orderBy('timestamp', 'desc')) : null),
-    [firestore, user.uid]
+    () => (firestore && user?.uid ? query(collection(firestore, 'order_items'), where('userId', '==', user.uid), orderBy('timestamp', 'desc')) : null),
+    [firestore, user]
   );
   
   const { data: bomboniereItems, isLoading: isLoadingBomboniere } = useCollection<BomboniereItem>(bomboniereItemsRef);
@@ -765,3 +765,5 @@ export default function Home() {
 
   return <LancheTrackerPage user={user} />;
 }
+
+    
