@@ -448,20 +448,20 @@ export default function ReportsPage() {
 
   const filteredReports = useMemo(() => {
     if (!savedReports) return [];
-  
-    const sortedReports = [...savedReports].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+
+    const referenceDate = setYear(new Date(), selectedYear);
 
     const startDate =
       selectedMonth === 'all'
-        ? startOfYear(new Date(selectedYear, 0, 1))
-        : startOfMonth(new Date(selectedYear, parseInt(selectedMonth, 10), 1));
+        ? startOfYear(referenceDate)
+        : startOfMonth(setMonth(referenceDate, parseInt(selectedMonth, 10)));
   
     const endDate =
       selectedMonth === 'all'
-        ? endOfYear(new Date(selectedYear, 0, 1))
-        : endOfMonth(new Date(selectedYear, parseInt(selectedMonth, 10), 1));
+        ? endOfYear(referenceDate)
+        : endOfMonth(setMonth(referenceDate, parseInt(selectedMonth, 10)));
   
-    return sortedReports.filter(r => {
+    const filtered = savedReports.filter(r => {
       try {
         const reportDate = parseISO(r.reportDate + 'T12:00:00Z');
         return isWithinInterval(reportDate, { start: startDate, end: endDate });
@@ -469,6 +469,9 @@ export default function ReportsPage() {
         return false;
       }
     });
+
+    return filtered.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+
   }, [savedReports, selectedYear, selectedMonth]);
 
 
@@ -490,7 +493,7 @@ export default function ReportsPage() {
   
   const getFormattedDate = (dateString: string) => {
     try {
-        const date = parseISO(dateString + 'T12:00:00');
+        const date = parseISO(dateString + 'T12:00:00Z');
         return {
             day: format(date, "dd"),
             month: format(date, "MMM", { locale: ptBR }).toUpperCase(),
