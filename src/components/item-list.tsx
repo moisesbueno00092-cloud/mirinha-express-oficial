@@ -33,10 +33,11 @@ const formatCurrency = (value: number) => {
   }).format(value);
 };
 
-const formatTimestamp = (timestamp: string) => {
+const formatTimestamp = (timestamp: any) => {
   if (!timestamp) return '-';
   try {
-    const date = new Date(timestamp);
+    // Handle both Firebase Timestamp object and ISO string
+    const date = timestamp.toDate ? timestamp.toDate() : new Date(timestamp);
     if(isNaN(date.getTime())) return '-';
     return date.toLocaleTimeString("pt-BR", {
       hour: '2-digit',
@@ -203,8 +204,8 @@ export default function ItemList({ items, onEdit, onDelete, onFavorite, savedFav
         </TableHeader>
         <TableBody>
           {[...items].sort((a, b) => {
-              const dateA = a.timestamp ? new Date(a.timestamp).getTime() : 0;
-              const dateB = b.timestamp ? new Date(b.timestamp).getTime() : 0;
+              const dateA = a.timestamp ? (a.timestamp as any).toDate ? (a.timestamp as any).toDate().getTime() : new Date(a.timestamp).getTime() : 0;
+              const dateB = b.timestamp ? (b.timestamp as any).toDate ? (b.timestamp as any).toDate().getTime() : new Date(b.timestamp).getTime() : 0;
               if (isNaN(dateA) || isNaN(dateB)) return 0;
               return dateB - dateA;
           }).map((item) => (
@@ -247,3 +248,5 @@ export default function ItemList({ items, onEdit, onDelete, onFavorite, savedFav
     </div>
   );
 }
+
+    

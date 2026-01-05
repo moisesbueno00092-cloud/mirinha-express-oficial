@@ -434,7 +434,7 @@ export default function ReportsPage() {
   const [selectedMonth, setSelectedMonth] = useState<string>('all');
   const yearOptions = useMemo(() => generateYearOptions(), []);
 
-  const dailyReportsRef = useMemoFirebase(() => (firestore && user ? query(collection(firestore, 'daily_reports'), orderBy('reportDate', 'desc')) : null), [firestore, user]);
+  const dailyReportsRef = useMemoFirebase(() => (firestore && user ? query(collection(firestore, 'daily_reports'), where('userId', '==', user.uid), orderBy('reportDate', 'desc')) : null), [firestore, user]);
   const bomboniereItemsRef = useMemoFirebase(() => (firestore ? query(collection(firestore, 'bomboniere_items'), orderBy('name', 'asc')) : null), [firestore]);
 
   const { data: savedReports, isLoading: isLoadingReports } = useCollection<DailyReport>(dailyReportsRef);
@@ -645,5 +645,6 @@ export default function ReportsPage() {
     </>
   );
 }
+
 
     
