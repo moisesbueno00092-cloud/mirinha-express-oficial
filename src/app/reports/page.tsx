@@ -452,13 +452,15 @@ export default function ReportsPage() {
     let startDate: Date;
     let endDate: Date;
 
+    const referenceDate = new Date(selectedYear, 0, 1);
+
     if (selectedMonth === 'all') {
-        startDate = startOfYear(setYear(new Date(), selectedYear));
-        endDate = endOfYear(setYear(new Date(), selectedYear));
+        startDate = startOfYear(referenceDate);
+        endDate = endOfYear(referenceDate);
     } else {
-        const referenceDate = setMonth(setYear(new Date(), selectedYear), parseInt(selectedMonth, 10));
-        startDate = startOfMonth(referenceDate);
-        endDate = endOfMonth(referenceDate);
+        const monthDate = setMonth(referenceDate, parseInt(selectedMonth, 10));
+        startDate = startOfMonth(monthDate);
+        endDate = endOfMonth(monthDate);
     }
     
     return savedReports.filter(r => {
