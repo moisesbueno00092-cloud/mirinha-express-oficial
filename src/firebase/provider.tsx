@@ -4,7 +4,7 @@
 import React, { createContext, useContext, ReactNode, useMemo, useState, useEffect } from 'react';
 import { FirebaseApp } from 'firebase/app';
 import { Firestore } from 'firebase/firestore';
-import { Auth, User, onAuthStateChanged } from 'firebase/auth';
+import { Auth, User, onAuthStateChanged, signInAnonymously } from 'firebase/auth';
 import { FirebaseErrorListener } from '@/components/FirebaseErrorListener';
 
 interface FirebaseProviderProps {
@@ -142,3 +142,5 @@ export const useUser = (): UserHookResult => {
   const { user, isUserLoading, userError } = useFirebaseContext();
   return { user, isUserLoading, userError };
 };
+
+    
