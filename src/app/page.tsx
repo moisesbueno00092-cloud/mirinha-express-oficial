@@ -918,5 +918,3 @@ originalGroup = group;
     </>
   );
 }
-
-    
