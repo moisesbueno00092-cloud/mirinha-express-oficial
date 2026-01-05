@@ -2,8 +2,8 @@
 'use client';
 
 import { useMemo, useState, useEffect, useCallback } from 'react';
-import { useFirestore } from '@/firebase';
-import { collection, query, orderBy, doc, getDocs } from 'firebase/firestore';
+import { useFirestore, useCollection, useMemoFirebase } from '@/firebase';
+import { collection, query, orderBy, doc } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import { format, isPast, isToday, isWithinInterval, parseISO, startOfWeek, endOfWeek, endOfMonth } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -22,8 +22,7 @@ import {
 import { Badge } from '@/components/ui/badge';
 import { Switch } from '@/components/ui/switch';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { Loader2, RefreshCw, Trash2 } from 'lucide-react';
+import { Loader2, Trash2 } from 'lucide-react';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -133,35 +132,22 @@ export default function ContasAPagarPanel() {
     const firestore = useFirestore();
     const { toast } = useToast();
     
-    const [allContas, setAllContas] = useState<ContaAPagar[]>([]);
-    const [fornecedores, setFornecedores] = useState<Fornecedor[]>([]);
-    const [isLoading, setIsLoading] = useState(true);
-
     const [contaToDelete, setContaToDelete] = useState<ContaAPagar | null>(null);
     const [activeFilter, setActiveFilter] = useState<FilterType>('all');
 
-    const fetchData = useCallback(async () => {
-        if (!firestore) return;
-        setIsLoading(true);
-        try {
-            const contasQuery = query(collection(firestore, 'contas_a_pagar'), orderBy('dataVencimento', 'asc'));
-            const contasSnapshot = await getDocs(contasQuery);
-            setAllContas(contasSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as ContaAPagar)));
+    const contasQuery = useMemoFirebase(
+        () => firestore ? query(collection(firestore, 'contas_a_pagar'), orderBy('dataVencimento', 'asc')) : null,
+        [firestore]
+    );
+    const fornecedoresQuery = useMemoFirebase(
+        () => firestore ? query(collection(firestore, 'fornecedores')) : null,
+        [firestore]
+    );
 
-            const fornecedoresQuery = query(collection(firestore, 'fornecedores'));
-            const fornecedoresSnapshot = await getDocs(fornecedoresQuery);
-            setFornecedores(fornecedoresSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Fornecedor)));
-        } catch (error) {
-            console.error("Error fetching data for ContasAPagarPanel:", error);
-            toast({ variant: 'destructive', title: 'Erro ao buscar dados', description: 'Não foi possível carregar as contas e fornecedores.' });
-        } finally {
-            setIsLoading(false);
-        }
-    }, [firestore, toast]);
-    
-    useEffect(() => {
-        fetchData();
-    }, [fetchData]);
+    const { data: allContas, isLoading: isLoadingContas } = useCollection<ContaAPagar>(contasQuery);
+    const { data: fornecedores, isLoading: isLoadingFornecedores } = useCollection<Fornecedor>(fornecedoresQuery);
+
+    const isLoading = isLoadingContas || isLoadingFornecedores;
 
     const fornecedorMap = useMemo(() => {
         if (!fornecedores) return new Map<string, Fornecedor>();
@@ -228,8 +214,6 @@ export default function ContasAPagarPanel() {
         if (!firestore) return;
         const docRef = doc(firestore, 'contas_a_pagar', conta.id);
         updateDocumentNonBlocking(docRef, { estaPaga: isPaga });
-        // Optimistic UI update
-        setAllContas(prevContas => prevContas.map(c => c.id === conta.id ? { ...c, estaPaga: isPaga } : c));
         toast({
             title: `Conta ${isPaga ? 'marcada como paga' : 'marcada como em aberto'}.`,
             description: conta.descricao,
@@ -243,7 +227,6 @@ export default function ContasAPagarPanel() {
     const confirmDelete = () => {
         if (!firestore || !contaToDelete) return;
         deleteDocumentNonBlocking(doc(firestore, "contas_a_pagar", contaToDelete.id));
-        setAllContas(prevContas => prevContas.filter(c => c.id !== contaToDelete.id));
         toast({
             title: "Sucesso",
             description: "Conta a pagar removida.",
@@ -251,11 +234,6 @@ export default function ContasAPagarPanel() {
         setContaToDelete(null);
     };
     
-    const handleRefresh = () => {
-        toast({ title: "A atualizar dados...", duration: 2000 });
-        fetchData();
-    };
-
     const FilterButton = ({ filter, label, count }: { filter: FilterType, label: string, count: number }) => (
         <Button
             variant={activeFilter === filter ? "default" : "outline"}
@@ -292,9 +270,6 @@ export default function ContasAPagarPanel() {
                     <FilterButton filter="hoje" label="Vence Hoje" count={counts.hoje} />
                     <FilterButton filter="semana" label="Esta Semana" count={counts.semana} />
                     <FilterButton filter="mes" label="Este Mês" count={counts.mes} />
-                    <Button variant="outline" size="icon" onClick={handleRefresh} disabled={isLoading} className="ml-auto">
-                        {isLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
-                    </Button>
                 </div>
                 {isLoading ? (
                     <div className="flex justify-center p-8"><Loader2 className="h-8 w-8 animate-spin"/></div>
@@ -305,5 +280,3 @@ export default function ContasAPagarPanel() {
         </div>
     );
 }
-
-    

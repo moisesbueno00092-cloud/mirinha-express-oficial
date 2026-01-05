@@ -2,17 +2,16 @@
 'use client';
 
 import { useState, useMemo, useEffect, useCallback } from 'react';
-import { useUser, useFirestore, deleteDocumentNonBlocking } from '@/firebase';
-import { collection, query, orderBy, doc, getDocs } from 'firebase/firestore';
+import { useUser, useFirestore, deleteDocumentNonBlocking, useCollection, useMemoFirebase } from '@/firebase';
+import { collection, query, orderBy, doc } from 'firebase/firestore';
 import { format, parseISO, startOfMonth, endOfMonth, startOfYear, endOfYear, isWithinInterval, setYear, setMonth } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
 
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
-import { Loader2, ArrowLeft, Trash2, ChevronDown, Calendar, AreaChart, TrendingUp, BarChart, Info, Settings, Users, PiggyBank, RefreshCw } from 'lucide-react';
+import { Loader2, ArrowLeft, Trash2, ChevronDown, TrendingUp, Info, RefreshCw } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import {
   AlertDialog,
@@ -41,7 +40,6 @@ import {
 import { PieChart, Pie, Cell, ResponsiveContainer } from "recharts"
 
 import type { DailyReport, ItemCount, BomboniereItem } from '@/types';
-import DailyTimelineChart from '@/components/daily-timeline-chart';
 import { cn } from '@/lib/utils';
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
@@ -428,53 +426,25 @@ export default function ReportsPage() {
   const firestore = useFirestore();
   const { toast } = useToast();
   
-  const [savedReports, setSavedReports] = useState<DailyReport[]>([]);
-  const [bomboniereItems, setBomboniereItems] = useState<BomboniereItem[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-
   const [reportToDelete, setReportToDelete] = useState<string | null>(null);
   const [selectedYear, setSelectedYear] = useState<number>(new Date().getFullYear());
   const [selectedMonth, setSelectedMonth] = useState<string>('all');
   const yearOptions = useMemo(() => generateYearOptions(), []);
 
-  const fetchData = useCallback(async () => {
-    if (!firestore || !user) {
-        setIsLoading(false);
-        return;
-    };
+  const reportsQuery = useMemoFirebase(
+    () => firestore && user ? query(collection(firestore, 'users', user.uid, 'daily_reports'), orderBy('reportDate', 'desc')) : null,
+    [firestore, user]
+  );
+  const bomboniereQuery = useMemoFirebase(
+    () => firestore ? query(collection(firestore, 'bomboniere_items'), orderBy('name', 'asc')) : null,
+    [firestore]
+  );
 
-    setIsLoading(true);
+  const { data: savedReports, isLoading: isLoadingReports, error: reportsError } = useCollection<DailyReport>(reportsQuery);
+  const { data: bomboniereItems, isLoading: isLoadingBomboniere, error: bomboniereError } = useCollection<BomboniereItem>(bomboniereQuery);
 
-    try {
-        const reportsQuery = query(collection(firestore, 'users', user.uid, 'daily_reports'), orderBy('reportDate', 'desc'));
-        const reportsSnapshot = await getDocs(reportsQuery);
-        const reportsData = reportsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as DailyReport));
-        setSavedReports(reportsData);
-        
-        const bomboniereQuery = query(collection(firestore, 'bomboniere_items'), orderBy('name', 'asc'));
-        const bomboniereSnapshot = await getDocs(bomboniereQuery);
-        const bomboniereData = bomboniereSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as BomboniereItem));
-        setBomboniereItems(bomboniereData);
+  const isLoading = isUserLoading || isLoadingReports || isLoadingBomboniere;
 
-    } catch (error) {
-        console.error("Error fetching reports or bomboniere items:", error);
-        toast({
-            variant: "destructive",
-            title: "Erro ao carregar dados",
-            description: "Não foi possível carregar os relatórios ou itens da bomboniere.",
-        });
-    } finally {
-        setIsLoading(false);
-    }
-  }, [firestore, user, toast]);
-
-  useEffect(() => {
-    if(user && firestore) {
-        fetchData();
-    }
-  }, [user, firestore, fetchData]);
-
-  
   const filteredReportsForAggregation = useMemo(() => {
     if (!savedReports) return [];
     
@@ -511,7 +481,6 @@ export default function ReportsPage() {
     
     const docRef = doc(firestore, "users", user.uid, "daily_reports", reportToDelete);
     deleteDocumentNonBlocking(docRef);
-    setSavedReports(prev => prev.filter(r => r.id !== reportToDelete));
     toast({
         title: "Sucesso",
         description: "Relatório excluído permanentemente.",
@@ -532,11 +501,6 @@ export default function ReportsPage() {
         return { day: '??', month: '???', dayOfWeek: 'Data inválida', fullDate: '??/??/????' }
     }
   };
-  
-  const handleRefresh = () => {
-      toast({title: "A atualizar dados...", duration: 2000});
-      fetchData();
-  }
 
   if (isUserLoading) {
     return (
@@ -603,9 +567,6 @@ export default function ReportsPage() {
                   </SelectContent>
               </Select>
             </div>
-            <Button variant="outline" size="icon" onClick={handleRefresh} disabled={isLoading}>
-                {isLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
-            </Button>
           </div>
         </header>
 
@@ -687,4 +648,3 @@ export default function ReportsPage() {
     </>
   );
 }
-

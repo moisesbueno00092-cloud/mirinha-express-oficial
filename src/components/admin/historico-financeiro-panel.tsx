@@ -2,8 +2,8 @@
 'use client';
 
 import { useMemo, useState, useEffect, useCallback } from 'react';
-import { useFirestore } from '@/firebase';
-import { collection, query, orderBy, getDocs } from 'firebase/firestore';
+import { useFirestore, useCollection, useMemoFirebase } from '@/firebase';
+import { collection, query, orderBy } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import { format, isWithinInterval, startOfMonth, endOfMonth, startOfYear, endOfYear, parseISO, setYear, setMonth } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -21,7 +21,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { Loader2, Search, CalendarDays, TrendingUp, RefreshCw } from 'lucide-react';
+import { Loader2, Search, CalendarDays, TrendingUp } from 'lucide-react';
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '../ui/select';
 
 const formatCurrency = (value: number) => {
@@ -248,47 +248,22 @@ const monthOptions = [
 
 export default function HistoricoFinanceiroPanel() {
     const firestore = useFirestore();
-    const { toast } = useToast();
     
-    const [allContas, setAllContas] = useState<ContaAPagar[]>([]);
-    const [fornecedores, setFornecedores] = useState<Fornecedor[]>([]);
-    const [allEntradas, setAllEntradas] = useState<EntradaMercadoria[]>([]);
-    const [isLoading, setIsLoading] = useState(true);
-
     const [searchQuery, setSearchQuery] = useState('');
     const [reportPeriod, setReportPeriod] = useState<ReportPeriod>('month');
     const [selectedYear, setSelectedYear] = useState<number>(new Date().getFullYear());
     const [selectedMonth, setSelectedMonth] = useState<string>(String(new Date().getMonth()));
     const yearOptions = useMemo(() => generateYearOptions(), []);
 
+    const contasQuery = useMemoFirebase(() => firestore ? query(collection(firestore, 'contas_a_pagar'), orderBy('dataVencimento', 'asc')) : null, [firestore]);
+    const fornecedoresQuery = useMemoFirebase(() => firestore ? query(collection(firestore, 'fornecedores')) : null, [firestore]);
+    const entradasQuery = useMemoFirebase(() => firestore ? query(collection(firestore, 'entradas_mercadorias'), orderBy('data', 'desc')) : null, [firestore]);
 
-    const fetchData = useCallback(async () => {
-        if (!firestore) return;
-        setIsLoading(true);
-        try {
-            const contasQuery = query(collection(firestore, 'contas_a_pagar'), orderBy('dataVencimento', 'asc'));
-            const contasSnapshot = await getDocs(contasQuery);
-            setAllContas(contasSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as ContaAPagar)));
+    const { data: allContas, isLoading: isLoadingContas } = useCollection<ContaAPagar>(contasQuery);
+    const { data: fornecedores, isLoading: isLoadingFornecedores } = useCollection<Fornecedor>(fornecedoresQuery);
+    const { data: allEntradas, isLoading: isLoadingEntradas } = useCollection<EntradaMercadoria>(entradasQuery);
 
-            const fornecedoresQuery = query(collection(firestore, 'fornecedores'));
-            const fornecedoresSnapshot = await getDocs(fornecedoresQuery);
-            setFornecedores(fornecedoresSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Fornecedor)));
-
-            const entradasQuery = query(collection(firestore, 'entradas_mercadorias'), orderBy('data', 'desc'));
-            const entradasSnapshot = await getDocs(entradasQuery);
-            setAllEntradas(entradasSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as EntradaMercadoria)));
-        } catch (error) {
-            console.error("Error fetching financial history data:", error);
-            toast({ variant: 'destructive', title: 'Erro ao buscar dados', description: 'Não foi possível carregar o histórico financeiro.' });
-        } finally {
-            setIsLoading(false);
-        }
-    }, [firestore, toast]);
-    
-    useEffect(() => {
-        fetchData();
-    }, [fetchData]);
-
+    const isLoading = isLoadingContas || isLoadingFornecedores || isLoadingEntradas;
 
     const fornecedorMap = useMemo(() => {
         if (!fornecedores) return new Map<string, Fornecedor>();
@@ -340,12 +315,6 @@ export default function HistoricoFinanceiroPanel() {
         };
 
     }, [allContas, selectedYear, selectedMonth]);
-    
-    const handleRefresh = () => {
-        toast({ title: "A atualizar dados...", duration: 2000 });
-        fetchData();
-    };
-
 
     return (
         <div className="space-y-6">
@@ -422,9 +391,6 @@ export default function HistoricoFinanceiroPanel() {
                     </div>
                     </div>
                 </div>
-                 <Button variant="outline" size="icon" onClick={handleRefresh} disabled={isLoading}>
-                    {isLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
-                </Button>
             </div>
 
             {isLoading ? (
@@ -499,4 +465,3 @@ export default function HistoricoFinanceiroPanel() {
         </div>
     );
 }
-
