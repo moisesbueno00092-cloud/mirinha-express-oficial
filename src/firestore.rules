@@ -1,0 +1,59 @@
+
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Helper function to check ownership
+    function isOwner(userId) {
+      return request.auth != null && request.auth.uid == userId;
+    }
+
+    // Users can only manage their own profile
+    match /users/{userId} {
+      allow read, write: if isOwner(userId);
+    }
+
+    // Order items can be read and written by the owner. List queries MUST be filtered by userId.
+    match /order_items/{orderItemId} {
+      allow read: if request.auth != null && (resource == null || resource.data.userId == request.auth.uid) && (request.query.limit <= 100 || request.query.where.userId == request.auth.uid);
+      allow write: if request.auth != null && request.resource.data.userId == request.auth.uid;
+    }
+    
+    // Bomboniere items are public/shared
+    match /bomboniere_items/{itemId} {
+      allow read, write: if request.auth != null;
+    }
+
+    // Daily reports can be managed by the owner
+    match /daily_reports/{reportId} {
+       allow read, write: if request.auth != null && (request.resource.data.userId == request.auth.uid || resource.data.userId == request.auth.uid);
+       allow list: if request.auth != null;
+    }
+    
+    // Admin-related collections
+    match /fornecedores/{fornecedorId} {
+      allow read, write: if request.auth != null;
+    }
+
+    match /contas_a_pagar/{contaId} {
+       allow read, write: if request.auth != null;
+    }
+    
+    match /entradas_mercadorias/{entradaId} {
+        allow read, write: if request.auth != null;
+    }
+    
+    match /funcionarios/{funcionarioId} {
+        allow read, write: if request.auth != null;
+    }
+
+    match /funcionarios/{funcionarioId}/lancamentos/{lancamentoId} {
+        allow read, write: if request.auth != null;
+    }
+
+    match /funcionarios/{funcionarioId}/holerites/{holeriteId} {
+        allow read, write: if request.auth != null;
+    }
+  }
+}

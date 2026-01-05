@@ -102,7 +102,10 @@ export default function Home() {
   }, [user, isUserLoading, auth]);
 
   const userOrderItemsQuery = useMemoFirebase(() => {
-    if (!firestore || !user) return null;
+    // CRITICAL: Ensure both firestore and user are available before creating the query.
+    if (!firestore || !user) {
+      return null;
+    }
     const start = startOfDay(new Date());
     const end = endOfDay(new Date());
 
