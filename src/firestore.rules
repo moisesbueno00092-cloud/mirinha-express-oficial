@@ -3,8 +3,46 @@ rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
-    match /{document=**} {
+
+    // Permite que um utilizador leia e escreva no seu próprio documento de perfil
+    match /users/{userId} {
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+    }
+
+    // Permite que um utilizador crie documentos em coleções de topo, desde que o seu ID esteja no documento
+    match /order_items/{orderItemId} {
+      allow create: if request.auth != null && request.resource.data.userId == request.auth.uid;
+      allow read, update, delete: if request.auth != null && get(/databases/$(database)/documents/order_items/$(orderItemId)).data.userId == request.auth.uid;
+    }
+     match /daily_reports/{reportId} {
+      allow create: if request.auth != null && request.resource.data.userId == request.auth.uid;
+      // Permite a leitura de um único documento se o userId corresponder
+      allow get, delete: if request.auth != null && get(/databases/$(database)/documents/daily_reports/$(reportId)).data.userId == request.auth.uid;
+      // Permite a listagem de documentos apenas se a consulta filtrar por userId
+      allow list: if request.auth != null && request.query.where.keys().hasAny(['userId']) && request.query.where.userId == request.auth.uid;
+    }
+
+    // Itens da bomboniere podem ser lidos e escritos por qualquer utilizador autenticado
+    match /bomboniere_items/{itemId} {
       allow read, write: if request.auth != null;
+    }
+
+    // Coleções de administração (qualquer utilizador autenticado pode ler e escrever)
+    match /fornecedores/{fornecedorId} {
+        allow read, write: if request.auth != null;
+    }
+
+    match /contas_a_pagar/{contaId} {
+        allow read, write: if request.auth != null;
+    }
+
+    match /entradas_mercadorias/{entradaId} {
+        allow read, write: if request.auth != null;
+    }
+
+    // Permite acesso total à coleção de funcionários e suas subcoleções
+    match /funcionarios/{funcionarioId}/{document=**} {
+        allow read, write: if request.auth != null;
     }
   }
 }
