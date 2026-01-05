@@ -1,25 +1,11 @@
-
 rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // Permite que um utilizador leia e escreva no seu próprio documento de perfil
-    match /users/{userId} {
+    // Regra principal: Um utilizador só pode aceder ao seu próprio documento e subcoleções
+    match /users/{userId}/{document=**} {
       allow read, write: if request.auth != null && request.auth.uid == userId;
-    }
-
-    // Permite que um utilizador crie documentos em coleções de topo, desde que o seu ID esteja no documento
-    match /order_items/{orderItemId} {
-      allow create: if request.auth != null && request.resource.data.userId == request.auth.uid;
-      allow read, update, delete: if request.auth != null && get(/databases/$(database)/documents/order_items/$(orderItemId)).data.userId == request.auth.uid;
-    }
-     match /daily_reports/{reportId} {
-      allow create: if request.auth != null && request.resource.data.userId == request.auth.uid;
-      // Permite a leitura de um único documento se o userId corresponder
-      allow get, delete: if request.auth != null && get(/databases/$(database)/documents/daily_reports/$(reportId)).data.userId == request.auth.uid;
-      // Permite a listagem de documentos apenas se a consulta filtrar por userId
-      allow list: if request.auth != null && request.query.where.keys().hasAny(['userId']) && request.query.where.userId == request.auth.uid;
     }
 
     // Itens da bomboniere podem ser lidos e escritos por qualquer utilizador autenticado
