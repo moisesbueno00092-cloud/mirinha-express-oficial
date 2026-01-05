@@ -748,6 +748,7 @@ export default function Home() {
   const { user, isUserLoading } = useUser();
 
   useEffect(() => {
+    // We only need to sign in anonymously if there's no user and auth is not loading
     if (auth && !user && !isUserLoading) {
       signInAnonymously(auth).catch((error) => {
         console.error("Anonymous sign-in failed:", error);
@@ -755,6 +756,8 @@ export default function Home() {
     }
   }, [user, isUserLoading, auth]);
 
+  // While user state is loading, or if there is no user yet, show a full-page loader.
+  // This prevents any component from attempting to fetch data before auth is ready.
   if (isUserLoading || !user) {
     return (
       <div className="flex h-screen w-full items-center justify-center">
@@ -763,5 +766,8 @@ export default function Home() {
     );
   }
 
+  // Once the user object is available, render the main page content.
   return <LancheTrackerPage />;
 }
+
+    
