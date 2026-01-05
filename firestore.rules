@@ -3,18 +3,22 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // Utilizadores só podem aceder e modificar os seus próprios dados.
-    match /users/{userId}/{document=**} {
-      allow read, write, delete: if request.auth != null && request.auth.uid == userId;
+    // Permite que um utilizador leia e escreva no seu próprio documento de perfil
+    match /users/{userId} {
+      allow read, write: if request.auth != null && request.auth.uid == userId;
     }
 
-    // Itens da bomboniere podem ser lidos por todos, mas escritos apenas por utilizadores autenticados (a lógica da app restringe a escrita).
+    // Permite que um utilizador aceda às suas próprias subcoleções (items, relatórios, etc.)
+    match /users/{userId}/{collection}/{docId} {
+       allow read, write, delete: if request.auth != null && request.auth.uid == userId;
+    }
+
+    // Itens da bomboniere podem ser lidos e escritos por qualquer utilizador autenticado
     match /bomboniere_items/{itemId} {
-      allow read: if request.auth != null;
-      allow write: if request.auth != null; // Assumindo que a edição é feita em painel de admin
+      allow read, write: if request.auth != null;
     }
 
-    // Coleções de administração (qualquer utilizador autenticado pode ler e escrever, assumindo que o acesso é controlado pela UI)
+    // Coleções de administração (qualquer utilizador autenticado pode ler e escrever)
     match /fornecedores/{fornecedorId} {
         allow read, write: if request.auth != null;
     }
@@ -27,6 +31,7 @@ service cloud.firestore {
         allow read, write: if request.auth != null;
     }
 
+    // Permite acesso total à coleção de funcionários e suas subcoleções
     match /funcionarios/{funcionarioId}/{document=**} {
         allow read, write: if request.auth != null;
     }
