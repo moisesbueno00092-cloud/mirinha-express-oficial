@@ -105,3 +105,5 @@ export default function FavoritesMenu({ savedFavorites, onSelect, onDelete }: Fa
     </>
   );
 }
+
+    

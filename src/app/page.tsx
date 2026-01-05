@@ -79,11 +79,10 @@ function LancheTrackerPage({ user }: { user: User }) {
 
   const userOrderItemsQuery = useMemoFirebase(
     () => {
-      // THIS IS THE CRITICAL FIX: Only create the query if we have a user ID.
       if (firestore && user?.uid) {
         return query(collection(firestore, 'order_items'), where('userId', '==', user.uid), orderBy('timestamp', 'desc'));
       }
-      return null; // Return null if there's no user, preventing the hook from running.
+      return null; 
     },
     [firestore, user?.uid] 
   );
@@ -789,3 +788,5 @@ export default function Home() {
   
   return <LancheTrackerPage user={user} />;
 }
+
+    
