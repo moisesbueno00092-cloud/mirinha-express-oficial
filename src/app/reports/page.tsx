@@ -2,11 +2,12 @@
 'use client';
 
 import { useState, useMemo, useEffect, useCallback } from 'react';
-import { useUser, useFirestore, deleteDocumentNonBlocking, useCollection, useMemoFirebase } from '@/firebase';
+import { useUser, useFirestore, useCollection, useMemoFirebase } from '@/firebase';
 import { collection, query, orderBy, doc, where } from 'firebase/firestore';
 import { format, parseISO, startOfMonth, endOfMonth, startOfYear, endOfYear, isWithinInterval, setYear, setMonth } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import Link from 'next/link';
+import { deleteDocumentNonBlocking } from '@/firebase/non-blocking-updates';
 
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -432,7 +433,7 @@ export default function ReportsPage() {
   const yearOptions = useMemo(() => generateYearOptions(), []);
 
   const reportsQuery = useMemoFirebase(
-    () => firestore && user ? query(collection(firestore, 'daily_reports'), where('userId', '==', user.uid), orderBy('createdAt', 'desc')) : null,
+    () => firestore && user ? query(collection(firestore, 'daily_reports'), where('userId', '==', user.uid)) : null,
     [firestore, user]
   );
   const bomboniereQuery = useMemoFirebase(
@@ -487,6 +488,12 @@ export default function ReportsPage() {
     });
     setReportToDelete(null);
   };
+  
+  const sortedSavedReports = useMemo(() => {
+    if (!savedReports) return [];
+    return [...savedReports].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+  }, [savedReports]);
+
 
   const getFormattedDate = (dateString: string) => {
     try {
@@ -588,9 +595,9 @@ export default function ReportsPage() {
 
                 <TabsContent value="diario" className="pt-4">
                      <h2 className="text-xl font-semibold mb-4">Relatórios Diários Salvos</h2>
-                    {savedReports && savedReports.length > 0 && bomboniereItems ? (
+                    {sortedSavedReports && sortedSavedReports.length > 0 && bomboniereItems ? (
                       <Accordion type="single" collapsible className="w-full space-y-2">
-                        {savedReports.map(report => {
+                        {sortedSavedReports.map(report => {
                           const { day, month, dayOfWeek, fullDate } = getFormattedDate(report.reportDate);
                           return (
                               <AccordionItem value={report.id!} key={`${report.id}-${report.reportDate}`}>
@@ -648,5 +655,3 @@ export default function ReportsPage() {
     </>
   );
 }
-
-    
