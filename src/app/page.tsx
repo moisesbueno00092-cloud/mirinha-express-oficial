@@ -109,7 +109,7 @@ export default function Home() {
         collection(firestore, "order_items"), 
         where("userId", "==", user.uid)
     );
-  }, [firestore, user?.uid]);
+  }, [firestore, user]);
   
   const bomboniereItemsRef = useMemoFirebase(() => (firestore ? query(collection(firestore, 'bomboniere_items'), orderBy('name', 'asc')) : null), [firestore]);
   
@@ -918,3 +918,4 @@ originalGroup = group;
     </>
   );
 }
+
