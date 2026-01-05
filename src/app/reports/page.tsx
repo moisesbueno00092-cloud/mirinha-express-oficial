@@ -465,7 +465,7 @@ export default function ReportsPage() {
     
     return savedReports.filter(r => {
         try {
-            const reportDate = parseISO(r.reportDate);
+            const reportDate = parseISO(r.reportDate + 'T12:00:00');
             return isWithinInterval(reportDate, { start: startDate, end: endDate });
         } catch {
             return false;
