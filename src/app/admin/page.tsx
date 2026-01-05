@@ -3,13 +3,14 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
-import { ArrowLeft, Box, HandCoins, History, Users, Wrench, BookOpen } from 'lucide-react';
+import { ArrowLeft, Box, HandCoins, History, Users, Wrench, BookOpen, ShieldX, Loader2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import HelpSheet from '@/components/help-sheet';
+import PasswordDialog from '@/components/password-dialog';
 
 
 import MercadoriasPanel from '@/components/admin/mercadorias-panel';
@@ -20,9 +21,34 @@ import FuncionariosPanel from '@/components/admin/funcionarios-panel';
 
 export default function AdminPage() {
   const [activeTab, setActiveTab] = useState('mercadorias');
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [isRhAuthenticated, setIsRhAuthenticated] = useState(false);
  
+   if (!isAuthenticated) {
+    return (
+      <div className="flex h-screen w-full flex-col items-center justify-center p-4">
+        <div className="w-full max-w-sm">
+            <h2 className="text-center text-2xl font-bold mb-2 flex items-center justify-center gap-2"><ShieldX className="h-7 w-7 text-destructive"/> Acesso Restrito</h2>
+            <p className="text-center text-muted-foreground mb-6">Esta secção requer uma senha para aceder.</p>
+            <PasswordDialog 
+                open={true}
+                onOpenChange={(isOpen) => { if(!isOpen) setIsAuthenticated(false); }}
+                onSuccess={() => setIsAuthenticated(true)}
+                showCancel={false}
+            />
+        </div>
+      </div>
+    )
+  }
+
   return (
     <>
+      <PasswordDialog 
+        open={!isRhAuthenticated && activeTab === 'rh'}
+        onOpenChange={(isOpen) => { if(!isOpen && activeTab === 'rh') setActiveTab('mercadorias'); }}
+        onSuccess={() => setIsRhAuthenticated(true)}
+      />
+
       <div className="container mx-auto max-w-7xl p-2 sm:p-4 lg:p-8">
         <header className="mb-6 flex items-center justify-between">
           <div className="flex items-center gap-4">
@@ -96,18 +122,27 @@ export default function AdminPage() {
               </Card>
             </TabsContent>
             <TabsContent value="rh">
-               <Card>
-                <CardHeader className='flex-row items-start justify-between'>
-                  <div>
-                    <CardTitle>Recursos Humanos</CardTitle>
-                    <CardDescription>Gestão de colaboradores, admissões e lançamentos financeiros.</CardDescription>
-                  </div>
-                  <HelpSheet />
-                </CardHeader>
-                <CardContent>
-                  <FuncionariosPanel />
-                </CardContent>
-              </Card>
+              {isRhAuthenticated ? (
+                 <Card>
+                  <CardHeader className='flex-row items-start justify-between'>
+                    <div>
+                      <CardTitle>Recursos Humanos</CardTitle>
+                      <CardDescription>Gestão de colaboradores, admissões e lançamentos financeiros.</CardDescription>
+                    </div>
+                    <HelpSheet />
+                  </CardHeader>
+                  <CardContent>
+                    <FuncionariosPanel />
+                  </CardContent>
+                </Card>
+              ) : (
+                <Card>
+                  <CardContent className="flex flex-col items-center justify-center p-10 text-center text-muted-foreground h-64">
+                     <Loader2 className="h-8 w-8 animate-spin text-primary mb-4"/>
+                     <p>A validar senha...</p>
+                  </CardContent>
+                </Card>
+              )}
             </TabsContent>
           </Tabs>
         </main>
@@ -115,3 +150,5 @@ export default function AdminPage() {
     </>
   );
 }
+
+    

@@ -45,6 +45,7 @@ import { cn } from "@/lib/utils";
 import { Label } from "@/components/ui/label";
 import ItemList from "@/components/item-list";
 import { Separator } from "@/components/ui/separator";
+import PasswordDialog from "@/components/password-dialog";
 
 const formatCurrency = (value: number) => {
   return new Intl.NumberFormat("pt-BR", {
@@ -120,8 +121,21 @@ function LancheTrackerPage({ user }: { user: User }) {
   const [itemToEdit, setItemToEdit] = useState<Item | null>(null);
 
   const [savedFavorites, setSavedFavorites] = usePersistentState<SavedFavorite[]>('savedFavorites', []);
+
+  const [passwordPrompt, setPasswordPrompt] = useState<{ open: boolean, onSuccess: () => void } | null>(null);
   
   const { toast } = useToast();
+
+  const handlePasswordSuccess = () => {
+    if (passwordPrompt?.onSuccess) {
+      passwordPrompt.onSuccess();
+    }
+    setPasswordPrompt(null);
+  };
+  
+  const handleProtectedAction = (callback: () => void) => {
+    setPasswordPrompt({ open: true, onSuccess: callback });
+  };
 
   const handleUpsertItem = async (rawInputToProcess: string, currentItem?: Item | null, favoriteName?: string) => {
     setIsProcessing(true);
@@ -578,6 +592,14 @@ function LancheTrackerPage({ user }: { user: User }) {
         onClose={() => setIsStockEditModalOpen(false)}
         bomboniereItems={bomboniereItems || []}
       />
+
+       {passwordPrompt && (
+        <PasswordDialog
+          open={passwordPrompt.open}
+          onOpenChange={(isOpen) => !isOpen && setPasswordPrompt(null)}
+          onSuccess={handlePasswordSuccess}
+        />
+      )}
       
       <AlertDialog open={!!itemToDelete} onOpenChange={(open) => !open && setItemToDelete(null)}>
         <AlertDialogContent>
@@ -641,15 +663,15 @@ function LancheTrackerPage({ user }: { user: User }) {
                 {isSavingReport ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
                 Salvar Relatório
             </Button>
-            <Button variant="outline" className="w-full" onClick={() => router.push('/reports')}>
+            <Button variant="outline" className="w-full" onClick={() => handleProtectedAction(() => router.push('/reports'))}>
                 <History className="mr-2 h-4 w-4" />
                 Relatórios Salvos
             </Button>
-            <Button variant="outline" className="w-full" onClick={() => setIsStockEditModalOpen(true)}>
+            <Button variant="outline" className="w-full" onClick={() => handleProtectedAction(() => setIsStockEditModalOpen(true))}>
                 <Settings className="mr-2 h-4 w-4" />
                 Gerir Estoque
             </Button>
-             <Button variant="outline" className="w-full col-span-2 md:col-span-3" onClick={() => router.push('/admin')}>
+             <Button variant="outline" className="w-full col-span-2 md:col-span-3" onClick={() => handleProtectedAction(() => router.push('/admin'))}>
                 <Wrench className="mr-2 h-4 w-4" />
                 Gestão Administrativa
             </Button>
@@ -716,6 +738,8 @@ export default function Home() {
   
   return <LancheTrackerPage user={user} />;
 }
+
+    
 
     
 

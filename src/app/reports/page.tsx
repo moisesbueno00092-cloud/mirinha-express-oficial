@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useMemo, useEffect, useCallback } from 'react';
@@ -11,7 +12,7 @@ import { deleteDocumentNonBlocking } from '@/firebase/non-blocking-updates';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
-import { Loader2, ArrowLeft, Trash2, ChevronDown, TrendingUp, Info, RefreshCw, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Loader2, ArrowLeft, Trash2, ChevronDown, TrendingUp, Info, RefreshCw, ChevronLeft, ChevronRight, ShieldX } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import {
   AlertDialog,
@@ -43,6 +44,7 @@ import { PieChart, Pie, Cell, ResponsiveContainer } from "recharts"
 import type { DailyReport, ItemCount, BomboniereItem } from '@/types';
 import { cn } from '@/lib/utils';
 import { Label } from '@/components/ui/label';
+import PasswordDialog from '@/components/password-dialog';
 
 const formatCurrency = (value: number | undefined | null) => {
     return new Intl.NumberFormat("pt-BR", {
@@ -403,6 +405,7 @@ export default function ReportsPage() {
   
   const [reportToDelete, setReportToDelete] = useState<string | null>(null);
   const [currentMonth, setCurrentMonth] = useState(new Date());
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
 
   const reportsQuery = useMemoFirebase(
     () => firestore && user ? query(collection(firestore, 'users', user.uid, 'daily_reports')) : null,
@@ -472,12 +475,29 @@ export default function ReportsPage() {
     }
   };
 
-  if (isUserLoading) {
+  if (isLoading) {
     return (
       <div className="flex h-screen items-center justify-center">
         <Loader2 className="h-12 w-12 animate-spin text-primary" />
       </div>
     );
+  }
+  
+  if (!isAuthenticated) {
+    return (
+      <div className="flex h-screen w-full flex-col items-center justify-center p-4">
+        <div className="w-full max-w-sm">
+            <h2 className="text-center text-2xl font-bold mb-2 flex items-center justify-center gap-2"><ShieldX className="h-7 w-7 text-destructive"/> Acesso Restrito</h2>
+            <p className="text-center text-muted-foreground mb-6">Esta secção requer uma senha para aceder.</p>
+            <PasswordDialog 
+                open={true}
+                onOpenChange={(isOpen) => { if(!isOpen) setIsAuthenticated(false); }}
+                onSuccess={() => setIsAuthenticated(true)}
+                showCancel={false}
+            />
+        </div>
+      </div>
+    )
   }
 
   return (
@@ -627,3 +647,5 @@ export default function ReportsPage() {
     </>
   );
 }
+
+    
