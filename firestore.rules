@@ -16,7 +16,10 @@ service cloud.firestore {
     }
      match /daily_reports/{reportId} {
       allow create: if request.auth != null && request.resource.data.userId == request.auth.uid;
-      allow read, delete: if request.auth != null && get(/databases/$(database)/documents/daily_reports/$(reportId)).data.userId == request.auth.uid;
+      // Permite a leitura de um único documento se o userId corresponder
+      allow get, delete: if request.auth != null && get(/databases/$(database)/documents/daily_reports/$(reportId)).data.userId == request.auth.uid;
+      // Permite a listagem de documentos apenas se a consulta filtrar por userId
+      allow list: if request.auth != null && request.query.where.keys().hasAny(['userId']) && request.query.where.userId == request.auth.uid;
     }
 
     // Itens da bomboniere podem ser lidos e escritos por qualquer utilizador autenticado
@@ -43,3 +46,5 @@ service cloud.firestore {
     }
   }
 }
+
+    
