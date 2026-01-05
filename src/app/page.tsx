@@ -112,8 +112,8 @@ export default function Home() {
     return query(
         collection(firestore, "order_items"), 
         where("userId", "==", user.uid),
-        where("timestamp", ">=", start.toISOString()),
-        where("timestamp", "<=", end.toISOString())
+        where("timestamp", ">=", start),
+        where("timestamp", "<=", end)
     );
   }, [firestore, user]);
   
@@ -350,15 +350,15 @@ originalGroup = group;
         consolidatedName = nameParts.join(' + ') || 'Lançamento';
         if (consolidatedName.length > 50) consolidatedName = 'Lançamento Misto';
 
-        const timestamp = new Date().toISOString();
+        const timestamp = new Date();
 
-        const finalItem: Omit<Item, 'id'> = {
+        const finalItem: Omit<Item, 'id' | 'timestamp'> & { timestamp: Timestamp } = {
             userId: user.uid,
             name: consolidatedName,
             quantity: totalQuantity,
             price: totalPrice,
             group,
-            timestamp: timestamp,
+            timestamp: Timestamp.fromDate(timestamp),
             deliveryFee,
             total,
             originalCommand: rawInputToProcess,
@@ -375,14 +375,14 @@ originalGroup = group;
             setDocumentNonBlocking(docRef, finalItem, { merge: true });
             toast({
                 duration: 4000,
-                component: <ToastContent item={{...finalItem, id: currentItem.id}} title="Lançamento Atualizado" />,
+                component: <ToastContent item={{...finalItem, id: currentItem.id, timestamp: finalItem.timestamp.toDate().toISOString()}} title="Lançamento Atualizado" />,
             });
         } else {
             const docRef = await addDoc(orderItemsCollectionRef, finalItem);
             
             toast({
                 duration: 4000,
-                component: <ToastContent item={{...finalItem, id: docRef.id}} title="Lançamento Adicionado" />,
+                component: <ToastContent item={{...finalItem, id: docRef.id, timestamp: finalItem.timestamp.toDate().toISOString()}} title="Lançamento Adicionado" />,
             });
         }
         
@@ -911,3 +911,5 @@ originalGroup = group;
     </>
   );
 }
+
+    
