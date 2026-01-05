@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useMemo, useEffect, useCallback } from 'react';
@@ -42,8 +41,8 @@ import { PieChart, Pie, Cell, ResponsiveContainer } from "recharts"
 
 import type { DailyReport, ItemCount, BomboniereItem } from '@/types';
 import { cn } from '@/lib/utils';
-import { DatePicker } from '@/components/ui/date-picker';
 import { Label } from '@/components/ui/label';
+import { MonthYearPicker } from '@/components/ui/month-year-picker';
 
 const formatCurrency = (value: number | undefined | null) => {
     return new Intl.NumberFormat("pt-BR", {
@@ -509,8 +508,8 @@ export default function ReportsPage() {
           </div>
           <div className='flex items-end gap-2'>
             <div className='w-48 space-y-1'>
-              <Label htmlFor="report-date" className="text-xs text-muted-foreground">Mês do Relatório</Label>
-              <DatePicker date={selectedDate} setDate={setSelectedDate} />
+              <Label htmlFor="report-date" className="text-xs text-muted-foreground">Mês/Ano do Relatório</Label>
+              <MonthYearPicker date={selectedDate} setDate={setSelectedDate} />
             </div>
           </div>
         </header>
