@@ -6,7 +6,7 @@ service cloud.firestore {
 
     // Regra principal: Um utilizador só pode aceder ao seu próprio documento e subcoleções
     match /users/{userId}/{document=**} {
-      allow read, write, delete: if request.auth != null && request.auth.uid == userId;
+      allow read, write: if request.auth != null && request.auth.uid == userId;
     }
 
     // Itens da bomboniere podem ser lidos e escritos por qualquer utilizador autenticado
@@ -33,5 +33,3 @@ service cloud.firestore {
     }
   }
 }
-
-    

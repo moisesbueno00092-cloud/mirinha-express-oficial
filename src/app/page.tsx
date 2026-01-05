@@ -98,6 +98,17 @@ function LancheTrackerPage({ user }: { user: User }) {
     }
     setIsLoadingItems(false);
   }, [setItems]);
+  
+  // This effect ensures the user profile document exists, which is required by security rules
+  useEffect(() => {
+    if (firestore && user) {
+        const userDocRef = doc(firestore, 'users', user.uid);
+        
+        // Use a fire-and-forget set with merge to create the doc if it doesn't exist
+        // without overwriting it if it does. This is crucial for allowing subcollection reads.
+        setDocumentNonBlocking(userDocRef, { email: user.email }, { merge: true });
+    }
+  }, [firestore, user]);
 
 
   const [isProcessing, setIsProcessing] = useState(false);
@@ -749,5 +760,3 @@ export default function Home() {
   
   return <LancheTrackerPage user={user} />;
 }
-
-    
