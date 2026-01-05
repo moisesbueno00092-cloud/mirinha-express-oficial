@@ -1,34 +1,5 @@
 
 {
-  "indexes": [
-    {
-      "collectionGroup": "daily_reports",
-      "queryScope": "COLLECTION",
-      "fields": [
-        {
-          "fieldPath": "userId",
-          "order": "ASCENDING"
-        },
-        {
-          "fieldPath": "createdAt",
-          "order": "DESCENDING"
-        }
-      ]
-    },
-    {
-      "collectionGroup": "funcionario_lancamentos",
-      "queryScope": "COLLECTION",
-      "fields": [
-        {
-          "fieldPath": "funcionarioId",
-          "order": "ASCENDING"
-        },
-        {
-          "fieldPath": "data",
-          "order": "DESCENDING"
-        }
-      ]
-    }
-  ],
+  "indexes": [],
   "fieldOverrides": []
 }

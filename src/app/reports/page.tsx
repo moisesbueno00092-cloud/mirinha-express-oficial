@@ -433,7 +433,7 @@ export default function ReportsPage() {
   const yearOptions = useMemo(() => generateYearOptions(), []);
 
   const reportsQuery = useMemoFirebase(
-    () => firestore && user ? query(collection(firestore, 'users', user.uid, 'daily_reports'), orderBy('createdAt', 'desc')) : null,
+    () => firestore && user ? query(collection(firestore, 'users', user.uid, 'daily_reports')) : null,
     [firestore, user]
   );
   const bomboniereQuery = useMemoFirebase(
@@ -449,6 +449,8 @@ export default function ReportsPage() {
   const filteredReports = useMemo(() => {
     if (!savedReports) return [];
   
+    const sortedReports = [...savedReports].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+
     const startDate =
       selectedMonth === 'all'
         ? startOfYear(new Date(selectedYear, 0, 1))
@@ -459,7 +461,7 @@ export default function ReportsPage() {
         ? endOfYear(new Date(selectedYear, 0, 1))
         : endOfMonth(new Date(selectedYear, parseInt(selectedMonth, 10), 1));
   
-    return savedReports.filter(r => {
+    return sortedReports.filter(r => {
       try {
         const reportDate = parseISO(r.reportDate + 'T12:00:00Z');
         return isWithinInterval(reportDate, { start: startDate, end: endDate });
