@@ -76,8 +76,14 @@ function LancheTrackerPage({ user }: { user: User }) {
 
   const bomboniereItemsRef = useMemoFirebase(() => (firestore ? query(collection(firestore, 'bomboniere_items'), orderBy('name', 'asc')) : null), [firestore]);
   
+  // A consulta só é criada se 'firestore' e 'user.uid' existirem.
   const userOrderItemsQuery = useMemoFirebase(
-    () => (firestore && user?.uid ? query(collection(firestore, 'order_items'), where('userId', '==', user.uid), orderBy('timestamp', 'desc')) : null),
+    () => {
+      if (firestore && user?.uid) {
+        return query(collection(firestore, 'order_items'), where('userId', '==', user.uid), orderBy('timestamp', 'desc'));
+      }
+      return null; // Retorna null se as condições não forem satisfeitas, impedindo a execução da consulta.
+    },
     [firestore, user?.uid]
   );
   
@@ -744,7 +750,8 @@ function LancheTrackerPage({ user }: { user: User }) {
 export default function Home() {
   const { user, isUserLoading } = useUser();
 
-  if (isUserLoading || !user) {
+  // Mostra o ecrã de carregamento enquanto a autenticação está a ser verificada.
+  if (isUserLoading) {
     return (
       <div className="flex h-screen w-full flex-col items-center justify-center text-center p-4">
         <MirinhaLogo className="w-64 sm:w-80 h-auto text-primary mb-4" />
@@ -754,6 +761,17 @@ export default function Home() {
     );
   }
 
+  // Se, após o carregamento, não houver utilizador, mostra uma mensagem de erro ou um ecrã de login.
+  if (!user) {
+     return (
+      <div className="flex h-screen w-full flex-col items-center justify-center text-center p-4">
+        <MirinhaLogo className="w-64 sm:w-80 h-auto text-primary mb-4" />
+        <p className="mt-4 text-destructive">Erro de autenticação. Por favor, tente novamente.</p>
+      </div>
+    );
+  }
+  
+  // Se houver um utilizador, renderiza a página principal.
   return <LancheTrackerPage user={user} />;
 }
 
