@@ -107,7 +107,6 @@ export default function Home() {
     }
     const todayStart = startOfDay(new Date());
     const todayEnd = endOfDay(new Date());
-
     return query(
         collection(firestore, "order_items"), 
         where("userId", "==", user.uid),
