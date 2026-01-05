@@ -89,7 +89,7 @@ function LancheTrackerPage({ user }: { user: User }) {
   );
   
   const { data: bomboniereItems, isLoading: isLoadingBomboniere } = useCollection<BomboniereItem>(bomboniereItemsRef);
-  const { data: items, isLoading: isLoadingItems } = useCollection<Item>(userOrderItemsQuery);
+  const { data: items, isLoading: isLoadingItems, error: itemsError } = useCollection<Item>(userOrderItemsQuery);
 
   const [isProcessing, setIsProcessing] = useState(false);
   const [isSavingReport, setIsSavingReport] = useState(false);
@@ -593,6 +593,16 @@ function LancheTrackerPage({ user }: { user: User }) {
   
     return result;
   }, [todaysItems]);
+  
+  if (itemsError) {
+    return (
+      <div className="flex h-screen w-full flex-col items-center justify-center text-center p-4">
+        <MirinhaLogo className="w-64 sm:w-80 h-auto text-primary mb-4" />
+        <p className="mt-4 text-destructive font-semibold">Ocorreu um erro ao carregar os dados.</p>
+        <p className="mt-2 text-muted-foreground text-sm max-w-md">{itemsError.message}</p>
+      </div>
+    )
+  }
 
   return (
     <>
@@ -749,7 +759,7 @@ function LancheTrackerPage({ user }: { user: User }) {
 }
 
 export default function Home() {
-  const { user, isUserLoading } = useUser();
+  const { user, isUserLoading, userError } = useUser();
 
   // Show a full-page loading screen while authentication is in progress.
   if (isUserLoading) {
@@ -762,12 +772,24 @@ export default function Home() {
     );
   }
 
-  // If, after loading, there is no user, show an error.
+  // If, after loading, there is an auth error, show an error message.
+  if (userError) {
+     return (
+      <div className="flex h-screen w-full flex-col items-center justify-center text-center p-4">
+        <MirinhaLogo className="w-64 sm:w-80 h-auto text-primary mb-4" />
+        <p className="mt-4 text-destructive font-semibold">Erro de Autenticação</p>
+        <p className="mt-2 text-muted-foreground text-sm max-w-md">{userError.message}</p>
+      </div>
+    );
+  }
+  
+  // If, after loading, there is no user, show a generic error.
+  // This case should be rare if anonymous auth is working, but it's a good safeguard.
   if (!user) {
      return (
       <div className="flex h-screen w-full flex-col items-center justify-center text-center p-4">
         <MirinhaLogo className="w-64 sm:w-80 h-auto text-primary mb-4" />
-        <p className="mt-4 text-destructive">Erro de autenticação. Por favor, tente novamente.</p>
+        <p className="mt-4 text-destructive">Não foi possível autenticar. Por favor, tente recarregar a página.</p>
       </div>
     );
   }
@@ -775,5 +797,3 @@ export default function Home() {
   // If there is a user, render the main page.
   return <LancheTrackerPage user={user} />;
 }
-
-    

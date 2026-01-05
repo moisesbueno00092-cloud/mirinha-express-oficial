@@ -63,6 +63,7 @@ export function useCollection<T = any>(
     // Se a query não estiver pronta, ou o utilizador estiver a carregar, esperamos.
     if (!memoizedTargetRefOrQuery || isUserLoading) {
       setIsLoading(true);
+      setData(null);
       return;
     }
     
