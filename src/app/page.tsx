@@ -321,9 +321,10 @@ function LancheTrackerPage({ user }: { user: User }) {
             ...(processedBomboniereItems.length > 0 ? { bomboniereItems: processedBomboniereItems } : {}),
         };
         
+        // Omit 'id' when sending to Firestore
+        const { id, ...itemForFirestore } = finalItemForState;
         const finalItemForFirestore = {
-            ...finalItemForState,
-            id: undefined, // remove id for firestore
+            ...itemForFirestore,
             timestamp: serverTimestamp(),
         };
 
@@ -787,5 +788,7 @@ export default function Home() {
   
   return <LancheTrackerPage user={user} />;
 }
+
+    
 
     
