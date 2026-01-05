@@ -689,7 +689,7 @@ originalGroup = group;
     }
   }
 
-  if (isUserLoading || !user) {
+  if (isUserLoading) {
     return (
       <div className="flex h-screen items-center justify-center">
         <Loader2 className="h-12 w-12 animate-spin text-primary" />
@@ -702,7 +702,7 @@ originalGroup = group;
       <div className="container mx-auto max-w-4xl p-8 text-center text-destructive">
         <h1 className="text-2xl font-bold">Erro de Conexão</h1>
         <p>Não foi possível conectar ao banco de dados.</p>
-        <p className="text-sm text-muted-foreground mt-2">Por favor, verifique sua conexão com a internet e as configurações do Firebase.</p>
+        <p className="text-sm text-muted-foreground mt-2">{firestoreError.message}</p>
       </div>
     );
   }
@@ -858,14 +858,16 @@ originalGroup = group;
           
           <Card>
             <CardContent className="p-2 sm:p-6">
-              <ItemList
-                items={items || []}
-                onEdit={handleEditRequest}
-                onDelete={handleDeleteRequest}
-                onFavorite={handleFavoriteSaveRequest}
-                savedFavorites={savedFavorites}
-                isLoading={isLoadingItems}
-              />
+              {user?.uid && (
+                <ItemList
+                  items={items || []}
+                  onEdit={handleEditRequest}
+                  onDelete={handleDeleteRequest}
+                  onFavorite={handleFavoriteSaveRequest}
+                  savedFavorites={savedFavorites}
+                  isLoading={isLoadingItems}
+                />
+              )}
             </CardContent>
           </Card>
         </main>
@@ -919,5 +921,3 @@ originalGroup = group;
     </>
   );
 }
-
-    
