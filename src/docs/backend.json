@@ -207,13 +207,23 @@
         }
       },
       {
-        "path": "/order_items/{orderItemId}",
+        "path": "/users/{userId}/order_items/{orderItemId}",
         "definition": {
           "entityName": "OrderItem",
           "schema": {
             "$ref": "#/backend/entities/OrderItem"
           },
-          "description": "Collection of all order items across all users."
+          "description": "Collection of order items for a specific user."
+        }
+      },
+      {
+        "path": "/users/{userId}/daily_reports/{reportId}",
+        "definition": {
+            "entityName": "DailyReport",
+            "schema": {
+                "$ref": "#/backend/entities/DailyReport"
+            },
+            "description": "Stores consolidated daily sales reports for a specific user."
         }
       },
       {
@@ -224,16 +234,6 @@
             "$ref": "#/backend/entities/BomboniereItem"
           },
           "description": "Shared list of bomboniere items."
-        }
-      },
-      {
-        "path": "/daily_reports/{reportId}",
-        "definition": {
-            "entityName": "DailyReport",
-            "schema": {
-                "$ref": "#/backend/entities/DailyReport"
-            },
-            "description": "Stores consolidated daily sales reports across all users."
         }
       },
       {
@@ -287,3 +287,5 @@
     ]
   }
 }
+
+    
