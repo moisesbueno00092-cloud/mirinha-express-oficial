@@ -32,11 +32,10 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
-import { Save, Loader2, History, Settings, Wrench, Users, Star, PiggyBank } from "lucide-react";
+import { Save, Loader2, History, Settings, Wrench, Users, Star, PiggyBank, Info } from "lucide-react";
 import { addDocumentNonBlocking, deleteDocumentNonBlocking, setDocumentNonBlocking, updateDocumentNonBlocking } from "@/firebase/non-blocking-updates";
 
 import ItemForm from "@/components/item-form";
-import ItemList, { renderItemName, groupBadgeStyles } from "@/components/item-list";
 import BomboniereModal from "@/components/bomboniere-modal";
 import StockEditModal from "@/components/stock-edit-modal";
 import MirinhaLogo from "@/components/mirinha-logo";
@@ -60,10 +59,7 @@ const ToastContent = ({ item, title }: { item: Item; title: string }) => (
     <div className="font-semibold">{title}</div>
     <div className="grid grid-cols-[1fr_auto] items-start gap-4">
       <div className="flex flex-col gap-1.5">
-        {renderItemName(item)}
-        <div className={cn("whitespace-nowrap w-fit px-2.5 py-0.5 text-xs font-semibold rounded-full", groupBadgeStyles[item.group] || "bg-gray-500")}>
-          {item.group}
-        </div>
+        <span>{item.name}</span>
       </div>
       <div className="text-right">
         <div className="font-bold text-lg text-primary">{formatCurrency(item.total)}</div>
@@ -80,7 +76,6 @@ export default function Home() {
   const { user, isUserLoading } = useUser();
   const router = useRouter();
   
-  // This effect ensures a user is always signed in anonymously.
   useEffect(() => {
     if (!isUserLoading && !user && auth) {
       signInAnonymously(auth).catch((error) => {
@@ -89,43 +84,12 @@ export default function Home() {
     }
   }, [user, isUserLoading, auth]);
 
-  // CRITICAL: This query is memoized and will only be created when firestore and user.uid are available.
-  // If user.uid is null, the query will be null, and useCollection will not execute.
-  const userOrderItemsQuery = useMemoFirebase(() => {
-    if (!firestore || !user?.uid) {
-      return null;
-    }
-    return query(
-      collection(firestore, "order_items"),
-      where("userId", "==", user.uid)
-    );
-  }, [firestore, user?.uid]);
-  
   const bomboniereItemsRef = useMemoFirebase(() => (firestore ? query(collection(firestore, 'bomboniere_items'), orderBy('name', 'asc')) : null), [firestore]);
   
-
-  const { data: allItems, isLoading: isLoadingItems, error: firestoreError } = useCollection<Item>(userOrderItemsQuery);
   const { data: bomboniereItems, isLoading: isLoadingBomboniere } = useCollection<BomboniereItem>(bomboniereItemsRef);
   
-  const items = useMemo(() => {
-    if (!allItems) return [];
-    const todayStart = startOfDay(new Date());
-    const todayEnd = endOfDay(new Date());
-    return allItems.filter(item => {
-        try {
-            const itemDate = new Date(item.timestamp);
-            return isWithinInterval(itemDate, { start: todayStart, end: todayEnd });
-        } catch {
-            return false;
-        }
-    });
-  }, [allItems]);
-
   const [isProcessing, setIsProcessing] = useState(false);
   const [isSavingReport, setIsSavingReport] = useState(false);
-  const [editingItem, setEditingItem] = useState<Item | null>(null);
-  const [editInputValue, setEditInputValue] = useState("");
-  const [itemToDelete, setItemToDelete] = useState<string | null>(null);
   const [isBomboniereModalOpen, setBomboniereModalOpen] = useState(false);
   const [isStockEditModalOpen, setIsStockEditModalOpen] = useState(false);
   const [rawInput, setRawInput] = useState("");
@@ -136,10 +100,7 @@ export default function Home() {
   const [passwordAction, setPasswordAction] = useState<'reports' | 'stock' | null>(null);
 
   const [savedFavorites, setSavedFavorites] = usePersistentState<SavedFavorite[]>('savedFavorites', []);
-  const [favoriteToSave, setFavoriteToSave] = useState<Item | null>(null);
-  const [favoriteName, setFavoriteName] = useState('');
-
-
+  
   const { toast } = useToast();
   
   useEffect(() => {
@@ -320,7 +281,7 @@ originalGroup = group;
             deliveryFeeApplicable = false;
         }
 
-        if (!currentItem && bomboniereItems) { 
+        if (bomboniereItems) { 
           const bomboniereCollectionRef = collection(firestore, "bomboniere_items");
           processedBomboniereItems.forEach(soldItem => {
               const itemDef = bomboniereItems.find(i => i.id === soldItem.id);
@@ -368,21 +329,12 @@ originalGroup = group;
 
         const orderItemsCollectionRef = collection(firestore, "order_items");
         
-        if (currentItem?.id) {
-            const docRef = doc(orderItemsCollectionRef, currentItem.id);
-            setDocumentNonBlocking(docRef, finalItem, { merge: true });
-            toast({
-                duration: 4000,
-                component: <ToastContent item={{...finalItem, id: currentItem.id }} title="Lançamento Atualizado" />,
-            });
-        } else {
-            const docRef = await addDoc(orderItemsCollectionRef, finalItem);
-            
-            toast({
-                duration: 4000,
-                component: <ToastContent item={{...finalItem, id: docRef.id }} title="Lançamento Adicionado" />,
-            });
-        }
+        const docRef = await addDoc(orderItemsCollectionRef, finalItem);
+        
+        toast({
+            duration: 4000,
+            component: <ToastContent item={{...finalItem, id: docRef.id }} title="Lançamento Adicionado" />,
+        });
         
     } catch (error) {
         console.error("Error upserting item:", error);
@@ -393,31 +345,13 @@ originalGroup = group;
         });
     } finally {
         setIsProcessing(false);
-        if (!currentItem) {
-          setRawInput("");
-        }
+        setRawInput("");
         setTimeout(() => {
           inputRef.current?.focus();
         }, 0);
     }
   };
 
-  const handleDeleteRequest = (id: string) => {
-    setItemToDelete(id);
-  };
-  
-  const confirmDelete = () => {
-    if(!firestore || !itemToDelete || !user) return;
-    const orderItemsCollectionRef = collection(firestore, "order_items");
-    deleteDocumentNonBlocking(doc(orderItemsCollectionRef, itemToDelete));
-    toast({
-      title: "Sucesso",
-      description: "Item removido.",
-      variant: 'destructive'
-    });
-    setItemToDelete(null);
-  };
-  
   const handleBomboniereAdd = (itemsToAdd: SelectedBomboniereItem[]) => {
       if (!bomboniereItems) return;
       const itemsString = itemsToAdd.map(item => {
@@ -441,55 +375,9 @@ originalGroup = group;
     if (!rawInput.trim()) return;
     await handleUpsertItem(rawInput);
   };
-
-  const handleEditRequest = (item: Item) => {
-    setEditingItem(item);
-    setEditInputValue(item.originalCommand || '');
-  };
-
-  const handleSaveEdit = () => {
-    if (editingItem && editInputValue) {
-      handleUpsertItem(editInputValue, editingItem);
-      setEditingItem(null);
-    }
-  };
   
   const handleFavoriteSelect = (favorite: SavedFavorite) => {
     handleUpsertItem(favorite.command, null, favorite.name);
-  }
-
-  const handleFavoriteSaveRequest = (item: Item) => {
-      if (!item.originalCommand) {
-          toast({ variant: 'destructive', title: 'Não é possível favoritar', description: 'Este lançamento não possui um comando original para ser guardado.' });
-          return;
-      }
-      setFavoriteToSave(item);
-      setFavoriteName(item.customerName || '');
-  }
-  
-  const handleConfirmSaveFavorite = () => {
-      if (!favoriteToSave || !favoriteToSave.originalCommand || !favoriteName.trim()) {
-          toast({ variant: 'destructive', title: 'Erro', description: 'O nome do favorito não pode estar em branco.' });
-          return;
-      }
-  
-      const newFavorite: SavedFavorite = {
-          id: String(Date.now()),
-          name: favoriteName,
-          command: favoriteToSave.originalCommand,
-      };
-  
-      setSavedFavorites(prev => {
-          const existing = prev.find(f => f.command.toLowerCase() === newFavorite.command.toLowerCase());
-          if (existing) {
-              return prev.map(f => f.id === existing.id ? { ...f, name: newFavorite.name } : f);
-          }
-          return [...prev, newFavorite].sort((a,b) => a.name.localeCompare(b.name));
-      });
-  
-      toast({ title: 'Sucesso!', description: `"${favoriteName}" foi guardado nos seus favoritos.` });
-      setFavoriteToSave(null);
-      setFavoriteName('');
   }
 
   const handleFavoriteDelete = (id: string) => {
@@ -497,163 +385,9 @@ originalGroup = group;
     toast({ title: 'Favorito removido.', variant: 'destructive' });
   }
 
-  const summary = useMemo(() => {
-    if (!items) {
-      return { total: 0, totalAVista: 0, totalFiado: 0, totalEntregas: 0, totalTaxas: 0 };
-    }
-
-    let total = 0;
-    let totalFiado = 0;
-    let totalEntregas = 0;
-    let totalTaxas = 0;
-    
-    items.forEach(item => {
-      total += item.total;
-      if (item.group.includes('Fiados')) {
-        totalFiado += item.total;
-      }
-      if (item.group.includes('rua') || item.deliveryFee > 0) {
-        totalEntregas += 1;
-      }
-      totalTaxas += item.deliveryFee || 0;
-    });
-
-    const totalAVista = total - totalFiado - totalTaxas;
-
-    return { total, totalAVista, totalFiado, totalEntregas, totalTaxas };
-  }, [items]);
-
   const handleSaveReport = async () => {
-    if (!firestore || !user || !items || items.length === 0) {
-      toast({ variant: 'destructive', title: 'Não é possível gerar o relatório', description: 'Não há lançamentos para o dia atual.' });
-      return;
-    }
-    
-    setIsSavingReport(true);
-    
-    let totalVendasSalao = 0, totalVendasRua = 0, totalFiadoSalao = 0, totalFiadoRua = 0;
-    let totalKgValue = 0, totalTaxas = 0, totalEntregas = 0;
-    let totalBomboniereSalao = 0, totalBomboniereRua = 0;
-    
-    const contagemTotal: ItemCount = {};
-    const contagemRua: ItemCount = {};
-  
-    const processItemCounts = (item: Item, targetCount: ItemCount) => {
-        if (item.predefinedItems) {
-            item.predefinedItems.forEach(pItem => {
-                const key = pItem.name.toUpperCase();
-                targetCount[key] = (targetCount[key] || 0) + 1;
-            });
-        }
-        if (item.individualPrices) {
-            targetCount['KG'] = (targetCount['KG'] || 0) + item.individualPrices.length;
-        }
-        if (item.bomboniereItems) {
-            item.bomboniereItems.forEach(bItem => {
-                const key = bItem.name;
-                targetCount[key] = (targetCount[key] || 0) + bItem.quantity;
-            });
-        }
-    };
-
-    items.forEach(item => {
-        const group = item.group || '';
-        const isRua = group.includes('rua');
-      
-        if (group === 'Vendas salão') totalVendasSalao += item.total || 0;
-        else if (group === 'Vendas rua') totalVendasRua += item.total || 0;
-        else if (group === 'Fiados salão') totalFiadoSalao += item.total || 0;
-        else if (group === 'Fiados rua') totalFiadoRua += item.total || 0;
-    
-        totalTaxas += item.deliveryFee || 0;
-        if (item.deliveryFee > 0 || isRua) totalEntregas += 1;
-    
-        const bomboniereValue = (item.bomboniereItems || []).reduce((acc, curr) => acc + (curr.price * curr.quantity), 0);
-        if (isRua) {
-            totalBomboniereRua += bomboniereValue;
-        } else {
-            totalBomboniereSalao += bomboniereValue;
-        }
-        
-        if (item.individualPrices) {
-            totalKgValue += item.individualPrices.reduce((acc, curr) => acc + curr, 0);
-        }
-
-        processItemCounts(item, contagemTotal);
-        if (isRua) {
-          processItemCounts(item, contagemRua);
-        }
-    });
-  
-    const totalItens = Object.values(contagemTotal).reduce((s, c) => s + c, 0);
-    const totalItensRua = Object.values(contagemRua).reduce((s, c) => s + c, 0);
-    const faturamentoTotal = totalVendasSalao + totalVendasRua + totalFiadoSalao + totalFiadoRua;
-    const totalFiado = summary.totalFiado;
-    const totalAVista = faturamentoTotal - totalFiado - totalTaxas;
-
-    const newReportData: Omit<DailyReport, 'id'> = {
-      userId: user.uid,
-      reportDate: format(new Date(), 'yyyy-MM-dd'),
-      createdAt: new Date().toISOString(),
-      totalGeral: faturamentoTotal,
-      totalAVista: totalAVista,
-      totalFiado: totalFiado,
-      totalVendasSalao: totalVendasSalao,
-      totalVendasRua: totalVendasRua,
-      totalFiadoSalao: totalFiadoSalao,
-      totalFiadoRua: totalFiadoRua,
-      totalKg: totalKgValue,
-      totalTaxas: totalTaxas,
-      totalBomboniereSalao,
-      totalBomboniereRua,
-      totalItens: totalItens,
-      totalPedidos: items.length,
-      totalEntregas: totalEntregas,
-      totalItensRua: totalItensRua,
-      contagemTotal: contagemTotal,
-      contagemRua: contagemRua,
-    };
-
-    try {
-      const reportsCollectionRef = collection(firestore, 'daily_reports');
-      const contasAPagarCollectionRef = collection(firestore, 'contas_a_pagar');
-      
-      const batch = writeBatch(firestore);
-
-      // 1. Save the new report
-      const reportDocRef = doc(reportsCollectionRef); // Create a new doc ref for the report
-      batch.set(reportDocRef, newReportData);
-
-      // 2. Create the delivery fee expense
-      if (totalTaxas > 0) {
-          const despesaTaxa = {
-              descricao: `Taxas de Entrega do Dia ${format(new Date(), 'dd/MM/yyyy')}`,
-              fornecedorId: 'delivery_fees_provider',
-              valor: totalTaxas,
-              dataVencimento: format(new Date(), 'yyyy-MM-dd'),
-              estaPaga: true,
-          };
-          const despesaDocRef = doc(contasAPagarCollectionRef); // Create a new doc ref for the expense
-          batch.set(despesaDocRef, despesaTaxa);
-      }
-
-      // 3. Delete the day's items
-      items.forEach(item => {
-        const docRef = doc(firestore, 'order_items', item.id);
-        batch.delete(docRef);
-      });
-
-      // 4. Commit all operations
-      await batch.commit();
-      
-      toast({ title: 'Sucesso', description: 'Relatório final salvo, despesa de taxa criada e lançamentos do dia limpos!' });
-
-    } catch (error) {
-      console.error("Error saving report and cleaning items:", error);
-      toast({ variant: "destructive", title: "Erro ao salvar relatório.", description: "Os lançamentos não foram limpos." });
-    } finally {
-      setIsSavingReport(false);
-    }
+    toast({ variant: 'destructive', title: 'Funcionalidade desativada', description: 'Não há lançamentos para gerar um relatório.' });
+    return;
   };
 
   const handleOpenPasswordModal = (action: 'reports' | 'stock') => {
@@ -679,8 +413,6 @@ originalGroup = group;
     }
   }
 
-  // This is the most robust way to prevent the race condition.
-  // We do not render the main content until we are sure we have a user.
   if (isUserLoading || !user) {
     return (
       <div className="flex h-screen items-center justify-center">
@@ -689,95 +421,8 @@ originalGroup = group;
     );
   }
 
-  if (firestoreError) {
-    return (
-      <div className="container mx-auto max-w-4xl p-8 text-center text-destructive">
-        <h1 className="text-2xl font-bold">Erro de Conexão</h1>
-        <p>Não foi possível conectar ao banco de dados.</p>
-        <p className="text-sm text-muted-foreground mt-2">{firestoreError.message}</p>
-      </div>
-    );
-  }
-
   return (
     <>
-      <AlertDialog open={!!itemToDelete} onOpenChange={(open) => !open && setItemToDelete(null)}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Você tem certeza?</AlertDialogTitle>
-            <AlertDialogDescription>
-              Essa ação não pode ser desfeita. Isso excluirá permanentemente o item. A quantidade em estoque não será devolvida.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancelar</AlertDialogCancel>
-            <AlertDialogAction onClick={confirmDelete}>Confirmar</AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-
-      <Dialog open={!!editingItem} onOpenChange={(open) => !open && setEditingItem(null)}>
-        <DialogContent className="sm:max-w-[425px]">
-          <DialogHeader>
-            <DialogTitle>Editar Lançamento</DialogTitle>
-          </DialogHeader>
-          <div className="py-4">
-            <Input
-              value={editInputValue}
-              onChange={(e) => setEditInputValue(e.target.value)}
-              placeholder="Comando original..."
-              className="h-10 flex-1 sm:h-12 text-base"
-              onKeyDown={(e) => {
-                if (e.key === 'Enter') {
-                  e.preventDefault();
-                  handleSaveEdit();
-                }
-              }}
-              disabled={isProcessing}
-            />
-          </div>
-          <DialogFooter>
-            <Button type="button" variant="secondary" onClick={() => setEditingItem(null)} disabled={isProcessing}>Cancelar</Button>
-            <Button type="submit" onClick={handleSaveEdit} disabled={isProcessing}>
-                {isProcessing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
-                 Salvar
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      <Dialog open={!!favoriteToSave} onOpenChange={(open) => !open && setFavoriteToSave(null)}>
-        <DialogContent className="sm:max-w-[425px]">
-            <DialogHeader>
-                <DialogTitle>Guardar nos Favoritos</DialogTitle>
-                <DialogDescription>Dê um nome a este lançamento para o encontrar facilmente mais tarde.</DialogDescription>
-            </DialogHeader>
-            <div className="py-4">
-                <Label htmlFor="favorite-name">Nome do Favorito</Label>
-                <Input
-                    id="favorite-name"
-                    value={favoriteName}
-                    onChange={(e) => setFavoriteName(e.target.value)}
-                    placeholder="Ex: Pedido do João"
-                    className="mt-2"
-                    autoFocus
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter') {
-                        e.preventDefault();
-                        handleConfirmSaveFavorite();
-                      }
-                    }}
-                />
-            </div>
-            <DialogFooter>
-                <Button type="button" variant="secondary" onClick={() => setFavoriteToSave(null)}>Cancelar</Button>
-                <Button type="button" onClick={handleConfirmSaveFavorite}>
-                    <Star className="mr-2 h-4 w-4" /> Guardar
-                </Button>
-            </DialogFooter>
-        </DialogContent>
-      </Dialog>
-      
       <BomboniereModal 
         isOpen={isBomboniereModalOpen}
         onClose={() => setBomboniereModalOpen(false)}
@@ -849,15 +494,13 @@ originalGroup = group;
           </ItemForm>
           
           <Card>
-            <CardContent className="p-2 sm:p-6">
-              <ItemList
-                items={items}
-                onEdit={handleEditRequest}
-                onDelete={handleDeleteRequest}
-                onFavorite={handleFavoriteSaveRequest}
-                savedFavorites={savedFavorites}
-                isLoading={isLoadingItems}
-              />
+            <CardHeader>
+              <CardTitle>Lançamentos do Dia</CardTitle>
+            </CardHeader>
+            <CardContent className="p-10 text-center text-muted-foreground">
+                <Info className="mx-auto h-8 w-8 mb-2"/>
+                <p>A listagem de itens foi temporariamente desativada para resolver um problema.</p>
+                <p className="text-xs">Pode continuar a adicionar novos itens normalmente.</p>
             </CardContent>
           </Card>
         </main>
@@ -865,7 +508,7 @@ originalGroup = group;
         <div className="mt-8 mb-24 grid grid-cols-2 md:grid-cols-3 gap-2">
             <Button 
                 onClick={handleSaveReport}
-                disabled={isSavingReport || isLoadingItems || !items || items.length === 0}
+                disabled={isSavingReport}
                 className="w-full"
             >
                 {isSavingReport ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
@@ -891,23 +534,25 @@ originalGroup = group;
           <div className="flex flex-col items-center justify-center">
              <div className="flex items-center gap-1.5">
                 <span className="text-muted-foreground">À Vista:</span>
-                <span className="font-bold text-green-500">{formatCurrency(summary.totalAVista)}</span>
+                <span className="font-bold text-green-500">{formatCurrency(0)}</span>
              </div>
              <div className="flex items-center gap-1.5">
                 <span className="text-muted-foreground">Fiado:</span>
-                <span className="font-bold text-destructive">{formatCurrency(summary.totalFiado)}</span>
+                <span className="font-bold text-destructive">{formatCurrency(0)}</span>
              </div>
           </div>
           <div className="flex flex-col items-center justify-center border-l border-r border-border/50 h-full">
             <span className="text-muted-foreground">Entregas</span>
-            <span className="font-bold text-foreground">{summary.totalEntregas} ({formatCurrency(summary.totalTaxas)})</span>
+            <span className="font-bold text-foreground">0 ({formatCurrency(0)})</span>
           </div>
           <div className="flex flex-col items-center justify-center rounded-lg bg-primary/10 p-1">
             <span className="text-xs font-semibold uppercase tracking-wider text-primary/80">Total</span>
-            <span className="text-base font-bold text-primary">{formatCurrency(summary.total)}</span>
+            <span className="text-base font-bold text-primary">{formatCurrency(0)}</span>
           </div>
         </div>
       </footer>
     </>
   );
 }
+
+    
