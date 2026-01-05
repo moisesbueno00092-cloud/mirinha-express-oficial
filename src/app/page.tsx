@@ -71,19 +71,10 @@ const ToastContent = ({ item, title }: { item: Partial<Item>; title: string }) =
 );
 
 
-export default function Home() {
+function LancheTrackerPage() {
   const firestore = useFirestore();
-  const auth = useAuth();
-  const { user, isUserLoading } = useUser();
+  const { user } = useUser();
   const router = useRouter();
-  
-  useEffect(() => {
-    if (auth && !isUserLoading && !user) {
-      signInAnonymously(auth).catch((error) => {
-        console.error("Anonymous sign-in failed:", error);
-      });
-    }
-  }, [user, isUserLoading, auth]);
 
   // Firestore Queries
   const bomboniereItemsRef = useMemoFirebase(() => (firestore ? query(collection(firestore, 'bomboniere_items'), orderBy('name', 'asc')) : null), [firestore]);
@@ -525,7 +516,6 @@ export default function Home() {
         const itemDate = parseISO(item.timestamp);
         return isToday(itemDate);
       } catch (e) {
-        // Handle cases where timestamp might be a Firebase Timestamp object
         if ((item.timestamp as any)?.toDate) {
             return isToday((item.timestamp as any).toDate());
         }
@@ -537,22 +527,11 @@ export default function Home() {
   const totals = useMemo(() => {
     if (!todaysItems || todaysItems.length === 0) {
       return {
-        totalGeral: 0,
-        totalAVista: 0,
-        totalFiado: 0,
-        totalVendasSalao: 0,
-        totalVendasRua: 0,
-        totalFiadoSalao: 0,
-        totalFiadoRua: 0,
-        totalKg: 0,
-        totalTaxas: 0,
-        totalEntregas: 0,
-        totalItens: 0,
-        totalItensRua: 0,
-        totalBomboniereSalao: 0,
-        totalBomboniereRua: 0,
-        contagemTotal: {},
-        contagemRua: {},
+        totalGeral: 0, totalAVista: 0, totalFiado: 0, totalVendasSalao: 0,
+        totalVendasRua: 0, totalFiadoSalao: 0, totalFiadoRua: 0, totalKg: 0, totalTaxas: 0,
+        totalBomboniereSalao: 0, totalBomboniereRua: 0, totalItens: 0,
+        totalPedidos: 0, totalEntregas: 0, totalItensRua: 0,
+        contagemTotal: {} as ItemCount, contagemRua: {} as ItemCount,
       };
     }
   
@@ -611,14 +590,6 @@ export default function Home() {
   
     return result;
   }, [todaysItems]);
-
-  if (isUserLoading || !user) {
-    return (
-      <div className="flex h-screen items-center justify-center">
-        <Loader2 className="h-12 w-12 animate-spin text-primary" />
-      </div>
-    );
-  }
 
   return (
     <>
@@ -774,4 +745,27 @@ export default function Home() {
   );
 }
 
-    
+export default function Home() {
+  const auth = useAuth();
+  const { user, isUserLoading } = useUser();
+
+  useEffect(() => {
+    if (auth && !isUserLoading && !user) {
+      signInAnonymously(auth).catch((error) => {
+        console.error("Anonymous sign-in failed:", error);
+      });
+    }
+  }, [user, isUserLoading, auth]);
+
+  // The definitive fix: Do not render the page content until the user is authenticated.
+  if (isUserLoading || !user) {
+    return (
+      <div className="flex h-screen items-center justify-center">
+        <Loader2 className="h-12 w-12 animate-spin text-primary" />
+      </div>
+    );
+  }
+
+  // Once the user is authenticated, render the actual page content.
+  return <LancheTrackerPage />;
+}
