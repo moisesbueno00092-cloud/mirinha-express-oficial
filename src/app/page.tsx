@@ -84,12 +84,10 @@ export default function Home() {
     const ensureUser = async () => {
       if (!isUserLoading && !user && auth) {
         try {
-          // Non-blocking sign-in attempt
           await signInWithEmailAndPassword(auth, 'user@lanche.net', 'palavrapasselanche');
         } catch (error: any) {
           if (error.code === 'auth/user-not-found' || error.code === 'auth/invalid-credential') {
             try {
-              // Non-blocking sign-up attempt
               await createUserWithEmailAndPassword(auth, 'user@lanche.net', 'palavrapasselanche');
             } catch (creationError) {
               console.error("Failed to create shared user:", creationError);
@@ -104,8 +102,9 @@ export default function Home() {
   }, [user, isUserLoading, auth]);
 
   const userOrderItemsQuery = useMemoFirebase(() => {
-    // This is now the single point of truth. It will only return a query
-    // when both firestore and user.uid are definitively available.
+    // This is the definitive fix. The query will only be created when firestore
+    // AND a valid user.uid are present. Otherwise, it's null, preventing
+    // the useCollection hook from running an unauthorized query.
     if (!firestore || !user?.uid) {
       return null;
     }
@@ -125,7 +124,6 @@ export default function Home() {
     if (!allItems) return [];
     const todayStart = startOfDay(new Date());
     const todayEnd = endOfDay(new Date());
-    // This client-side filter adds an extra layer of safety
     return allItems.filter(item => {
         try {
             const itemDate = new Date(item.timestamp);
@@ -694,8 +692,6 @@ originalGroup = group;
     }
   }
 
-  // This is the definitive guard against race conditions.
-  // The rest of the component will not render until authentication is fully resolved.
   if (isUserLoading || !user) {
     return (
       <div className="flex h-screen items-center justify-center">
@@ -926,6 +922,3 @@ originalGroup = group;
     </>
   );
 }
-
-
-    
