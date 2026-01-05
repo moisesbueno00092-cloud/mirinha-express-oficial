@@ -2,8 +2,8 @@
 'use client';
 
 import { useState, useMemo, useEffect, useCallback } from 'react';
-import { useUser, useFirestore } from '@/firebase';
-import { collection, query, orderBy, doc, deleteDoc, getDocs } from 'firebase/firestore';
+import { useUser, useFirestore, deleteDocumentNonBlocking } from '@/firebase';
+import { collection, query, orderBy, doc, getDocs } from 'firebase/firestore';
 import { format, parseISO, startOfMonth, endOfMonth, startOfYear, endOfYear, isWithinInterval, setYear, setMonth } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import Link from 'next/link';
@@ -469,8 +469,10 @@ export default function ReportsPage() {
   }, [firestore, user, toast]);
 
   useEffect(() => {
-    fetchData();
-  }, [fetchData]);
+    if(user && firestore) {
+        fetchData();
+    }
+  }, [user, firestore, fetchData]);
 
   
   const filteredReportsForAggregation = useMemo(() => {
@@ -504,25 +506,17 @@ export default function ReportsPage() {
     setReportToDelete(reportId);
   };
 
-  const confirmDeleteReport = async () => {
+  const confirmDeleteReport = () => {
     if (!firestore || !user || !reportToDelete) return;
-    try {
-      await deleteDoc(doc(firestore, "users", user.uid, "daily_reports", reportToDelete));
-      setSavedReports(prev => prev.filter(r => r.id !== reportToDelete));
-      toast({
+    
+    const docRef = doc(firestore, "users", user.uid, "daily_reports", reportToDelete);
+    deleteDocumentNonBlocking(docRef);
+    setSavedReports(prev => prev.filter(r => r.id !== reportToDelete));
+    toast({
         title: "Sucesso",
         description: "Relatório excluído permanentemente.",
-      });
-    } catch (error) {
-      console.error("Error deleting report:", error);
-      toast({
-        variant: "destructive",
-        title: "Erro",
-        description: "Não foi possível excluir o relatório.",
-      });
-    } finally {
-      setReportToDelete(null);
-    }
+    });
+    setReportToDelete(null);
   };
 
   const getFormattedDate = (dateString: string) => {
