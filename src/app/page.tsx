@@ -5,7 +5,7 @@ import { useMemo, useState, useRef, useEffect } from "react";
 import { useRouter } from 'next/navigation';
 import type { Item, Group, PredefinedItem, SelectedBomboniereItem, BomboniereItem, DailyReport, ItemCount, SavedFavorite, User } from "@/types";
 import { PREDEFINED_PRICES, DELIVERY_FEE, BOMBONIERE_ITEMS_DEFAULT } from "@/lib/constants";
-import { useAuth, useCollection, useFirestore, useMemoFirebase, useUser } from "@/firebase";
+import { useAuth, useCollection, useFirestore, useMemoFirebase, useUser, FirestorePermissionError, errorEmitter } from "@/firebase";
 import { collection, doc, query, where, orderBy, deleteDoc, writeBatch, DocumentReference, addDoc, serverTimestamp, Timestamp, getDocs } from "firebase/firestore";
 import { parseCustomItemPrice } from "@/ai/flows/parse-custom-item-price";
 import usePersistentState from "@/hooks/use-persistent-state";
@@ -499,9 +499,16 @@ function LancheTrackerPage({ user }: { user: User }) {
             ...itemData,
             timestamp: serverTimestamp(),
           };
-          // We must await this to get the new ID for deletion
-          const newDocRef = await addDoc(userOrderItemsRef, finalItemForFirestore);
-          deleteDocumentNonBlocking(newDocRef);
+          addDoc(userOrderItemsRef, finalItemForFirestore).catch(error => {
+              errorEmitter.emit(
+                  'permission-error',
+                  new FirestorePermissionError({
+                      path: userOrderItemsRef.path,
+                      operation: 'create',
+                      requestResourceData: finalItemForFirestore,
+                  })
+              );
+          });
         } else {
           const itemRef = doc(userOrderItemsRef, item.id);
           deleteDocumentNonBlocking(itemRef);
@@ -814,3 +821,5 @@ export default function Home() {
   
   return <LancheTrackerPage user={user} />;
 }
+
+    
