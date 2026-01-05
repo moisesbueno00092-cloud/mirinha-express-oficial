@@ -744,7 +744,7 @@ function LancheTrackerPage({ user }: { user: User }) {
 export default function Home() {
   const { user, isUserLoading } = useUser();
 
-  // This is the gatekeeper. It waits until the auth state is resolved.
+  // Gatekeeper: wait until the auth state is resolved.
   if (isUserLoading) {
     return (
       <div className="flex h-screen w-full items-center justify-center">
@@ -754,8 +754,9 @@ export default function Home() {
     );
   }
 
-  // If auth is resolved but there's no user, something is wrong with the auth setup.
-  // This state should ideally not be hit in this app's flow.
+  // If auth is resolved but there's no user, something is wrong.
+  // This can happen briefly during the initial load or redirect.
+  // A more robust solution might involve a dedicated auth page, but this prevents crashes.
   if (!user) {
     return (
         <div className="flex h-screen w-full flex-col items-center justify-center text-center p-4">

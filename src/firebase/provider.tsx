@@ -44,17 +44,10 @@ export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
   auth,
 }) => {
   const [user, setUser] = useState<User | null>(null);
-  const [isUserLoading, setIsUserLoading] = useState(true); // Start as true
+  const [isUserLoading, setIsUserLoading] = useState(true);
   const [userError, setUserError] = useState<Error | null>(null);
 
   useEffect(() => {
-    if (!auth) {
-      setUser(null);
-      setUserError(new Error("Auth service not provided."));
-      setIsUserLoading(false);
-      return;
-    }
-
     // This listener handles the entire auth flow.
     const unsubscribe = onAuthStateChanged(
       auth,
