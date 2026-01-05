@@ -107,9 +107,9 @@ export default function Home() {
   const { toast } = useToast();
 
   const userOrderItemsQuery = useMemoFirebase(() => {
-    if (!firestore || !user?.uid) return null;
+    if (!firestore || isUserLoading || !user?.uid) return null;
     return query(collection(firestore, 'order_items'), where('userId', '==', user.uid));
-  }, [firestore, user?.uid]);
+  }, [firestore, user?.uid, isUserLoading]);
 
   const { data: items, isLoading: isLoadingItems } = useCollection<Item>(userOrderItemsQuery);
 
@@ -752,3 +752,5 @@ originalGroup = group;
     </>
   );
 }
+
+    
