@@ -74,15 +74,12 @@ export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
       setUserAuthState({ user: null, isUserLoading: false, userError: new Error("Auth service not provided.") });
       return;
     }
-  
-    // Immediately set loading to true when starting the listener
-    setUserAuthState(prevState => ({ ...prevState, isUserLoading: true, userError: null }));
-  
+
     const unsubscribe = onAuthStateChanged(
       auth,
       (firebaseUser) => {
         // Auth state is now determined. Set user and mark loading as false.
-        setUserAuthState({ user: firebaseUser, isUserloading: false, userError: null });
+        setUserAuthState({ user: firebaseUser, isUserLoading: false, userError: null });
       },
       (error) => {
         console.error("FirebaseProvider: onAuthStateChanged error:", error);
