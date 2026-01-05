@@ -3,7 +3,7 @@
 
 import { useState, useMemo, useEffect, useCallback } from 'react';
 import { useUser, useFirestore, deleteDocumentNonBlocking, useCollection, useMemoFirebase } from '@/firebase';
-import { collection, query, orderBy, doc } from 'firebase/firestore';
+import { collection, query, orderBy, doc, where } from 'firebase/firestore';
 import { format, parseISO, startOfMonth, endOfMonth, startOfYear, endOfYear, isWithinInterval, setYear, setMonth } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import Link from 'next/link';
@@ -432,7 +432,7 @@ export default function ReportsPage() {
   const yearOptions = useMemo(() => generateYearOptions(), []);
 
   const reportsQuery = useMemoFirebase(
-    () => firestore && user ? query(collection(firestore, 'users', user.uid, 'daily_reports'), orderBy('createdAt', 'desc')) : null,
+    () => firestore && user ? query(collection(firestore, 'daily_reports'), where('userId', '==', user.uid), orderBy('createdAt', 'desc')) : null,
     [firestore, user]
   );
   const bomboniereQuery = useMemoFirebase(
@@ -479,7 +479,7 @@ export default function ReportsPage() {
   const confirmDeleteReport = () => {
     if (!firestore || !user || !reportToDelete) return;
     
-    const docRef = doc(firestore, "users", user.uid, "daily_reports", reportToDelete);
+    const docRef = doc(firestore, "daily_reports", reportToDelete);
     deleteDocumentNonBlocking(docRef);
     toast({
         title: "Sucesso",

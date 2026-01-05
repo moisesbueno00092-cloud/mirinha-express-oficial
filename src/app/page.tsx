@@ -344,7 +344,7 @@ function LancheTrackerPage({ user }: { user: User }) {
                 ...(predefinedItems.length > 0 ? { predefinedItems: finalItemForState.predefinedItems } : {}),
                 ...(processedBomboniereItems.length > 0 ? { bomboniereItems: finalItemForState.bomboniereItems } : {}),
             };
-            const orderItemsCollectionRef = collection(firestore, 'users', user.uid, 'order_items');
+            const orderItemsCollectionRef = collection(firestore, 'order_items');
             const docRef = doc(orderItemsCollectionRef, currentItem.id);
             setDocumentNonBlocking(docRef, finalItemForFirestore);
 
@@ -412,7 +412,7 @@ function LancheTrackerPage({ user }: { user: User }) {
     
     // If it's a remote item, delete from firestore
     if(!itemToDelete.startsWith('local_')) {
-        const docRef = doc(firestore, 'users', user.uid, 'order_items', itemToDelete);
+        const docRef = doc(firestore, 'order_items', itemToDelete);
         deleteDocumentNonBlocking(docRef); // Fire-and-forget
     }
 
@@ -483,10 +483,10 @@ function LancheTrackerPage({ user }: { user: User }) {
         contagemRua: totals.contagemRua
       };
       
-      const reportRef = doc(collection(firestore, 'users', user.uid, 'daily_reports'));
+      const reportRef = doc(collection(firestore, 'daily_reports'));
       setDocumentNonBlocking(reportRef, report);
 
-      const userOrderItemsRef = collection(firestore, 'users', user.uid, 'order_items');
+      const orderItemsRef = collection(firestore, 'order_items');
       
       for (const item of todaysItems) {
         if (item.id.startsWith('local_')) {
@@ -495,14 +495,7 @@ function LancheTrackerPage({ user }: { user: User }) {
             ...itemData,
             timestamp: serverTimestamp(),
           };
-          addDocumentNonBlocking(userOrderItemsRef, finalItemForFirestore);
-        } else {
-          // This item is already in firestore from a previous session, but was cleared from the day's local list
-          // We don't want to delete it from the main archive.
-          // Or, it was edited. If it was edited, it would have been updated already.
-          // The current logic doesn't load from Firestore, it only uses local storage for the day.
-          // So, any item with a non-local ID must be from a previous day that wasn't cleared, or already saved.
-          // Let's assume we don't need to delete existing items. The goal is to archive the day's work.
+          addDocumentNonBlocking(orderItemsRef, finalItemForFirestore);
         }
       }
       
