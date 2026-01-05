@@ -105,13 +105,8 @@ export default function Home() {
     if (!firestore || !user?.uid) {
       return null;
     }
-    const todayStart = startOfDay(new Date());
-    const todayEnd = endOfDay(new Date());
-    return query(
-        collection(firestore, "order_items"), 
-        where("userId", "==", user.uid),
-    );
-  }, [firestore, user]);
+    return query(collection(firestore, "order_items"), where("userId", "==", user.uid));
+  }, [firestore, user?.uid]);
   
   const bomboniereItemsRef = useMemoFirebase(() => (firestore ? query(collection(firestore, 'bomboniere_items'), orderBy('name', 'asc')) : null), [firestore]);
   
@@ -121,7 +116,6 @@ export default function Home() {
   
   const items = useMemo(() => {
     if (!allItems) return [];
-    // Filter items for today on the client side
     return allItems.filter(item => {
         try {
             const itemDate = new Date(item.timestamp);
