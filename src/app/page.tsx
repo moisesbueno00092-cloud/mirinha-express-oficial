@@ -109,7 +109,7 @@ function LancheTrackerPage({ user }: { user: User }) {
   
   const [isPasswordModalOpen, setIsPasswordModalOpen] = useState(false);
   const [passwordInput, setPasswordInput] = useState('');
-  const [passwordAction, setPasswordAction] = useState<'reports' | 'stock' | null>(null);
+  const [passwordAction, setPasswordAction] = useState<'reports' | 'stock' | 'admin' | null>(null);
   const [itemToDelete, setItemToDelete] = useState<string | null>(null);
   const [itemToEdit, setItemToEdit] = useState<Item | null>(null);
 
@@ -499,7 +499,16 @@ function LancheTrackerPage({ user }: { user: User }) {
             ...itemData,
             timestamp: serverTimestamp(),
           };
-          addDocumentNonBlocking(userOrderItemsRef, finalItemForFirestore);
+          addDocumentNonBlocking(userOrderItemsRef, finalItemForFirestore).catch(error => {
+              errorEmitter.emit(
+                  'permission-error',
+                  new FirestorePermissionError({
+                      path: userOrderItemsRef.path,
+                      operation: 'create',
+                      requestResourceData: finalItemForFirestore,
+                  })
+              )
+          });
         } else {
           const itemRef = doc(userOrderItemsRef, item.id);
           deleteDocumentNonBlocking(itemRef);
@@ -525,7 +534,7 @@ function LancheTrackerPage({ user }: { user: User }) {
     }
   };
 
-  const handleOpenPasswordModal = (action: 'reports' | 'stock') => {
+  const handleOpenPasswordModal = (action: 'reports' | 'stock' | 'admin') => {
     setPasswordAction(action);
     setPasswordInput('');
     setIsPasswordModalOpen(true);
@@ -538,6 +547,8 @@ function LancheTrackerPage({ user }: { user: User }) {
           router.push('/reports');
         } else if (passwordAction === 'stock') {
           setIsStockEditModalOpen(true);
+        } else if (passwordAction === 'admin') {
+          router.push('/admin');
         }
     } else {
         toast({
@@ -737,7 +748,7 @@ function LancheTrackerPage({ user }: { user: User }) {
                 {isSavingReport ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
                 Salvar Relatório
             </Button>
-            <Button variant="outline" className="w-full" onClick={() => router.push('/reports')}>
+            <Button variant="outline" className="w-full" onClick={() => handleOpenPasswordModal('reports')}>
                 <History className="mr-2 h-4 w-4" />
                 Relatórios Salvos
             </Button>
@@ -745,7 +756,7 @@ function LancheTrackerPage({ user }: { user: User }) {
                 <Settings className="mr-2 h-4 w-4" />
                 Gerir Estoque
             </Button>
-             <Button variant="outline" className="w-full col-span-2 md:col-span-3" onClick={() => router.push('/admin')}>
+             <Button variant="outline" className="w-full col-span-2 md:col-span-3" onClick={() => handleOpenPasswordModal('admin')}>
                 <Wrench className="mr-2 h-4 w-4" />
                 Gestão Administrativa
             </Button>
@@ -812,3 +823,5 @@ export default function Home() {
   
   return <LancheTrackerPage user={user} />;
 }
+
+    
