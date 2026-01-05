@@ -4,7 +4,7 @@
 import React, { createContext, useContext, ReactNode, useMemo, useState, useEffect } from 'react';
 import { FirebaseApp } from 'firebase/app';
 import { Firestore } from 'firebase/firestore';
-import { Auth, User, onAuthStateChanged, signInAnonymously } from 'firebase/auth';
+import { Auth, User, onAuthStateChanged } from 'firebase/auth';
 import { FirebaseErrorListener } from '@/components/FirebaseErrorListener';
 
 interface FirebaseProviderProps {
@@ -48,27 +48,23 @@ export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
   const [userError, setUserError] = useState<Error | null>(null);
 
   useEffect(() => {
-    // This listener handles the entire auth flow.
     const unsubscribe = onAuthStateChanged(
       auth,
       (firebaseUser) => {
-        // When onAuthStateChanged fires, the auth state is resolved.
-        // It provides either a user object or null.
         setUser(firebaseUser);
         setUserError(null);
-        setIsUserLoading(false); // We are no longer loading, regardless of user presence.
+        setIsUserLoading(false);
       },
       (error) => {
         console.error("FirebaseProvider: onAuthStateChanged error:", error);
         setUser(null);
         setUserError(error);
-        setIsUserLoading(false); // Also stop loading on error.
+        setIsUserLoading(false);
       }
     );
   
     return () => unsubscribe();
   }, [auth]);
-  
 
   const contextValue = useMemo((): FirebaseContextState => {
     return {
