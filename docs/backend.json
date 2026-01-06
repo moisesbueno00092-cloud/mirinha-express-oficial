@@ -200,9 +200,7 @@
         "path": "/users/{userId}",
         "definition": {
           "entityName": "UserProfile",
-          "schema": {
-            "$ref": "#/entities/UserProfile"
-          },
+          "schema": { "$ref": "#/entities/UserProfile" },
           "description": "Stores user profile data.",
           "collections": [
             {
@@ -228,34 +226,32 @@
         "path": "/bomboniere_items/{itemId}",
         "definition": {
           "entityName": "BomboniereItem",
-          "schema": {
-            "$ref": "#/entities/BomboniereItem"
-          },
+          "schema": { "$ref": "#/entities/BomboniereItem" },
           "description": "Shared list of bomboniere items."
         }
       },
       {
         "path": "/fornecedores/{fornecedorId}",
         "definition": {
-            "entityName": "Fornecedor",
-            "schema": { "$ref": "#/entities/Fornecedor" },
-            "description": "Armazena a lista de fornecedores."
+          "entityName": "Fornecedor",
+          "schema": { "$ref": "#/entities/Fornecedor" },
+          "description": "Armazena a lista de fornecedores."
         }
       },
       {
         "path": "/contas_a_pagar/{contaId}",
         "definition": {
-            "entityName": "ContaAPagar",
-            "schema": { "$ref": "#/entities/ContaAPagar" },
-            "description": "Armazena as contas a pagar."
+          "entityName": "ContaAPagar",
+          "schema": { "$ref": "#/entities/ContaAPagar" },
+          "description": "Armazena as contas a pagar."
         }
       },
       {
         "path": "/entradas_mercadorias/{entradaId}",
         "definition": {
-            "entityName": "EntradaMercadoria",
-            "schema": { "$ref": "#/entities/EntradaMercadoria" },
-            "description": "Histórico de todas as entradas de mercadorias para consulta de preços."
+          "entityName": "EntradaMercadoria",
+          "schema": { "$ref": "#/entities/EntradaMercadoria" },
+          "description": "Histórico de todas as entradas de mercadorias para consulta de preços."
         }
       },
       {
@@ -266,20 +262,20 @@
           "description": "Armazena os dados dos funcionários.",
           "collections": [
             {
-                "path": "lancamentos",
-                "definition": {
-                    "entityName": "FuncionarioLancamentoFinanceiro",
-                    "schema": { "$ref": "#/entities/FuncionarioLancamentoFinanceiro" },
-                    "description": "Histórico de todas as transações financeiras de um funcionário."
-                }
+              "path": "lancamentos",
+              "definition": {
+                "entityName": "FuncionarioLancamentoFinanceiro",
+                "schema": { "$ref": "#/entities/FuncionarioLancamentoFinanceiro" },
+                "description": "Histórico de todas as transações financeiras de um funcionário."
+              }
             },
             {
-                "path": "holerites",
-                "definition": {
-                    "entityName": "FuncionarioHolerite",
-                    "schema": { "$ref": "#/entities/FuncionarioHolerite" },
-                    "description": "Histórico dos resumos de fecho de folha mensais de um funcionário."
-                }
+              "path": "holerites",
+              "definition": {
+                "entityName": "FuncionarioHolerite",
+                "schema": { "$ref": "#/entities/FuncionarioHolerite" },
+                "description": "Histórico dos resumos de fecho de folha mensais de um funcionário."
+              }
             }
           ]
         }
