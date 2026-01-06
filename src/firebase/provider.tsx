@@ -77,15 +77,16 @@ export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
       try {
         if (firebaseUser) {
-          // A user exists.
+          // A user exists. Now, check if it's the correct type.
           if (firebaseUser.isAnonymous) {
             // This is the desired state. Ensure profile exists and set the user.
             await ensureUserProfileExists(firestore, firebaseUser);
             setUser(firebaseUser);
             setUserError(null);
+            setIsUserLoading(false);
           } else {
-            // An unwanted user type (e.g., email/pass) is signed in.
-            // Sign them out to trigger the auth flow again, which will lead to the 'else' block.
+            // An unwanted user type (e.g., email/pass, or 'custom' from a previous error state) is signed in.
+            // We must sign them out to trigger the auth flow again, which will lead to the 'else' block.
             await signOut(auth);
             // Don't set user state yet, wait for the next onAuthStateChanged call.
           }
@@ -98,12 +99,7 @@ export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
         console.error("FirebaseProvider: Error during auth state handling:", error);
         setUserError(error as Error);
         setUser(null);
-      } finally {
-        // Only stop loading once we have a stable user or an error.
-        // The loading state will persist during the sign-out/sign-in cycle.
-        if (user || userError) {
-          setIsUserLoading(false);
-        }
+        setIsUserLoading(false);
       }
     },
     (error) => {
@@ -116,7 +112,7 @@ export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
 
     // Cleanup the listener on unmount.
     return () => unsubscribe();
-  }, [auth, firestore, user, userError]); // Dependencies ensure this runs only when necessary.
+  }, [auth, firestore]); // Dependencies are minimal to prevent re-running.
 
 
   const contextValue = useMemo((): FirebaseContextState => {
