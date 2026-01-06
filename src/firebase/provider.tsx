@@ -52,10 +52,10 @@ export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
       auth,
       (firebaseUser) => {
         if (firebaseUser) {
-          setUser(firebaseUser); // Sets user to the firebaseUser object or null
-          setIsUserLoading(false); // Auth state is resolved, stop loading
+          setUser(firebaseUser);
+          setIsUserLoading(false);
         } else {
-            // If no user, sign in anonymously
+            // If no user, sign in anonymously to ensure a stable UID.
             signInAnonymously(auth).catch((error) => {
                 console.error("FirebaseProvider: Anonymous sign-in error:", error);
                 setUserError(error);
@@ -67,7 +67,7 @@ export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
         console.error("FirebaseProvider: Auth state error:", error);
         setUser(null);
         setUserError(error);
-        setIsUserLoading(false); // Auth state failed, stop loading
+        setIsUserLoading(false);
       }
     );
 
