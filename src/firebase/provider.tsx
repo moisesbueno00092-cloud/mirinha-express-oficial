@@ -57,16 +57,16 @@ export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
         setUserError(null);
       } else {
         // No user is signed in. This is where we initiate the anonymous sign-in.
-        // It's crucial this happens *only when we know* there is no user.
         signInAnonymously(auth).catch((error) => {
           // If anonymous sign-in fails, it's a critical error.
           console.error("FirebaseProvider: Anonymous sign-in failed.", error);
           setUserError(error);
           setUser(null);
+          // Crucially, set loading to false even on error to stop the loading loop.
           setIsUserLoading(false);
         });
-        // We remain in a loading state until the signInAnonymously() call
-        // triggers onAuthStateChanged again with a valid user.
+        // We remain in a loading state until signInAnonymously() resolves
+        // and onAuthStateChanged is triggered again.
       }
     }, (error) => {
       // This is the error observer for onAuthStateChanged itself.
