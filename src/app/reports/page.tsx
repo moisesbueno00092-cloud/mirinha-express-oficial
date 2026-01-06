@@ -413,7 +413,7 @@ const monthOptions = Array.from({ length: 12 }, (_, i) => ({
 }));
 
 
-function ReportsPage() {
+function ReportsPageContent() {
   const { user, isUserLoading } = useUser();
   const firestore = useFirestore();
   const { toast } = useToast();
@@ -681,6 +681,10 @@ function ReportsPage() {
   );
 }
 
-export default ReportsPage;
-
-    
+export default function ReportsPage() {
+    return (
+        <FirebaseClientProvider>
+            <ReportsPageContent />
+        </FirebaseClientProvider>
+    )
+}

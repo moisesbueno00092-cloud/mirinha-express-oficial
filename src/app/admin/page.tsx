@@ -17,9 +17,10 @@ import ContasAPagarPanel from '@/components/admin/contas-a-pagar-panel';
 import HistoricoFinanceiroPanel from '@/components/admin/historico-financeiro-panel';
 import FuncionariosPanel from '@/components/admin/funcionarios-panel';
 import { useRouter } from 'next/navigation';
+import { FirebaseClientProvider, useUser } from '@/firebase';
 
 
-function AdminPage() {
+function AdminPageContent() {
   const router = useRouter();
   const [activeTab, setActiveTab] = useState('mercadorias');
   const [isRhAuthenticated, setIsRhAuthenticated] = useState(false);
@@ -186,6 +187,10 @@ function AdminPage() {
 }
 
 
-export default AdminPage;
-
-    
+export default function AdminPage() {
+    return (
+        <FirebaseClientProvider>
+            <AdminPageContent />
+        </FirebaseClientProvider>
+    )
+}
