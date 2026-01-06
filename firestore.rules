@@ -26,7 +26,8 @@ service cloud.firestore {
         allow read, write: if request.auth != null;
     }
 
-    // Permite acesso total à coleção de funcionários e suas subcoleções
+    // A coleção de funcionários e todas as suas subcoleções (lancamentos, holerites)
+    // podem ser lidas e escritas por qualquer utilizador autenticado.
     match /funcionarios/{funcionarioId}/{document=**} {
         allow read, write: if request.auth != null;
     }

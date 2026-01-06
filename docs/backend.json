@@ -46,29 +46,13 @@
         },
         "total": {
           "type": "number"
+        },
+        "customerName": {
+            "type": "string",
+            "description": "The name of the customer for fiado or favorite orders."
         }
       },
       "required": ["userId", "name", "price", "group", "quantity", "timestamp", "total"]
-    },
-    "FavoriteClient": {
-      "title": "Favorite Client",
-      "type": "object",
-      "description": "Represents a favorite client with a saved command.",
-      "properties": {
-        "userId": {
-          "type": "string",
-          "description": "The ID of the user who saved this favorite client."
-        },
-        "name": {
-          "type": "string",
-          "description": "The name of the favorite client."
-        },
-        "command": {
-          "type": "string",
-          "description": "The saved command for the client's usual order."
-        }
-      },
-      "required": ["userId", "name", "command"]
     },
     "BomboniereItem": {
       "title": "Bomboniere Item",
@@ -80,6 +64,131 @@
         "estoque": { "type": "number" }
       },
       "required": ["name", "price", "estoque"]
+    },
+    "DailyReport": {
+      "title": "Daily Report",
+      "description": "Represents a consolidated daily sales report.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "reportDate": { "type": "string", "format": "date" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "totalGeral": { "type": "number" },
+        "totalAVista": { "type": "number" },
+        "totalFiado": { "type": "number" },
+        "totalVendasSalao": { "type": "number" },
+        "totalVendasRua": { "type": "number" },
+        "totalFiadoSalao": { "type": "number" },
+        "totalFiadoRua": { "type": "number" },
+        "totalKg": { "type": "number" },
+        "totalTaxas": { "type": "number" },
+        "totalBomboniereSalao": { "type": "number" },
+        "totalBomboniereRua": { "type": "number" },
+        "totalItens": { "type": "number" },
+        "totalPedidos": { "type": "number" },
+        "totalEntregas": { "type": "number" },
+        "totalItensRua": { "type": "number" },
+        "contagemTotal": { "type": "object" },
+        "contagemRua": { "type": "object" }
+      },
+      "required": [
+        "userId", "reportDate", "createdAt", "totalGeral", "totalAVista", "totalFiado"
+      ]
+    },
+    "Fornecedor": {
+        "title": "Fornecedor",
+        "description": "Representa um fornecedor de mercadorias.",
+        "type": "object",
+        "properties": {
+            "nome": { "type": "string" },
+            "color": { "type": "string" }
+        },
+        "required": ["nome", "color"]
+    },
+    "ContaAPagar": {
+        "title": "Conta a Pagar",
+        "description": "Representa uma conta a pagar para um fornecedor.",
+        "type": "object",
+        "properties": {
+            "fornecedorId": { "type": "string" },
+            "descricao": { "type": "string" },
+            "valor": { "type": "number" },
+            "dataVencimento": { "type": "string", "format": "date" },
+            "estaPaga": { "type": "boolean" }
+        },
+        "required": ["fornecedorId", "descricao", "valor", "dataVencimento", "estaPaga"]
+    },
+    "EntradaMercadoria": {
+        "title": "Entrada de Mercadoria",
+        "description": "Registo de uma entrada de mercadoria, que alimenta o histórico de preços.",
+        "type": "object",
+        "properties": {
+            "produtoNome": { "type": "string" },
+            "fornecedorId": { "type": "string" },
+            "data": { "type": "string", "format": "date-time" },
+            "quantidade": { "type": "number" },
+            "precoUnitario": { "type": "number" },
+            "valorTotal": { "type": "number" }
+        },
+        "required": ["produtoNome", "fornecedorId", "data", "quantidade", "precoUnitario", "valorTotal"]
+    },
+    "Funcionario": {
+        "title": "Funcionário",
+        "description": "Representa um funcionário/colaborador da empresa.",
+        "type": "object",
+        "properties": {
+            "nome": { "type": "string" },
+            "cargo": { "type": "string" },
+            "dataAdmissao": { "type": "string", "format": "date" },
+            "status": { "type": "string", "enum": ["Ativo", "Inativo"] },
+            "salarioBase": { "type": "number" }
+        },
+        "required": ["nome", "cargo", "dataAdmissao", "status", "salarioBase"]
+    },
+    "FuncionarioLancamentoFinanceiro": {
+        "title": "Lançamento Financeiro de Funcionário",
+        "description": "Representa uma transação financeira (vale, bônus, etc.) para um funcionário.",
+        "type": "object",
+        "properties": {
+            "funcionarioId": { "type": "string" },
+            "tipo": { "type": "string", "enum": ["vale", "bonus", "desconto", "hora_extra", "comissao", "falta"] },
+            "valor": { "type": "number" },
+            "data": { "type": "string", "format": "date-time" },
+            "descricao": { "type": "string" },
+            "quantidade": { "type": "number" }
+        },
+        "required": ["funcionarioId", "tipo", "valor", "data"]
+    },
+    "FuncionarioHolerite": {
+        "title": "Recibo de Vencimento de Funcionário",
+        "description": "Armazena um resumo do fecho de folha mensal para um funcionário.",
+        "type": "object",
+        "properties": {
+            "funcionarioId": { "type": "string" },
+            "mes": { "type": "number" },
+            "ano": { "type": "number" },
+            "dataFechamento": { "type": "string", "format": "date-time" },
+            "salarioBase": { "type": "number" },
+            "totalVencimentos": { "type": "number" },
+            "totalDescontos": { "type": "number" },
+            "valorLiquido": { "type": "number" },
+            "lancamentos": { 
+                "type": "array",
+                "items": { "$ref": "#/entities/FuncionarioLancamentoFinanceiro" }
+            }
+        },
+        "required": ["funcionarioId", "mes", "ano", "dataFechamento", "salarioBase", "totalVencimentos", "totalDescontos", "valorLiquido"]
+    },
+    "ParsedRomaneioItem": {
+        "title": "Parsed Romaneio Item",
+        "description": "Represents a single item extracted from a delivery note image.",
+        "type": "object",
+        "properties": {
+            "produtoNome": { "type": "string" },
+            "quantidade": { "type": "number" },
+            "valorTotal": { "type": "number" }
+        },
+        "required": ["produtoNome", "quantidade", "valorTotal"]
     }
   },
   "auth": {
@@ -92,29 +201,27 @@
         "definition": {
           "entityName": "UserProfile",
           "schema": {
-            "$ref": "#/backend/entities/UserProfile"
+            "$ref": "#/entities/UserProfile"
           },
-          "description": "Stores user profile data."
-        }
-      },
-      {
-        "path": "/order_items/{orderItemId}",
-        "definition": {
-          "entityName": "OrderItem",
-          "schema": {
-            "$ref": "#/backend/entities/OrderItem"
-          },
-          "description": "Collection of all order items across all users."
-        }
-      },
-      {
-        "path": "/favorite_clients/{clientId}",
-        "definition": {
-          "entityName": "FavoriteClient",
-          "schema": {
-            "$ref": "#/backend/entities/FavoriteClient"
-          },
-          "description": "Collection of all favorite clients across all users."
+          "description": "Stores user profile data.",
+          "collections": [
+            {
+              "path": "order_items",
+              "definition": {
+                "entityName": "OrderItem",
+                "schema": { "$ref": "#/entities/OrderItem" },
+                "description": "Collection of order items for a specific user."
+              }
+            },
+            {
+              "path": "daily_reports",
+              "definition": {
+                "entityName": "DailyReport",
+                "schema": { "$ref": "#/entities/DailyReport" },
+                "description": "Stores consolidated daily sales reports for a specific user."
+              }
+            }
+          ]
         }
       },
       {
@@ -122,12 +229,61 @@
         "definition": {
           "entityName": "BomboniereItem",
           "schema": {
-            "$ref": "#/backend/entities/BomboniereItem"
+            "$ref": "#/entities/BomboniereItem"
           },
           "description": "Shared list of bomboniere items."
+        }
+      },
+      {
+        "path": "/fornecedores/{fornecedorId}",
+        "definition": {
+            "entityName": "Fornecedor",
+            "schema": { "$ref": "#/entities/Fornecedor" },
+            "description": "Armazena a lista de fornecedores."
+        }
+      },
+      {
+        "path": "/contas_a_pagar/{contaId}",
+        "definition": {
+            "entityName": "ContaAPagar",
+            "schema": { "$ref": "#/entities/ContaAPagar" },
+            "description": "Armazena as contas a pagar."
+        }
+      },
+      {
+        "path": "/entradas_mercadorias/{entradaId}",
+        "definition": {
+            "entityName": "EntradaMercadoria",
+            "schema": { "$ref": "#/entities/EntradaMercadoria" },
+            "description": "Histórico de todas as entradas de mercadorias para consulta de preços."
+        }
+      },
+      {
+        "path": "/funcionarios/{funcionarioId}",
+        "definition": {
+          "entityName": "Funcionario",
+          "schema": { "$ref": "#/entities/Funcionario" },
+          "description": "Armazena os dados dos funcionários.",
+          "collections": [
+            {
+                "path": "lancamentos",
+                "definition": {
+                    "entityName": "FuncionarioLancamentoFinanceiro",
+                    "schema": { "$ref": "#/entities/FuncionarioLancamentoFinanceiro" },
+                    "description": "Histórico de todas as transações financeiras de um funcionário."
+                }
+            },
+            {
+                "path": "holerites",
+                "definition": {
+                    "entityName": "FuncionarioHolerite",
+                    "schema": { "$ref": "#/entities/FuncionarioHolerite" },
+                    "description": "Histórico dos resumos de fecho de folha mensais de um funcionário."
+                }
+            }
+          ]
         }
       }
     ]
   }
 }
-
