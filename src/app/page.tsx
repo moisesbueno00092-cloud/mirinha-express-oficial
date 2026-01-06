@@ -760,7 +760,6 @@ function LancheTrackerPage() {
 function AuthWall({ children }: { children: React.ReactNode }) {
   const { user, isUserLoading, userError } = useUser();
   
-  // This is the critical part: ensure user exists AND is anonymous before rendering.
   const isReady = !isUserLoading && user && user.isAnonymous;
 
   if (!isReady) {
@@ -790,5 +789,7 @@ export default function Home() {
     </AuthWall>
   );
 }
+
+    
 
     
