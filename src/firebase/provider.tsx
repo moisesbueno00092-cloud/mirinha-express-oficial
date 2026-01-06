@@ -74,30 +74,20 @@ export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
-      setIsUserLoading(true);
       setUserError(null);
-      try {
-        if (currentUser) {
-          // User is signed in.
-          if (currentUser.isAnonymous) {
-            await ensureUserProfileExists(firestore, currentUser);
-            setUser(currentUser);
-          } else {
-            // If user is not anonymous, sign them out and sign in anonymously.
-            await auth.signOut();
-            // The listener will re-trigger with a null user, then sign in.
-          }
-        } else {
-          // No user is signed in, so sign in anonymously.
-          await signInAnonymously(auth);
-          // The onAuthStateChanged listener will be called again with the new anonymous user.
-        }
-      } catch (error) {
-        console.error("FirebaseProvider: Error during auth state change:", error);
-        setUserError(error as Error);
-        setUser(null);
-      } finally {
+      if (currentUser) {
+        await ensureUserProfileExists(firestore, currentUser);
+        setUser(currentUser);
         setIsUserLoading(false);
+      } else {
+        try {
+          // If no user, sign in anonymously. The listener will be called again.
+          await signInAnonymously(auth);
+        } catch (error) {
+          console.error("FirebaseProvider: Error signing in anonymously:", error);
+          setUserError(error as Error);
+          setIsUserLoading(false);
+        }
       }
     }, (error) => {
       console.error("FirebaseProvider: onAuthStateChanged listener error:", error);
@@ -109,6 +99,7 @@ export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
     // Cleanup subscription on unmount
     return () => unsubscribe();
   }, [auth, firestore]);
+  
 
   const contextValue = useMemo((): FirebaseContextState => {
     return {
