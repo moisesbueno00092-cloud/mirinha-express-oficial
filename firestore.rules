@@ -5,6 +5,9 @@ service cloud.firestore {
   match /databases/{database}/documents {
 
     // Regra principal: Um utilizador só pode aceder ao seu próprio documento e a todas as suas subcoleções.
+    // Esta regra wildcard recursiva {document=**} garante que um utilizador autenticado
+    // tenha permissão de leitura e escrita para /users/{userId} e qualquer documento
+    // em qualquer subcoleção abaixo dele (ex: /users/{userId}/order_items/{orderId}).
     match /users/{userId}/{document=**} {
       allow read, write: if request.auth != null && request.auth.uid == userId;
     }
