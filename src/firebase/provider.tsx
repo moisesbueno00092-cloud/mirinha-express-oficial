@@ -75,31 +75,35 @@ export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
       setUserError(null);
-      
       if (currentUser) {
+        // User is signed in.
         try {
           await ensureUserProfileExists(firestore, currentUser);
           setUser(currentUser);
         } catch (e) {
           setUserError(e as Error);
         } finally {
-            setIsUserLoading(false);
+          setIsUserLoading(false);
         }
       } else {
-        // No user, sign in anonymously. The listener will be called again with the new user.
-        signInAnonymously(auth).catch((error) => {
+        // No user is signed in. Attempt to sign in anonymously.
+        try {
+          await signInAnonymously(auth);
+          // The onAuthStateChanged listener will be called again with the new anonymous user,
+          // so we don't need to set the user here. We just wait.
+        } catch (error) {
           console.error("FirebaseProvider: Anonymous sign-in failed", error);
-          setUserError(error);
+          setUserError(error as Error);
           setIsUserLoading(false);
-        });
+        }
       }
-      
     }, (error) => {
+      // Handle listener errors
       console.error("FirebaseProvider: Auth listener error", error);
       setUserError(error);
       setIsUserLoading(false);
     });
-  
+
     return () => unsubscribe();
   }, [auth, firestore]);
   
