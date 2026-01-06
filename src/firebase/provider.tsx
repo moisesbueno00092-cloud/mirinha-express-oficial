@@ -84,8 +84,10 @@ export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
         // we force the anonymous sign-in flow.
         setIsUserLoading(true);
         try {
-          // Signing out first clears any invalid state.
-          await signOut(auth);
+          // Signing out first clears any invalid state (like a custom token user).
+          if (currentUser) {
+            await signOut(auth);
+          }
           const userCredential = await signInAnonymously(auth);
           // The onAuthStateChanged listener will be called again with the new anonymous user,
           // and the code block above will handle setting the user and loading state.
