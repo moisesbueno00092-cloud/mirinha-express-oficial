@@ -1,26 +1,8 @@
 rules_version = '2';
-
 service cloud.firestore {
   match /databases/{database}/documents {
-    // Regra para a coleção de usuários e todas as suas subcoleções (como order_items)
-    match /users/{userId}/{allPaths=**} {
-      allow read, write: if request.auth != null && request.auth.uid == userId;
-    }
-
-    // Regra para coleções partilhadas/públicas
-    match /bomboniere_items/{itemId} {
-      allow read, write: if request.auth != null;
-    }
-    match /fornecedores/{fornecedorId} {
-      allow read, write: if request.auth != null;
-    }
-    match /contas_a_pagar/{contaId} {
-      allow read, write: if request.auth != null;
-    }
-    match /entradas_mercadorias/{entradaId} {
-      allow read, write: if request.auth != null;
-    }
-    match /funcionarios/{funcionarioId}/{document=**} {
+    // Permissão total para qualquer usuário logado (Ideal para desenvolvimento)
+    match /{document=**} {
       allow read, write: if request.auth != null;
     }
   }
