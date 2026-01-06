@@ -22,7 +22,6 @@ import FuncionariosPanel from '@/components/admin/funcionarios-panel';
 export default function AdminPage() {
   const [activeTab, setActiveTab] = useState('mercadorias');
   const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [isRhAuthenticated, setIsRhAuthenticated] = useState(false);
  
    if (!isAuthenticated) {
     return (
@@ -43,12 +42,6 @@ export default function AdminPage() {
 
   return (
     <>
-      <PasswordDialog 
-        open={!isRhAuthenticated && activeTab === 'rh'}
-        onOpenChange={(isOpen) => { if(!isOpen && activeTab === 'rh') setActiveTab('mercadorias'); }}
-        onSuccess={() => setIsRhAuthenticated(true)}
-      />
-
       <div className="container mx-auto max-w-7xl p-2 sm:p-4 lg:p-8">
         <header className="mb-6 flex items-center justify-between">
           <div className="flex items-center gap-4">
@@ -122,27 +115,18 @@ export default function AdminPage() {
               </Card>
             </TabsContent>
             <TabsContent value="rh">
-              {isRhAuthenticated ? (
-                 <Card>
-                  <CardHeader className='flex-row items-start justify-between'>
-                    <div>
-                      <CardTitle>Recursos Humanos</CardTitle>
-                      <CardDescription>Gestão de colaboradores, admissões e lançamentos financeiros.</CardDescription>
-                    </div>
-                    <HelpSheet />
-                  </CardHeader>
-                  <CardContent>
-                    <FuncionariosPanel />
-                  </CardContent>
-                </Card>
-              ) : (
-                <Card>
-                  <CardContent className="flex flex-col items-center justify-center p-10 text-center text-muted-foreground h-64">
-                     <Loader2 className="h-8 w-8 animate-spin text-primary mb-4"/>
-                     <p>A validar senha...</p>
-                  </CardContent>
-                </Card>
-              )}
+              <Card>
+                <CardHeader className='flex-row items-start justify-between'>
+                  <div>
+                    <CardTitle>Recursos Humanos</CardTitle>
+                    <CardDescription>Gestão de colaboradores, admissões e lançamentos financeiros.</CardDescription>
+                  </div>
+                  <HelpSheet />
+                </CardHeader>
+                <CardContent>
+                  <FuncionariosPanel />
+                </CardContent>
+              </Card>
             </TabsContent>
           </Tabs>
         </main>
@@ -150,5 +134,3 @@ export default function AdminPage() {
     </>
   );
 }
-
-    
