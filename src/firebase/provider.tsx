@@ -1,3 +1,4 @@
+
 'use client';
 
 import React, { createContext, useContext, ReactNode, useMemo, useState, useEffect } from 'react';
@@ -47,7 +48,6 @@ export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
   const [userError, setUserError] = useState<Error | null>(null);
 
   useEffect(() => {
-    // This is the correct and robust way to handle anonymous auth.
     // onAuthStateChanged fires when the user signs in, signs out, or the token changes.
     const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
       if (currentUser) {
