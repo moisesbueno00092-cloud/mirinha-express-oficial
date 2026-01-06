@@ -4,7 +4,7 @@
 import React, { createContext, useContext, ReactNode, useMemo, useState, useEffect } from 'react';
 import { FirebaseApp } from 'firebase/app';
 import { Firestore } from 'firebase/firestore';
-import { Auth, User, onAuthStateChanged, signInAnonymously } from 'firebase/auth';
+import { Auth, User, onAuthStateChanged, signInAnonymously, signOut } from 'firebase/auth';
 import { FirebaseErrorListener } from '@/components/FirebaseErrorListener';
 
 interface FirebaseProviderProps {
@@ -48,19 +48,28 @@ export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
   const [userError, setUserError] = useState<Error | null>(null);
 
   useEffect(() => {
+    const handleAuth = async () => {
+      try {
+        await signInAnonymously(auth);
+      } catch (error) {
+        console.error("FirebaseProvider: Anonymous sign-in error:", error);
+        setUserError(error as Error);
+        setIsUserLoading(false);
+      }
+    };
+    
     const unsubscribe = onAuthStateChanged(
       auth,
       (firebaseUser) => {
-        if (firebaseUser) {
+        if (firebaseUser && firebaseUser.isAnonymous) {
           setUser(firebaseUser);
           setIsUserLoading(false);
+        } else if (firebaseUser && !firebaseUser.isAnonymous) {
+          // If a non-anonymous user is signed in, sign them out and sign in anonymously.
+          signOut(auth).then(handleAuth);
         } else {
-            // If no user, sign in anonymously to ensure a stable UID.
-            signInAnonymously(auth).catch((error) => {
-                console.error("FirebaseProvider: Anonymous sign-in error:", error);
-                setUserError(error);
-                setIsUserLoading(false);
-            });
+          // No user, sign in anonymously.
+          handleAuth();
         }
       },
       (error) => {
