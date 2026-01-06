@@ -31,8 +31,6 @@ import {
   AccordionTrigger,
 } from "@/components/ui/accordion"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Calendar } from '@/components/ui/calendar';
-
 
 import {
   ChartContainer,
@@ -45,6 +43,7 @@ import type { DailyReport, ItemCount, BomboniereItem } from '@/types';
 import { cn } from '@/lib/utils';
 import { Label } from '@/components/ui/label';
 import PasswordDialog from '@/components/password-dialog';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 const formatCurrency = (value: number | undefined | null) => {
     return new Intl.NumberFormat("pt-BR", {
@@ -398,13 +397,29 @@ const AggregateReport = ({ reports, bomboniereItems }: { reports: DailyReport[],
     )
 }
 
+const generateYearOptions = () => {
+    const currentYear = new Date().getFullYear();
+    const years = [];
+    for (let i = currentYear; i >= currentYear - 5; i--) {
+        years.push({ value: String(i), label: String(i) });
+    }
+    return years;
+}
+
+const monthOptions = Array.from({ length: 12 }, (_, i) => ({
+    value: String(i),
+    label: format(new Date(2000, i), 'MMMM', { locale: ptBR })
+}));
+
+
 export default function ReportsPage() {
   const { user, isUserLoading } = useUser();
   const firestore = useFirestore();
   const { toast } = useToast();
   
   const [reportToDelete, setReportToDelete] = useState<string | null>(null);
-  const [currentMonth, setCurrentMonth] = useState(new Date());
+  const [currentMonth, setCurrentMonth] = useState(String(new Date().getMonth()));
+  const [currentYear, setCurrentYear] = useState(String(new Date().getFullYear()));
   const [isAuthenticated, setIsAuthenticated] = useState(false);
 
   const reportsQuery = useMemoFirebase(
@@ -421,11 +436,16 @@ export default function ReportsPage() {
 
   const isLoading = isUserLoading || isLoadingReports || isLoadingBomboniere;
 
+  const yearOptions = useMemo(() => generateYearOptions(), []);
+
   const filteredReports = useMemo(() => {
     if (!savedReports) return [];
 
-    const startDate = startOfMonth(currentMonth);
-    const endDate = endOfMonth(currentMonth);
+    const year = parseInt(currentYear);
+    const month = parseInt(currentMonth);
+
+    const startDate = startOfMonth(new Date(year, month));
+    const endDate = endOfMonth(new Date(year, month));
   
     const filtered = savedReports.filter(r => {
       try {
@@ -438,13 +458,8 @@ export default function ReportsPage() {
 
     return filtered.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
 
-  }, [savedReports, currentMonth]);
+  }, [savedReports, currentYear, currentMonth]);
   
-  const daysWithReports = useMemo(() => {
-    if (!savedReports) return [];
-    return savedReports.map(r => parseISO(r.reportDate + 'T12:00:00'));
-  }, [savedReports]);
-
   const handleDeleteReportRequest = (reportId: string) => {
     setReportToDelete(reportId);
   };
@@ -533,45 +548,42 @@ export default function ReportsPage() {
         </header>
 
         <main className="space-y-8">
+            <Card>
+                <CardContent className="p-4 flex flex-col sm:flex-row gap-4 items-center">
+                    <div className="flex-1 w-full sm:w-auto">
+                        <Label htmlFor="report-month" className="text-xs text-muted-foreground">Mês</Label>
+                         <Select value={currentMonth} onValueChange={setCurrentMonth}>
+                            <SelectTrigger id="report-month">
+                                <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                                {monthOptions.map(opt => (
+                                <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
+                                ))}
+                            </SelectContent>
+                        </Select>
+                    </div>
+                     <div className="flex-1 w-full sm:w-auto">
+                        <Label htmlFor="report-year" className="text-xs text-muted-foreground">Ano</Label>
+                         <Select value={currentYear} onValueChange={setCurrentYear}>
+                            <SelectTrigger id="report-year">
+                                <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                                {yearOptions.map(opt => (
+                                <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
+                                ))}
+                            </SelectContent>
+                        </Select>
+                    </div>
+                </CardContent>
+            </Card>
+
             {isLoading ? (
                 <div className="flex h-96 items-center justify-center">
                     <Loader2 className="h-12 w-12 animate-spin text-primary" />
                 </div>
             ) : (
-            <div className="grid grid-cols-1 md:grid-cols-[280px_1fr] gap-8 items-start">
-              <div className="flex flex-col items-center">
-                 <Calendar
-                    mode="single"
-                    month={currentMonth}
-                    onMonthChange={setCurrentMonth}
-                    modifiers={{ haveReport: daysWithReports }}
-                    modifiersClassNames={{ haveReport: 'day-have-report' }}
-                    className="rounded-md border"
-                    classNames={{
-                      head_cell: "w-9 text-center",
-                      cell: "w-9 h-9",
-                    }}
-                    components={{
-                      Caption: ({...props}) => (
-                        <div className="flex justify-between items-center px-2 pt-1 relative">
-                          <h2 className="text-sm font-semibold capitalize">
-                            {format(props.displayMonth, 'MMMM yyyy', {locale: ptBR})}
-                          </h2>
-                          <div className="flex items-center">
-                            <Button variant="outline" size="icon" className="h-7 w-7" onClick={() => setCurrentMonth(subMonths(currentMonth, 1))}>
-                              <ChevronLeft className="h-4 w-4" />
-                            </Button>
-                            <Button variant="outline" size="icon" className="h-7 w-7" onClick={() => setCurrentMonth(addMonths(currentMonth, 1))}>
-                              <ChevronRight className="h-4 w-4" />
-                            </Button>
-                          </div>
-                        </div>
-                      )
-                    }}
-                 />
-                 <p className="text-xs text-muted-foreground mt-2">Navegue entre os meses para ver os relatórios.</p>
-              </div>
-
               <div className="space-y-4">
                   <Tabs defaultValue="agregado" className="w-full">
                       <TabsList className="grid w-full grid-cols-2">
@@ -640,12 +652,9 @@ export default function ReportsPage() {
                       </TabsContent>
                   </Tabs>
               </div>
-            </div>
             )}
         </main>
       </div>
     </>
   );
 }
-
-    
