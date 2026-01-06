@@ -73,36 +73,40 @@ export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
   const [userError, setUserError] = useState<Error | null>(null);
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
-      setUserError(null);
-      if (currentUser) {
-        // User is signed in.
-        try {
-          await ensureUserProfileExists(firestore, currentUser);
-          setUser(currentUser);
-        } catch (e) {
-          setUserError(e as Error);
-        } finally {
-          setIsUserLoading(false);
+    const unsubscribe = onAuthStateChanged(
+      auth,
+      async (currentUser) => {
+        setUserError(null);
+        if (currentUser) {
+          // User is signed in.
+          try {
+            await ensureUserProfileExists(firestore, currentUser);
+            setUser(currentUser);
+          } catch (e) {
+            setUserError(e as Error);
+          } finally {
+            setIsUserLoading(false);
+          }
+        } else {
+          // No user is signed in. Attempt to sign in anonymously.
+          try {
+            await signInAnonymously(auth);
+            // The onAuthStateChanged listener will be called again with the new anonymous user,
+            // so we don't need to set the user or loading state here. We just wait for the next callback.
+          } catch (error) {
+            console.error("FirebaseProvider: Anonymous sign-in failed", error);
+            setUserError(error as Error);
+            setIsUserLoading(false);
+          }
         }
-      } else {
-        // No user is signed in. Attempt to sign in anonymously.
-        try {
-          await signInAnonymously(auth);
-          // The onAuthStateChanged listener will be called again with the new anonymous user,
-          // so we don't need to set the user or loading state here. We just wait for the next callback.
-        } catch (error) {
-          console.error("FirebaseProvider: Anonymous sign-in failed", error);
-          setUserError(error as Error);
-          setIsUserLoading(false);
-        }
+      },
+      (error) => {
+        // Handle listener errors
+        console.error("FirebaseProvider: Auth listener error", error);
+        setUserError(error);
+        setIsUserLoading(false);
       }
-    }, (error) => {
-      // Handle listener errors
-      console.error("FirebaseProvider: Auth listener error", error);
-      setUserError(error);
-      setIsUserLoading(false);
-    });
+    );
 
     return () => unsubscribe();
   }, [auth, firestore]);
