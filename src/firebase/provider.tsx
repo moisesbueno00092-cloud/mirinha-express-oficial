@@ -94,12 +94,9 @@ export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
           }
         } else {
           // No user is signed in. This is the moment to sign in anonymously.
-          const userCredential = await signInAnonymously(auth);
+          await signInAnonymously(auth);
           // The listener will be called again with the new anonymous user,
           // and the `if (firebaseUser)` block above will handle it.
-          // We set the user here to expedite UI updates, but the next listener call will re-confirm.
-           await ensureUserProfileExists(firestore, userCredential.user);
-           setUser(userCredential.user);
         }
       } catch (error) {
         console.error("FirebaseProvider: Error during auth state change handling:", error);
