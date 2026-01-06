@@ -73,33 +73,44 @@ export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
   const [userError, setUserError] = useState<Error | null>(null);
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
-      setIsUserLoading(true);
-      setUserError(null);
-
-      try {
-        if (currentUser) {
-          await ensureUserProfileExists(firestore, currentUser);
-          setUser(currentUser);
-        } else {
-          // If there's no user, sign in anonymously. The listener will be called again.
-          await signInAnonymously(auth);
+    setIsUserLoading(true);
+    const unsubscribe = onAuthStateChanged(
+      auth,
+      async (currentUser) => {
+        try {
+          if (currentUser && currentUser.isAnonymous) {
+            // User is signed in and is anonymous. Ensure their profile exists.
+            await ensureUserProfileExists(firestore, currentUser);
+            setUser(currentUser);
+          } else {
+            // No user is signed in, or is not anonymous. Sign in anonymously.
+            // onAuthStateChanged will be called again with the new anonymous user.
+            if(currentUser) {
+              await auth.signOut();
+            }
+            await signInAnonymously(auth);
+          }
+        } catch (error) {
+          console.error("FirebaseProvider: Error during auth state change:", error);
+          setUserError(error as Error);
+          setUser(null);
+        } finally {
+          // This should only be set to false once we have a stable user state.
+          // We let the next run of onAuthStateChanged handle it.
+           if (currentUser) {
+            setIsUserLoading(false);
+          }
         }
-      } catch (error) {
-        console.error("FirebaseProvider: Error during auth state change or sign-in:", error);
-        setUserError(error as Error);
-        setUser(null); // Clear user on error
-      } finally {
+      },
+      (error) => {
+        // Handle listener errors.
+        console.error("FirebaseProvider: onAuthStateChanged listener error:", error);
+        setUserError(error);
         setIsUserLoading(false);
+        setUser(null);
       }
-    }, (error) => {
-      // Handle listener errors specifically.
-      console.error("FirebaseProvider: onAuthStateChanged listener error:", error);
-      setUserError(error);
-      setIsUserLoading(false);
-      setUser(null);
-    });
-
+    );
+  
     // Cleanup the listener on unmount.
     return () => unsubscribe();
   }, [auth, firestore]);
@@ -177,5 +188,3 @@ export const useUser = (): UserHookResult => {
   const { user, isUserLoading, userError } = useFirebaseContext();
   return { user, isUserLoading, userError };
 };
-
-    

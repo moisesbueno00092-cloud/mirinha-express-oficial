@@ -760,6 +760,7 @@ function LancheTrackerPage({ user }: { user: User }) {
 export default function Home() {
   const { user, isUserLoading, userError } = useUser();
 
+  // The key change: wait for a user that is explicitly anonymous.
   const isReady = !isUserLoading && user && user.isAnonymous;
 
   if (!isReady) {
@@ -780,5 +781,3 @@ export default function Home() {
   
   return <LancheTrackerPage user={user} />;
 }
-
-    
