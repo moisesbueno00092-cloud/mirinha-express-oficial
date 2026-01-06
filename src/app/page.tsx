@@ -760,8 +760,10 @@ function LancheTrackerPage({ user }: { user: User }) {
 export default function Home() {
   const { user, isUserLoading, userError } = useUser();
 
-  // We must wait for the user to be fully authenticated and explicitly anonymous
-  // before rendering the main page content. This is the key fix for the race condition.
+  // This is the key fix. We must wait for the user to be fully authenticated
+  // AND be explicitly anonymous before rendering the main page content.
+  // This prevents the race condition where the page tries to fetch data
+  // before the anonymous auth flow is complete.
   const isReady = !isUserLoading && user && user.isAnonymous;
 
   if (!isReady) {
@@ -782,5 +784,3 @@ export default function Home() {
   
   return <LancheTrackerPage user={user} />;
 }
-
-    
