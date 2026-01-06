@@ -1,3 +1,4 @@
+
 'use client';
 
 import React, { createContext, useContext, ReactNode, useMemo, useState, useEffect } from 'react';
@@ -71,22 +72,20 @@ export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
-      setIsUserLoading(true);
-      setUserError(null);
-      
       try {
         if (firebaseUser) {
           // A user is signed in. Check if they are anonymous.
           if (firebaseUser.isAnonymous) {
-            // This is the correct user type. Ensure profile exists and set the user.
+            // This is the correct user type.
             await ensureUserProfileExists(firestore, firebaseUser);
             setUser(firebaseUser);
+            setIsUserLoading(false);
           } else {
-            // This is a non-anonymous user (e.g., from a previous session).
-            // We must sign them out to enforce anonymous-only access.
-            // onAuthStateChanged will be called again with `null`.
+            // This is a non-anonymous user. We must sign them out
+            // to enforce anonymous-only access. onAuthStateChanged
+            // will be called again with `null`.
             await signOut(auth);
-            setUser(null); // Clear the incorrect user from state immediately
+            // State will be updated in the next cycle.
           }
         } else {
           // No user is signed in. We need to sign in anonymously.
@@ -97,15 +96,7 @@ export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
         console.error("FirebaseProvider: Auth state error:", error);
         setUser(null);
         setUserError(error as Error);
-      } finally {
-        // This will be set to false once the final correct state is achieved
-        // (either a valid anonymous user is set, or an error has occurred).
-        if (!isUserLoading && user) {
-           setIsUserLoading(false);
-        }
-        if(userError) {
-          setIsUserLoading(false);
-        }
+        setIsUserLoading(false);
       }
     }, (error) => {
         console.error("FirebaseProvider: onAuthStateChanged listener error:", error);
@@ -116,14 +107,6 @@ export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
 
     return () => unsubscribe();
   }, [auth, firestore]);
-
-  // Set loading to false only when a valid user is finally set.
-  useEffect(() => {
-    if (user) {
-        setIsUserLoading(false);
-    }
-  }, [user]);
-
 
   const contextValue = useMemo((): FirebaseContextState => {
     return {
