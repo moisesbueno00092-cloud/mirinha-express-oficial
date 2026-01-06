@@ -2,7 +2,7 @@
 'use client';
 
 import { useState, useMemo, useEffect, useCallback } from 'react';
-import { useUser, useFirestore, useCollection, useMemoFirebase } from '@/firebase';
+import { useUser, useFirestore, useCollection, useMemoFirebase, FirebaseClientProvider } from '@/firebase';
 import { collection, query, orderBy, doc, where } from 'firebase/firestore';
 import { format, parseISO, startOfMonth, endOfMonth, isWithinInterval, addMonths, subMonths } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -413,7 +413,7 @@ const monthOptions = Array.from({ length: 12 }, (_, i) => ({
 }));
 
 
-export default function ReportsPage() {
+function ReportsPageContent() {
   const { user, isUserLoading } = useUser();
   const firestore = useFirestore();
   const { toast } = useToast();
@@ -679,4 +679,12 @@ export default function ReportsPage() {
       </div>
     </>
   );
+}
+
+export default function ReportsPage() {
+    return (
+        <FirebaseClientProvider>
+            <ReportsPageContent />
+        </FirebaseClientProvider>
+    );
 }
