@@ -51,6 +51,8 @@ const ensureUserProfileExists = async (firestoreInstance: Firestore, user: User)
     }
   } catch (e) {
     console.error("FirebaseProvider: Failed to ensure user profile exists.", e);
+    // This could be a permission error itself if rules are not set up for user creation.
+    // Re-throwing allows the caller to handle it.
     throw e;
   }
 };
@@ -70,10 +72,11 @@ export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
   const [userError, setUserError] = useState<Error | null>(null);
 
   useEffect(() => {
+    // This is the core authentication logic.
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
       try {
         if (firebaseUser) {
-          // A user is signed in. We must ensure they are anonymous.
+          // A user is signed in. We MUST ensure they are anonymous.
           if (firebaseUser.isAnonymous) {
             // This is the correct state. Ensure profile exists and set the user.
             await ensureUserProfileExists(firestore, firebaseUser);
@@ -95,6 +98,7 @@ export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
         console.error("FirebaseProvider: Error during auth state change handling:", error);
         setUserError(error as Error);
       } finally {
+        // Only set loading to false after the entire logic (including potential sign-in) is complete.
         setIsUserLoading(false);
       }
     }, (error) => {
@@ -106,7 +110,7 @@ export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
 
     // Cleanup subscription on unmount
     return () => unsubscribe();
-  }, [auth, firestore]);
+  }, [auth, firestore]); // Dependencies are correct.
 
 
   const contextValue = useMemo((): FirebaseContextState => {
