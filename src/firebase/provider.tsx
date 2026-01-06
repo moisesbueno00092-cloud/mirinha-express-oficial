@@ -77,18 +77,19 @@ export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
       
       try {
         if (firebaseUser) {
+          // A user is signed in. Check if they are anonymous.
           if (firebaseUser.isAnonymous) {
-            // User is anonymous, this is the correct state.
+            // Correct state. Ensure profile exists and set the user.
             await ensureUserProfileExists(firestore, firebaseUser);
             setUser(firebaseUser);
           } else {
-            // User is not anonymous, which is not allowed. Sign them out.
-            // onAuthStateChanged will be called again with user=null.
+            // Incorrect state. User is not anonymous. Sign them out.
+            // onAuthStateChanged will fire again with `null`.
             await signOut(auth);
             setUser(null);
           }
         } else {
-          // No user is signed in. We need to sign in anonymously.
+          // No user is signed in. Sign in anonymously.
           // onAuthStateChanged will fire again with the new anonymous user.
           await signInAnonymously(auth);
         }
