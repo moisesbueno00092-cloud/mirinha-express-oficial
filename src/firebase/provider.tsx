@@ -76,6 +76,7 @@ export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
       setIsUserLoading(true);
       setUserError(null);
+      
       try {
         if (firebaseUser) {
           // A user is signed in. We MUST ensure they are anonymous.
