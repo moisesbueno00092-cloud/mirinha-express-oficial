@@ -1,3 +1,4 @@
+
 'use client';
 
 import React, { createContext, useContext, ReactNode, useMemo, useState, useEffect } from 'react';
@@ -74,6 +75,8 @@ export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
   useEffect(() => {
     // This is the core authentication logic.
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
+      setIsUserLoading(true);
+      setUserError(null);
       try {
         if (firebaseUser) {
           // A user is signed in. We MUST ensure they are anonymous.
@@ -81,15 +84,12 @@ export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
             // This is the correct state. Ensure profile exists and set the user.
             await ensureUserProfileExists(firestore, firebaseUser);
             setUser(firebaseUser);
-            setIsUserLoading(false);
-            setUserError(null);
           } else {
             // This is an incorrect state (e.g., a previously signed-in real user).
             // Sign them out to trigger the anonymous sign-in flow.
             await signOut(auth);
             // The listener will be called again with `null`, which will trigger signInAnonymously.
-            // We keep loading as the auth process is not complete.
-            setIsUserLoading(true); 
+            setUser(null);
           }
         } else {
           // No user is signed in. This is the moment to sign in anonymously.
@@ -101,6 +101,7 @@ export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
         console.error("FirebaseProvider: Error during auth state change handling:", error);
         setUserError(error as Error);
         setUser(null);
+      } finally {
         setIsUserLoading(false);
       }
     }, (error) => {
