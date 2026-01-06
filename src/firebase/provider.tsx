@@ -66,7 +66,7 @@ export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
           setIsUserLoading(false);
         });
         // We remain in a loading state until signInAnonymously() resolves
-        // and onAuthStateChanged is triggered again.
+        // and onAuthStateChanged is triggered again with the new anonymous user.
       }
     }, (error) => {
       // This is the error observer for onAuthStateChanged itself.
