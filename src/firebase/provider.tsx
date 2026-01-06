@@ -82,12 +82,14 @@ export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
             await ensureUserProfileExists(firestore, firebaseUser);
             setUser(firebaseUser);
             setIsUserLoading(false);
+            setUserError(null);
           } else {
             // This is an incorrect state (e.g., a previously signed-in real user).
             // Sign them out to trigger the anonymous sign-in flow.
             await signOut(auth);
             // The listener will be called again with `null`, which will trigger signInAnonymously.
             // We keep loading as the auth process is not complete.
+            setIsUserLoading(true); 
           }
         } else {
           // No user is signed in. This is the moment to sign in anonymously.
