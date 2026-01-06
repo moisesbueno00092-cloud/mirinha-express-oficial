@@ -76,13 +76,14 @@ export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
     const unsubscribe = onAuthStateChanged(
       auth,
       async (currentUser) => {
+        setIsUserLoading(true);
         setUserError(null);
+        
         if (currentUser) {
-          // User is signed in.
           try {
             await ensureUserProfileExists(firestore, currentUser);
             setUser(currentUser);
-          } catch (e) {
+          } catch(e) {
             setUserError(e as Error);
           } finally {
             setIsUserLoading(false);
@@ -91,11 +92,12 @@ export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
           // No user is signed in. Attempt to sign in anonymously.
           try {
             await signInAnonymously(auth);
-            // The onAuthStateChanged listener will be called again with the new anonymous user,
-            // so we don't need to set the user or loading state here. We just wait for the next callback.
+            // The listener will be called again with the new user state,
+            // so we just let it cycle. Loading remains true until then.
           } catch (error) {
             console.error("FirebaseProvider: Anonymous sign-in failed", error);
             setUserError(error as Error);
+            setUser(null);
             setIsUserLoading(false);
           }
         }
