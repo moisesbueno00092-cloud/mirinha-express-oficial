@@ -3,7 +3,7 @@
 
 import React, { createContext, useContext, ReactNode, useMemo, useState, useEffect } from 'react';
 import { FirebaseApp } from 'firebase/app';
-import { Firestore, doc, setDoc } from 'firebase/firestore';
+import { Firestore, doc, setDoc, getDoc } from 'firebase/firestore';
 import { Auth, User, onAuthStateChanged, signInAnonymously, signOut } from 'firebase/auth';
 import { FirebaseErrorListener } from '@/components/FirebaseErrorListener';
 
@@ -43,15 +43,14 @@ export const FirebaseContext = createContext<FirebaseContextState | undefined>(u
 const ensureUserProfileExists = async (firestoreInstance: Firestore, user: User) => {
   if (!user?.uid) return;
   const userDocRef = doc(firestoreInstance, 'users', user.uid);
-  // Use setDoc with merge:true to create the doc if it doesn't exist,
-  // or update it if it does, without overwriting other fields.
+
   try {
-    await setDoc(userDocRef, { email: user.email || `anonymous_${user.uid}@example.com` }, { merge: true });
+    const userDoc = await getDoc(userDocRef);
+    if (!userDoc.exists()) {
+        await setDoc(userDocRef, { email: user.email || `anonymous_${user.uid}@example.com` }, { merge: true });
+    }
   } catch (e) {
-    // This error will be caught and surfaced by the global error handler
-    // if it's a permission issue. We log it here for server-side debugging.
     console.error("FirebaseProvider: Failed to ensure user profile exists.", e);
-    // We re-throw the error to make it visible in the UI during development
     throw e;
   }
 };
@@ -71,71 +70,50 @@ export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
   const [userError, setUserError] = useState<Error | null>(null);
 
   useEffect(() => {
+    // This flag helps prevent race conditions during the auth flow.
+    let isSubscribed = true; 
+    
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
+      if (!isSubscribed) return;
+
       try {
         if (firebaseUser) {
-          // A user is logged in.
+          // A user is logged in. Check if they are anonymous.
           if (firebaseUser.isAnonymous) {
-            // This is the correct, expected state.
-            // Ensure profile exists and set the user.
+            // Correct state: User is anonymous.
             await ensureUserProfileExists(firestore, firebaseUser);
             setUser(firebaseUser);
             setUserError(null);
+            setIsUserLoading(false);
           } else {
-            // This is an incorrect state (e.g., a previously signed-in non-anonymous user).
-            // We must sign them out to enforce the anonymous-only policy.
-            // The listener will be triggered again with `null`, which will then
-            // trigger the anonymous sign-in flow.
+            // Incorrect state: User is NOT anonymous. Sign them out.
+            // This will trigger onAuthStateChanged again with a null user.
             await signOut(auth);
-            // We don't set user here, we let the auth state change trigger the next step.
           }
         } else {
-          // No user is logged in. This is the trigger to sign in anonymously.
+          // No user is logged in. Sign in anonymously.
+          // This will trigger onAuthStateChanged again with the new anonymous user.
           await signInAnonymously(auth);
-          // The onAuthStateChanged listener will be called again with the new anonymous user,
-          // and the logic will proceed to the `if (firebaseUser.isAnonymous)` block above.
         }
       } catch (error) {
         console.error("FirebaseProvider: Auth state error:", error);
         setUser(null);
         setUserError(error as Error);
-      } finally {
-        // We set loading to false only after we have a confirmed user state (or an error).
-        // The flow will cycle until a valid anonymous user is set.
-        if (user || userError) {
-          setIsUserLoading(false);
-        }
+        setIsUserLoading(false);
       }
     }, (error) => {
+        if (!isSubscribed) return;
         console.error("FirebaseProvider: onAuthStateChanged listener error:", error);
         setUser(null);
         setUserError(error);
         setIsUserLoading(false);
     });
 
-    return () => unsubscribe();
-  }, [auth, firestore, user, userError]);
-  
-  // This effect specifically handles the final loading state
-  useEffect(() => {
-      if(user && !isUserLoading) {
-          // Final state is a valid user, we are done loading
-          return;
-      }
-      if(userError) {
-          // Final state is an error, we are done loading
-          setIsUserLoading(false);
-          return;
-      }
-       if (user === null && !isUserLoading) {
-          // Transient state where user is null but not yet an error/final user
-          // Keep loading until the auth flow completes
-          setIsUserLoading(true);
-      } else if (user !== null) {
-          // We got a user, so we can stop loading
-          setIsUserLoading(false);
-      }
-  }, [user, isUserLoading, userError]);
+    return () => {
+      isSubscribed = false;
+      unsubscribe();
+    };
+  }, [auth, firestore]);
 
   const contextValue = useMemo((): FirebaseContextState => {
     return {
