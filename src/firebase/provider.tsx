@@ -47,6 +47,7 @@ const ensureUserProfileExists = async (firestoreInstance: Firestore, user: User)
   try {
     const userDoc = await getDoc(userDocRef);
     if (!userDoc.exists()) {
+        // Only set the email if it doesn't exist, to prevent overwriting
         await setDoc(userDocRef, { email: user.email || `anonymous_${user.uid}@example.com` }, { merge: true });
     }
   } catch (e) {
