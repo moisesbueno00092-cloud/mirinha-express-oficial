@@ -426,15 +426,18 @@ export default function ReportsPage() {
   const [isAuthChecked, setIsAuthChecked] = useState(false);
 
   useEffect(() => {
-    try {
-        const sessionAuth = sessionStorage.getItem('admin-authenticated');
-        if (sessionAuth === 'true') {
-            setIsAuthenticated(true);
+    // Only run on client
+    if (typeof window !== 'undefined') {
+        try {
+            const sessionAuth = sessionStorage.getItem('admin-authenticated');
+            if (sessionAuth === 'true') {
+                setIsAuthenticated(true);
+            }
+        } catch (e) {
+            console.error("Could not read sessionStorage:", e);
+        } finally {
+            setIsAuthChecked(true);
         }
-    } catch (e) {
-        console.error("Could not read sessionStorage:", e);
-    } finally {
-        setIsAuthChecked(true);
     }
   }, []);
 

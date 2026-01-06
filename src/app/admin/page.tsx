@@ -24,16 +24,21 @@ export default function AdminPage() {
   const [activeTab, setActiveTab] = useState('mercadorias');
   const [isRhAuthenticated, setIsRhAuthenticated] = useState(false);
   const [passwordPromptOpen, setPasswordPromptOpen] = useState(false);
-
+  const [isAuthChecked, setIsAuthChecked] = useState(false);
 
   useEffect(() => {
-    try {
-      const sessionAuth = sessionStorage.getItem('rh-admin-authenticated');
-      if (sessionAuth === 'true') {
-        setIsRhAuthenticated(true);
+    // Only run on client
+    if (typeof window !== 'undefined') {
+      try {
+        const sessionAuth = sessionStorage.getItem('rh-admin-authenticated');
+        if (sessionAuth === 'true') {
+          setIsRhAuthenticated(true);
+        }
+      } catch (e) {
+        console.error("Could not read sessionStorage:", e);
+      } finally {
+        setIsAuthChecked(true);
       }
-    } catch (e) {
-      console.error("Could not read sessionStorage:", e);
     }
   }, []);
   
@@ -144,7 +149,7 @@ export default function AdminPage() {
               </Card>
             </TabsContent>
             <TabsContent value="rh">
-               {isRhAuthenticated ? (
+               {isAuthChecked && isRhAuthenticated ? (
                  <Card>
                     <CardHeader className='flex-row items-start justify-between'>
                       <div>
@@ -160,9 +165,15 @@ export default function AdminPage() {
                ) : (
                  <Card>
                     <CardContent className="p-10 text-center text-muted-foreground">
-                       <ShieldX className="mx-auto h-12 w-12 text-destructive mb-4" />
-                       <h3 className="text-lg font-semibold text-foreground">Acesso Restrito</h3>
-                       <p>Este separador requer uma senha para ser visualizado.</p>
+                       {isAuthChecked ? (
+                         <>
+                            <ShieldX className="mx-auto h-12 w-12 text-destructive mb-4" />
+                            <h3 className="text-lg font-semibold text-foreground">Acesso Restrito</h3>
+                            <p>Este separador requer uma senha para ser visualizado.</p>
+                         </>
+                       ) : (
+                         <Loader2 className="mx-auto h-12 w-12 animate-spin text-primary" />
+                       )}
                     </CardContent>
                  </Card>
                )}
@@ -173,4 +184,3 @@ export default function AdminPage() {
     </>
   );
 }
-
