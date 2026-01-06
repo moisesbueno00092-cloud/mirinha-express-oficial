@@ -74,6 +74,8 @@ export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
   useEffect(() => {
     // This is the core authentication logic.
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
+      setIsUserLoading(true);
+      setUserError(null);
       try {
         if (firebaseUser) {
           // A user is signed in. We MUST ensure they are anonymous.
@@ -86,17 +88,19 @@ export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
             // Sign them out to trigger the anonymous sign-in flow.
             await signOut(auth);
             // The listener will be called again with `null`, which will trigger signInAnonymously.
-            setUser(null);
+            setUser(null); 
           }
         } else {
           // No user is signed in. This is the moment to sign in anonymously.
-          await signInAnonymously(auth);
+          const userCredential = await signInAnonymously(auth);
           // The listener will be called again with the new anonymous user,
           // and the `if (firebaseUser)` block will handle it.
+          // We don't setUser here to avoid race conditions; let the listener be the single source of truth.
         }
       } catch (error) {
         console.error("FirebaseProvider: Error during auth state change handling:", error);
         setUserError(error as Error);
+        setUser(null);
       } finally {
         // Only set loading to false after the entire logic (including potential sign-in) is complete.
         setIsUserLoading(false);
