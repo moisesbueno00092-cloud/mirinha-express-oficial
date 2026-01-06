@@ -74,50 +74,36 @@ export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
-        setIsUserLoading(true);
-        setUserError(null);
-        try {
-            if (currentUser) {
-                if (currentUser.isAnonymous) {
-                    await ensureUserProfileExists(firestore, currentUser);
-                    setUser(currentUser);
-                } else {
-                    // If the user is not anonymous, sign them out to force a clean anonymous login.
-                    await auth.signOut();
-                    setUser(null); // This will trigger the `if (!currentUser)` block on the next state change
-                }
-            } else {
-                // No user, sign in anonymously.
-                const userCredential = await signInAnonymously(auth);
-                // onAuthStateChanged will be called again with the new user.
-                // We don't need to set the user here, let the listener handle it for consistency.
-            }
-        } catch (error) {
-            console.error("FirebaseProvider: Error during auth logic:", error);
-            setUserError(error as Error);
-            setUser(null);
-        } finally {
-            // Only stop loading if we have a user or an error.
-            if (user || userError) {
-                setIsUserLoading(false);
-            }
+      try {
+        if (currentUser) {
+          // A user is signed in.
+          if (currentUser.isAnonymous) {
+            await ensureUserProfileExists(firestore, currentUser);
+          }
+          setUser(currentUser);
+        } else {
+          // No user is signed in, so sign in anonymously.
+          await signInAnonymously(auth);
+          // The onAuthStateChanged listener will be called again with the new user,
+          // so we don't need to set the user here.
         }
-    }, (error) => {
-        console.error("FirebaseProvider: onAuthStateChanged listener error:", error);
-        setUserError(error);
-        setIsUserLoading(false);
+      } catch (error) {
+        console.error("FirebaseProvider: Error during auth state change:", error);
+        setUserError(error as Error);
         setUser(null);
+      } finally {
+        setIsUserLoading(false);
+      }
+    }, (error) => {
+      console.error("FirebaseProvider: onAuthStateChanged listener error:", error);
+      setUserError(error);
+      setIsUserLoading(false);
+      setUser(null);
     });
 
-    // We also set loading to false in the useEffect that handles the final user state.
-    if(user && !isUserLoading) {
-      // Already has a user and not loading
-    } else if (user) {
-      setIsUserLoading(false);
-    }
-
+    // Cleanup subscription on unmount
     return () => unsubscribe();
-}, [auth, firestore]);
+  }, [auth, firestore]);
 
   const contextValue = useMemo((): FirebaseContextState => {
     return {
