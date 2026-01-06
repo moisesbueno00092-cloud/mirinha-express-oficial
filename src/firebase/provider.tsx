@@ -73,11 +73,13 @@ export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
   const [userError, setUserError] = useState<Error | null>(null);
 
   useEffect(() => {
+    // This is the canonical way to handle auth state changes.
     const unsubscribe = onAuthStateChanged(
       auth,
       async (currentUser) => {
         setUserError(null);
-        if (currentUser && currentUser.isAnonymous) {
+        if (currentUser) {
+          // A user is signed in (either from a previous session or just now).
           try {
             await ensureUserProfileExists(firestore, currentUser);
             setUser(currentUser);
@@ -86,20 +88,23 @@ export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
           } finally {
             setIsUserLoading(false);
           }
-        } else if (!currentUser) {
-          // If no user, sign in anonymously. The listener will be called again
-          // upon successful sign-in, which will then set the user and stop loading.
-          signInAnonymously(auth).catch((error) => {
+        } else {
+          // No user is signed in. Attempt to sign in anonymously.
+          try {
+            const userCredential = await signInAnonymously(auth);
+            // After successful sign-in, the onAuthStateChanged listener will be
+            // called again with the new user, so we don't need to setUser here.
+            // We just ensure their profile is created right away.
+            await ensureUserProfileExists(firestore, userCredential.user);
+          } catch (error) {
             console.error("FirebaseProvider: Anonymous sign-in failed", error);
-            setUserError(error);
+            setUserError(error as Error);
             setIsUserLoading(false);
-          });
+          }
         }
-        // If there is a user but they are NOT anonymous, we just wait.
-        // Or if you want to force anonymous, you could signOut here.
-        // For this app, we assume only anonymous users.
       },
       (error) => {
+        // This callback handles errors with the listener itself.
         console.error("FirebaseProvider: onAuthStateChanged listener error:", error);
         setUserError(error);
         setIsUserLoading(false);

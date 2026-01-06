@@ -760,7 +760,7 @@ function LancheTrackerPage({ user }: { user: User }) {
 export default function Home() {
   const { user, isUserLoading, userError } = useUser();
   
-  // This state is now crucial. We are not ready until loading is false AND we have a valid, anonymous user.
+  // This is the definitive check. We wait until loading is false AND we have a valid, anonymous user.
   const isReady = !isUserLoading && user && user.isAnonymous;
 
   if (!isReady) {
