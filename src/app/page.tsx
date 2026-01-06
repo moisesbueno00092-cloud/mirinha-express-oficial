@@ -6,7 +6,7 @@ import { useRouter } from 'next/navigation';
 import type { Item, Group, PredefinedItem, SelectedBomboniereItem, BomboniereItem, DailyReport, ItemCount, SavedFavorite, User } from "@/types";
 import { PREDEFINED_PRICES, DELIVERY_FEE, BOMBONIERE_ITEMS_DEFAULT } from "@/lib/constants";
 import { useAuth, useCollection, useFirestore, useMemoFirebase, useUser, FirestorePermissionError, errorEmitter } from "@/firebase";
-import { collection, doc, query, where, orderBy, deleteDoc, writeBatch, DocumentReference, addDoc, serverTimestamp, Timestamp, getDocs } from "firebase/firestore";
+import { collection, doc, query, where, orderBy, deleteDoc, writeBatch, DocumentReference, addDoc, serverTimestamp, Timestamp, getDocs, getDoc } from "firebase/firestore";
 import { parseCustomItemPrice } from "@/ai/flows/parse-custom-item-price";
 import usePersistentState from "@/hooks/use-persistent-state";
 
@@ -165,6 +165,20 @@ function LancheTrackerPage({ user }: { user: User }) {
     }
     
     try {
+        // --- Devolver stock antigo se estiver a editar ---
+        if (currentItem && currentItem.bomboniereItems && currentItem.bomboniereItems.length > 0 && bomboniereItems) {
+            const bomboniereCollectionRef = collection(firestore, "bomboniere_items");
+            for (const oldSoldItem of currentItem.bomboniereItems) {
+                const itemDef = bomboniereItems.find(i => i.id === oldSoldItem.id);
+                if (itemDef) {
+                    const newStock = itemDef.estoque + oldSoldItem.quantity;
+                    const docRef = doc(bomboniereCollectionRef, itemDef.id);
+                    updateDocumentNonBlocking(docRef, { estoque: newStock });
+                }
+            }
+        }
+        // --- Fim da devolução de stock ---
+
         let mainInput = rawInputToProcess.trim();
         if (!mainInput) return;
 
@@ -364,7 +378,7 @@ function LancheTrackerPage({ user }: { user: User }) {
             ...(customerName && { customerName }),
             ...(individualPrices.length > 0 ? { individualPrices } : {}),
             ...(predefinedItems.length > 0 ? { predefinedItems } : {}),
-            ...(bomboniereItems.length > 0 ? { bomboniereItems: processedBomboniereItems } : {}),
+            ...(processedBomboniereItems.length > 0 ? { bomboniereItems: processedBomboniereItems } : {}),
         };
         
         const orderItemsCollectionRef = collection(firestore, 'users', user.uid, 'order_items');
@@ -433,10 +447,24 @@ function LancheTrackerPage({ user }: { user: User }) {
   };
 
   const confirmDeleteItem = async () => {
-    if (!firestore || !user?.uid || !itemToDelete) return;
+    if (!firestore || !user?.uid || !itemToDelete || !items) return;
+
+    const itemBeingDeleted = items.find(it => it.id === itemToDelete);
+
+    if (itemBeingDeleted && itemBeingDeleted.bomboniereItems && bomboniereItems) {
+        const bomboniereCollectionRef = collection(firestore, "bomboniere_items");
+        for (const soldItem of itemBeingDeleted.bomboniereItems) {
+            const itemDef = bomboniereItems.find(i => i.id === soldItem.id);
+            if (itemDef) {
+                const newStock = itemDef.estoque + soldItem.quantity;
+                const docRef = doc(bomboniereCollectionRef, itemDef.id);
+                updateDocumentNonBlocking(docRef, { estoque: newStock });
+            }
+        }
+    }
     
     const docRef = doc(firestore, 'users', user.uid, 'order_items', itemToDelete);
-    deleteDocumentNonBlocking(docRef); // Fire-and-forget
+    deleteDocumentNonBlocking(docRef);
 
     toast({ title: "Item removido com sucesso.", variant: "destructive" });
     setItemToDelete(null);
@@ -629,7 +657,7 @@ function LancheTrackerPage({ user }: { user: User }) {
           <AlertDialogHeader>
             <AlertDialogTitle>Excluir Lançamento?</AlertDialogTitle>
             <AlertDialogDescription>
-              Esta ação não pode ser desfeita. O item será excluído permanentemente.
+              Esta ação não pode ser desfeita. O item será excluído permanentemente. Se contiver itens de bomboniere, o estoque será devolvido.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -761,3 +789,5 @@ export default function Home() {
   
   return <LancheTrackerPage user={user} />;
 }
+
+    
