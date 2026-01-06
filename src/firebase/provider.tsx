@@ -74,19 +74,23 @@ export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
 
   useEffect(() => {
     setIsUserLoading(true);
+    
     const unsubscribe = onAuthStateChanged(
       auth,
       async (currentUser) => {
         try {
           if (currentUser && currentUser.isAnonymous) {
+            // Utilizador anónimo já autenticado. Garanta o perfil e defina o estado.
             await ensureUserProfileExists(firestore, currentUser);
             setUser(currentUser);
           } else {
-             if(currentUser) {
-              // This is a non-anonymous user, sign them out.
-              await auth.signOut(); 
-             }
-            // Sign in anonymously, onAuthStateChanged will be re-triggered
+            // Se houver um utilizador não anónimo ou nenhum utilizador, inicie o fluxo de login anónimo.
+            // O onAuthStateChanged será acionado novamente pelo signInAnonymously.
+            if(currentUser) {
+              // Faz logout se for um utilizador não anónimo para garantir um estado limpo
+              await auth.signOut();
+            }
+            // Inicia o login anónimo
             await signInAnonymously(auth);
           }
         } catch (error) {
@@ -94,7 +98,8 @@ export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
           setUserError(error as Error);
           setUser(null);
         } finally {
-           if (currentUser) {
+          // Apenas para de carregar quando temos a certeza de que o utilizador foi definido (ou falhou)
+          if(currentUser) {
             setIsUserLoading(false);
           }
         }
@@ -185,3 +190,5 @@ export const useUser = (): UserHookResult => {
   const { user, isUserLoading, userError } = useFirebaseContext();
   return { user, isUserLoading, userError };
 };
+
+    

@@ -759,8 +759,9 @@ function LancheTrackerPage({ user }: { user: User }) {
 
 export default function Home() {
   const { user, isUserLoading, userError } = useUser();
-
-  // The key change: wait for a user that is explicitly anonymous.
+  
+  // A isReady agora espera explicitamente que o utilizador seja anónimo.
+  // Isto impede a renderização da página de conteúdo principal antes de a autenticação anónima estar totalmente concluída.
   const isReady = !isUserLoading && user && user.isAnonymous;
 
   if (!isReady) {
@@ -768,7 +769,7 @@ export default function Home() {
       <div className="flex h-screen w-full flex-col items-center justify-center text-center p-4">
         <MirinhaLogo className="w-64 sm:w-80 h-auto text-primary mb-4" />
         <Loader2 className="h-12 w-12 animate-spin text-primary" />
-        <p className="mt-4 text-muted-foreground">A aguardar autenticação...</p>
+        <p className="mt-4 text-muted-foreground">A aguardar autenticação anónima...</p>
         {userError && (
             <>
                 <p className="mt-4 text-destructive font-semibold">Erro de Autenticação</p>
@@ -781,3 +782,5 @@ export default function Home() {
   
   return <LancheTrackerPage user={user} />;
 }
+
+    
