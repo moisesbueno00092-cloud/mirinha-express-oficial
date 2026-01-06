@@ -47,11 +47,13 @@ const ensureUserProfileExists = async (firestoreInstance: Firestore, user: User)
   // or update it if it does, without overwriting other fields.
   try {
     // Set a minimal profile. The email will be null for anonymous users.
-    await setDoc(userDocRef, { email: user.email || 'anonymous' }, { merge: true });
+    await setDoc(userDocRef, { email: user.email || null }, { merge: true });
   } catch (e) {
     // This error will be caught and surfaced by the global error handler
     // if it's a permission issue. We log it here for server-side debugging.
     console.error("FirebaseProvider: Failed to ensure user profile exists.", e);
+    // We re-throw the error to make it visible in the UI during development
+    throw e;
   }
 };
 
@@ -74,22 +76,22 @@ export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
       try {
         if (firebaseUser) {
           // A user is signed in. We must ensure it's an anonymous one.
-          if (!firebaseUser.isAnonymous) {
-            // If it's a persistent, non-anonymous user, sign them out.
-            // onAuthStateChanged will be called again with `null`.
-            await signOut(auth);
-            // State will be updated in the next cycle of the listener.
-          } else {
-            // It's the anonymous user we want. Ensure their profile exists.
+          if (firebaseUser.isAnonymous) {
+             // It's the anonymous user we want. Ensure their profile exists.
             await ensureUserProfileExists(firestore, firebaseUser);
             setUser(firebaseUser);
             setIsUserLoading(false);
+          } else {
+            // If it's a persistent, non-anonymous user, sign them out.
+            // onAuthStateChanged will be called again with `null`.
+            await signOut(auth);
+            // State will be updated in the next cycle of the listener, where user will be null.
           }
         } else {
           // No user is signed in at all. Let's sign in anonymously.
-          const userCredential = await signInAnonymously(auth);
           // After signing in, `onAuthStateChanged` will fire again with the new user object,
-          // so we don't need to set the user here. The logic above will handle it.
+          // and the logic above will handle it.
+          await signInAnonymously(auth);
         }
       } catch (error) {
         console.error("FirebaseProvider: Auth state error:", error);
