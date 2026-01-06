@@ -83,12 +83,11 @@ export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
             await ensureUserProfileExists(firestore, firebaseUser);
             setUser(firebaseUser);
             setUserError(null);
-            setIsUserLoading(false);
           } else {
             // An unwanted user type (e.g., email/pass, or 'custom' from a previous error state) is signed in.
             // We must sign them out to trigger the auth flow again, which will lead to the 'else' block.
             await signOut(auth);
-            // Don't set user state yet, wait for the next onAuthStateChanged call.
+            // Don't set user state yet, wait for the next onAuthStateChanged call which will have a null user.
           }
         } else {
           // No user is signed in, so sign in anonymously.
@@ -99,7 +98,11 @@ export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
         console.error("FirebaseProvider: Error during auth state handling:", error);
         setUserError(error as Error);
         setUser(null);
-        setIsUserLoading(false);
+      } finally {
+        // We only stop loading when we have a user or a definitive error.
+        if (user || userError) {
+          setIsUserLoading(false);
+        }
       }
     },
     (error) => {
