@@ -34,29 +34,6 @@ export interface UserHookResult {
 export const FirebaseContext = createContext<FirebaseContextState | undefined>(undefined);
 
 /**
- * Ensures the user profile document exists in Firestore.
- * This is crucial for security rules that check against the user document.
- * @param firestoreInstance The Firestore instance.
- * @param user The authenticated user.
- */
-const ensureUserProfileExists = async (firestoreInstance: Firestore, user: User) => {
-  if (!user?.uid) return;
-  const userDocRef = doc(firestoreInstance, 'users', user.uid);
-
-  try {
-    const userDoc = await getDoc(userDocRef);
-    if (!userDoc.exists()) {
-      await setDoc(userDocRef, { email: `anonymous_${user.uid}@example.com` }, { merge: true });
-    }
-  } catch (e) {
-    console.error("FirebaseProvider: Failed to ensure user profile exists.", e);
-    // Re-throwing allows the caller to handle it.
-    throw e;
-  }
-};
-
-
-/**
  * FirebaseProvider manages and provides Firebase services and user authentication state.
  */
 export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
@@ -73,41 +50,29 @@ export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
     const unsubscribe = onAuthStateChanged(
       auth,
       async (currentUser) => {
-        setIsUserLoading(true); // Always start in loading state on auth change
-        setUserError(null);
-  
         if (currentUser) {
           // A user is signed in.
+          // This app only supports anonymous users.
           if (currentUser.isAnonymous) {
-            try {
-              // Ensure the user document exists before we declare auth "ready"
-              await ensureUserProfileExists(firestore, currentUser);
-              setUser(currentUser);
-            } catch (error) {
-              console.error("FirebaseProvider: Failed to ensure user profile.", error);
-              setUserError(error as Error);
-              setUser(null);
-            }
+            setUser(currentUser);
+            setUserError(null);
           } else {
-             // This is an unsupported state for this app.
-             console.error("A non-anonymous user is signed in, which is not supported.");
-             setUserError(new Error("Authentication failed: Only anonymous users are allowed."));
-             setUser(null);
+            console.error("A non-anonymous user is signed in, which is not supported.");
+            setUserError(new Error("Authentication failed: Only anonymous users are allowed."));
+            setUser(null);
           }
         } else {
           // No user is signed in. Attempt to sign in anonymously.
           try {
             await signInAnonymously(auth);
             // The onAuthStateChanged listener will be triggered again by this call,
-            // which will then handle setting the user and finishing the loading state.
-            // We do not set any state here to avoid race conditions.
+            // which will then handle setting the user. We don't set state here.
           } catch (error) {
-            console.error("FirebaseProvider: Anonymous sign-in failed on initial load.", error);
+            console.error("FirebaseProvider: Anonymous sign-in failed.", error);
             setUserError(error as Error);
           }
         }
-        
-        // Only set loading to false after all async operations for this auth state are complete.
+        // Set loading to false once the logic is complete for this auth state change.
         setIsUserLoading(false);
       },
       (error) => {
