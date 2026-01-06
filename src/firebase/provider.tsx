@@ -1,9 +1,10 @@
+
 'use client';
 
 import React, { createContext, useContext, ReactNode, useMemo, useState, useEffect } from 'react';
 import { FirebaseApp } from 'firebase/app';
 import { Firestore, doc, setDoc, getDoc } from 'firebase/firestore';
-import { Auth, User, onAuthStateChanged, signInAnonymously, signOut } from 'firebase/auth';
+import { Auth, User, onAuthStateChanged, signInAnonymously } from 'firebase/auth';
 import { FirebaseErrorListener } from '@/components/FirebaseErrorListener';
 
 interface FirebaseProviderProps {
@@ -73,28 +74,26 @@ export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
-      // If a user exists and is anonymous, we are in a good state.
-      if (currentUser?.isAnonymous) {
+      if (currentUser) {
         setUser(currentUser);
-        await ensureUserProfileExists(firestore, currentUser);
-        setIsUserLoading(false);
-        setUserError(null);
-      } else {
-        // If there's a non-anonymous user or no user at all,
-        // we force the anonymous sign-in flow.
-        setIsUserLoading(true);
         try {
-          // Signing out first clears any invalid state (like a custom token user).
-          if (currentUser) {
-            await signOut(auth);
-          }
-          const userCredential = await signInAnonymously(auth);
-          // The onAuthStateChanged listener will be called again with the new anonymous user,
-          // and the code block above will handle setting the user and loading state.
+            await ensureUserProfileExists(firestore, currentUser);
+            setUserError(null);
+        } catch (error) {
+            console.error("FirebaseProvider: Error ensuring user profile:", error);
+            setUserError(error as Error);
+        } finally {
+            setIsUserLoading(false);
+        }
+      } else {
+        // No user, sign in anonymously.
+        try {
+          await signInAnonymously(auth);
+          // The onAuthStateChanged listener will be called again with the new user
+          // which will trigger the block above.
         } catch (error) {
           console.error("FirebaseProvider: Error during anonymous sign-in:", error);
           setUserError(error as Error);
-          setUser(null);
           setIsUserLoading(false);
         }
       }
@@ -102,7 +101,6 @@ export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
       // Handle listener errors specifically.
       console.error("FirebaseProvider: onAuthStateChanged listener error:", error);
       setUserError(error);
-      setUser(null);
       setIsUserLoading(false);
     });
 
@@ -183,3 +181,5 @@ export const useUser = (): UserHookResult => {
   const { user, isUserLoading, userError } = useFirebaseContext();
   return { user, isUserLoading, userError };
 };
+
+    
