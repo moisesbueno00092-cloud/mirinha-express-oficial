@@ -81,11 +81,13 @@ export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
             // This is the correct state. Ensure profile exists and set the user.
             await ensureUserProfileExists(firestore, firebaseUser);
             setUser(firebaseUser);
+            setIsUserLoading(false);
           } else {
             // This is an incorrect state (e.g., a previously signed-in real user).
             // Sign them out to trigger the anonymous sign-in flow.
             await signOut(auth);
             // The listener will be called again with `null`, which will trigger signInAnonymously.
+            // We keep loading as the auth process is not complete.
           }
         } else {
           // No user is signed in. This is the moment to sign in anonymously.
@@ -97,8 +99,6 @@ export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
         console.error("FirebaseProvider: Error during auth state change handling:", error);
         setUserError(error as Error);
         setUser(null);
-      } finally {
-        // Only set loading to false after the entire logic (including potential sign-in) is complete.
         setIsUserLoading(false);
       }
     }, (error) => {
