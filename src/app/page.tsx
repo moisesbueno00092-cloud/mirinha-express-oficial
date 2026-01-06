@@ -6,7 +6,7 @@ import { useRouter } from 'next/navigation';
 import type { Item, Group, PredefinedItem, SelectedBomboniereItem, BomboniereItem, DailyReport, ItemCount, SavedFavorite, User } from "@/types";
 import { PREDEFINED_PRICES, DELIVERY_FEE, BOMBONIERE_ITEMS_DEFAULT } from "@/lib/constants";
 import { useAuth, useCollection, useFirestore, useMemoFirebase, useUser, FirestorePermissionError, errorEmitter } from "@/firebase";
-import { collection, doc, query, where, orderBy, deleteDoc, writeBatch, DocumentReference, addDoc, serverTimestamp, Timestamp, getDocs, getDoc, updateDoc } from "firebase/firestore";
+import { collection, doc, query, where, orderBy, deleteDoc, writeBatch, DocumentReference, addDoc, serverTimestamp, Timestamp, getDocs, getDoc, updateDoc, setDoc } from "firebase/firestore";
 import { parseCustomItemPrice } from "@/ai/flows/parse-custom-item-price";
 import usePersistentState from "@/hooks/use-persistent-state";
 
@@ -82,7 +82,8 @@ function LancheTrackerPage({ user }: { user: User }) {
         const userDocRef = doc(firestore, 'users', user.uid);
         // Use setDoc with merge:true to create the doc if it doesn't exist,
         // or update it if it does, without overwriting other fields.
-        setDocumentNonBlocking(userDocRef, { email: user.email || 'anonymous' }, { merge: true });
+        setDoc(userDocRef, { email: user.email || 'anonymous' }, { merge: true })
+          .catch(e => console.error("Error ensuring user profile exists:", e));
     }
   }, [firestore, user]);
   // --- End profile creation effect ---
@@ -802,5 +803,3 @@ export default function Home() {
   
   return <LancheTrackerPage user={user} />;
 }
-
-    
