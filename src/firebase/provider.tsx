@@ -51,6 +51,8 @@ const ensureUserProfileExists = async (firestoreInstance: Firestore, user: User)
     }
   } catch (e) {
     console.error("FirebaseProvider: Failed to ensure user profile exists.", e);
+    // This could be a permission error itself if rules are not set up for user creation.
+    // Re-throwing allows it to be caught by a higher-level boundary.
     throw e;
   }
 };
@@ -80,15 +82,15 @@ export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
         if (firebaseUser) {
           // A user is logged in. Check if they are anonymous.
           if (firebaseUser.isAnonymous) {
-            // Correct state: User is anonymous.
+            // Correct state: User is anonymous. Ensure profile exists.
             await ensureUserProfileExists(firestore, firebaseUser);
             setUser(firebaseUser);
             setUserError(null);
-            setIsUserLoading(false);
           } else {
             // Incorrect state: User is NOT anonymous. Sign them out.
             // This will trigger onAuthStateChanged again with a null user.
             await signOut(auth);
+            setUser(null); // Clear user immediately
           }
         } else {
           // No user is logged in. Sign in anonymously.
@@ -99,7 +101,10 @@ export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
         console.error("FirebaseProvider: Auth state error:", error);
         setUser(null);
         setUserError(error as Error);
-        setIsUserLoading(false);
+      } finally {
+        if(isSubscribed) {
+          setIsUserLoading(false);
+        }
       }
     }, (error) => {
         if (!isSubscribed) return;
