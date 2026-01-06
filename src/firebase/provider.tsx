@@ -4,7 +4,7 @@
 import React, { createContext, useContext, ReactNode, useMemo, useState, useEffect } from 'react';
 import { FirebaseApp } from 'firebase/app';
 import { Firestore } from 'firebase/firestore';
-import { Auth, User, onAuthStateChanged } from 'firebase/auth';
+import { Auth, User, onAuthStateChanged, signInAnonymously } from 'firebase/auth';
 import { FirebaseErrorListener } from '@/components/FirebaseErrorListener';
 
 interface FirebaseProviderProps {
@@ -51,8 +51,17 @@ export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
     const unsubscribe = onAuthStateChanged(
       auth,
       (firebaseUser) => {
-        setUser(firebaseUser); // Sets user to the firebaseUser object or null
-        setIsUserLoading(false); // Auth state is resolved, stop loading
+        if (firebaseUser) {
+          setUser(firebaseUser); // Sets user to the firebaseUser object or null
+          setIsUserLoading(false); // Auth state is resolved, stop loading
+        } else {
+            // If no user, sign in anonymously
+            signInAnonymously(auth).catch((error) => {
+                console.error("FirebaseProvider: Anonymous sign-in error:", error);
+                setUserError(error);
+                setIsUserLoading(false);
+            });
+        }
       },
       (error) => {
         console.error("FirebaseProvider: Auth state error:", error);
@@ -137,5 +146,3 @@ export const useUser = (): UserHookResult => {
   const { user, isUserLoading, userError } = useFirebaseContext();
   return { user, isUserLoading, userError };
 };
-
-    
