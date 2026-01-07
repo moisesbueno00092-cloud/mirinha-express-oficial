@@ -18,6 +18,7 @@ interface FirebaseProviderProps {
 export interface FirebaseContextState {
   firebaseApp: FirebaseApp | null;
   firestore: Firestore | null;
+
   auth: Auth | null;
   user: User | null;
   isUserLoading: boolean;
@@ -35,7 +36,7 @@ export interface UserHookResult {
 export const FirebaseContext = createContext<FirebaseContextState | undefined>(undefined);
 
 const SHARED_EMAIL = 'usuario@mirinha.com';
-const SHARED_PASSWORD = 'password123'; // Use a strong password in a real app
+const SHARED_PASSWORD = 'password123456'; // Use a strong password in a real app
 
 /**
  * FirebaseProvider manages and provides Firebase services and user authentication state.
@@ -52,12 +53,15 @@ export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
 
   useEffect(() => {
     const signInSharedUser = async () => {
+      setIsUserLoading(true);
       try {
         await signInWithEmailAndPassword(auth, SHARED_EMAIL, SHARED_PASSWORD);
+        // Auth state change will be caught by onAuthStateChanged
       } catch (error: any) {
         if (error.code === 'auth/user-not-found' || error.code === 'auth/invalid-credential') {
           try {
             await createUserWithEmailAndPassword(auth, SHARED_EMAIL, SHARED_PASSWORD);
+             // Auth state change will be caught by onAuthStateChanged
           } catch (creationError) {
             console.error("FirebaseProvider: Failed to create shared user.", creationError);
             setUserError(creationError as Error);
@@ -74,9 +78,10 @@ export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
     const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
       if (currentUser) {
         setUser(currentUser);
-        setIsUserLoading(false);
         setUserError(null);
+        setIsUserLoading(false);
       } else {
+        // If there's no user, try to sign in the shared user.
         signInSharedUser();
       }
     }, (error) => {
@@ -161,5 +166,3 @@ export const useUser = (): UserHookResult => {
   const { user, isUserLoading, userError } = useFirebaseContext();
   return { user, isUserLoading, userError };
 };
-
-    

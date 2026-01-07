@@ -12,7 +12,6 @@ import type {
   DailyReport,
   ItemCount,
   SavedFavorite,
-  User,
 } from '@/types';
 import { PREDEFINED_PRICES, DELIVERY_FEE, BOMBONIERE_ITEMS_DEFAULT } from '@/lib/constants';
 import {
@@ -32,7 +31,6 @@ import {
   writeBatch,
   addDoc,
   setDoc,
-  updateDoc,
   serverTimestamp,
 } from 'firebase/firestore';
 import { parseCustomItemPrice } from '@/ai/flows/parse-custom-item-price';
@@ -134,7 +132,7 @@ function LancheTrackerPage() {
 
   const [savedFavorites, setSavedFavorites] = usePersistentState<SavedFavorite[]>('savedFavorites', []);
 
-  const [passwordPrompt, setPasswordPrompt] = useState<{ open: boolean; onSuccess: () => void; onCancel?: () => void } | null>(null);
+  const [passwordPrompt, setPasswordPrompt] = useState<{ open: boolean; onSuccess: () => void; onCancel?: () => void; } | null>(null);
 
   const { toast } = useToast();
 
@@ -491,9 +489,9 @@ function LancheTrackerPage() {
   };
 
   const confirmDeleteItem = async () => {
-    if (!itemToDelete || !user || !firestore || !liveItemsCollectionRef) return;
+    if (!itemToDelete || !user || !firestore || !liveItemsCollectionRef || !items) return;
 
-    const itemBeingDeleted = items?.find((it) => it.id === itemToDelete);
+    const itemBeingDeleted = items.find((it) => it.id === itemToDelete);
 
     try {
       if (itemBeingDeleted && itemBeingDeleted.bomboniereItems && bomboniereItems) {
@@ -633,7 +631,8 @@ function LancheTrackerPage() {
   };
 
   const totals = useMemo(() => {
-    if (!items || items.length === 0) {
+    const currentItems = items || [];
+    if (currentItems.length === 0) {
       return {
         totalGeral: 0,
         totalAVista: 0,
@@ -655,7 +654,7 @@ function LancheTrackerPage() {
       };
     }
 
-    const result = items.reduce(
+    const result = currentItems.reduce(
       (acc, item) => {
         acc.totalGeral += item.total;
         acc.totalItens += item.quantity;
@@ -833,7 +832,7 @@ function LancheTrackerPage() {
               onDelete={handleDeleteRequest}
               onFavorite={handleFavoriteSave}
               savedFavorites={savedFavorites}
-              isLoading={isLoadingItems || isLoadingBomboniere}
+              isLoading={isLoadingItems || isUserLoading}
             />
           </div>
         </main>
@@ -884,5 +883,3 @@ export default function Home() {
       <LancheTrackerPage />
   );
 }
-
-    
