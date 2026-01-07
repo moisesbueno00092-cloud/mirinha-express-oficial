@@ -16,9 +16,8 @@ import type {
 } from '@/types';
 import { PREDEFINED_PRICES, DELIVERY_FEE, BOMBONIERE_ITEMS_DEFAULT } from '@/lib/constants';
 import {
-  useAuth,
-  useCollection,
   useFirestore,
+  useCollection,
   useMemoFirebase,
   useUser,
   FirestorePermissionError,
@@ -28,11 +27,9 @@ import {
   collection,
   doc,
   query,
-  where,
   orderBy,
   deleteDoc,
   writeBatch,
-  DocumentReference,
   addDoc,
   setDoc,
   updateDoc,
@@ -58,13 +55,8 @@ import {
   Save,
   Loader2,
   History,
-  Settings,
   Wrench,
-  Users,
   Star,
-  PiggyBank,
-  Info,
-  ArrowLeft,
 } from 'lucide-react';
 
 import ItemForm from '@/components/item-form';
@@ -73,11 +65,9 @@ import StockEditModal from '@/components/stock-edit-modal';
 import MirinhaLogo from '@/components/mirinha-logo';
 import FavoritesMenu from '@/components/favorites-menu';
 import { format } from 'date-fns';
-import { cn } from '@/lib/utils';
 import ItemList from '@/components/item-list';
 import { Separator } from '@/components/ui/separator';
 import PasswordDialog from '@/components/password-dialog';
-import Link from 'next/link';
 import usePersistentState from '@/hooks/use-persistent-state';
 
 const formatCurrency = (value: number) => {
@@ -435,13 +425,17 @@ function LancheTrackerPage() {
 
       if (currentItem) {
         const itemRef = doc(liveItemsCollectionRef, currentItem.id);
-        await setDoc(itemRef, finalItem);
+        await setDoc(itemRef, finalItem).catch(e => {
+          errorEmitter.emit('permission-error', new FirestorePermissionError({path: itemRef.path, operation: 'update', requestResourceData: finalItem}))
+        });
         toast({
           duration: 4000,
           component: <ToastContent item={{ ...finalItem, total: finalItem.total }} title="Lançamento Atualizado" />,
         });
       } else {
-        await addDoc(liveItemsCollectionRef, finalItem);
+        await addDoc(liveItemsCollectionRef, finalItem).catch(e => {
+          errorEmitter.emit('permission-error', new FirestorePermissionError({path: liveItemsCollectionRef.path, operation: 'create', requestResourceData: finalItem}))
+        });
         toast({
           duration: 4000,
           component: <ToastContent item={{ ...finalItem, total: finalItem.total }} title="Lançamento Adicionado" />,
@@ -449,11 +443,13 @@ function LancheTrackerPage() {
       }
     } catch (error: any) {
       console.error('Error upserting item:', error);
-      toast({
-        variant: 'destructive',
-        title: 'Erro ao processar item',
-        description: error.message || 'Ocorreu um problema ao processar o lançamento.',
-      });
+      if (!(error instanceof FirestorePermissionError)) {
+        toast({
+            variant: 'destructive',
+            title: 'Erro ao processar item',
+            description: error.message || 'Ocorreu um problema ao processar o lançamento.',
+        });
+      }
     } finally {
       setIsProcessing(false);
       setRawInput('');
@@ -515,12 +511,16 @@ function LancheTrackerPage() {
       }
 
       const docRef = doc(liveItemsCollectionRef, itemToDelete);
-      await deleteDoc(docRef);
+      await deleteDoc(docRef).catch(e => {
+        errorEmitter.emit('permission-error', new FirestorePermissionError({path: docRef.path, operation: 'delete'}))
+      });
 
       toast({ title: 'Item removido com sucesso.', variant: 'destructive' });
     } catch (error: any) {
-      toast({ variant: 'destructive', title: 'Erro ao remover', description: 'Não foi possível remover o item.' });
       console.error('Error deleting item:', error);
+      if (!(error instanceof FirestorePermissionError)) {
+        toast({ variant: 'destructive', title: 'Erro ao remover', description: 'Não foi possível remover o item.' });
+      }
     } finally {
       setItemToDelete(null);
     }
@@ -879,9 +879,10 @@ function LancheTrackerPage() {
   );
 }
 
-
 export default function Home() {
   return (
       <LancheTrackerPage />
   );
 }
+
+    

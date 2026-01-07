@@ -35,7 +35,7 @@ export interface UserHookResult {
 export const FirebaseContext = createContext<FirebaseContextState | undefined>(undefined);
 
 const SHARED_EMAIL = 'usuario@mirinha.com';
-const SHARED_PASSWORD = 'password123';
+const SHARED_PASSWORD = 'password123'; // Use a strong password in a real app
 
 /**
  * FirebaseProvider manages and provides Firebase services and user authentication state.
@@ -55,19 +55,19 @@ export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
       try {
         await signInWithEmailAndPassword(auth, SHARED_EMAIL, SHARED_PASSWORD);
       } catch (error: any) {
-        if (error.code === 'auth/user-not-found') {
+        if (error.code === 'auth/user-not-found' || error.code === 'auth/invalid-credential') {
           try {
             await createUserWithEmailAndPassword(auth, SHARED_EMAIL, SHARED_PASSWORD);
           } catch (creationError) {
             console.error("FirebaseProvider: Failed to create shared user.", creationError);
             setUserError(creationError as Error);
+            setIsUserLoading(false);
           }
-        } else if (error.code !== 'auth/invalid-credential') {
+        } else {
            console.error("FirebaseProvider: Sign-in failed.", error);
            setUserError(error);
+           setIsUserLoading(false);
         }
-      } finally {
-        setIsUserLoading(false);
       }
     };
 
@@ -77,7 +77,6 @@ export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
         setIsUserLoading(false);
         setUserError(null);
       } else {
-        // No user is signed in, attempt to sign in the shared user.
         signInSharedUser();
       }
     }, (error) => {
@@ -87,7 +86,6 @@ export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
       setIsUserLoading(false);
     });
 
-    // Clean up the subscription on unmount.
     return () => unsubscribe();
   }, [auth]);
 
@@ -163,3 +161,5 @@ export const useUser = (): UserHookResult => {
   const { user, isUserLoading, userError } = useFirebaseContext();
   return { user, isUserLoading, userError };
 };
+
+    
