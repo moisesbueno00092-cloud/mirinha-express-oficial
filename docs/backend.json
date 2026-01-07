@@ -206,13 +206,23 @@
           "description": "Stores user profile data.",
           "collections": [
             {
+              "path": "live_items",
+              "definition": {
+                "entityName": "OrderItem",
+                "schema": {
+                  "$ref": "#/entities/OrderItem"
+                },
+                "description": "Collection of real-time order items for a specific user for the current day."
+              }
+            },
+            {
               "path": "order_items",
               "definition": {
                 "entityName": "OrderItem",
                 "schema": {
                   "$ref": "#/entities/OrderItem"
                 },
-                "description": "Collection of order items for a specific user."
+                "description": "Collection of historical order items for a specific user."
               }
             },
             {
