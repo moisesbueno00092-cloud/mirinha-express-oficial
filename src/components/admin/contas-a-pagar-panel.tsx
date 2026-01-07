@@ -3,13 +3,12 @@
 
 import { useMemo, useState, useEffect, useCallback } from 'react';
 import { useFirestore, useCollection, useMemoFirebase } from '@/firebase';
-import { collection, query, orderBy, doc } from 'firebase/firestore';
+import { collection, query, orderBy, doc, updateDoc, deleteDoc } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import { format, isPast, isToday, isWithinInterval, parseISO, startOfWeek, endOfWeek, endOfMonth } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
 import type { ContaAPagar, Fornecedor } from '@/types';
-import { updateDocumentNonBlocking, deleteDocumentNonBlocking } from '@/firebase/non-blocking-updates';
 
 import {
   Table,
@@ -210,10 +209,10 @@ export default function ContasAPagarPanel() {
     }, [contasAPagar, activeFilter]);
 
 
-    const handleStatusChange = (conta: ContaAPagar, isPaga: boolean) => {
+    const handleStatusChange = async (conta: ContaAPagar, isPaga: boolean) => {
         if (!firestore) return;
         const docRef = doc(firestore, 'contas_a_pagar', conta.id);
-        updateDocumentNonBlocking(docRef, { estaPaga: isPaga });
+        await updateDoc(docRef, { estaPaga: isPaga });
         toast({
             title: `Conta ${isPaga ? 'marcada como paga' : 'marcada como em aberto'}.`,
             description: conta.descricao,
@@ -224,9 +223,9 @@ export default function ContasAPagarPanel() {
         setContaToDelete(conta);
     };
 
-    const confirmDelete = () => {
+    const confirmDelete = async () => {
         if (!firestore || !contaToDelete) return;
-        deleteDocumentNonBlocking(doc(firestore, "contas_a_pagar", contaToDelete.id));
+        await deleteDoc(doc(firestore, "contas_a_pagar", contaToDelete.id));
         toast({
             title: "Sucesso",
             description: "Conta a pagar removida.",

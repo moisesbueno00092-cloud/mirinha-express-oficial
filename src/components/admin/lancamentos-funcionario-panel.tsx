@@ -6,8 +6,7 @@ import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { useCollection, useFirestore, useMemoFirebase } from '@/firebase';
-import { collection, query, where, orderBy, doc } from 'firebase/firestore';
-import { addDocumentNonBlocking } from '@/firebase/non-blocking-updates';
+import { collection, query, where, orderBy, doc, addDoc } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import type { Funcionario, FuncionarioLancamentoFinanceiro } from '@/types';
 import { format as formatDateFn } from 'date-fns';
@@ -133,7 +132,7 @@ export default function LancamentosFuncionarioPanel({ funcionarios, selectedFunc
 
     const { data: lancamentos, isLoading: isLoadingLancamentos } = useCollection<FuncionarioLancamentoFinanceiro>(lancamentosQuery);
 
-    const onSubmit = (values: LancamentoSchemaType) => {
+    const onSubmit = async (values: LancamentoSchemaType) => {
       if (!firestore) return;
       
       const funcionario = funcionarios.find(f => f.id === values.funcionarioId);
@@ -169,7 +168,7 @@ export default function LancamentosFuncionarioPanel({ funcionarios, selectedFunc
       };
       
       const lancamentosCollectionRef = collection(firestore, 'funcionarios', values.funcionarioId, 'lancamentos');
-      addDocumentNonBlocking(lancamentosCollectionRef, novoLancamento as any);
+      await addDoc(lancamentosCollectionRef, novoLancamento as any);
       toast({ title: "Sucesso!", description: `Lançamento para ${funcionario.nome} registado.` });
       form.reset({
           funcionarioId: values.funcionarioId,

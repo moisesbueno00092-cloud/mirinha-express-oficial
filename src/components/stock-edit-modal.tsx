@@ -9,9 +9,8 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Trash2, Plus, Save, Loader2, Search } from 'lucide-react';
 import type { BomboniereItem, EntradaMercadoria, Item as OrderItem } from '@/types';
 import { useToast } from '@/hooks/use-toast';
-import { collection, doc, writeBatch, query } from 'firebase/firestore';
+import { collection, doc, writeBatch, query, addDoc, deleteDoc } from 'firebase/firestore';
 import { useFirestore, useCollection, useMemoFirebase, useUser } from '@/firebase';
-import { addDocumentNonBlocking, deleteDocumentNonBlocking, commitBatch } from '@/firebase/non-blocking-updates';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -91,10 +90,10 @@ export default function StockEditModal({ isOpen, onClose, bomboniereItems: initi
     );
   };
   
-  const handleAddNewItem = () => {
+  const handleAddNewItem = async () => {
     if (!firestore) return;
     const newItemData = { name: 'Novo Item', price: 0, estoque: 0 };
-    addDocumentNonBlocking(collection(firestore, "bomboniere_items"), newItemData);
+    await addDoc(collection(firestore, "bomboniere_items"), newItemData);
 
     toast({ title: "Item Adicionado", description: "Um 'Novo Item' foi criado. Por favor, edite-o."});
 
@@ -130,10 +129,10 @@ export default function StockEditModal({ isOpen, onClose, bomboniereItems: initi
       setItemToDelete(item);
   }
 
-  const confirmDelete = () => {
+  const confirmDelete = async () => {
       if (!firestore || !itemToDelete || !itemToDelete.id) return;
       const docRef = doc(firestore, 'bomboniere_items', itemToDelete.id);
-      deleteDocumentNonBlocking(docRef);
+      await deleteDoc(docRef);
       toast({ title: "Sucesso", description: `"${itemToDelete.name}" foi removido.`});
       setItemToDelete(null);
   }
@@ -171,10 +170,11 @@ export default function StockEditModal({ isOpen, onClose, bomboniereItems: initi
       
       if (changesCount > 0) {
         try {
-            await commitBatch(batch);
+            await batch.commit();
             toast({ title: "Sucesso!", description: `${changesCount} ite${changesCount > 1 ? 'ns' : 'm'} atualizado${changesCount > 1 ? 's' : ''}.` });
         } catch (error) {
-            // Error is handled by commitBatch
+            console.error("Error saving stock:", error);
+            toast({ variant: 'destructive', title: 'Erro ao Salvar', description: 'Não foi possível atualizar o estoque.' });
         }
       } else {
         toast({ title: "Nenhuma Alteração", description: "Não havia alterações para salvar."});

@@ -2,11 +2,10 @@
 
 import { useState, useMemo, useEffect, useCallback } from 'react';
 import { useUser, useFirestore, useCollection, useMemoFirebase, FirebaseClientProvider } from '@/firebase';
-import { collection, query, orderBy, doc, where } from 'firebase/firestore';
+import { collection, query, orderBy, doc, where, deleteDoc } from 'firebase/firestore';
 import { format, parseISO, startOfMonth, endOfMonth, isWithinInterval, addMonths, subMonths } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import Link from 'next/link';
-import { deleteDocumentNonBlocking } from '@/firebase/non-blocking-updates';
 
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -491,11 +490,11 @@ function ReportsPageContent() {
     setReportToDelete(reportId);
   };
 
-  const confirmDeleteReport = () => {
+  const confirmDeleteReport = async () => {
     if (!firestore || !user || !reportToDelete) return;
     
     const docRef = doc(firestore, "users", user.uid, "daily_reports", reportToDelete);
-    deleteDocumentNonBlocking(docRef);
+    await deleteDoc(docRef);
     toast({
         title: "Sucesso",
         description: "Relatório excluído permanentemente.",

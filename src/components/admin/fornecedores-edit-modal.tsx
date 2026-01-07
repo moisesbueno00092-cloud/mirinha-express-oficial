@@ -9,9 +9,8 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Trash2, Save, Loader2, Search } from 'lucide-react';
 import type { Fornecedor } from '@/types';
 import { useToast } from '@/hooks/use-toast';
-import { collection, doc } from 'firebase/firestore';
+import { collection, doc, addDoc, updateDoc, deleteDoc, writeBatch } from 'firebase/firestore';
 import { useFirestore } from '@/firebase';
-import { deleteDocumentNonBlocking, updateDocumentNonBlocking } from '@/firebase/non-blocking-updates';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -65,7 +64,7 @@ export default function FornecedoresEditModal({ isOpen, onClose, fornecedores: i
       setFornecedorToDelete(fornecedor);
   }
 
-  const confirmDelete = () => {
+  const confirmDelete = async () => {
       if (!firestore || !fornecedorToDelete || !fornecedorToDelete.id) return;
       // You cannot delete the delivery fees provider
       if(fornecedorToDelete.id === 'delivery_fees_provider') {
@@ -74,7 +73,7 @@ export default function FornecedoresEditModal({ isOpen, onClose, fornecedores: i
         return;
       }
       const docRef = doc(firestore, 'fornecedores', fornecedorToDelete.id);
-      deleteDocumentNonBlocking(docRef);
+      await deleteDoc(docRef);
       toast({ title: "Sucesso", description: `"${fornecedorToDelete.nome}" foi removido.`});
       setFornecedorToDelete(null);
   }
@@ -83,7 +82,7 @@ export default function FornecedoresEditModal({ isOpen, onClose, fornecedores: i
       if (!firestore) return;
       setIsProcessing(true);
 
-      const fornecedoresCollectionRef = collection(firestore, "fornecedores");
+      const batch = writeBatch(firestore);
       let hasError = false;
 
       for (const fornecedor of fornecedores) {
@@ -94,18 +93,24 @@ export default function FornecedoresEditModal({ isOpen, onClose, fornecedores: i
                 hasError = true;
                 break;
             }
-            const docRef = doc(fornecedoresCollectionRef, fornecedor.id);
+            const docRef = doc(firestore, 'fornecedores', fornecedor.id);
             // Only update name, not color
-            updateDocumentNonBlocking(docRef, { nome: fornecedor.nome.trim() });
+            batch.update(docRef, { nome: fornecedor.nome.trim() });
           }
       }
       
-      setIsProcessing(false);
-      
       if (!hasError) {
-        toast({ title: "Sucesso", description: "Nomes dos fornecedores atualizados." });
-        onClose();
+        try {
+          await batch.commit();
+          toast({ title: "Sucesso", description: "Nomes dos fornecedores atualizados." });
+          onClose();
+        } catch (error) {
+          console.error("Error saving fornecedores:", error);
+          toast({ variant: 'destructive', title: "Erro ao Salvar", description: "Não foi possível atualizar os fornecedores." });
+        }
       }
+      
+      setIsProcessing(false);
   };
   
 

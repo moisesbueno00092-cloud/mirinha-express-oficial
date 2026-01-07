@@ -2,7 +2,7 @@
 
 import { useState, useMemo, useRef, useEffect } from 'react';
 import { useCollection, useFirestore, useMemoFirebase } from '@/firebase';
-import { collection, query, orderBy, writeBatch, doc, setDoc } from 'firebase/firestore';
+import { collection, query, orderBy, writeBatch, doc, setDoc, addDoc } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import type { ContaAPagar, EntradaMercadoria, Fornecedor, ParsedRomaneioItem, BomboniereItem } from '@/types';
 import { parseRomaneio } from '@/ai/flows/parse-romaneio-flow';
@@ -14,7 +14,6 @@ import { Label } from '@/components/ui/label';
 import { Loader2, Plus, PlusCircle, Trash2, Pencil, Settings, Camera, Video } from 'lucide-react';
 import { Separator } from '../ui/separator';
 import { format as formatDateFn, addDays } from 'date-fns';
-import { addDocumentNonBlocking, commitBatch } from '@/firebase/non-blocking-updates';
 import { DatePicker } from '../ui/date-picker';
 import { Popover, PopoverContent, PopoverTrigger } from '../ui/popover';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
@@ -184,7 +183,7 @@ export default function MercadoriasPanel() {
                 nome: newFornecedorName.trim(),
                 color: newColor
             };
-            const docRef = await addDocumentNonBlocking(collection(firestore, 'fornecedores'), newFornecedor);
+            const docRef = await addDoc(collection(firestore, 'fornecedores'), newFornecedor);
             toast({ title: 'Sucesso', description: 'Fornecedor adicionado.' });
             setNewFornecedorName('');
         } catch (error) {
@@ -376,7 +375,7 @@ export default function MercadoriasPanel() {
             }
 
             if (stockUpdatesCount > 0 || newItemsCount > 0) {
-                await commitBatch(batch);
+                await batch.commit();
                 let stockToastDescription = '';
                 if (stockUpdatesCount > 0) stockToastDescription += `${stockUpdatesCount} iten(s) do estoque atualizado(s). `;
                 if (newItemsCount > 0) stockToastDescription += `${newItemsCount} novo(s) iten(s) criado(s) no estoque.`;
@@ -468,14 +467,13 @@ export default function MercadoriasPanel() {
                 batch.set(entradaDocRef, novaEntrada);
             });
             
-            await commitBatch(batch);
+            await batch.commit();
 
             toast({ title: 'Sucesso!', description: 'Entrada de mercadoria e conta(s) a pagar registadas.' });
             resetForm();
         } catch (error) {
-            // The commitBatch function will emit the specific error, so we don't need to toast here.
-            // We just need to catch the re-thrown error to stop execution flow.
             console.error("Erro ao registar entrada:", error);
+            toast({ variant: 'destructive', title: 'Erro', description: 'Não foi possível registar a entrada.' });
         } finally {
             setIsSubmitting(false);
         }

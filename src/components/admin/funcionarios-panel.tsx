@@ -6,8 +6,7 @@ import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { useCollection, useFirestore, useMemoFirebase } from '@/firebase';
-import { collection, query, orderBy, doc } from 'firebase/firestore';
-import { addDocumentNonBlocking, updateDocumentNonBlocking } from '@/firebase/non-blocking-updates';
+import { collection, query, orderBy, doc, addDoc, updateDoc } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import type { Funcionario } from '@/types';
 import { format as formatDateFn } from 'date-fns';
@@ -150,7 +149,7 @@ export default function FuncionariosPanel() {
       },
     });
 
-    const onSubmit = (values: z.infer<typeof funcionarioSchema>) => {
+    const onSubmit = async (values: z.infer<typeof funcionarioSchema>) => {
       if (!firestore) return;
       
       const novoFuncionario: Omit<Funcionario, 'id'> = {
@@ -159,7 +158,7 @@ export default function FuncionariosPanel() {
         status: 'Ativo',
       };
 
-      addDocumentNonBlocking(collection(firestore, 'funcionarios'), novoFuncionario);
+      await addDoc(collection(firestore, 'funcionarios'), novoFuncionario);
       toast({ title: "Sucesso!", description: `${values.nome} foi adicionado(a) à equipa.` });
       form.reset();
     };
@@ -173,11 +172,11 @@ export default function FuncionariosPanel() {
         setFuncionarioToDemitir(func);
     }
     
-    const confirmDemitir = () => {
+    const confirmDemitir = async () => {
         if (!firestore || !funcionarioToDemitir) return;
 
         const docRef = doc(firestore, 'funcionarios', funcionarioToDemitir.id);
-        updateDocumentNonBlocking(docRef, { status: 'Inativo' });
+        await updateDoc(docRef, { status: 'Inativo' });
 
         toast({ title: 'Sucesso', description: `${funcionarioToDemitir.nome} foi marcado como Inativo.` });
         setFuncionarioToDemitir(null);
