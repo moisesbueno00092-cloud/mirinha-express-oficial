@@ -78,18 +78,9 @@ function LancheTrackerPage() {
   const firestore = useFirestore();
   const router = useRouter();
 
-  const todayStart = useMemo(() => startOfDay(new Date()), []);
-  const itemsQuery = useMemoFirebase(() => {
-    if (!firestore || !user?.uid) return null;
-    return query(
-      collection(firestore, 'users', user.uid, 'order_items'),
-      where('timestamp', '>=', todayStart),
-      where('reportado', '==', false),
-      orderBy('timestamp', 'desc')
-    );
-  }, [firestore, user?.uid, todayStart]);
+  const [items, setItems] = usePersistentState<Item[]>('dailyItems', []);
+  const isLoadingItems = false;
 
-  const { data: items, isLoading: isLoadingItems, error } = useCollection<Item>(itemsQuery);
 
   const bomboniereItemsRef = useMemoFirebase(() => (firestore ? query(collection(firestore, 'bomboniere_items'), orderBy('name', 'asc')) : null), [firestore]);
   const { data: bomboniereItemsFromDB, isLoading: isLoadingBomboniere } = useCollection<BomboniereItem>(bomboniereItemsRef);
@@ -356,13 +347,14 @@ function LancheTrackerPage() {
         consolidatedName = nameParts.join(' + ') || 'Lançamento';
         if (consolidatedName.length > 50) consolidatedName = 'Lançamento Misto';
         
-        const finalItemForFirestore = {
+        const finalItem: Item = {
+            id: currentItem?.id || String(Date.now()),
             userId: user.uid,
             name: consolidatedName,
             quantity: totalQuantity,
             price: totalPrice,
             group,
-            timestamp: serverTimestamp(),
+            timestamp: new Date().toISOString(),
             deliveryFee,
             total,
             originalCommand: rawInputToProcess,
@@ -373,20 +365,17 @@ function LancheTrackerPage() {
             ...(processedBomboniereItems.length > 0 ? { bomboniereItems: processedBomboniereItems } : {}),
         };
         
-        const orderItemsCollectionRef = collection(firestore, 'users', user.uid, 'order_items');
-        
         if (currentItem?.id) {
-            const docRef = doc(orderItemsCollectionRef, currentItem.id);
-            setDocumentNonBlocking(docRef, finalItemForFirestore);
+            setItems(prev => prev.map(it => it.id === currentItem.id ? finalItem : it));
             toast({
                 duration: 4000,
-                component: <ToastContent item={{...currentItem, ...finalItemForFirestore, total: finalItemForFirestore.total}} title="Lançamento Atualizado" />,
+                component: <ToastContent item={finalItem} title="Lançamento Atualizado" />,
             });
         } else {
-            addDocumentNonBlocking(orderItemsCollectionRef, finalItemForFirestore as any);
+            setItems(prev => [...prev, finalItem]);
             toast({
                 duration: 4000,
-                component: <ToastContent item={{...finalItemForFirestore, total: finalItemForFirestore.total}} title="Lançamento Adicionado" />,
+                component: <ToastContent item={finalItem} title="Lançamento Adicionado" />,
             });
         }
         
@@ -452,8 +441,7 @@ function LancheTrackerPage() {
         }
     }
     
-    const docRef = doc(firestore, 'users', user.uid, 'order_items', itemToDelete);
-    deleteDocumentNonBlocking(docRef);
+    setItems(prev => prev.filter(it => it.id !== itemToDelete));
 
     toast({ title: "Item removido com sucesso.", variant: "destructive" });
     setItemToDelete(null);
@@ -498,6 +486,12 @@ function LancheTrackerPage() {
     try {
       const reportDate = format(new Date(), 'yyyy-MM-dd');
       
+      const itemsToReport = items.map(item => ({
+          ...item,
+          timestamp: serverTimestamp(), // Will be converted by Firestore
+          reportado: true,
+      }))
+      
       const report: DailyReport = {
         userId: user.uid,
         reportDate: reportDate,
@@ -522,18 +516,22 @@ function LancheTrackerPage() {
       };
       
       const reportRef = doc(collection(firestore, 'users', user.uid, 'daily_reports'));
-      setDocumentNonBlocking(reportRef, report);
-
       const batch = writeBatch(firestore);
-      items.forEach(item => {
-        const itemRef = doc(firestore, 'users', user.uid, 'order_items', item.id);
-        batch.update(itemRef, { reportado: true });
+
+      batch.set(reportRef, report);
+
+      itemsToReport.forEach(item => {
+        const itemRef = doc(collection(firestore, 'users', user.uid, 'order_items'));
+        batch.set(itemRef, item);
       });
+      
       await commitBatch(batch);
+
+      setItems([]); // Clear local items after successful save
 
       toast({
         title: 'Relatório Salvo!',
-        description: 'O relatório do dia foi salvo e os itens arquivados.',
+        description: 'O relatório do dia foi salvo e os itens arquivados no Firestore.',
       });
 
     } catch (error) {
@@ -763,5 +761,3 @@ export default function Lancador() {
     </AuthWall>
   );
 }
-
-    
