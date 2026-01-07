@@ -96,12 +96,26 @@ function LancheTrackerPage() {
   const { user, isUserLoading } = useUser();
   const firestore = useFirestore();
   const router = useRouter();
+  const { toast } = useToast();
 
   const liveItemsCollectionRef = useMemoFirebase(
-    () => (firestore && user ? collection(firestore, 'users', user.uid, 'live_items') : null),
+    () => (firestore && user ? query(collection(firestore, 'users', user.uid, 'live_items'), orderBy('timestamp', 'asc')) : null),
     [firestore, user]
   );
-  const { data: liveItems, isLoading: isLoadingItems } = useCollection<Item>(liveItemsCollectionRef);
+  const { data: liveItems, isLoading: isLoadingItems, error: itemsError } = useCollection<Item>(liveItemsCollectionRef);
+
+  useEffect(() => {
+    if (itemsError) {
+      toast({
+        variant: 'destructive',
+        title: 'Erro ao carregar itens',
+        description: 'Não foi possível carregar os lançamentos. Verifique a sua conexão ou as permissões da base de dados.',
+        duration: 8000,
+      });
+      console.error("Firestore Error:", itemsError);
+    }
+  }, [itemsError, toast]);
+
 
   const bomboniereItemsRef = useMemoFirebase(
     () => (firestore ? query(collection(firestore, 'bomboniere_items'), orderBy('name', 'asc')) : null),
@@ -131,8 +145,6 @@ function LancheTrackerPage() {
   const [savedFavorites, setSavedFavorites] = usePersistentState<SavedFavorite[]>('savedFavorites', []);
 
   const [passwordPrompt, setPasswordPrompt] = useState<{ open: boolean; onSuccess: () => void; onCancel?: () => void; } | null>(null);
-
-  const { toast } = useToast();
 
   const handlePasswordSuccess = () => {
     if (passwordPrompt?.onSuccess) {
@@ -166,7 +178,7 @@ function LancheTrackerPage() {
 
   const handleUpsertItem = async (rawInputToProcess: string, currentItem?: Item | null, favoriteName?: string) => {
     setIsProcessing(true);
-    if (!user || !firestore || !liveItemsCollectionRef) {
+    if (!user || !firestore) {
       toast({ variant: 'destructive', title: 'Erro', description: 'Utilizador não autenticado.' });
       setIsProcessing(false);
       return;
@@ -419,14 +431,14 @@ function LancheTrackerPage() {
         ...(processedBomboniereItems.length > 0 ? { bomboniereItems: processedBomboniereItems } : {}),
       };
 
-      if (currentItem) {
+      if (currentItem && liveItemsCollectionRef) {
         const itemRef = doc(liveItemsCollectionRef, currentItem.id);
         await setDoc(itemRef, finalItem);
         toast({
           duration: 4000,
           component: <ToastContent item={{ ...finalItem, total: finalItem.total }} title="Lançamento Atualizado" />,
         });
-      } else {
+      } else if (liveItemsCollectionRef) {
         await addDoc(liveItemsCollectionRef, finalItem);
         toast({
           duration: 4000,
@@ -476,7 +488,7 @@ function LancheTrackerPage() {
     await handleUpsertItem(rawInput, itemToEdit);
   };
 
-  const handleDeleteRequest = (id: string) => {
+  const handleDeleteRequest = async (id: string) => {
     setItemToDelete(id);
   };
 
