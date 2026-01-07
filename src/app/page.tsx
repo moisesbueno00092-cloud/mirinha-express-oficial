@@ -99,10 +99,16 @@ function LancheTrackerPage() {
   const { toast } = useToast();
 
   const liveItemsCollectionRef = useMemoFirebase(
-    () => (firestore && user ? query(collection(firestore, 'users', user.uid, 'live_items'), orderBy('timestamp', 'asc')) : null),
+    () => (firestore && user ? collection(firestore, 'users', user.uid, 'live_items') : null),
     [firestore, user]
   );
-  const { data: liveItems, isLoading: isLoadingItems, error: itemsError } = useCollection<Item>(liveItemsCollectionRef);
+  
+  const liveItemsQuery = useMemoFirebase(
+    () => (liveItemsCollectionRef ? query(liveItemsCollectionRef, orderBy('timestamp', 'asc')) : null),
+    [liveItemsCollectionRef]
+  );
+
+  const { data: liveItems, isLoading: isLoadingItems, error: itemsError } = useCollection<Item>(liveItemsQuery);
 
   useEffect(() => {
     if (itemsError) {
@@ -606,8 +612,10 @@ function LancheTrackerPage() {
 
       // Delete all live items after archiving
       liveItems.forEach((item) => {
-        const liveItemRef = doc(firestore, 'users', user.uid, 'live_items', item.id);
-        batch.delete(liveItemRef);
+        if (liveItemsCollectionRef) {
+          const liveItemRef = doc(liveItemsCollectionRef, item.id);
+          batch.delete(liveItemRef);
+        }
       });
 
       await batch.commit();
