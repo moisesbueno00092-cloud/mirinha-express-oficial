@@ -662,8 +662,8 @@ function LancheTrackerPage() {
       </AlertDialog>
       
       <div className="container mx-auto max-w-4xl p-2 sm:p-4 lg:p-8 pb-36">
-        <header className="mb-6 flex flex-wrap items-center justify-between gap-4">
-            <div className="flex flex-col items-center sm:items-start text-center sm:text-left flex-grow">
+        <header className="mb-6 flex flex-col sm:flex-row items-center justify-between gap-4">
+            <div className="flex flex-col items-center flex-grow">
               <MirinhaLogo className="w-64 sm:w-80 h-auto text-primary" />
               <p className="text-muted-foreground -mt-2 text-sm sm:text-base">Controle de Pedidos</p>
             </div>
