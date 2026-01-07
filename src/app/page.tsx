@@ -19,8 +19,6 @@ import {
   useCollection,
   useMemoFirebase,
   useUser,
-  FirestorePermissionError,
-  errorEmitter,
 } from '@/firebase';
 import {
   collection,

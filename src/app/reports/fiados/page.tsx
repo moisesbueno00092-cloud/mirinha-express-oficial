@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useMemo, useEffect, useCallback } from 'react';
-import { useUser, useFirestore, useCollection, useMemoFirebase, FirebaseClientProvider } from '@/firebase';
+import { useUser, useFirestore, useCollection, useMemoFirebase } from '@/firebase';
 import { collection, query, orderBy, doc, where, deleteDoc } from 'firebase/firestore';
 import { format, parseISO, startOfMonth, endOfMonth, isWithinInterval, addMonths, subMonths } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -684,8 +684,6 @@ function ReportsPageContent() {
 
 export default function ReportsPage() {
     return (
-        <FirebaseClientProvider>
-            <ReportsPageContent />
-        </FirebaseClientProvider>
+        <ReportsPageContent />
     )
 }
