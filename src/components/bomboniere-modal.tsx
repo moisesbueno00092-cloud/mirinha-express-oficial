@@ -10,6 +10,7 @@ import { PlusCircle, MinusCircle, Plus, Pencil } from 'lucide-react';
 import type { BomboniereItem, SelectedBomboniereItem } from '@/types';
 import { cn } from '@/lib/utils';
 import StockEditModal from './stock-edit-modal';
+import PasswordDialog from './password-dialog';
 
 interface BomboniereModalProps {
   isOpen: boolean;
@@ -36,7 +37,8 @@ export default function BomboniereModal({ isOpen, onClose, onAddItems, bombonier
   const [selectedItems, setSelectedItems] = useState<Record<string, number>>({});
   const [searchTerm, setSearchTerm] = useState('');
   const [isStockEditModalOpen, setStockEditModalOpen] = useState(false);
-  
+  const [passwordPrompt, setPasswordPrompt] = useState<{ open: boolean, onSuccess: () => void, onCancel?: () => void } | null>(null);
+
   useEffect(() => {
     if (isOpen) {
       setSelectedItems({});
@@ -49,6 +51,36 @@ export default function BomboniereModal({ isOpen, onClose, onAddItems, bombonier
         item.name.toLowerCase().includes(searchTerm.toLowerCase())
     ).sort((a,b) => a.name.localeCompare(b.name));
   }, [bomboniereItems, searchTerm]);
+
+  const handlePasswordSuccess = () => {
+    if (passwordPrompt?.onSuccess) {
+      try {
+        sessionStorage.setItem('admin-authenticated', 'true');
+      } catch(e) {
+          console.error("Could not write to sessionStorage:", e);
+      }
+      passwordPrompt.onSuccess();
+    }
+    setPasswordPrompt(null);
+  };
+
+  const handleProtectedAction = (callback: () => void) => {
+    try {
+      const sessionAuth = sessionStorage.getItem('admin-authenticated');
+      if (sessionAuth === 'true') {
+        callback();
+        return;
+      }
+    } catch(e) {
+      console.error("Could not read sessionStorage:", e);
+    }
+    
+    setPasswordPrompt({ 
+        open: true, 
+        onSuccess: callback,
+        onCancel: () => setPasswordPrompt(null)
+    });
+  };
 
   const handleQuantityChange = (itemId: string, delta: number) => {
     setSelectedItems(prev => {
@@ -86,7 +118,7 @@ export default function BomboniereModal({ isOpen, onClose, onAddItems, bombonier
   const renderHeader = () => (
     <DialogHeader className="flex-row items-center justify-between">
         <DialogTitle className="flex-grow text-center">Bomboniere</DialogTitle>
-        <Button variant="outline" size="icon" className="h-8 w-8" onClick={() => setStockEditModalOpen(true)}>
+        <Button variant="outline" size="icon" className="h-8 w-8" onClick={() => handleProtectedAction(() => setStockEditModalOpen(true))}>
             <Pencil className="h-4 w-4" />
         </Button>
     </DialogHeader>
@@ -99,77 +131,92 @@ export default function BomboniereModal({ isOpen, onClose, onAddItems, bombonier
             onClose={() => setStockEditModalOpen(false)}
             bomboniereItems={bomboniereItems || []}
         />
-        <Dialog open={isOpen} onOpenChange={onClose}>
-        <DialogContent className="sm:max-w-md">
-            {renderHeader()}
-            
-            <div className="px-1 pt-2 pb-1">
-                <Input 
-                    placeholder="Buscar item..."
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                    onKeyDown={handleKeyDown}
-                    className="h-9"
-                    autoFocus
-                />
-            </div>
+        
+        {passwordPrompt && (
+          <PasswordDialog
+            open={passwordPrompt.open}
+            onOpenChange={(isOpen) => {
+                if(!isOpen && passwordPrompt.onCancel) {
+                    passwordPrompt.onCancel();
+                }
+            }}
+            onSuccess={handlePasswordSuccess}
+            onCancel={passwordPrompt.onCancel}
+            showCancel={!!passwordPrompt.onCancel}
+          />
+        )}
 
-            <ScrollArea className="h-80 -mx-6">
-                <div className="divide-y divide-border">
-                {filteredBomboniereItems.map((item) => (
-                    <div key={item.id} className="flex items-center p-2">
-                        <div className="flex-grow pr-4">
-                            <p className="font-semibold">{item.name}</p>
-                            <div className="flex items-center gap-2">
-                            <p className="text-sm text-muted-foreground">{formatCurrency(item.price)}</p>
-                            <p className={cn("text-xs font-bold", getStockColor(item.estoque))}>(Estq: {item.estoque})</p>
-                            </div>
-                        </div>
-                        <div className="flex items-center justify-end gap-2">
-                            {selectedItems[item.id] > 0 ? (
-                            <>
-                                <Button
-                                variant="ghost"
-                                size="icon"
-                                className="h-9 w-9 rounded-full"
-                                onClick={() => handleQuantityChange(item.id, -1)}
-                                >
-                                <MinusCircle className="h-6 w-6 text-destructive" />
-                                </Button>
-                                <span className="text-lg font-bold w-6 text-center tabular-nums">{selectedItems[item.id]}</span>
-                                <Button
-                                variant="ghost"
-                                size="icon"
-                                className="h-9 w-9 rounded-full"
-                                onClick={() => handleQuantityChange(item.id, 1)}
-                                >
-                                <PlusCircle className="h-6 w-6 text-primary" />
-                                </Button>
-                            </>
-                            ) : (
-                            <Button
-                                variant="outline"
-                                size="icon"
-                                className="h-9 w-9 rounded-full"
-                                onClick={() => handleQuantityChange(item.id, 1)}
-                            >
-                                <Plus className="h-5 w-5" />
-                            </Button>
-                            )}
-                        </div>
-                    </div>
-                ))}
-                </div>
-            </ScrollArea>
-            <DialogFooter className="mt-4">
-                <DialogClose asChild>
-                    <Button variant="outline">Cancelar</Button>
-                </DialogClose>
-                <Button onClick={handleAddClick} disabled={Object.keys(selectedItems).length === 0}>
-                Adicionar Itens
-                </Button>
-            </DialogFooter>
-        </DialogContent>
+        <Dialog open={isOpen} onOpenChange={onClose}>
+          <DialogContent className="sm:max-w-md">
+              {renderHeader()}
+              
+              <div className="px-1 pt-2 pb-1">
+                  <Input 
+                      placeholder="Buscar item..."
+                      value={searchTerm}
+                      onChange={(e) => setSearchTerm(e.target.value)}
+                      onKeyDown={handleKeyDown}
+                      className="h-9"
+                      autoFocus
+                  />
+              </div>
+
+              <ScrollArea className="h-80 -mx-6">
+                  <div className="divide-y divide-border">
+                  {filteredBomboniereItems.map((item) => (
+                      <div key={item.id} className="flex items-center p-2">
+                          <div className="flex-grow pr-4">
+                              <p className="font-semibold">{item.name}</p>
+                              <div className="flex items-center gap-2">
+                              <p className="text-sm text-muted-foreground">{formatCurrency(item.price)}</p>
+                              <p className={cn("text-xs font-bold", getStockColor(item.estoque))}>(Estq: {item.estoque})</p>
+                              </div>
+                          </div>
+                          <div className="flex items-center justify-end gap-2">
+                              {selectedItems[item.id] > 0 ? (
+                              <>
+                                  <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-9 w-9 rounded-full"
+                                  onClick={() => handleQuantityChange(item.id, -1)}
+                                  >
+                                  <MinusCircle className="h-6 w-6 text-destructive" />
+                                  </Button>
+                                  <span className="text-lg font-bold w-6 text-center tabular-nums">{selectedItems[item.id]}</span>
+                                  <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-9 w-9 rounded-full"
+                                  onClick={() => handleQuantityChange(item.id, 1)}
+                                  >
+                                  <PlusCircle className="h-6 w-6 text-primary" />
+                                  </Button>
+                              </>
+                              ) : (
+                              <Button
+                                  variant="outline"
+                                  size="icon"
+                                  className="h-9 w-9 rounded-full"
+                                  onClick={() => handleQuantityChange(item.id, 1)}
+                              >
+                                  <Plus className="h-5 w-5" />
+                              </Button>
+                              )}
+                          </div>
+                      </div>
+                  ))}
+                  </div>
+              </ScrollArea>
+              <DialogFooter className="mt-4">
+                  <DialogClose asChild>
+                      <Button variant="outline">Cancelar</Button>
+                  </DialogClose>
+                  <Button onClick={handleAddClick} disabled={Object.keys(selectedItems).length === 0}>
+                  Adicionar Itens
+                  </Button>
+              </DialogFooter>
+          </DialogContent>
         </Dialog>
     </>
   );
