@@ -39,6 +39,11 @@ service cloud.firestore {
     match /users/{userId} {
       allow read, write: if request.auth != null && request.auth.uid == userId;
 
+      // Permite que o utilizador autenticado aceda à sua própria subcoleção de live_items
+      match /live_items/{itemId} {
+        allow read, write: if request.auth != null && request.auth.uid == userId;
+      }
+
       // Permite que o utilizador autenticado leia e escreva na sua própria subcoleção de order_items
       match /order_items/{orderId} {
         allow read, write: if request.auth != null && request.auth.uid == userId;
@@ -51,5 +56,3 @@ service cloud.firestore {
     }
   }
 }
-
-    
