@@ -10,6 +10,9 @@ import {
   QuerySnapshot,
   CollectionReference,
 } from 'firebase/firestore';
+import { errorEmitter } from '@/firebase/error-emitter';
+import { FirestorePermissionError } from '@/firebase/errors';
+
 
 export type WithId<T> = T & { id: string };
 
@@ -51,10 +54,16 @@ export function useCollection<T = any>(
         setIsLoading(false);
       },
       (error: FirestoreError) => {
-        console.error("Firebase Error in useCollection:", error);
-        setError(error);
+        const contextualError = new FirestorePermissionError({
+          operation: 'list',
+          path: 'path' in memoizedTargetRefOrQuery ? memoizedTargetRefOrQuery.path : 'unknown path',
+        });
+        
+        setError(contextualError);
         setData(null);
         setIsLoading(false);
+
+        errorEmitter.emit('permission-error', contextualError);
       }
     );
 
