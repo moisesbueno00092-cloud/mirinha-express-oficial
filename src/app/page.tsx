@@ -423,17 +423,13 @@ function LancheTrackerPage() {
 
       if (currentItem) {
         const itemRef = doc(liveItemsCollectionRef, currentItem.id);
-        await setDoc(itemRef, finalItem).catch(e => {
-          errorEmitter.emit('permission-error', new FirestorePermissionError({path: itemRef.path, operation: 'update', requestResourceData: finalItem}))
-        });
+        await setDoc(itemRef, finalItem);
         toast({
           duration: 4000,
           component: <ToastContent item={{ ...finalItem, total: finalItem.total }} title="Lançamento Atualizado" />,
         });
       } else {
-        await addDoc(liveItemsCollectionRef, finalItem).catch(e => {
-          errorEmitter.emit('permission-error', new FirestorePermissionError({path: liveItemsCollectionRef.path, operation: 'create', requestResourceData: finalItem}))
-        });
+        await addDoc(liveItemsCollectionRef, finalItem);
         toast({
           duration: 4000,
           component: <ToastContent item={{ ...finalItem, total: finalItem.total }} title="Lançamento Adicionado" />,
@@ -441,13 +437,11 @@ function LancheTrackerPage() {
       }
     } catch (error: any) {
       console.error('Error upserting item:', error);
-      if (!(error instanceof FirestorePermissionError)) {
-        toast({
-            variant: 'destructive',
-            title: 'Erro ao processar item',
-            description: error.message || 'Ocorreu um problema ao processar o lançamento.',
-        });
-      }
+      toast({
+          variant: 'destructive',
+          title: 'Erro ao processar item',
+          description: error.message || 'Ocorreu um problema ao processar o lançamento.',
+      });
     } finally {
       setIsProcessing(false);
       setRawInput('');
@@ -509,16 +503,12 @@ function LancheTrackerPage() {
       }
 
       const docRef = doc(liveItemsCollectionRef, itemToDelete);
-      await deleteDoc(docRef).catch(e => {
-        errorEmitter.emit('permission-error', new FirestorePermissionError({path: docRef.path, operation: 'delete'}))
-      });
+      await deleteDoc(docRef);
 
       toast({ title: 'Item removido com sucesso.', variant: 'destructive' });
     } catch (error: any) {
       console.error('Error deleting item:', error);
-      if (!(error instanceof FirestorePermissionError)) {
-        toast({ variant: 'destructive', title: 'Erro ao remover', description: 'Não foi possível remover o item.' });
-      }
+      toast({ variant: 'destructive', title: 'Erro ao remover', description: 'Não foi possível remover o item.' });
     } finally {
       setItemToDelete(null);
     }
@@ -618,13 +608,11 @@ function LancheTrackerPage() {
       });
     } catch (error) {
       console.error('Error saving report:', error);
-      if (!(error instanceof FirestorePermissionError)) {
-        toast({
+      toast({
           variant: 'destructive',
           title: 'Erro ao Salvar',
           description: 'Não foi possível salvar o relatório ou arquivar os itens.',
         });
-      }
     } finally {
       setIsSavingReport(false);
     }
@@ -883,3 +871,5 @@ export default function Home() {
       <LancheTrackerPage />
   );
 }
+
+    
