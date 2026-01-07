@@ -52,18 +52,17 @@ const findBestBomboniereMatch = (productName: string, bomboniereItems: Bombonier
     let longestMatchLength = 0;
 
     for (const bomboniereItem of bomboniereItems) {
-        const lowerBomboniereName = bomboniereItem.name.toLowerCase();
-        
-        // Prioritize exact match
-        if (lowerProductName === lowerBomboniereName) {
-            return bomboniereItem;
-        }
+        // Normalize bomboniere name by removing content in parentheses
+        const baseBomboniereName = bomboniereItem.name.toLowerCase().replace(/\s*\(.*\)\s*/, '').trim();
 
-        // Check if bomboniere name is a substring of the product name
-        if (lowerProductName.includes(lowerBomboniereName)) {
-            if (lowerBomboniereName.length > longestMatchLength) {
+        if (!baseBomboniereName) continue;
+        
+        // Check if the invoice product name starts with the base bomboniere name
+        if (lowerProductName.startsWith(baseBomboniereName)) {
+            // We want the longest possible match to avoid "bala" matching "bala de goma" incorrectly.
+            if (baseBomboniereName.length > longestMatchLength) {
                 bestMatch = bomboniereItem;
-                longestMatchLength = lowerBomboniereName.length;
+                longestMatchLength = baseBomboniereName.length;
             }
         }
     }
