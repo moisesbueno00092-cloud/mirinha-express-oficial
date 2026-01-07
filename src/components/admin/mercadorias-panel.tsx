@@ -82,7 +82,7 @@ export default function MercadoriasPanel() {
     const { data: allEntradas } = useCollection<EntradaMercadoria>(allEntradasQuery);
     
     const bomboniereItemsQuery = useMemoFirebase(() => firestore ? query(collection(firestore, 'bomboniere_items')) : null, [firestore]);
-    const { data: bomboniereItems } = useCollection<BomboniereItem>(bomboniereItemsQuery);
+    const { data: bomboniereItems, isLoading: isLoadingBomboniere } = useCollection<BomboniereItem>(bomboniereItemsQuery);
 
     useEffect(() => {
         const ensureDeliveryProvider = async () => {
@@ -422,8 +422,8 @@ export default function MercadoriasPanel() {
     };
 
     const handleRegisterEntry = async () => {
-        if (!firestore || !fornecedorId || produtosLancados.length === 0) {
-            toast({ variant: 'destructive', title: 'Faltam dados', description: 'Por favor, selecione um fornecedor e adicione pelo menos um produto.' });
+        if (!firestore || !fornecedorId || produtosLancados.length === 0 || !bomboniereItems) {
+            toast({ variant: 'destructive', title: 'Faltam dados', description: 'Por favor, selecione um fornecedor, espere os itens da bomboniere carregarem, e adicione pelo menos um produto.' });
             return;
         }
         setIsSubmitting(true);
@@ -437,8 +437,6 @@ export default function MercadoriasPanel() {
 
             const valorParcela = totalCompra / parcelas;
             
-            const contasCollection = collection(firestore, 'contas_a_pagar');
-            const entradasCollection = collection(firestore, 'entradas_mercadorias');
             const batch = writeBatch(firestore);
 
             for (let i = 0; i < parcelas; i++) {
@@ -450,7 +448,7 @@ export default function MercadoriasPanel() {
                     dataVencimento: formatDateFn(vencimentoParcela, 'yyyy-MM-dd'),
                     estaPaga: estaPaga,
                 };
-                const contaDocRef = doc(contasCollection);
+                const contaDocRef = doc(collection(firestore, 'contas_a_pagar'));
                 batch.set(contaDocRef, novaConta);
             }
 
@@ -463,13 +461,21 @@ export default function MercadoriasPanel() {
                     precoUnitario: produto.precoUnitario,
                     valorTotal: produto.preco,
                 };
-                const entradaDocRef = doc(entradasCollection);
+                const entradaDocRef = doc(collection(firestore, 'entradas_mercadorias'));
                 batch.set(entradaDocRef, novaEntrada);
+                
+                // Stock update logic
+                const existingBomboniereItem = bomboniereItems.find(bi => bi.name.toLowerCase() === produto.produtoNome.toLowerCase());
+                if (existingBomboniereItem) {
+                    const bomboniereDocRef = doc(firestore, 'bomboniere_items', existingBomboniereItem.id);
+                    const newStock = existingBomboniereItem.estoque + produto.quantidade;
+                    batch.update(bomboniereDocRef, { estoque: newStock });
+                }
             });
             
             await batch.commit();
 
-            toast({ title: 'Sucesso!', description: 'Entrada de mercadoria e conta(s) a pagar registadas.' });
+            toast({ title: 'Sucesso!', description: 'Entrada de mercadoria, conta(s) a pagar e estoque atualizados com sucesso.' });
             resetForm();
         } catch (error) {
             console.error("Erro ao registar entrada:", error);
@@ -713,7 +719,7 @@ export default function MercadoriasPanel() {
                 <div className="flex justify-end pt-4">
                     <Button 
                         onClick={handleRegisterEntry}
-                        disabled={isSubmitting || !fornecedorId || produtosLancados.length === 0}
+                        disabled={isSubmitting || !fornecedorId || produtosLancados.length === 0 || isLoadingBomboniere}
                     >
                         {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                         Registar Entrada e Criar Conta(s)
