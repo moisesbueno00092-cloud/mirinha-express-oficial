@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useMemo, useState, useRef, useEffect } from 'react';
@@ -106,7 +107,7 @@ const ToastContent = ({ item, title }: { item: Partial<Item>; title: string }) =
 );
 
 function LancheTrackerPage() {
-  const { user } = useUser();
+  const { user, isUserLoading } = useUser();
   const firestore = useFirestore();
   const router = useRouter();
 
@@ -734,6 +735,16 @@ function LancheTrackerPage() {
   }, [items]);
 
   const hasUnsavedChanges = items && items.length > 0;
+  
+  if (isUserLoading) {
+    return (
+      <div className="flex h-screen w-full flex-col items-center justify-center text-center p-4">
+        <MirinhaLogo className="w-64 sm:w-80 h-auto text-primary mb-4" />
+        <Loader2 className="h-12 w-12 animate-spin text-primary" />
+        <p className="mt-4 text-muted-foreground">A autenticar...</p>
+      </div>
+    );
+  }
 
   return (
     <>
@@ -868,47 +879,9 @@ function LancheTrackerPage() {
   );
 }
 
-function AuthWall({ children }: { children: React.ReactNode }) {
-  const { user, isUserLoading, userError } = useUser();
-
-  if (isUserLoading) {
-    return (
-      <div className="flex h-screen w-full flex-col items-center justify-center text-center p-4">
-        <MirinhaLogo className="w-64 sm:w-80 h-auto text-primary mb-4" />
-        <Loader2 className="h-12 w-12 animate-spin text-primary" />
-        <p className="mt-4 text-muted-foreground">A aguardar autenticação...</p>
-      </div>
-    );
-  }
-
-  if (userError) {
-    return (
-       <div className="flex h-screen w-full flex-col items-center justify-center text-center p-4">
-        <MirinhaLogo className="w-64 sm:w-80 h-auto text-primary mb-4" />
-        <p className="mt-4 text-destructive font-semibold">Erro de Autenticação</p>
-        <p className="mt-2 text-muted-foreground text-sm max-w-md">{userError.message}</p>
-        <p className="mt-2 text-muted-foreground text-xs max-w-md">Por favor, tente recarregar a página.</p>
-      </div>
-    )
-  }
-
-  if (!user) {
-    return (
-      <div className="flex h-screen w-full flex-col items-center justify-center text-center p-4">
-        <MirinhaLogo className="w-64 sm:w-80 h-auto text-primary mb-4" />
-        <Loader2 className="h-12 w-12 animate-spin text-primary" />
-        <p className="mt-4 text-muted-foreground">A conectar...</p>
-      </div>
-    );
-  }
-
-  return <>{children}</>;
-}
 
 export default function Home() {
   return (
-    <AuthWall>
       <LancheTrackerPage />
-    </AuthWall>
   );
 }

@@ -4,7 +4,7 @@
 import React, { createContext, useContext, ReactNode, useMemo, useState, useEffect } from 'react';
 import { FirebaseApp } from 'firebase/app';
 import { Firestore } from 'firebase/firestore';
-import { Auth, User, onAuthStateChanged, signInAnonymously } from 'firebase/auth';
+import { Auth, User, onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword } from 'firebase/auth';
 import { FirebaseErrorListener } from '@/components/FirebaseErrorListener';
 
 interface FirebaseProviderProps {
@@ -34,6 +34,9 @@ export interface UserHookResult {
 // React Context
 export const FirebaseContext = createContext<FirebaseContextState | undefined>(undefined);
 
+const SHARED_EMAIL = 'usuario@mirinha.com';
+const SHARED_PASSWORD = 'password123';
+
 /**
  * FirebaseProvider manages and provides Firebase services and user authentication state.
  */
@@ -48,20 +51,34 @@ export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
   const [userError, setUserError] = useState<Error | null>(null);
 
   useEffect(() => {
-    // onAuthStateChanged will handle the user state.
-    // If no user is logged in, it will return null, triggering anonymous sign-in.
+    const signInSharedUser = async () => {
+      try {
+        await signInWithEmailAndPassword(auth, SHARED_EMAIL, SHARED_PASSWORD);
+      } catch (error: any) {
+        if (error.code === 'auth/user-not-found') {
+          try {
+            await createUserWithEmailAndPassword(auth, SHARED_EMAIL, SHARED_PASSWORD);
+          } catch (creationError) {
+            console.error("FirebaseProvider: Failed to create shared user.", creationError);
+            setUserError(creationError as Error);
+          }
+        } else if (error.code !== 'auth/invalid-credential') {
+           console.error("FirebaseProvider: Sign-in failed.", error);
+           setUserError(error);
+        }
+      } finally {
+        setIsUserLoading(false);
+      }
+    };
+
     const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
       if (currentUser) {
         setUser(currentUser);
         setIsUserLoading(false);
         setUserError(null);
       } else {
-        // No user, so sign in anonymously.
-        signInAnonymously(auth).catch((error) => {
-            console.error("FirebaseProvider: Anonymous sign-in failed.", error);
-            setUserError(error);
-            setIsUserLoading(false); // Stop loading on error
-        });
+        // No user is signed in, attempt to sign in the shared user.
+        signInSharedUser();
       }
     }, (error) => {
       console.error("FirebaseProvider: Auth listener error", error);
