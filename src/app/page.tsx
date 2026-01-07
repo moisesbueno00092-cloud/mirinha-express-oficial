@@ -101,7 +101,7 @@ function LancheTrackerPage() {
     () => (firestore && user ? collection(firestore, 'users', user.uid, 'live_items') : null),
     [firestore, user]
   );
-  const { data: items, isLoading: isLoadingItems } = useCollection<Item>(liveItemsCollectionRef);
+  const { data: liveItems, isLoading: isLoadingItems } = useCollection<Item>(liveItemsCollectionRef);
 
   const bomboniereItemsRef = useMemoFirebase(
     () => (firestore ? query(collection(firestore, 'bomboniere_items'), orderBy('name', 'asc')) : null),
@@ -481,9 +481,9 @@ function LancheTrackerPage() {
   };
 
   const confirmDeleteItem = async () => {
-    if (!itemToDelete || !user || !firestore || !liveItemsCollectionRef || !items) return;
+    if (!itemToDelete || !user || !firestore || !liveItemsCollectionRef || !liveItems) return;
 
-    const itemBeingDeleted = items.find((it) => it.id === itemToDelete);
+    const itemBeingDeleted = liveItems.find((it) => it.id === itemToDelete);
 
     try {
       if (itemBeingDeleted && itemBeingDeleted.bomboniereItems && bomboniereItems) {
@@ -542,7 +542,7 @@ function LancheTrackerPage() {
   };
 
   const handleSaveReport = async () => {
-    if (!user || !firestore || !items || items.length === 0) {
+    if (!user || !firestore || !liveItems || liveItems.length === 0) {
       toast({ variant: 'destructive', title: 'Impossível Salvar', description: 'Não há itens para gerar o relatório.' });
       return;
     }
@@ -551,7 +551,7 @@ function LancheTrackerPage() {
     try {
       const reportDate = format(new Date(), 'yyyy-MM-dd');
 
-      const itemsToReport = items.map((item) => ({
+      const itemsToReport = liveItems.map((item) => ({
         ...item,
         timestamp: serverTimestamp(), // Will be converted by Firestore
         reportado: true,
@@ -573,7 +573,7 @@ function LancheTrackerPage() {
         totalBomboniereSalao: totals.totalBomboniereSalao,
         totalBomboniereRua: totals.totalBomboniereRua,
         totalItens: totals.totalItens,
-        totalPedidos: items.length,
+        totalPedidos: liveItems.length,
         totalEntregas: totals.totalEntregas,
         totalItensRua: totals.totalItensRua,
         contagemTotal: totals.contagemTotal,
@@ -593,7 +593,7 @@ function LancheTrackerPage() {
       });
 
       // Delete all live items after archiving
-      items.forEach((item) => {
+      liveItems.forEach((item) => {
         const liveItemRef = doc(firestore, 'users', user.uid, 'live_items', item.id);
         batch.delete(liveItemRef);
       });
@@ -617,7 +617,7 @@ function LancheTrackerPage() {
   };
 
   const totals = useMemo(() => {
-    const currentItems = items || [];
+    const currentItems = liveItems || [];
     if (currentItems.length === 0) {
       return {
         totalGeral: 0,
@@ -717,9 +717,9 @@ function LancheTrackerPage() {
     );
 
     return result;
-  }, [items]);
+  }, [liveItems]);
 
-  const hasUnsavedChanges = items && items.length > 0;
+  const hasUnsavedChanges = liveItems && liveItems.length > 0;
   
   if (isUserLoading) {
     return (
@@ -813,7 +813,7 @@ function LancheTrackerPage() {
             <Separator />
             <h2 className="text-xl font-semibold leading-none tracking-tight">Lançamentos do Dia</h2>
             <ItemList
-              items={items || []}
+              items={liveItems || []}
               onEdit={handleEditRequest}
               onDelete={handleDeleteRequest}
               onFavorite={handleFavoriteSave}

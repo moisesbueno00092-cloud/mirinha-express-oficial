@@ -54,16 +54,21 @@ export function useCollection<T = any>(
         setIsLoading(false);
       },
       (error: FirestoreError) => {
-        const contextualError = new FirestorePermissionError({
-          operation: 'list',
-          path: 'path' in memoizedTargetRefOrQuery ? memoizedTargetRefOrQuery.path : 'unknown path',
-        });
-        
-        setError(contextualError);
+        // Simplified error handling.
+        // The original implementation had a bug trying to access a path that might not exist.
+        console.error("useCollection error:", error);
+        setError(error);
         setData(null);
         setIsLoading(false);
 
-        errorEmitter.emit('permission-error', contextualError);
+        // Optionally, you can still emit a generic permission error if you want to use the global handler
+        if (error.code === 'permission-denied') {
+            const contextualError = new FirestorePermissionError({
+              operation: 'list',
+              path: 'path' in memoizedTargetRefOrQuery ? memoizedTargetRefOrQuery.path : 'unknown path',
+            });
+            errorEmitter.emit('permission-error', contextualError);
+        }
       }
     );
 
