@@ -31,6 +31,7 @@ import {
   setDoc,
   serverTimestamp,
   Timestamp,
+  where,
 } from 'firebase/firestore';
 import { parseCustomItemPrice } from '@/ai/flows/parse-custom-item-price';
 
@@ -105,13 +106,11 @@ function LancheTrackerPage() {
   );
   
   const orderItemsQuery = useMemoFirebase(
-    () => (orderItemsCollectionRef ? query(orderItemsCollectionRef, orderBy('timestamp', 'desc')) : null),
+    () => (orderItemsCollectionRef ? query(orderItemsCollectionRef, where('reportado', '==', false), orderBy('timestamp', 'desc')) : null),
     [orderItemsCollectionRef]
   );
 
-  const { data: allItems, isLoading: isLoadingItems, error: itemsError } = useCollection<Item>(orderItemsQuery);
-
-  const items = useMemo(() => allItems?.filter(item => !item.reportado) || [], [allItems]);
+  const { data: items, isLoading: isLoadingItems, error: itemsError } = useCollection<Item>(orderItemsQuery);
 
   useEffect(() => {
     if (itemsError) {
@@ -502,9 +501,9 @@ function LancheTrackerPage() {
   };
 
   const confirmDeleteItem = async () => {
-    if (!itemToDelete || !firestore || !orderItemsCollectionRef || !allItems) return;
+    if (!itemToDelete || !firestore || !orderItemsCollectionRef || !items) return;
 
-    const itemBeingDeleted = allItems.find((it) => it.id === itemToDelete);
+    const itemBeingDeleted = items.find((it) => it.id === itemToDelete);
 
     try {
       if (itemBeingDeleted && itemBeingDeleted.bomboniereItems && bomboniereItems) {
@@ -634,7 +633,7 @@ function LancheTrackerPage() {
   };
 
   const totals = useMemo(() => {
-    if (items.length === 0) {
+    if (!items || items.length === 0) {
       return {
         totalGeral: 0,
         totalAVista: 0,
@@ -829,7 +828,7 @@ function LancheTrackerPage() {
             <Separator />
             <h2 className="text-xl font-semibold leading-none tracking-tight">Lançamentos do Dia</h2>
             <ItemList
-              items={items}
+              items={items || []}
               onEdit={handleEditRequest}
               onDelete={handleDeleteRequest}
               onFavorite={handleFavoriteSave}
@@ -885,3 +884,5 @@ export default function Home() {
       <LancheTrackerPage />
   );
 }
+
+    

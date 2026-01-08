@@ -11,7 +11,7 @@
         },
         {
           "fieldPath": "timestamp",
-          "order": "ASCENDING"
+          "order": "DESCENDING"
         }
       ]
     },
@@ -25,10 +25,12 @@
         },
         {
           "fieldPath": "timestamp",
-          "order": "DESCENDING"
+          "order": "ASCENDING"
         }
       ]
     }
   ],
   "fieldOverrides": []
 }
+
+    
