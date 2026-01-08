@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useMemo, useState, useRef, useEffect, useCallback } from 'react';
+import { useMemo, useState, useRef, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import type {
   Item,
@@ -115,7 +115,7 @@ function LancheTrackerPage() {
       toast({
         variant: 'destructive',
         title: 'Erro ao carregar itens',
-        description: 'Não foi possível carregar os lançamentos. Verifique a sua conexão ou as permissões da base de dados.',
+        description: `Não foi possível carregar os lançamentos. Verifique a sua conexão ou as permissões da base de dados. Detalhe: ${itemsError.message}`,
         duration: 8000,
       });
       console.error("Firestore Error:", itemsError);
@@ -892,7 +892,3 @@ export default function Home() {
       <LancheTrackerPage />
   );
 }
-
-    
-
-    
