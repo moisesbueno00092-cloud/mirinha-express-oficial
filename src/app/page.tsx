@@ -98,17 +98,17 @@ function LancheTrackerPage() {
   const router = useRouter();
   const { toast } = useToast();
 
-  const liveItemsCollectionRef = useMemoFirebase(
-    () => (firestore && user ? collection(firestore, 'users', user.uid, 'live_items') : null),
+  const orderItemsCollectionRef = useMemoFirebase(
+    () => (firestore && user ? collection(firestore, 'users', user.uid, 'order_items') : null),
     [firestore, user]
   );
   
-  const liveItemsQuery = useMemoFirebase(
-    () => (liveItemsCollectionRef ? query(liveItemsCollectionRef, orderBy('timestamp', 'asc')) : null),
-    [liveItemsCollectionRef]
+  const orderItemsQuery = useMemoFirebase(
+    () => (orderItemsCollectionRef ? query(orderItemsCollectionRef, orderBy('timestamp', 'asc')) : null),
+    [orderItemsCollectionRef]
   );
 
-  const { data: liveItems, isLoading: isLoadingItems, error: itemsError } = useCollection<Item>(liveItemsQuery);
+  const { data: items, isLoading: isLoadingItems, error: itemsError } = useCollection<Item>(orderItemsQuery);
 
   useEffect(() => {
     if (itemsError) {
@@ -184,7 +184,7 @@ function LancheTrackerPage() {
 
   async function handleUpsertItem(rawInputToProcess: string, currentItem?: Item | null, favoriteName?: string) {
     setIsProcessing(true);
-    if (!user || !firestore || !liveItemsCollectionRef) {
+    if (!user || !firestore || !orderItemsCollectionRef) {
       toast({ variant: 'destructive', title: 'Erro', description: 'Utilizador não autenticado ou base de dados indisponível. A página será recarregada.' });
       setIsProcessing(false);
       // Force reload if we end up in this state, as it's unrecoverable
@@ -440,14 +440,14 @@ function LancheTrackerPage() {
       };
 
       if (currentItem) {
-        const itemRef = doc(liveItemsCollectionRef, currentItem.id);
+        const itemRef = doc(orderItemsCollectionRef, currentItem.id);
         await setDoc(itemRef, finalItem);
         toast({
           duration: 4000,
           component: <ToastContent item={{ ...finalItem, total: finalItem.total }} title="Lançamento Atualizado" />,
         });
       } else {
-        await addDoc(liveItemsCollectionRef, finalItem);
+        await addDoc(orderItemsCollectionRef, finalItem);
         toast({
           duration: 4000,
           component: <ToastContent item={{ ...finalItem, total: finalItem.total }} title="Lançamento Adicionado" />,
@@ -502,9 +502,9 @@ function LancheTrackerPage() {
   };
 
   const confirmDeleteItem = async () => {
-    if (!itemToDelete || !user || !firestore || !liveItemsCollectionRef || !liveItems) return;
+    if (!itemToDelete || !user || !firestore || !orderItemsCollectionRef || !items) return;
 
-    const itemBeingDeleted = liveItems.find((it) => it.id === itemToDelete);
+    const itemBeingDeleted = items.find((it) => it.id === itemToDelete);
 
     try {
       if (itemBeingDeleted && itemBeingDeleted.bomboniereItems && bomboniereItems) {
@@ -521,7 +521,7 @@ function LancheTrackerPage() {
         await batch.commit();
       }
 
-      const docRef = doc(liveItemsCollectionRef, itemToDelete);
+      const docRef = doc(orderItemsCollectionRef, itemToDelete);
       await deleteDoc(docRef);
 
       toast({ title: 'Item removido com sucesso.', variant: 'destructive' });
@@ -563,7 +563,7 @@ function LancheTrackerPage() {
   };
 
   async function handleSaveReport() {
-    if (!user || !firestore || !liveItems || liveItems.length === 0) {
+    if (!user || !firestore || !items || items.length === 0) {
       toast({ variant: 'destructive', title: 'Impossível Salvar', description: 'Não há itens para gerar o relatório.' });
       return;
     }
@@ -572,11 +572,17 @@ function LancheTrackerPage() {
     try {
       const reportDate = format(new Date(), 'yyyy-MM-dd');
 
-      const itemsToReport = liveItems.map((item) => ({
+      const itemsToReport = items.filter(item => !item.reportado).map((item) => ({
         ...item,
-        timestamp: serverTimestamp(), // Will be converted by Firestore
+        timestamp: serverTimestamp(), 
         reportado: true,
       }));
+
+      if(itemsToReport.length === 0) {
+        toast({ variant: 'destructive', title: 'Impossível Salvar', description: 'Nenhum item novo para reportar.' });
+        setIsSavingReport(false);
+        return;
+      }
 
       const report: DailyReport = {
         userId: user.uid,
@@ -594,7 +600,7 @@ function LancheTrackerPage() {
         totalBomboniereSalao: totals.totalBomboniereSalao,
         totalBomboniereRua: totals.totalBomboniereRua,
         totalItens: totals.totalItens,
-        totalPedidos: liveItems.length,
+        totalPedidos: items.length,
         totalEntregas: totals.totalEntregas,
         totalItensRua: totals.totalItensRua,
         contagemTotal: totals.contagemTotal,
@@ -606,26 +612,18 @@ function LancheTrackerPage() {
       const reportRef = doc(collection(firestore, 'users', user.uid, 'daily_reports'));
       batch.set(reportRef, report);
 
-      itemsToReport.forEach((item) => {
-        const itemRef = doc(collection(firestore, 'users', user.uid, 'order_items'));
-        // We delete the 'id' field as it's not part of the schema for the stored order_item
-        const { id, ...itemData } = item;
-        batch.set(itemRef, itemData);
-      });
-
-      if (liveItemsCollectionRef) {
-          liveItems.forEach((item) => {
-            const liveItemRef = doc(liveItemsCollectionRef, item.id);
-            batch.delete(liveItemRef);
+      if (orderItemsCollectionRef) {
+          items.forEach((item) => {
+            const liveItemRef = doc(orderItemsCollectionRef, item.id);
+            batch.update(liveItemRef, { reportado: true });
           });
       }
-
 
       await batch.commit();
 
       toast({
         title: 'Relatório Salvo!',
-        description: 'O relatório do dia foi salvo e os itens arquivados no Firestore.',
+        description: 'O relatório do dia foi salvo e os itens marcados como reportados.',
       });
     } catch (error: any) {
       console.error('Error saving report:', error);
@@ -640,7 +638,7 @@ function LancheTrackerPage() {
   };
 
   const totals = useMemo(() => {
-    const currentItems = liveItems || [];
+    const currentItems = items || [];
     if (currentItems.length === 0) {
       return {
         totalGeral: 0,
@@ -663,7 +661,9 @@ function LancheTrackerPage() {
       };
     }
 
-    const result = currentItems.reduce(
+    const itemsDoDia = currentItems.filter(item => !item.reportado);
+
+    const result = itemsDoDia.reduce(
       (acc, item) => {
         acc.totalGeral += item.total;
         acc.totalItens += item.quantity;
@@ -740,9 +740,9 @@ function LancheTrackerPage() {
     );
 
     return result;
-  }, [liveItems]);
+  }, [items]);
 
-  const hasUnsavedChanges = liveItems && liveItems.length > 0;
+  const hasUnsavedChanges = items && items.some(item => !item.reportado);
   
   if (isUserLoading) {
     return (
@@ -788,8 +788,7 @@ function LancheTrackerPage() {
           <AlertDialogHeader>
             <AlertDialogTitle>Excluir Lançamento?</AlertDialogTitle>
             <AlertDialogDescription>
-              Esta ação não pode ser desfeita. O item será excluído permanentemente da lista local e da base de dados (se já
-              sincronizado). Se contiver itens de bomboniere, o estoque será devolvido.
+              Esta ação não pode ser desfeita. O item será excluído permanentemente da base de dados. Se contiver itens de bomboniere, o estoque será devolvido.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -836,7 +835,7 @@ function LancheTrackerPage() {
             <Separator />
             <h2 className="text-xl font-semibold leading-none tracking-tight">Lançamentos do Dia</h2>
             <ItemList
-              items={liveItems || []}
+              items={items?.filter(item => !item.reportado) || []}
               onEdit={handleEditRequest}
               onDelete={handleDeleteRequest}
               onFavorite={handleFavoriteSave}
@@ -892,3 +891,5 @@ export default function Home() {
       <LancheTrackerPage />
   );
 }
+
+    
