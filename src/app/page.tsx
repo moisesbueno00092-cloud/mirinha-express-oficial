@@ -567,7 +567,7 @@ function LancheTrackerPage() {
     setIsSavingReport(true);
 
     try {
-      const reportDate = format(new Date(), 'yyyy-MM-dd');
+      const reportDate = new Date();
 
       const itemsToReport = items.filter(item => !item.reportado).map((item) => ({
         ...item,
@@ -583,7 +583,7 @@ function LancheTrackerPage() {
 
       const report: DailyReport = {
         userId: user.uid,
-        reportDate: reportDate,
+        reportDate: reportDate.toISOString(),
         createdAt: new Date().toISOString(),
         totalGeral: totals.totalGeral,
         totalAVista: totals.totalAVista,

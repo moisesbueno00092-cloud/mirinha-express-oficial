@@ -477,8 +477,7 @@ function ReportsPageContent() {
   
     const filtered = savedReports.filter(r => {
       try {
-        // Robust date parsing, ignoring timezones
-        const reportDate = parse(r.reportDate, 'yyyy-MM-dd', new Date());
+        const reportDate = new Date(r.reportDate);
         return isWithinInterval(reportDate, { start: startDate, end: endDate });
       } catch {
         return false;
@@ -507,7 +506,7 @@ function ReportsPageContent() {
   
   const getFormattedDate = (dateString: string) => {
     try {
-        const date = parse(dateString, 'yyyy-MM-dd', new Date());
+        const date = new Date(dateString);
         return {
             day: format(date, "dd"),
             month: format(date, "MMM", { locale: ptBR }).toUpperCase(),
