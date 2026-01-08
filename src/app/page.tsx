@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useMemo, useState, useRef, useEffect } from 'react';
@@ -105,10 +106,12 @@ function LancheTrackerPage() {
   );
   
   const liveItemsQuery = useMemoFirebase(
-    () => (liveItemsCollectionRef ? query(liveItemsCollectionRef, orderBy('timestamp', 'asc')) : null),
+    () => (liveItemsCollectionRef ? query(liveItemsCollectionRef, where('reportado', '==', false), orderBy('timestamp', 'desc')) : null),
     [liveItemsCollectionRef]
   );
+  
   const { data: items, isLoading: isLoadingItems, error: itemsError } = useCollection<Item>(liveItemsQuery);
+
 
   useEffect(() => {
     if (itemsError) {
@@ -428,6 +431,7 @@ function LancheTrackerPage() {
         deliveryFee,
         total,
         originalCommand: rawInputToProcess,
+        reportado: false,
         ...(user && { userId: user.uid }),
         ...(customerName && { customerName }),
         ...(individualPrices.length > 0 ? { individualPrices } : {}),
@@ -595,20 +599,16 @@ function LancheTrackerPage() {
       const reportRef = doc(collection(firestore, 'users', user.uid, 'daily_reports'));
       batch.set(reportRef, report);
 
-      const orderItemsCollectionRef = collection(firestore, 'users', user.uid, 'order_items');
-
       items.forEach((item) => {
-        const newItemRef = doc(orderItemsCollectionRef);
-        batch.set(newItemRef, item);
         const liveItemRef = doc(liveItemsCollectionRef!, item.id);
-        batch.delete(liveItemRef);
+        batch.update(liveItemRef, { reportado: true });
       });
 
       await batch.commit();
 
       toast({
         title: 'Relatório Salvo!',
-        description: 'O relatório do dia foi salvo e os itens arquivados.',
+        description: 'O relatório do dia foi salvo e os itens marcados como reportados.',
       });
     } catch (error: any) {
       console.error('Error saving report:', error);
@@ -874,3 +874,5 @@ export default function Home() {
       <LancheTrackerPage />
   );
 }
+
+    

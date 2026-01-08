@@ -3,8 +3,8 @@
 
 import { useState, useMemo, useEffect, useCallback } from 'react';
 import { useUser, useFirestore, useCollection, useMemoFirebase } from '@/firebase';
-import { collection, query, orderBy, doc, where, deleteDoc } from 'firebase/firestore';
-import { format, parse, startOfMonth, endOfMonth, isWithinInterval, addMonths, subMonths } from 'date-fns';
+import { collection, query, orderBy, doc, where, getDocs, deleteDoc } from 'firebase/firestore';
+import { format, parse, startOfMonth, endOfMonth, isWithinInterval, addMonths, subMonths, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import Link from 'next/link';
 
@@ -38,7 +38,7 @@ import {
 } from "@/components/ui/chart"
 import { PieChart, Pie, Cell, ResponsiveContainer } from "recharts"
 
-import type { DailyReport, ItemCount, BomboniereItem } from '@/types';
+import type { DailyReport, ItemCount, BomboniereItem, Item } from '@/types';
 import { cn } from '@/lib/utils';
 import { Label } from '@/components/ui/label';
 import PasswordDialog from '@/components/password-dialog';
@@ -418,7 +418,7 @@ function ReportsPageContent() {
   const { toast } = useToast();
   const router = useRouter();
   
-  const [reportToDelete, setReportToDelete] = useState<string | null>(null);
+  const [reportToDelete, setReportToDelete] = useState<DailyReport | null>(null);
   const [currentMonth, setCurrentMonth] = useState(String(new Date().getMonth()));
   const [currentYear, setCurrentYear] = useState(String(new Date().getFullYear()));
   const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -477,40 +477,59 @@ function ReportsPageContent() {
   
     return savedReports.filter(r => {
       try {
-        // Handle both ISO strings and Firestore Timestamps
-        const reportDate = r.createdAt instanceof Date 
-          ? r.createdAt 
-          : typeof r.createdAt === 'string' 
-            ? parseISO(r.createdAt) 
-            : new Date(r.createdAt); // Fallback
+        const reportDate = parseISO(r.reportDate);
         return isWithinInterval(reportDate, { start: startDate, end: endDate });
       } catch {
-        // Fallback for potentially malformed old data
-        try {
-            const reportDate = parseISO(r.reportDate);
-             return isWithinInterval(reportDate, { start: startDate, end: endDate });
-        } catch {
-            return false;
-        }
+        return false;
       }
     });
   
   }, [savedReports, currentYear, currentMonth]);
   
-  const handleDeleteReportRequest = (reportId: string) => {
-    setReportToDelete(reportId);
+  const handleDeleteReportRequest = (report: DailyReport) => {
+    setReportToDelete(report);
   };
 
   const confirmDeleteReport = async () => {
-    if (!firestore || !user || !reportToDelete) return;
+    if (!firestore || !user || !reportToDelete?.id) return;
     
-    const docRef = doc(firestore, "users", user.uid, "daily_reports", reportToDelete);
-    await deleteDoc(docRef);
-    toast({
-        title: "Sucesso",
-        description: "Relatório excluído permanentemente.",
-    });
-    setReportToDelete(null);
+    try {
+        const batch = writeBatch(firestore);
+
+        const orderItemsCollectionRef = collection(firestore, 'users', user.uid, 'order_items');
+        const startOfDay = startOfDay(parseISO(reportToDelete.reportDate));
+        const endOfDay = endOfDay(parseISO(reportToDelete.reportDate));
+        
+        const q = query(orderItemsCollectionRef, 
+            where('timestamp', '>=', startOfDay), 
+            where('timestamp', '<=', endOfDay)
+        );
+
+        const orderItemsSnapshot = await getDocs(q);
+        orderItemsSnapshot.forEach((doc) => {
+            batch.update(doc.ref, { reportado: false });
+        });
+
+        const reportDocRef = doc(firestore, "users", user.uid, "daily_reports", reportToDelete.id);
+        batch.delete(reportDocRef);
+
+        await batch.commit();
+
+        toast({
+            title: "Sucesso",
+            description: "Relatório excluído e os seus itens foram marcados como não reportados.",
+        });
+
+    } catch (error) {
+        console.error("Error deleting report:", error);
+        toast({
+            variant: "destructive",
+            title: "Erro",
+            description: "Não foi possível excluir o relatório.",
+        });
+    } finally {
+        setReportToDelete(null);
+    }
   };
   
   const getFormattedDate = (date: Date | string) => {
@@ -559,7 +578,7 @@ function ReportsPageContent() {
           <AlertDialogHeader>
             <AlertDialogTitle>Excluir Relatório?</AlertDialogTitle>
             <AlertDialogDescription>
-              Esta ação não pode ser desfeita. Isso excluirá permanentemente o relatório selecionado.
+              Esta ação não pode ser desfeita. Isso excluirá permanentemente o relatório selecionado e reverterá os seus itens para o estado "não reportado", fazendo-os reaparecer na tela principal.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -667,7 +686,7 @@ function ReportsPageContent() {
                                             className="h-9 w-9 shrink-0 text-muted-foreground hover:text-destructive"
                                             onClick={(e) => {
                                                 e.stopPropagation();
-                                                handleDeleteReportRequest(report.id!);
+                                                handleDeleteReportRequest(report);
                                             }}
                                             >
                                             <Trash2 className="h-4 w-4" />
@@ -701,3 +720,5 @@ export default function ReportsPage() {
         <ReportsPageContent />
     )
 }
+
+    

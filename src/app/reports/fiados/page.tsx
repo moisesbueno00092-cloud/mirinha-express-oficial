@@ -4,7 +4,7 @@
 import { useState, useMemo, useEffect, useCallback } from 'react';
 import { useUser, useFirestore, useCollection, useMemoFirebase } from '@/firebase';
 import { collection, query, where, orderBy, getDocs } from 'firebase/firestore';
-import { format, startOfMonth, endOfMonth, parseISO, isWithinInterval } from 'date-fns';
+import { format, startOfMonth, endOfMonth, parseISO, isWithinInterval, startOfDay, endOfDay } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import Link from 'next/link';
 
@@ -73,25 +73,30 @@ function FiadosPageContent() {
         const start = startOfMonth(selectedMonth);
         const end = endOfMonth(selectedMonth);
 
-        const orderItemsRef = collection(firestore, 'users', user.uid, 'order_items');
-        const q = query(orderItemsRef, 
+        const orderItemsCollectionRef = collection(firestore, 'users', user.uid, 'live_items');
+        const q = query(orderItemsCollectionRef, 
             where('group', 'in', ['Fiados salão', 'Fiados rua']),
+            where('timestamp', '>=', start),
+            where('timestamp', '<=', end),
+            orderBy('timestamp', 'asc')
+        );
+        
+        const historicItemsCollectionRef = collection(firestore, 'users', user.uid, 'order_items');
+        const qHistoric = query(historicItemsCollectionRef, 
+            where('group', 'in', ['Fiados salão', 'Fiados rua']),
+            where('timestamp', '>=', start),
+            where('timestamp', '<=', end),
             orderBy('timestamp', 'asc')
         );
 
-        const querySnapshot = await getDocs(q);
+        const [liveSnapshot, historicSnapshot] = await Promise.all([
+             getDocs(q),
+             getDocs(qHistoric)
+        ]);
+        
         const allFiados: Item[] = [];
-        querySnapshot.forEach((doc) => {
-             const item = { ...doc.data(), id: doc.id } as Item;
-             try {
-                 const itemDate = item.timestamp.toDate();
-                 if (isWithinInterval(itemDate, { start, end })) {
-                     allFiados.push(item);
-                 }
-             } catch(e) {
-                console.error("Error parsing date for item", item, e);
-             }
-        });
+        liveSnapshot.forEach((doc) => allFiados.push({ ...doc.data(), id: doc.id } as Item));
+        historicSnapshot.forEach((doc) => allFiados.push({ ...doc.data(), id: doc.id } as Item));
         
         setFiadoItems(allFiados);
 
@@ -229,3 +234,5 @@ export default function FiadosPage() {
         <FiadosPageContent />
     )
 }
+
+    
