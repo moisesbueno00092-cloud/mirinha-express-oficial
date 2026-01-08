@@ -11,7 +11,7 @@ import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
-import { Loader2, ArrowLeft, Trash2, ChevronDown, TrendingUp, Info, RefreshCw, ChevronLeft, ChevronRight, ShieldX, Users, Hourglass } from 'lucide-react';
+import { Loader2, ArrowLeft, Trash2, ChevronDown, TrendingUp, Info, RefreshCw, ChevronLeft, ChevronRight, ShieldX, Users } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import {
   AlertDialog,
@@ -38,13 +38,12 @@ import {
 } from "@/components/ui/chart"
 import { PieChart, Pie, Cell, ResponsiveContainer } from "recharts"
 
-import type { DailyReport, ItemCount, BomboniereItem, Item } from '@/types';
+import type { DailyReport, ItemCount, BomboniereItem } from '@/types';
 import { cn } from '@/lib/utils';
 import { Label } from '@/components/ui/label';
 import PasswordDialog from '@/components/password-dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useRouter } from 'next/navigation';
-import DailyTimelineChart from '@/components/daily-timeline-chart';
 
 const formatCurrency = (value: number | undefined | null) => {
     return new Intl.NumberFormat("pt-BR", {
@@ -52,105 +51,6 @@ const formatCurrency = (value: number | undefined | null) => {
       currency: "BRL",
     }).format(value || 0);
 };
-
-const CurrentDayOverview = ({ liveItems, isLoading }: { liveItems: Item[], isLoading: boolean }) => {
-
-    const totals = useMemo(() => {
-        if (!liveItems || liveItems.length === 0) {
-        return { totalGeral: 0, totalAVista: 0, totalFiado: 0, totalEntregas: 0, totalTaxas: 0 };
-        }
-        return liveItems.reduce(
-        (acc, item) => {
-            acc.totalGeral += item.total;
-            if (item.group.startsWith('Fiado')) {
-            acc.totalFiado += item.total;
-            } else {
-            acc.totalAVista += item.total;
-            }
-            if (item.group.includes('rua')) {
-            acc.totalEntregas++;
-            acc.totalTaxas += item.deliveryFee;
-            }
-            return acc;
-        },
-        { totalGeral: 0, totalAVista: 0, totalFiado: 0, totalEntregas: 0, totalTaxas: 0 }
-        );
-    }, [liveItems]);
-
-    if (isLoading) {
-        return (
-             <Card>
-                <CardHeader>
-                    <CardTitle className="flex items-center gap-2">
-                        <Hourglass className="h-5 w-5 text-primary animate-spin" />
-                        <span>Visão Geral do Dia Atual</span>
-                    </CardTitle>
-                    <CardDescription>A carregar os lançamentos de hoje...</CardDescription>
-                </CardHeader>
-                <CardContent className="h-40 flex items-center justify-center">
-                    <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-                </CardContent>
-            </Card>
-        );
-    }
-
-    if (liveItems.length === 0) {
-        return (
-            <Card>
-                <CardHeader>
-                    <CardTitle className="flex items-center gap-2">
-                        <Hourglass className="h-5 w-5 text-muted-foreground" />
-                        <span>Visão Geral do Dia Atual</span>
-                    </CardTitle>
-                </CardHeader>
-                 <CardContent className="text-center text-muted-foreground p-10">
-                    <Info className="mx-auto h-8 w-8 mb-2"/>
-                    Nenhum lançamento registado hoje.
-                </CardContent>
-            </Card>
-        );
-    }
-    
-    return (
-        <Card>
-            <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                    <Hourglass className="h-5 w-5 text-primary" />
-                    <span>Visão Geral do Dia Atual</span>
-                </CardTitle>
-                <CardDescription>Resumo em tempo real das vendas de hoje.</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-6">
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-center">
-                    <div className="rounded-lg bg-primary/10 p-3">
-                        <p className="text-xs font-semibold uppercase tracking-wider text-primary/80">Total do Dia</p>
-                        <p className="text-2xl font-bold text-primary">{formatCurrency(totals.totalGeral)}</p>
-                    </div>
-                     <div className="rounded-lg bg-green-500/10 p-3">
-                        <p className="text-xs font-semibold uppercase tracking-wider text-green-500/80">À Vista</p>
-                        <p className="text-2xl font-bold text-green-500">{formatCurrency(totals.totalAVista)}</p>
-                    </div>
-                     <div className="rounded-lg bg-destructive/10 p-3">
-                        <p className="text-xs font-semibold uppercase tracking-wider text-destructive/80">Fiado</p>
-                        <p className="text-2xl font-bold text-destructive">{formatCurrency(totals.totalFiado)}</p>
-                    </div>
-                     <div className="rounded-lg bg-blue-500/10 p-3">
-                        <p className="text-xs font-semibold uppercase tracking-wider text-blue-500/80">Entregas</p>
-                        <p className="text-2xl font-bold text-blue-500">{totals.totalEntregas} ({formatCurrency(totals.totalTaxas)})</p>
-                    </div>
-                </div>
-
-                <Separator />
-                
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                    <DailyTimelineChart items={liveItems} dataType="total" title="Faturamento por Hora" color="primary" />
-                    <DailyTimelineChart items={liveItems} dataType="quantity" title="Itens Vendidos por Hora" color="chart-2" />
-                </div>
-
-            </CardContent>
-        </Card>
-    )
-}
 
 const ReportDetail = ({ report, bomboniereItems, isAggregate = false }: { report: DailyReport, bomboniereItems: BomboniereItem[], isAggregate?: boolean }) => {
     
@@ -550,25 +450,19 @@ function ReportsPageContent() {
   }
 
   const reportsQuery = useMemoFirebase(
-    () => (firestore ? query(collection(firestore, 'daily_reports')) : null),
-    [firestore]
+    () => (firestore && user ? query(collection(firestore, 'users', user.uid, 'daily_reports'), orderBy('createdAt', 'desc')) : null),
+    [firestore, user]
   );
-  
+
   const bomboniereQuery = useMemoFirebase(
     () => firestore ? query(collection(firestore, 'bomboniere_items'), orderBy('name', 'asc')) : null,
     [firestore]
   );
 
-  const liveItemsQuery = useMemoFirebase(
-    () => (firestore ? query(collection(firestore, 'order_items'), where('reportado', '==', false), orderBy('timestamp', 'asc')) : null),
-    [firestore]
-  );
-
   const { data: savedReports, isLoading: isLoadingReports, error: reportsError } = useCollection<DailyReport>(reportsQuery);
   const { data: bomboniereItems, isLoading: isLoadingBomboniere, error: bomboniereError } = useCollection<BomboniereItem>(bomboniereQuery);
-  const { data: liveItems, isLoading: isLoadingLiveItems } = useCollection<Item>(liveItemsQuery);
 
-  const isLoading = isUserLoading || isLoadingReports || isLoadingBomboniere || isLoadingLiveItems;
+  const isLoading = isUserLoading || isLoadingReports || isLoadingBomboniere;
 
   const yearOptions = useMemo(() => generateYearOptions(), []);
 
@@ -581,18 +475,25 @@ function ReportsPageContent() {
     const startDate = startOfMonth(new Date(year, month));
     const endDate = endOfMonth(new Date(year, month));
   
-    const filtered = savedReports.filter(r => {
+    return savedReports.filter(r => {
       try {
-        // Robust date parsing, ignoring timezones.
-        const [y, m, d] = r.reportDate.split('-').map(Number);
-        const reportDate = new Date(y, m - 1, d);
+        // Handle both ISO strings and Firestore Timestamps
+        const reportDate = r.createdAt instanceof Date 
+          ? r.createdAt 
+          : typeof r.createdAt === 'string' 
+            ? parseISO(r.createdAt) 
+            : new Date(r.createdAt); // Fallback
         return isWithinInterval(reportDate, { start: startDate, end: endDate });
       } catch {
-        return false;
+        // Fallback for potentially malformed old data
+        try {
+            const reportDate = parseISO(r.reportDate);
+             return isWithinInterval(reportDate, { start: startDate, end: endDate });
+        } catch {
+            return false;
+        }
       }
     });
-  
-    return filtered.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
   
   }, [savedReports, currentYear, currentMonth]);
   
@@ -603,7 +504,7 @@ function ReportsPageContent() {
   const confirmDeleteReport = async () => {
     if (!firestore || !user || !reportToDelete) return;
     
-    const docRef = doc(firestore, "daily_reports", reportToDelete);
+    const docRef = doc(firestore, "users", user.uid, "daily_reports", reportToDelete);
     await deleteDoc(docRef);
     toast({
         title: "Sucesso",
@@ -612,15 +513,14 @@ function ReportsPageContent() {
     setReportToDelete(null);
   };
   
-  const getFormattedDate = (dateString: string) => {
+  const getFormattedDate = (date: Date | string) => {
     try {
-        const [y, m, d] = dateString.split('-').map(Number);
-        const date = new Date(y, m - 1, d);
+        const d = date instanceof Date ? date : parseISO(date);
         return {
-            day: format(date, "dd"),
-            month: format(date, "MMM", { locale: ptBR }).toUpperCase(),
-            dayOfWeek: format(date, "EEEE", { locale: ptBR }),
-            fullDate: format(date, "dd/MM/yyyy")
+            day: format(d, "dd"),
+            month: format(d, "MMM", { locale: ptBR }).toUpperCase(),
+            dayOfWeek: format(d, "EEEE", { locale: ptBR }),
+            fullDate: format(d, "dd/MM/yyyy")
         }
     } catch {
         return { day: '??', month: '???', dayOfWeek: 'Data inválida', fullDate: '??/??/????' }
@@ -679,25 +579,18 @@ function ReportsPageContent() {
             </Link>
             <div>
               <h1 className="text-2xl sm:text-3xl font-bold text-foreground">Relatórios de Vendas</h1>
-              <p className="text-muted-foreground">Visão geral do dia atual e histórico de vendas.</p>
+              <p className="text-muted-foreground">Relatórios agregados e detalhamento por dia.</p>
             </div>
           </div>
           <div className="flex items-center gap-2">
-            {/* O botão para o relatório de fiados foi removido */}
+            <Button variant="outline" onClick={() => router.push('/reports/fiados')}>
+                <Users className="mr-2 h-4 w-4" />
+                Relatório de Fiados
+            </Button>
           </div>
         </header>
 
         <main className="space-y-8">
-            <CurrentDayOverview liveItems={liveItems || []} isLoading={isLoadingLiveItems} />
-            
-            <Separator />
-
-            <div>
-                <h2 className="text-2xl font-bold text-foreground mb-1">Histórico de Vendas</h2>
-                <p className="text-muted-foreground mb-4">Consulte os relatórios agregados e detalhados por dia para meses anteriores.</p>
-            </div>
-
-
             <Card>
                 <CardContent className="p-4 flex flex-col sm:flex-row gap-4 items-center">
                     <div className="flex-1 w-full sm:w-auto">
@@ -721,7 +614,7 @@ function ReportsPageContent() {
                             </SelectTrigger>
                             <SelectContent>
                                 {yearOptions.map(opt => (
-                                <SelectItem key={opt.value} value={String(opt.value)}>{opt.label}</SelectItem>
+                                <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
                                 ))}
                             </SelectContent>
                         </Select>
@@ -745,7 +638,7 @@ function ReportsPageContent() {
                         {filteredReports && filteredReports.length > 0 && bomboniereItems ? (
                         <Accordion type="single" collapsible className="w-full space-y-2">
                             {filteredReports.map(report => {
-                            const { day, month, dayOfWeek, fullDate } = getFormattedDate(report.reportDate);
+                            const { day, month, dayOfWeek, fullDate } = getFormattedDate(report.createdAt);
                             return (
                                 <AccordionItem value={report.id!} key={`${report.id}-${report.createdAt}`}>
                                     <div className="bg-card p-2 rounded-lg border flex items-center gap-4">

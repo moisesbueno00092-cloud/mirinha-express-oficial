@@ -32,7 +32,6 @@ import {
   serverTimestamp,
   Timestamp,
   where,
-  collectionGroup,
 } from 'firebase/firestore';
 import { parseCustomItemPrice } from '@/ai/flows/parse-custom-item-price';
 
@@ -101,23 +100,16 @@ function LancheTrackerPage() {
   const router = useRouter();
   const { toast } = useToast();
 
-  const orderItemsCollectionRef = useMemoFirebase(
-    () => (firestore ? collection(firestore, 'order_items') : null),
-    [firestore]
+  const liveItemsCollectionRef = useMemoFirebase(
+    () => (firestore && user ? collection(firestore, 'users', user.uid, 'live_items') : null),
+    [firestore, user]
   );
   
-  const orderItemsQuery = useMemoFirebase(
-    () => (firestore ? query(collectionGroup(firestore, 'order_items'), orderBy('timestamp', 'desc')) : null),
-    [firestore]
+  const liveItemsQuery = useMemoFirebase(
+    () => (liveItemsCollectionRef ? query(liveItemsCollectionRef, orderBy('timestamp', 'asc')) : null),
+    [liveItemsCollectionRef]
   );
-
-  const { data: allItems, isLoading: isLoadingItems, error: itemsError } = useCollection<Item>(orderItemsQuery);
-
-  const items = useMemo(() => {
-      if (!allItems) return [];
-      return allItems.filter(item => !item.reportado);
-  }, [allItems]);
-
+  const { data: items, isLoading: isLoadingItems, error: itemsError } = useCollection<Item>(liveItemsQuery);
 
   useEffect(() => {
     if (itemsError) {
@@ -193,7 +185,7 @@ function LancheTrackerPage() {
 
   async function handleUpsertItem(rawInputToProcess: string, currentItem?: Item | null, favoriteName?: string) {
     setIsProcessing(true);
-    if (!firestore || !orderItemsCollectionRef) {
+    if (!firestore || !liveItemsCollectionRef) {
       toast({ variant: 'destructive', title: 'Erro', description: 'Base de dados indisponível. A página será recarregada.' });
       setIsProcessing(false);
       setTimeout(() => window.location.reload(), 2000);
@@ -433,11 +425,10 @@ function LancheTrackerPage() {
         quantity: totalQuantity,
         price: totalPrice,
         group,
-        timestamp: Timestamp.now(),
+        timestamp: serverTimestamp() as Timestamp,
         deliveryFee,
         total,
         originalCommand: rawInputToProcess,
-        reportado: false,
         ...(user && { userId: user.uid }),
         ...(customerName && { customerName }),
         ...(individualPrices.length > 0 ? { individualPrices } : {}),
@@ -446,14 +437,14 @@ function LancheTrackerPage() {
       };
 
       if (currentItem) {
-        const itemRef = doc(orderItemsCollectionRef, currentItem.id);
+        const itemRef = doc(liveItemsCollectionRef, currentItem.id);
         await setDoc(itemRef, finalItem);
         toast({
           duration: 4000,
           component: <ToastContent item={{ ...finalItem, total: finalItem.total }} title="Lançamento Atualizado" />,
         });
       } else {
-        await addDoc(orderItemsCollectionRef, finalItem);
+        await addDoc(liveItemsCollectionRef, finalItem);
         toast({
           duration: 4000,
           component: <ToastContent item={{ ...finalItem, total: finalItem.total }} title="Lançamento Adicionado" />,
@@ -508,7 +499,7 @@ function LancheTrackerPage() {
   };
 
   const confirmDeleteItem = async () => {
-    if (!itemToDelete || !firestore || !orderItemsCollectionRef || !items) return;
+    if (!itemToDelete || !firestore || !liveItemsCollectionRef || !items) return;
 
     const itemBeingDeleted = items.find((it) => it.id === itemToDelete);
 
@@ -527,7 +518,7 @@ function LancheTrackerPage() {
         await batch.commit();
       }
 
-      const docRef = doc(orderItemsCollectionRef, itemToDelete);
+      const docRef = doc(liveItemsCollectionRef, itemToDelete);
       await deleteDoc(docRef);
 
       toast({ title: 'Item removido com sucesso.', variant: 'destructive' });
@@ -569,26 +560,19 @@ function LancheTrackerPage() {
   };
 
   async function handleSaveReport() {
-    if (!firestore || !items || items.length === 0) {
+    if (!firestore || !user || !items || items.length === 0) {
       toast({ variant: 'destructive', title: 'Impossível Salvar', description: 'Não há itens para gerar o relatório.' });
       return;
     }
     setIsSavingReport(true);
 
     try {
+      const batch = writeBatch(firestore);
       const reportDate = new Date();
 
-      const itemsToReport = items.filter(item => !item.reportado);
-
-      if(itemsToReport.length === 0) {
-        toast({ variant: 'destructive', title: 'Impossível Salvar', description: 'Nenhum item novo para reportar.' });
-        setIsSavingReport(false);
-        return;
-      }
-
       const report: DailyReport = {
-        userId: user?.uid || 'global',
-        reportDate: formatDateFn(reportDate, 'yyyy-MM-dd'),
+        userId: user.uid,
+        reportDate: reportDate.toISOString(),
         createdAt: reportDate.toISOString(),
         totalGeral: totals.totalGeral,
         totalAVista: totals.totalAVista,
@@ -609,23 +593,23 @@ function LancheTrackerPage() {
         contagemRua: totals.contagemRua,
       };
 
-      const batch = writeBatch(firestore);
-
-      const reportRef = doc(collection(firestore, 'daily_reports'));
+      const reportRef = doc(collection(firestore, 'users', user.uid, 'daily_reports'));
       batch.set(reportRef, report);
 
-      if (orderItemsCollectionRef) {
-          itemsToReport.forEach((item) => {
-            const liveItemRef = doc(orderItemsCollectionRef, item.id);
-            batch.update(liveItemRef, { reportado: true });
-          });
-      }
+      const orderItemsCollectionRef = collection(firestore, 'users', user.uid, 'order_items');
+
+      items.forEach((item) => {
+        const newItemRef = doc(orderItemsCollectionRef);
+        batch.set(newItemRef, item);
+        const liveItemRef = doc(liveItemsCollectionRef!, item.id);
+        batch.delete(liveItemRef);
+      });
 
       await batch.commit();
 
       toast({
         title: 'Relatório Salvo!',
-        description: 'O relatório do dia foi salvo e os itens marcados como reportados.',
+        description: 'O relatório do dia foi salvo e os itens arquivados.',
       });
     } catch (error: any) {
       console.error('Error saving report:', error);
