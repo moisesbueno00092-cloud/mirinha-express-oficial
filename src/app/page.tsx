@@ -99,8 +99,8 @@ function LancheTrackerPage() {
   const { toast } = useToast();
 
   const orderItemsCollectionRef = useMemoFirebase(
-    () => (firestore && user ? collection(firestore, 'users', user.uid, 'order_items') : null),
-    [firestore, user]
+    () => (firestore ? collection(firestore, 'order_items') : null),
+    [firestore]
   );
   
   const orderItemsQuery = useMemoFirebase(
@@ -184,16 +184,14 @@ function LancheTrackerPage() {
 
   async function handleUpsertItem(rawInputToProcess: string, currentItem?: Item | null, favoriteName?: string) {
     setIsProcessing(true);
-    if (!user || !firestore || !orderItemsCollectionRef) {
-      toast({ variant: 'destructive', title: 'Erro', description: 'Utilizador não autenticado ou base de dados indisponível. A página será recarregada.' });
+    if (!firestore || !orderItemsCollectionRef) {
+      toast({ variant: 'destructive', title: 'Erro', description: 'Base de dados indisponível. A página será recarregada.' });
       setIsProcessing(false);
-      // Force reload if we end up in this state, as it's unrecoverable
       setTimeout(() => window.location.reload(), 2000);
       return;
     }
 
     try {
-      // --- Devolver stock antigo se estiver a editar ---
       if (currentItem && currentItem.bomboniereItems && currentItem.bomboniereItems.length > 0 && bomboniereItems) {
         const bomboniereCollectionRef = collection(firestore, 'bomboniere_items');
         const batch = writeBatch(firestore);
@@ -207,7 +205,6 @@ function LancheTrackerPage() {
         }
         await batch.commit();
       }
-      // --- Fim da devolução de stock ---
 
       let mainInput = rawInputToProcess.trim();
       if (!mainInput) return;
@@ -423,7 +420,6 @@ function LancheTrackerPage() {
       if (consolidatedName.length > 50) consolidatedName = 'Lançamento Misto';
 
       const finalItem: Omit<Item, 'id'> = {
-        userId: user.uid,
         name: consolidatedName,
         quantity: totalQuantity,
         price: totalPrice,
@@ -433,6 +429,7 @@ function LancheTrackerPage() {
         total,
         originalCommand: rawInputToProcess,
         reportado: false,
+        ...(user && { userId: user.uid }),
         ...(customerName && { customerName }),
         ...(individualPrices.length > 0 ? { individualPrices } : {}),
         ...(predefinedItems.length > 0 ? { predefinedItems } : {}),
@@ -502,7 +499,7 @@ function LancheTrackerPage() {
   };
 
   const confirmDeleteItem = async () => {
-    if (!itemToDelete || !user || !firestore || !orderItemsCollectionRef || !items) return;
+    if (!itemToDelete || !firestore || !orderItemsCollectionRef || !items) return;
 
     const itemBeingDeleted = items.find((it) => it.id === itemToDelete);
 
