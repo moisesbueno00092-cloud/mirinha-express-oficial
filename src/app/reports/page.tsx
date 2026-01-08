@@ -4,7 +4,7 @@
 import { useState, useMemo, useEffect, useCallback } from 'react';
 import { useUser, useFirestore, useCollection, useMemoFirebase } from '@/firebase';
 import { collection, query, orderBy, doc, where, deleteDoc } from 'firebase/firestore';
-import { format, parseISO, startOfMonth, endOfMonth, isWithinInterval, addMonths, subMonths } from 'date-fns';
+import { format, parse, startOfMonth, endOfMonth, isWithinInterval, addMonths, subMonths } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import Link from 'next/link';
 
@@ -560,7 +560,7 @@ function ReportsPageContent() {
   );
 
   const liveItemsQuery = useMemoFirebase(
-    () => (firestore ? query(collection(firestore, 'order_items'), orderBy('timestamp', 'asc')) : null),
+    () => (firestore ? query(collection(firestore, 'order_items'), where('reportado', '==', false), orderBy('timestamp', 'asc')) : null),
     [firestore]
   );
 
@@ -574,24 +574,25 @@ function ReportsPageContent() {
 
   const filteredReports = useMemo(() => {
     if (!savedReports) return [];
-
+  
     const year = parseInt(currentYear);
     const month = parseInt(currentMonth);
-
+  
     const startDate = startOfMonth(new Date(year, month));
     const endDate = endOfMonth(new Date(year, month));
   
     const filtered = savedReports.filter(r => {
       try {
-        const reportDate = parseISO(r.reportDate + 'T12:00:00');
+        // Robust date parsing, ignoring timezones
+        const reportDate = parse(r.reportDate, 'yyyy-MM-dd', new Date());
         return isWithinInterval(reportDate, { start: startDate, end: endDate });
       } catch {
         return false;
       }
     });
-
+  
     return filtered.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-
+  
   }, [savedReports, currentYear, currentMonth]);
   
   const handleDeleteReportRequest = (reportId: string) => {
@@ -612,7 +613,7 @@ function ReportsPageContent() {
   
   const getFormattedDate = (dateString: string) => {
     try {
-        const date = parseISO(dateString + 'T12:00:00');
+        const date = parse(dateString, 'yyyy-MM-dd', new Date());
         return {
             day: format(date, "dd"),
             month: format(date, "MMM", { locale: ptBR }).toUpperCase(),
@@ -685,7 +686,7 @@ function ReportsPageContent() {
         </header>
 
         <main className="space-y-8">
-            <CurrentDayOverview liveItems={liveItems?.filter(item => !item.reportado) || []} isLoading={isLoadingLiveItems} />
+            <CurrentDayOverview liveItems={liveItems || []} isLoading={isLoadingLiveItems} />
             
             <Separator />
 
