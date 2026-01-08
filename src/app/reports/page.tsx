@@ -550,8 +550,8 @@ function ReportsPageContent() {
   }
 
   const reportsQuery = useMemoFirebase(
-    () => (firestore && user ? query(collection(firestore, 'users', user.uid, 'daily_reports')) : null),
-    [firestore, user]
+    () => (firestore ? query(collection(firestore, 'daily_reports')) : null),
+    [firestore]
   );
   
   const bomboniereQuery = useMemoFirebase(
@@ -560,8 +560,8 @@ function ReportsPageContent() {
   );
 
   const liveItemsQuery = useMemoFirebase(
-    () => (firestore && user ? query(collection(firestore, 'users', user.uid, 'order_items'), orderBy('timestamp', 'asc')) : null),
-    [firestore, user]
+    () => (firestore ? query(collection(firestore, 'order_items'), orderBy('timestamp', 'asc')) : null),
+    [firestore]
   );
 
   const { data: savedReports, isLoading: isLoadingReports, error: reportsError } = useCollection<DailyReport>(reportsQuery);
@@ -601,7 +601,7 @@ function ReportsPageContent() {
   const confirmDeleteReport = async () => {
     if (!firestore || !user || !reportToDelete) return;
     
-    const docRef = doc(firestore, "users", user.uid, "daily_reports", reportToDelete);
+    const docRef = doc(firestore, "daily_reports", reportToDelete);
     await deleteDoc(docRef);
     toast({
         title: "Sucesso",
@@ -805,5 +805,3 @@ export default function ReportsPage() {
         <ReportsPageContent />
     )
 }
-
-    

@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useMemo, useEffect, useCallback } from 'react';
@@ -449,7 +450,7 @@ function ReportsPageContent() {
   }
 
   const reportsQuery = useMemoFirebase(
-    () => (firestore && user ? query(collection(firestore, 'users', user.uid, 'daily_reports')) : null),
+    () => (firestore ? query(collection(firestore, 'daily_reports')) : null),
     [firestore, user]
   );
 
@@ -494,7 +495,7 @@ function ReportsPageContent() {
   const confirmDeleteReport = async () => {
     if (!firestore || !user || !reportToDelete) return;
     
-    const docRef = doc(firestore, "users", user.uid, "daily_reports", reportToDelete);
+    const docRef = doc(firestore, "daily_reports", reportToDelete);
     await deleteDoc(docRef);
     toast({
         title: "Sucesso",

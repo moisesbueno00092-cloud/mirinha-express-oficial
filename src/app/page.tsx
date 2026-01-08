@@ -606,7 +606,7 @@ function LancheTrackerPage() {
 
       const batch = writeBatch(firestore);
 
-      const reportRef = doc(collection(firestore, 'users', user.uid, 'daily_reports'));
+      const reportRef = doc(collection(firestore, 'daily_reports'));
       batch.set(reportRef, report);
 
       if (orderItemsCollectionRef) {
@@ -888,5 +888,3 @@ export default function Home() {
       <LancheTrackerPage />
   );
 }
-
-    
