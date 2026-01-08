@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useMemo, useState, useRef, useEffect, useCallback } from 'react';
+import { useMemo, useState, useRef, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import type {
   Item,
@@ -182,11 +182,13 @@ function LancheTrackerPage() {
     });
   };
 
-  const handleUpsertItem = useCallback(async (rawInputToProcess: string, currentItem?: Item | null, favoriteName?: string) => {
+  async function handleUpsertItem(rawInputToProcess: string, currentItem?: Item | null, favoriteName?: string) {
     setIsProcessing(true);
     if (!user || !firestore || !liveItemsCollectionRef) {
-      toast({ variant: 'destructive', title: 'Erro', description: 'Utilizador não autenticado ou base de dados indisponível.' });
+      toast({ variant: 'destructive', title: 'Erro', description: 'Utilizador não autenticado ou base de dados indisponível. A página será recarregada.' });
       setIsProcessing(false);
+      // Force reload if we end up in this state, as it's unrecoverable
+      setTimeout(() => window.location.reload(), 2000);
       return;
     }
 
@@ -466,7 +468,7 @@ function LancheTrackerPage() {
         inputRef.current?.focus();
       }, 0);
     }
-  }, [firestore, user, liveItemsCollectionRef, toast, bomboniereItems, savedFavorites]);
+  }
 
 
   const handleBomboniereAdd = (itemsToAdd: SelectedBomboniereItem[]) => {
@@ -525,7 +527,7 @@ function LancheTrackerPage() {
       toast({ title: 'Item removido com sucesso.', variant: 'destructive' });
     } catch (error: any) {
       console.error('Error deleting item:', error);
-      toast({ variant: 'destructive', title: 'Erro ao remover', description: 'Não foi possível remover o item.' });
+      toast({ variant: 'destructive', title: 'Erro ao remover', description: error.message || 'Não foi possível remover o item.' });
     } finally {
       setItemToDelete(null);
     }
@@ -560,7 +562,7 @@ function LancheTrackerPage() {
     toast({ title: 'Favorito removido.', variant: 'destructive' });
   };
 
-  const handleSaveReport = async () => {
+  async function handleSaveReport() {
     if (!user || !firestore || !liveItems || liveItems.length === 0) {
       toast({ variant: 'destructive', title: 'Impossível Salvar', description: 'Não há itens para gerar o relatório.' });
       return;
@@ -611,13 +613,13 @@ function LancheTrackerPage() {
         batch.set(itemRef, itemData);
       });
 
-      // Delete all live items after archiving
-      liveItems.forEach((item) => {
-        if (liveItemsCollectionRef) {
-          const liveItemRef = doc(liveItemsCollectionRef, item.id);
-          batch.delete(liveItemRef);
-        }
-      });
+      if (liveItemsCollectionRef) {
+          liveItems.forEach((item) => {
+            const liveItemRef = doc(liveItemsCollectionRef, item.id);
+            batch.delete(liveItemRef);
+          });
+      }
+
 
       await batch.commit();
 
@@ -625,12 +627,12 @@ function LancheTrackerPage() {
         title: 'Relatório Salvo!',
         description: 'O relatório do dia foi salvo e os itens arquivados no Firestore.',
       });
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error saving report:', error);
       toast({
           variant: 'destructive',
           title: 'Erro ao Salvar',
-          description: 'Não foi possível salvar o relatório ou arquivar os itens.',
+          description: error.message || 'Não foi possível salvar o relatório ou arquivar os itens.',
         });
     } finally {
       setIsSavingReport(false);
