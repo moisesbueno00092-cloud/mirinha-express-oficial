@@ -423,6 +423,9 @@ function ReportsPageContent() {
   const [currentYear, setCurrentYear] = useState(String(new Date().getFullYear()));
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [isAuthChecked, setIsAuthChecked] = useState(false);
+  
+  const [savedReports, setSavedReports] = useState<DailyReport[]>([]);
+  const [isLoadingReports, setIsLoadingReports] = useState(true);
 
   useEffect(() => {
     // Only run on client
@@ -449,18 +452,60 @@ function ReportsPageContent() {
     setIsAuthenticated(true);
   }
 
-  const reportsQuery = useMemoFirebase(
-    () => (firestore ? query(collection(firestore, 'daily_reports'), orderBy('createdAt', 'desc')) : null),
-    [firestore]
-  );
-
   const bomboniereQuery = useMemoFirebase(
     () => firestore ? query(collection(firestore, 'bomboniere_items'), orderBy('name', 'asc')) : null,
     [firestore]
   );
 
-  const { data: savedReports, isLoading: isLoadingReports, error: reportsError } = useCollection<DailyReport>(reportsQuery);
   const { data: bomboniereItems, isLoading: isLoadingBomboniere, error: bomboniereError } = useCollection<BomboniereItem>(bomboniereQuery);
+
+  const fetchReports = useCallback(async () => {
+    if (!firestore || !user) return;
+    setIsLoadingReports(true);
+    
+    try {
+        const globalReportsQuery = query(collection(firestore, 'daily_reports'), orderBy('createdAt', 'desc'));
+        const userReportsQuery = query(collection(firestore, 'users', user.uid, 'daily_reports'), orderBy('createdAt', 'desc'));
+
+        const [globalReportsSnapshot, userReportsSnapshot] = await Promise.all([
+            getDocs(globalReportsQuery),
+            getDocs(userReportsQuery)
+        ]);
+
+        const allReportsMap = new Map<string, DailyReport>();
+
+        userReportsSnapshot.forEach(doc => {
+            // Assume user-specific reports are older and might be duplicates, so they can be overwritten by global ones if IDs clash.
+            allReportsMap.set(doc.id, { ...doc.data(), id: doc.id } as DailyReport);
+        });
+
+        globalReportsSnapshot.forEach(doc => {
+            allReportsMap.set(doc.id, { ...doc.data(), id: doc.id } as DailyReport);
+        });
+        
+        const combinedReports = Array.from(allReportsMap.values())
+            .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+
+        setSavedReports(combinedReports);
+
+    } catch (error) {
+        console.error("Error fetching reports:", error);
+        toast({
+            title: "Erro ao buscar relatórios",
+            description: "Não foi possível carregar os relatórios. Verifique sua conexão.",
+            variant: "destructive"
+        });
+    } finally {
+        setIsLoadingReports(false);
+    }
+  }, [firestore, user, toast]);
+
+  useEffect(() => {
+    if (isAuthenticated) {
+        fetchReports();
+    }
+  }, [isAuthenticated, fetchReports]);
+
 
   const isLoading = isUserLoading || isLoadingReports || isLoadingBomboniere;
 
@@ -514,9 +559,14 @@ function ReportsPageContent() {
             batch.set(liveItemRef, { ...docSnapshot.data(), reportado: false });
             batch.delete(docSnapshot.ref);
         });
-
-        const reportDocRef = doc(firestore, "daily_reports", reportToDelete.id);
-        batch.delete(reportDocRef);
+        
+        // Reports could be global or user-specific. Try deleting from both.
+        // It's safe to call delete on a non-existent doc.
+        const reportDocRefGlobal = doc(firestore, "daily_reports", reportToDelete.id);
+        const reportDocRefUser = doc(firestore, "users", user.uid, "daily_reports", reportToDelete.id);
+        
+        batch.delete(reportDocRefGlobal);
+        batch.delete(reportDocRefUser);
 
         await batch.commit();
 
@@ -524,6 +574,9 @@ function ReportsPageContent() {
             title: "Sucesso",
             description: "Relatório excluído e os seus itens foram movidos de volta para a tela principal.",
         });
+
+        // Refetch reports to update the UI
+        fetchReports();
 
     } catch (error) {
         console.error("Error deleting report:", error);
