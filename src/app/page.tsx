@@ -19,8 +19,6 @@ import {
   useCollection,
   useMemoFirebase,
   useUser,
-  errorEmitter,
-  FirestorePermissionError,
 } from '@/firebase';
 import {
   collection,
@@ -186,7 +184,7 @@ function LancheTrackerPage() {
 
   const handleUpsertItem = useCallback(async (rawInputToProcess: string, currentItem?: Item | null, favoriteName?: string) => {
     setIsProcessing(true);
-    if (!user || !firestore) {
+    if (!user || !firestore || !liveItemsCollectionRef) {
       toast({ variant: 'destructive', title: 'Erro', description: 'Utilizador não autenticado ou base de dados indisponível.' });
       setIsProcessing(false);
       return;
@@ -439,37 +437,19 @@ function LancheTrackerPage() {
         ...(processedBomboniereItems.length > 0 ? { bomboniereItems: processedBomboniereItems } : {}),
       };
 
-      if (currentItem && liveItemsCollectionRef) {
+      if (currentItem) {
         const itemRef = doc(liveItemsCollectionRef, currentItem.id);
-        setDoc(itemRef, finalItem)
-          .then(() => {
-            toast({
-              duration: 4000,
-              component: <ToastContent item={{ ...finalItem, total: finalItem.total }} title="Lançamento Atualizado" />,
-            });
-          })
-          .catch((serverError) => {
-            errorEmitter.emit('permission-error', new FirestorePermissionError({
-              path: itemRef.path,
-              operation: 'update',
-              requestResourceData: finalItem,
-            }));
-          });
-      } else if (liveItemsCollectionRef) {
-        addDoc(liveItemsCollectionRef, finalItem)
-          .then(() => {
-            toast({
-              duration: 4000,
-              component: <ToastContent item={{ ...finalItem, total: finalItem.total }} title="Lançamento Adicionado" />,
-            });
-          })
-          .catch((serverError) => {
-            errorEmitter.emit('permission-error', new FirestorePermissionError({
-              path: liveItemsCollectionRef.path,
-              operation: 'create',
-              requestResourceData: finalItem,
-            }));
-          });
+        await setDoc(itemRef, finalItem);
+        toast({
+          duration: 4000,
+          component: <ToastContent item={{ ...finalItem, total: finalItem.total }} title="Lançamento Atualizado" />,
+        });
+      } else {
+        await addDoc(liveItemsCollectionRef, finalItem);
+        toast({
+          duration: 4000,
+          component: <ToastContent item={{ ...finalItem, total: finalItem.total }} title="Lançamento Adicionado" />,
+        });
       }
     } catch (error: any) {
       console.error('Error upserting item:', error);
@@ -486,7 +466,8 @@ function LancheTrackerPage() {
         inputRef.current?.focus();
       }, 0);
     }
-  }, [firestore, user, toast, bomboniereItems]);
+  }, [firestore, user, liveItemsCollectionRef, toast, bomboniereItems, savedFavorites]);
+
 
   const handleBomboniereAdd = (itemsToAdd: SelectedBomboniereItem[]) => {
     if (!bomboniereItems) return;

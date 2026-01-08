@@ -51,6 +51,8 @@ export function useCollection<T = DocumentData>(
         setIsLoading(false);
       },
       (err: FirestoreError) => {
+        // Just log the error and set the state.
+        // Don't use the custom error emitter which was causing issues.
         console.error("useCollection error:", err);
         setError(err);
         setData(null);
@@ -67,3 +69,5 @@ export function useCollection<T = DocumentData>(
   
   return { data, isLoading, error };
 }
+
+    
