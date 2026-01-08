@@ -466,7 +466,7 @@ function LancheTrackerPage() {
         inputRef.current?.focus();
       }, 0);
     }
-  }, [firestore, user, liveItemsCollectionRef, toast, bomboniereItems, savedFavorites]);
+  }, [firestore, user, toast, bomboniereItems, savedFavorites]);
 
 
   const handleBomboniereAdd = (itemsToAdd: SelectedBomboniereItem[]) => {
@@ -890,5 +890,7 @@ export default function Home() {
       <LancheTrackerPage />
   );
 }
+
+    
 
     
