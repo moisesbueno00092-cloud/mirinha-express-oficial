@@ -560,7 +560,7 @@ function ReportsPageContent() {
   );
 
   const liveItemsQuery = useMemoFirebase(
-    () => (firestore && user ? query(collection(firestore, 'users', user.uid, 'live_items'), orderBy('timestamp', 'asc')) : null),
+    () => (firestore && user ? query(collection(firestore, 'users', user.uid, 'order_items'), orderBy('timestamp', 'asc')) : null),
     [firestore, user]
   );
 
@@ -685,7 +685,7 @@ function ReportsPageContent() {
         </header>
 
         <main className="space-y-8">
-            <CurrentDayOverview liveItems={liveItems || []} isLoading={isLoadingLiveItems} />
+            <CurrentDayOverview liveItems={liveItems?.filter(item => !item.reportado) || []} isLoading={isLoadingLiveItems} />
             
             <Separator />
 
@@ -805,3 +805,5 @@ export default function ReportsPage() {
         <ReportsPageContent />
     )
 }
+
+    
