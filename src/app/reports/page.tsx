@@ -672,22 +672,6 @@ function ReportsPageContent() {
       </AlertDialog>
 
       <div className="container mx-auto max-w-5xl p-2 sm:p-4 lg:p-8">
-        <header className="mb-6 flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            <Link href="/" passHref>
-              <Button variant="outline" size="icon">
-                <ArrowLeft className="h-4 w-4" />
-              </Button>
-            </Link>
-            <div>
-              <h1 className="text-2xl sm:text-3xl font-bold text-foreground">Relatórios de Vendas</h1>
-              <p className="text-muted-foreground">Relatórios agregados e detalhamento por dia.</p>
-            </div>
-          </div>
-          <div className="flex items-center gap-2">
-            
-          </div>
-        </header>
 
         <main className="space-y-8">
             <Card>
