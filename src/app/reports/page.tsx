@@ -12,7 +12,7 @@ import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
-import { Loader2, ArrowLeft, Trash2, ChevronDown, TrendingUp, Info, RefreshCw, ChevronLeft, ChevronRight, ShieldX, Users } from 'lucide-react';
+import { Loader2, ArrowLeft, Trash2, ChevronDown, TrendingUp, Info, RefreshCw, ChevronLeft, ChevronRight, ShieldX, Users, User } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import {
   AlertDialog,
@@ -38,12 +38,22 @@ import {
   ChartTooltipContent,
 } from "@/components/ui/chart"
 import { PieChart, Pie, Cell, ResponsiveContainer } from "recharts"
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 
-import type { DailyReport, ItemCount, BomboniereItem, Item } from '@/types';
+import type { DailyReport, ItemCount, BomboniereItem, Item, SavedFavorite } from '@/types';
 import { cn } from '@/lib/utils';
 import { Label } from '@/components/ui/label';
 import PasswordDialog from '@/components/password-dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import usePersistentState from '@/hooks/use-persistent-state';
+import { renderItemName } from '@/components/item-list';
 
 
 const formatCurrency = (value: number | undefined | null) => {
@@ -398,6 +408,85 @@ const AggregateReport = ({ reports, bomboniereItems }: { reports: DailyReport[],
     )
 }
 
+const CustomerReport = ({ allItemsInPeriod, savedFavorites, bomboniereItems }: { allItemsInPeriod: Item[], savedFavorites: SavedFavorite[], bomboniereItems: BomboniereItem[] }) => {
+    const [selectedCustomerName, setSelectedCustomerName] = useState<string | undefined>(undefined);
+
+    const customerItems = useMemo(() => {
+        if (!selectedCustomerName) return [];
+        return allItemsInPeriod
+            .filter(item => item.customerName === selectedCustomerName)
+            .sort((a,b) => new Date(a.timestamp as any).getTime() - new Date(b.timestamp as any).getTime());
+    }, [allItemsInPeriod, selectedCustomerName]);
+    
+    const customerTotal = useMemo(() => {
+        return customerItems.reduce((acc, item) => acc + item.total, 0);
+    }, [customerItems]);
+
+    return (
+        <Card className="mt-6">
+            <CardHeader>
+                <CardTitle className="flex items-center gap-2 text-lg">
+                    <User className="h-5 w-5 text-muted-foreground"/>
+                    Relatório por Cliente
+                </CardTitle>
+                <CardDescription>
+                    Selecione um cliente para ver os seus lançamentos de fiado no mês.
+                </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+                 <Select value={selectedCustomerName} onValueChange={setSelectedCustomerName}>
+                    <SelectTrigger>
+                        <SelectValue placeholder="Selecione um cliente favorito..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                        {savedFavorites.sort((a,b) => a.name.localeCompare(b.name)).map(fav => (
+                            <SelectItem key={fav.id} value={fav.name}>{fav.name}</SelectItem>
+                        ))}
+                    </SelectContent>
+                </Select>
+
+                {selectedCustomerName && (
+                    <div className="mt-4">
+                         {customerItems.length > 0 ? (
+                             <>
+                                <div className="rounded-md border">
+                                    <Table>
+                                        <TableHeader>
+                                            <TableRow>
+                                                <TableHead>Data</TableHead>
+                                                <TableHead>Itens</TableHead>
+                                                <TableHead className="text-right">Total</TableHead>
+                                            </TableRow>
+                                        </TableHeader>
+                                        <TableBody>
+                                            {customerItems.map(item => (
+                                                <TableRow key={item.id}>
+                                                    <TableCell>{format(new Date(item.timestamp as any), 'dd/MM/yy')}</TableCell>
+                                                    <TableCell>{renderItemName(item)}</TableCell>
+                                                    <TableCell className="text-right font-mono">{formatCurrency(item.total)}</TableCell>
+                                                </TableRow>
+                                            ))}
+                                        </TableBody>
+                                    </Table>
+                                </div>
+                                <div className="flex justify-end items-center gap-4 pt-4 font-semibold text-lg">
+                                    <span>Total Fiado para {selectedCustomerName}:</span>
+                                    <span className="text-destructive">{formatCurrency(customerTotal)}</span>
+                                </div>
+                             </>
+                         ) : (
+                            <div className="text-center text-muted-foreground p-10">
+                                <Info className="mx-auto h-8 w-8 mb-2"/>
+                                Nenhum lançamento de fiado encontrado para {selectedCustomerName} neste período.
+                            </div>
+                         )}
+                    </div>
+                )}
+            </CardContent>
+        </Card>
+    )
+}
+
 const generateYearOptions = () => {
     const currentYear = new Date().getFullYear();
     const years = [];
@@ -428,10 +517,13 @@ function ReportsPageContent() {
   const [savedReports, setSavedReports] = useState<DailyReport[]>([]);
   const [isLoadingReports, setIsLoadingReports] = useState(true);
   const [activeTab, setActiveTab] = useState('geral');
+  
+  const [savedFavorites] = usePersistentState<SavedFavorite[]>('savedFavorites', []);
+  const [allItemsInPeriod, setAllItemsInPeriod] = useState<Item[]>([]);
+  const [isLoadingItems, setIsLoadingItems] = useState(true);
 
 
   useEffect(() => {
-    // Only run on client
     if (typeof window !== 'undefined') {
         try {
             const sessionAuth = sessionStorage.getItem('admin-authenticated');
@@ -446,15 +538,6 @@ function ReportsPageContent() {
     }
   }, []);
 
-  const handleAuthSuccess = () => {
-    try {
-        sessionStorage.setItem('admin-authenticated', 'true');
-    } catch (e) {
-        console.error("Could not write to sessionStorage:", e);
-    }
-    setIsAuthenticated(true);
-  }
-
   const bomboniereQuery = useMemoFirebase(
     () => firestore ? query(collection(firestore, 'bomboniere_items'), orderBy('name', 'asc')) : null,
     [firestore]
@@ -462,77 +545,63 @@ function ReportsPageContent() {
 
   const { data: bomboniereItems, isLoading: isLoadingBomboniere, error: bomboniereError } = useCollection<BomboniereItem>(bomboniereQuery);
 
-  const fetchReports = useCallback(async () => {
+  const fetchReportsAndItems = useCallback(async () => {
     if (!firestore || !user) return;
     setIsLoadingReports(true);
-    
+    setIsLoadingItems(true);
+
+    const year = parseInt(currentYear);
+    const month = parseInt(currentMonth);
+    const startDate = startOfMonth(new Date(year, month));
+    const endDate = endOfMonth(new Date(year, month));
+
     try {
-        const globalReportsQuery = query(collection(firestore, 'daily_reports'), orderBy('createdAt', 'desc'));
-        const userReportsQuery = query(collection(firestore, 'users', user.uid, 'daily_reports'), orderBy('createdAt', 'desc'));
+        // Fetch Daily Reports
+        const reportsQuery = query(
+            collection(firestore, 'daily_reports'), 
+            where('reportDate', '>=', startDate.toISOString()),
+            where('reportDate', '<=', endDate.toISOString()),
+            orderBy('reportDate', 'desc')
+        );
+        const reportsSnapshot = await getDocs(reportsQuery);
+        const reportsData = reportsSnapshot.docs.map(doc => ({ ...doc.data(), id: doc.id } as DailyReport));
+        setSavedReports(reportsData);
 
-        const [globalReportsSnapshot, userReportsSnapshot] = await Promise.all([
-            getDocs(globalReportsQuery),
-            getDocs(userReportsQuery)
-        ]);
+        // Fetch all order items in the same period
+        const itemsQuery = query(
+            collection(firestore, 'order_items'), 
+            where('timestamp', '>=', startDate),
+            where('timestamp', '<=', endDate),
+        );
+        const itemsSnapshot = await getDocs(itemsQuery);
+        const itemsData = itemsSnapshot.docs.map(doc => ({ ...doc.data(), id: doc.id } as Item));
+        setAllItemsInPeriod(itemsData);
 
-        const allReportsMap = new Map<string, DailyReport>();
-
-        userReportsSnapshot.forEach(doc => {
-            allReportsMap.set(doc.id, { ...doc.data(), id: doc.id } as DailyReport);
-        });
-
-        globalReportsSnapshot.forEach(doc => {
-            allReportsMap.set(doc.id, { ...doc.data(), id: doc.id } as DailyReport);
-        });
-        
-        const combinedReports = Array.from(allReportsMap.values())
-            .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-
-        setSavedReports(combinedReports);
-
-    } catch (error) {
-        console.error("Error fetching reports:", error);
+    } catch (error: any) {
+        console.error("Error fetching data:", error);
         toast({
-            title: "Erro ao buscar relatórios",
-            description: "Não foi possível carregar os relatórios. Verifique sua conexão.",
-            variant: "destructive"
+            title: "Erro ao buscar dados",
+            description: `Não foi possível carregar os dados. Verifique as permissões ou se os índices da base de dados estão correctos. Detalhes: ${error.message}`,
+            variant: "destructive",
+            duration: 8000
         });
     } finally {
         setIsLoadingReports(false);
+        setIsLoadingItems(false);
     }
-  }, [firestore, user, toast]);
+  }, [firestore, user, toast, currentYear, currentMonth]);
 
 
   useEffect(() => {
     if (isAuthenticated) {
-        fetchReports();
+        fetchReportsAndItems();
     }
-  }, [isAuthenticated, fetchReports]);
+  }, [isAuthenticated, fetchReportsAndItems]);
 
 
-  const isLoading = isUserLoading || isLoadingReports || isLoadingBomboniere;
+  const isLoading = isUserLoading || isLoadingReports || isLoadingBomboniere || isLoadingItems;
 
   const yearOptions = useMemo(() => generateYearOptions(), []);
-
-  const filteredReports = useMemo(() => {
-    if (!savedReports) return [];
-  
-    const year = parseInt(currentYear);
-    const month = parseInt(currentMonth);
-  
-    const startDate = startOfMonth(new Date(year, month));
-    const endDate = endOfMonth(new Date(year, month));
-  
-    return savedReports.filter(r => {
-      try {
-        const reportDate = parseISO(r.reportDate);
-        return isWithinInterval(reportDate, { start: startDate, end: endDate });
-      } catch {
-        return false;
-      }
-    });
-  
-  }, [savedReports, currentYear, currentMonth]);
   
   const handleDeleteReportRequest = (report: DailyReport) => {
     setReportToDelete(report);
@@ -548,42 +617,22 @@ function ReportsPageContent() {
         const reportStartOfDay = startOfDay(parseISO(reportToDelete.reportDate));
         const reportEndOfDay = endOfDay(parseISO(reportToDelete.reportDate));
         
-        // Define queries for both global and user-specific order_items
-        const globalOrderItemsQuery = query(collection(firestore, 'order_items'), 
-            where('timestamp', '>=', reportStartOfDay), 
-            where('timestamp', '<=', reportEndOfDay)
-        );
-        const userOrderItemsQuery = query(collection(firestore, 'users', user.uid, 'order_items'), 
+        const orderItemsQuery = query(collection(firestore, 'order_items'), 
             where('timestamp', '>=', reportStartOfDay), 
             where('timestamp', '<=', reportEndOfDay)
         );
 
-        const [globalOrderItemsSnapshot, userOrderItemsSnapshot] = await Promise.all([
-            getDocs(globalOrderItemsQuery),
-            getDocs(userOrderItemsQuery)
-        ]);
+        const orderItemsSnapshot = await getDocs(orderItemsQuery);
         
-        // Combine results and move items back to live_items
-        const allItemsToMove = new Map<string, any>();
-        globalOrderItemsSnapshot.forEach(doc => allItemsToMove.set(doc.id, doc.data()));
-        userOrderItemsSnapshot.forEach(doc => allItemsToMove.set(doc.id, doc.data()));
-
-        allItemsToMove.forEach((data, id) => {
-            const liveItemRef = doc(liveItemsCollectionRef, id);
-            batch.set(liveItemRef, { ...data, reportado: false });
+        orderItemsSnapshot.forEach(doc => {
+            const liveItemRef = doc(liveItemsCollectionRef, doc.id);
+            batch.set(liveItemRef, { ...doc.data(), reportado: false });
+            batch.delete(doc.ref);
         });
 
-        // Also delete from original locations
-        globalOrderItemsSnapshot.forEach(doc => batch.delete(doc.ref));
-        userOrderItemsSnapshot.forEach(doc => batch.delete(doc.ref));
-        
-        // Reports could be global or user-specific. Try deleting from both.
-        // It's safe to call delete on a non-existent doc.
         const reportDocRefGlobal = doc(firestore, "daily_reports", reportToDelete.id);
-        const reportDocRefUser = doc(firestore, "users", user.uid, "daily_reports", reportToDelete.id);
         
         batch.delete(reportDocRefGlobal);
-        batch.delete(reportDocRefUser);
 
         await batch.commit();
 
@@ -592,8 +641,7 @@ function ReportsPageContent() {
             description: "Relatório excluído e os seus itens foram movidos de volta para a tela principal.",
         });
 
-        // Refetch reports to update the UI
-        fetchReports();
+        fetchReportsAndItems();
 
     } catch (error) {
         console.error("Error deleting report:", error);
@@ -621,14 +669,6 @@ function ReportsPageContent() {
     }
   };
 
-  const handleTabChange = (value: string) => {
-    if (value === 'fiados') {
-        router.push('/reports/fiados');
-    } else {
-        setActiveTab(value);
-    }
-  }
-
   if (isLoading || !isAuthChecked) {
     return (
       <div className="flex h-screen items-center justify-center">
@@ -646,8 +686,9 @@ function ReportsPageContent() {
             <PasswordDialog 
                 open={true}
                 onOpenChange={(isOpen) => { if(!isOpen) router.push('/'); }}
-                onSuccess={handleAuthSuccess}
+                onSuccess={() => setIsAuthenticated(true)}
                 showCancel={true}
+                onCancel={() => router.push('/')}
             />
         </div>
       </div>
@@ -704,21 +745,22 @@ function ReportsPageContent() {
         </Card>
 
         <div className="space-y-4">
-            <Tabs value={activeTab} onValueChange={handleTabChange} className="w-full">
-                <TabsList className="grid w-full grid-cols-2">
+            <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+                <TabsList className="grid w-full grid-cols-3">
                     <TabsTrigger value="geral">Relatório Geral</TabsTrigger>
                     <TabsTrigger value="diario">Histórico Diário</TabsTrigger>
+                    <TabsTrigger value="clientes">Clientes</TabsTrigger>
                 </TabsList>
                 
                 <TabsContent value="geral">
-                    <AggregateReport reports={filteredReports} bomboniereItems={bomboniereItems || []} />
+                    <AggregateReport reports={savedReports} bomboniereItems={bomboniereItems || []} />
                 </TabsContent>
 
                 <TabsContent value="diario" className="pt-4">
                     <h2 className="text-xl font-semibold mb-4">Relatórios Diários Salvos</h2>
-                    {filteredReports && filteredReports.length > 0 && bomboniereItems ? (
+                    {savedReports && savedReports.length > 0 && bomboniereItems ? (
                     <Accordion type="single" collapsible className="w-full space-y-2">
-                        {filteredReports.map(report => {
+                        {savedReports.map(report => {
                         const { day, month, dayOfWeek, fullDate } = getFormattedDate(report.createdAt);
                         return (
                             <AccordionItem value={report.id!} key={`${report.id}-${report.createdAt}`}>
@@ -764,10 +806,17 @@ function ReportsPageContent() {
                     ) : (
                     <Card>
                         <CardContent className="p-10 text-center text-muted-foreground">
-                        <p>Nenhum relatório salvo encontrado para o período selecionado.</p>
+                          {isLoadingReports ? <Loader2 className="h-6 w-6 animate-spin mx-auto" /> : <p>Nenhum relatório salvo encontrado para o período selecionado.</p>}
                         </CardContent>
                     </Card>
                     )}
+                </TabsContent>
+                <TabsContent value="clientes">
+                    <CustomerReport 
+                        allItemsInPeriod={allItemsInPeriod} 
+                        savedFavorites={savedFavorites} 
+                        bomboniereItems={bomboniereItems || []}
+                    />
                 </TabsContent>
             </Tabs>
         </div>
@@ -781,3 +830,5 @@ export default function ReportsPage() {
         <ReportsPageContent />
     )
 }
+
+    
