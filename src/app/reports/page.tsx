@@ -559,7 +559,6 @@ function ReportsPageContent() {
                     </Select>
                 </div>
             </div>
-             <Button variant="outline"><Users className="mr-2 h-4 w-4"/> Relatório de Fiados</Button>
         </div>
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
@@ -609,7 +608,7 @@ function ReportsPageContent() {
                                                 <p className="font-semibold text-base capitalize">{format(parseISO(report.reportDate), "eeee'-feira'", { locale: ptBR })}</p>
                                                 <p className="text-sm text-muted-foreground">{format(parseISO(report.reportDate), "dd/MM/yyyy")}</p>
                                             </div>
-                                            <div className="ml-auto text-right">
+                                            <div className="text-right ml-auto">
                                                 <p className="text-xs text-muted-foreground">Total do Dia</p>
                                                 <p className="text-lg font-bold text-primary">{formatCurrency(report.totalGeral)}</p>
                                             </div>
@@ -659,5 +658,7 @@ export default function ReportsPage() {
         <ReportsPageContent />
     )
 }
+
+    
 
     
