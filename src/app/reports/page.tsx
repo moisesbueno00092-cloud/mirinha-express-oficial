@@ -705,10 +705,9 @@ function ReportsPageContent() {
 
         <div className="space-y-4">
             <Tabs value={activeTab} onValueChange={handleTabChange} className="w-full">
-                <TabsList className="grid w-full grid-cols-3">
+                <TabsList className="grid w-full grid-cols-2">
                     <TabsTrigger value="geral">Relatório Geral</TabsTrigger>
                     <TabsTrigger value="diario">Histórico Diário</TabsTrigger>
-                    <TabsTrigger value="fiados">Relatório de Fiados</TabsTrigger>
                 </TabsList>
                 
                 <TabsContent value="geral">
