@@ -673,10 +673,7 @@ function ReportsPageContent() {
             </div>
           </div>
           <div className="flex items-center gap-2">
-            <Button variant="outline" onClick={() => router.push('/reports/fiados')}>
-                <Users className="mr-2 h-4 w-4" />
-                Relatório de Fiados
-            </Button>
+            {/* O botão para o relatório de fiados foi removido */}
           </div>
         </header>
 
