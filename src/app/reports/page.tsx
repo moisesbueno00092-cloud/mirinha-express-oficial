@@ -348,7 +348,6 @@ function ReportsPageContent() {
   
   const reportsQuery = useMemoFirebase(() => {
     if (!firestore || !user) return null;
-    // Load ALL reports, filtering will be done client-side
     return query(
         collection(firestore, 'daily_reports'), 
         orderBy('reportDate', 'desc')
@@ -393,17 +392,20 @@ function ReportsPageContent() {
     try {
         const batch = writeBatch(firestore);
         
-        const reportStartOfDay = startOfDay(parseISO(reportToDelete.reportDate));
-        const reportEndOfDay = endOfDay(parseISO(reportToDelete.reportDate));
-        
-        // This query might need indexes, but is safer for data integrity
-        const orderItemsQuery = query(
-            collection(firestore, 'order_items'), 
+        // This is a simplified revert. A more robust solution would query for items with a specific report ID.
+        // For now, we query by a date range, which might have edge cases but should work for this app's logic.
+        const startOfReportDay = startOfDay(parseISO(reportToDelete.reportDate));
+        const endOfReportDay = endOfDay(parseISO(reportToDelete.reportDate));
+
+        const orderItemsCollectionRef = collection(firestore, 'order_items');
+        const q = query(
+            orderItemsCollectionRef,
             where('userId', '==', user.uid),
-            where('reportDate', '==', reportToDelete.reportDate.split('T')[0])
+            where('timestamp', '>=', startOfReportDay),
+            where('timestamp', '<=', endOfReportDay)
         );
 
-        const orderItemsSnapshot = await getDocs(orderItemsQuery);
+        const orderItemsSnapshot = await getDocs(q);
         
         orderItemsSnapshot.forEach(orderDoc => {
             const liveItemsCollectionRef = collection(firestore, 'live_items');
@@ -413,7 +415,6 @@ function ReportsPageContent() {
         });
 
         const reportDocRef = doc(firestore, "daily_reports", reportToDelete.id);
-        
         batch.delete(reportDocRef);
 
         await batch.commit();
@@ -584,9 +585,9 @@ function ReportsPageContent() {
                         savedReports.map(report => (
                             <AccordionItem value={report.id!} key={report.id} className="border-b-0">
                                 <div className="flex items-center bg-card rounded-lg border hover:bg-accent/50 transition-colors">
-                                    <AccordionTrigger className="flex-1 p-0 hover:no-underline [&[data-state=open]]:rounded-b-none w-full">
-                                        <div className="flex w-full items-center justify-between p-4">
-                                            <div className="flex items-center gap-4">
+                                    <AccordionTrigger className="flex-1 p-4 hover:no-underline [&[data-state=open]]:rounded-b-none">
+                                        <div className="flex w-full items-center justify-between">
+                                            <div className="flex flex-1 items-center gap-4">
                                                 <div className="flex flex-col items-center justify-center rounded-md bg-primary p-2 text-primary-foreground w-16 h-16 shrink-0">
                                                     <span className="text-3xl font-bold leading-none">{format(parseISO(report.reportDate), "dd")}</span>
                                                     <span className="text-sm font-medium uppercase tracking-wider">{format(parseISO(report.reportDate), "MMM", { locale: ptBR })}</span>
@@ -648,3 +649,5 @@ export default function ReportsPage() {
         <ReportsPageContent />
     )
 }
+
+    
