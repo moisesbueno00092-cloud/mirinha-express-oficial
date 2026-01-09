@@ -140,20 +140,21 @@ export default function StockEditModal({ isOpen, onClose, bomboniereItems: initi
 
       const batch = writeBatch(firestore);
       let changesCount = 0;
+      let hasValidationError = false;
 
-      localItems.forEach(localItem => {
+      for (const localItem of localItems) {
           const originalItem = originalItemsMap[localItem.id];
 
-          // This is a new item that hasn't been saved to originalItemsMap yet, so we must save it.
-          // Or this is an existing item and we check for changes.
-          if (!originalItem || 
+          const hasChanged = !originalItem || 
               originalItem.name !== localItem.name || 
               originalItem.price !== localItem.price || 
-              originalItem.estoque !== localItem.estoque) {
+              originalItem.estoque !== localItem.estoque;
 
+          if (hasChanged) {
               if (!localItem.name.trim()) {
-                  toast({ variant: 'destructive', title: 'Erro de Validação', description: `O item com ID ${localItem.id} não pode ter um nome em branco.`});
-                  return;
+                  toast({ variant: 'destructive', title: 'Erro de Validação', description: `O nome de um item não pode ser vazio.`});
+                  hasValidationError = true;
+                  break;
               }
               const docRef = doc(firestore, 'bomboniere_items', localItem.id);
               batch.update(docRef, {
@@ -163,8 +164,13 @@ export default function StockEditModal({ isOpen, onClose, bomboniereItems: initi
               });
               changesCount++;
           }
-      });
+      }
       
+      if (hasValidationError) {
+          setIsProcessing(false);
+          return;
+      }
+
       if (changesCount > 0) {
         try {
             await batch.commit();
