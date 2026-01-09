@@ -347,8 +347,6 @@ function ReportsPageContent() {
   const [selectedReportId, setSelectedReportId] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState('daily');
   
-  // This query now fetches ALL reports, and we'll filter by month/year on the client.
-  // This ensures historical data is not missed.
   const reportsQuery = useMemoFirebase(() => {
     if (!firestore || !user) return null;
     return query(
@@ -359,7 +357,6 @@ function ReportsPageContent() {
 
   const { data: allReports, isLoading: isLoadingReports } = useCollection<DailyReport>(reportsQuery);
   
-  // Client-side filtering
   const savedReports = useMemo(() => {
     if (!allReports) return [];
     const startDate = startOfMonth(currentDate);
@@ -584,7 +581,7 @@ function ReportsPageContent() {
                         savedReports.map(report => (
                             <AccordionItem value={report.id!} key={report.id} className="border-b-0">
                                 <div className="flex items-center bg-card rounded-lg border hover:bg-accent/50 transition-colors">
-                                    <AccordionTrigger className="flex-1 px-4 py-2 hover:no-underline [&[data-state=open]]:rounded-b-none">
+                                    <AccordionTrigger className="flex-1 px-4 py-3 hover:no-underline [&[data-state=open]]:rounded-b-none w-full">
                                         <div className="flex w-full items-center justify-between">
                                             <div className="flex items-center gap-4">
                                                 <div className="flex flex-col items-center justify-center rounded-md bg-primary p-2 text-primary-foreground w-14 h-14 shrink-0">
@@ -648,3 +645,5 @@ export default function ReportsPage() {
         <ReportsPageContent />
     )
 }
+
+    
