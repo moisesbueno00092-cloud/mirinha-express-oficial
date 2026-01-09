@@ -54,6 +54,7 @@ export default function StockEditModal({ isOpen, onClose, bomboniereItems: initi
       const sortedItems = [...initialItems].sort((a,b) => a.name.localeCompare(b.name));
       setLocalItems(sortedItems);
       setOriginalItemsMap(Object.fromEntries(initialItems.map(item => [item.id, item])));
+      setSearchTerm("");
     }
   }, [isOpen, initialItems]);
 
