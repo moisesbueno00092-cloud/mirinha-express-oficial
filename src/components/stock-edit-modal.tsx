@@ -8,7 +8,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Trash2, Plus, Save, Loader2, Search, XCircle } from 'lucide-react';
 import type { BomboniereItem, EntradaMercadoria, Item as OrderItem } from '@/types';
 import { useToast } from '@/hooks/use-toast';
-import { collection, doc, writeBatch, query, addDoc, deleteDoc } from 'firebase/firestore';
+import { collection, doc, writeBatch, query, addDoc, deleteDoc, where, getDocs } from 'firebase/firestore';
 import { useFirestore, useCollection, useMemoFirebase, useUser } from '@/firebase';
 import {
   AlertDialog,
@@ -28,12 +28,11 @@ interface StockEditModalProps {
   bomboniereItems: BomboniereItem[];
 }
 
-type EditableItem = Partial<BomboniereItem> & { isNew?: boolean };
+type EditableItem = Partial<BomboniereItem> & { isNew?: boolean; id: string };
 
 
 export default function StockEditModal({ isOpen, onClose, bomboniereItems: initialItems }: StockEditModalProps) {
   const firestore = useFirestore();
-  const { user } = useUser();
   const { toast } = useToast();
   
   const [localItems, setLocalItems] = useState<EditableItem[]>([]);
@@ -42,11 +41,9 @@ export default function StockEditModal({ isOpen, onClose, bomboniereItems: initi
   const [searchTerm, setSearchTerm] = useState("");
   const [originalItemsMap, setOriginalItemsMap] = useState<Record<string, EditableItem>>({});
 
-  const allOrderItemsQuery = useMemoFirebase(() => (firestore && user) ? query(collection(firestore, 'users', user.uid, 'order_items')) : null, [firestore, user]);
-  const { data: allOrderItems } = useCollection<OrderItem>(allOrderItemsQuery);
-
-  const allEntradasQuery = useMemoFirebase(() => firestore ? query(collection(firestore, 'entradas_mercadorias')) : null, [firestore]);
-  const { data: allEntradas } = useCollection<EntradaMercadoria>(allEntradasQuery);
+  const allOrderItemsCollectionRef = useMemoFirebase(() => firestore ? collection(firestore, 'order_items') : null, [firestore]);
+  const allLiveItemsCollectionRef = useMemoFirebase(() => firestore ? collection(firestore, 'live_items') : null, [firestore]);
+  const allEntradasCollectionRef = useMemoFirebase(() => firestore ? collection(firestore, 'entradas_mercadorias') : null, [firestore]);
 
 
   useEffect(() => {
@@ -75,12 +72,11 @@ export default function StockEditModal({ isOpen, onClose, bomboniereItems: initi
         if (item.id === id) {
           if (field === 'price' || field === 'estoque') {
             const stringValue = String(value).trim();
-            // Allow empty string for temporary state, it will be treated as 0 on save
             if (stringValue === '') {
                  return { ...item, [field]: '' };
             }
             const finalValue = parseFloat(stringValue.replace(',', '.'));
-             if (isNaN(finalValue)) return item; // Don't update if it's not a valid number
+             if (isNaN(finalValue)) return item;
              return { ...item, [field]: finalValue };
           } else {
              return { ...item, [field]: value };
@@ -106,24 +102,39 @@ export default function StockEditModal({ isOpen, onClose, bomboniereItems: initi
     setLocalItems(prev => prev.filter(item => item.id !== id));
   };
 
-  const handleDeleteRequest = (item: EditableItem) => {
+  const handleDeleteRequest = async (item: EditableItem) => {
       if (item.isNew && item.id) {
         handleRemoveNewItem(item.id);
         return;
       }
       
       const itemNameLower = item.name?.toLowerCase();
-      if (!itemNameLower) return;
+      if (!firestore || !itemNameLower) return;
 
-      const isInSalesHistory = allOrderItems?.some(order => 
-        order.bomboniereItems?.some(bItem => bItem.name.toLowerCase() === itemNameLower)
-      ) || false;
+      let isInHistory = false;
 
-      const isInPurchaseHistory = allEntradas?.some(entrada =>
-        entrada.produtoNome.toLowerCase() === itemNameLower
-      ) || false;
+      // Check live_items, order_items, entradas_mercadorias
+      const collectionsToCheck = [allLiveItemsCollectionRef, allOrderItemsCollectionRef];
       
-      if (isInSalesHistory || isInPurchaseHistory) {
+      for(const coll of collectionsToCheck) {
+        if(!coll) continue;
+        const q = query(coll, where('bomboniereItems', 'array-contains', { name: item.name }));
+        const snapshot = await getDocs(q as any);
+        if(!snapshot.empty) {
+          isInHistory = true;
+          break;
+        }
+      }
+      
+      if (!isInHistory && allEntradasCollectionRef) {
+          const q = query(allEntradasCollectionRef, where('produtoNome', '==', item.name));
+          const snapshot = await getDocs(q);
+          if (!snapshot.empty) {
+              isInHistory = true;
+          }
+      }
+
+      if (isInHistory) {
            toast({
                 variant: 'destructive',
                 title: 'Exclusão Bloqueada',
@@ -153,8 +164,6 @@ export default function StockEditModal({ isOpen, onClose, bomboniereItems: initi
       let hasValidationError = false;
 
       for (const localItem of localItems) {
-          if (!localItem.id) continue;
-          
           if (localItem.isNew) {
               if (!localItem.name?.trim()) {
                   toast({ variant: 'destructive', title: 'Erro de Validação', description: `O nome de um novo item não pode ser vazio.`});
@@ -172,8 +181,8 @@ export default function StockEditModal({ isOpen, onClose, bomboniereItems: initi
               const originalItem = originalItemsMap[localItem.id];
               const hasChanged = !originalItem || 
                   originalItem.name !== localItem.name || 
-                  originalItem.price !== Number(localItem.price) || 
-                  originalItem.estoque !== Number(localItem.estoque);
+                  Number(originalItem.price) !== Number(localItem.price) || 
+                  Number(originalItem.estoque) !== Number(localItem.estoque);
 
               if (hasChanged) {
                   if (!localItem.name?.trim()) {
@@ -259,18 +268,18 @@ export default function StockEditModal({ isOpen, onClose, bomboniereItems: initi
                     <div key={item.id} className="grid grid-cols-[2fr_1fr_1fr_auto] items-center gap-x-4 py-2">
                         <Input
                             value={item.name || ''}
-                            onChange={(e) => item.id && handleFieldChange(item.id, 'name', e.target.value)}
+                            onChange={(e) => handleFieldChange(item.id, 'name', e.target.value)}
                             placeholder="Nome do Item"
                         />
                         <Input
                            value={String(item.price ?? '0').replace('.', ',')}
-                           onChange={(e) => item.id && handleFieldChange(item.id, 'price', e.target.value.replace(/[^0-9,]/g, ''))}
+                           onChange={(e) => handleFieldChange(item.id, 'price', e.target.value.replace(/[^0-9,]/g, ''))}
                            className="text-right"
                            placeholder="0,00"
                         />
                         <Input
                             value={String(item.estoque ?? '0')}
-                             onChange={(e) => item.id && handleFieldChange(item.id, 'estoque', e.target.value.replace(/[^0-9]/g, ''))}
+                             onChange={(e) => handleFieldChange(item.id, 'estoque', e.target.value.replace(/[^0-9]/g, ''))}
                             type="text"
                             className="text-right"
                             placeholder="0"
@@ -310,5 +319,3 @@ export default function StockEditModal({ isOpen, onClose, bomboniereItems: initi
     </>
   );
 }
-
-    

@@ -348,9 +348,9 @@ function ReportsPageContent() {
   
   const reportsQuery = useMemoFirebase(() => {
     if (!firestore || !user) return null;
+    // Load all reports, sorting is done client-side later
     return query(
-        collection(firestore, 'daily_reports'), 
-        orderBy('reportDate', 'desc')
+        collection(firestore, 'daily_reports')
     );
   }, [firestore, user]);
 
@@ -360,15 +360,17 @@ function ReportsPageContent() {
     if (!allReports) return [];
     const startDate = startOfMonth(currentDate);
     const endDate = endOfMonth(currentDate);
-    return allReports.filter(report => {
-        try {
-            const reportDate = parseISO(report.reportDate);
-            return isWithinInterval(reportDate, { start: startDate, end: endDate });
-        } catch (e) {
-            console.error(`Invalid report date found: ${report.reportDate}`, report);
-            return false;
-        }
-    });
+    return allReports
+      .filter(report => {
+          try {
+              const reportDate = parseISO(report.reportDate);
+              return isWithinInterval(reportDate, { start: startDate, end: endDate });
+          } catch (e) {
+              console.error(`Invalid report date found: ${report.reportDate}`, report);
+              return false;
+          }
+      })
+      .sort((a, b) => parseISO(b.reportDate).getTime() - parseISO(a.reportDate).getTime());
   }, [allReports, currentDate]);
 
   const bomboniereQuery = useMemoFirebase(
@@ -392,20 +394,22 @@ function ReportsPageContent() {
     try {
         const batch = writeBatch(firestore);
         
-        // This is a simplified revert. A more robust solution would query for items with a specific report ID.
-        // For now, we query by a date range, which might have edge cases but should work for this app's logic.
         const startOfReportDay = startOfDay(parseISO(reportToDelete.reportDate));
         const endOfReportDay = endOfDay(parseISO(reportToDelete.reportDate));
 
         const orderItemsCollectionRef = collection(firestore, 'order_items');
         const q = query(
             orderItemsCollectionRef,
-            where('userId', '==', user.uid),
+            where('reportado', '==', true),
             where('timestamp', '>=', startOfReportDay),
             where('timestamp', '<=', endOfReportDay)
         );
 
         const orderItemsSnapshot = await getDocs(q);
+        
+        if (orderItemsSnapshot.empty) {
+          console.warn("No archived items found for this report to revert.");
+        }
         
         orderItemsSnapshot.forEach(orderDoc => {
             const liveItemsCollectionRef = collection(firestore, 'live_items');
@@ -585,8 +589,8 @@ function ReportsPageContent() {
                         savedReports.map(report => (
                             <AccordionItem value={report.id!} key={report.id} className="border-b-0">
                                 <div className="flex items-center bg-card rounded-lg border hover:bg-accent/50 transition-colors">
-                                    <AccordionTrigger className="flex-1 p-4 hover:no-underline [&[data-state=open]]:rounded-b-none">
-                                        <div className="flex w-full items-center justify-between">
+                                    <AccordionTrigger className="flex-1 p-0 hover:no-underline [&[data-state=open]]:rounded-b-none">
+                                        <div className="flex flex-1 w-full items-center justify-between p-4">
                                             <div className="flex flex-1 items-center gap-4">
                                                 <div className="flex flex-col items-center justify-center rounded-md bg-primary p-2 text-primary-foreground w-16 h-16 shrink-0">
                                                     <span className="text-3xl font-bold leading-none">{format(parseISO(report.reportDate), "dd")}</span>
@@ -649,5 +653,3 @@ export default function ReportsPage() {
         <ReportsPageContent />
     )
 }
-
-    
