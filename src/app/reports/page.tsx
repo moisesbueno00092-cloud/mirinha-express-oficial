@@ -598,36 +598,38 @@ function ReportsPageContent() {
                         savedReports.map(report => (
                             <AccordionItem value={report.id!} key={report.id} className="border-b-0">
                                 <div className="flex items-center bg-card rounded-lg border hover:bg-accent/50 transition-colors">
-                                    <AccordionTrigger className="flex-1 p-4 hover:no-underline [&[data-state=open]]:rounded-b-none w-full">
-                                        <div className="flex w-full items-center gap-4 text-left">
-                                            <div className="flex flex-col items-center justify-center rounded-md bg-primary p-2 text-primary-foreground w-14 h-14 shrink-0">
-                                                <span className="text-2xl font-bold leading-none">{format(parseISO(report.reportDate), "dd")}</span>
-                                                <span className="text-xs font-medium uppercase tracking-wider">{format(parseISO(report.reportDate), "MMM", { locale: ptBR })}</span>
+                                    <AccordionTrigger className="flex-1 p-0 hover:no-underline [&[data-state=open]]:rounded-b-none w-full">
+                                        <div className="flex w-full items-center justify-between p-4">
+                                            <div className="flex items-center gap-4">
+                                                <div className="flex flex-col items-center justify-center rounded-md bg-primary p-2 text-primary-foreground w-14 h-14 shrink-0">
+                                                    <span className="text-2xl font-bold leading-none">{format(parseISO(report.reportDate), "dd")}</span>
+                                                    <span className="text-xs font-medium uppercase tracking-wider">{format(parseISO(report.reportDate), "MMM", { locale: ptBR })}</span>
+                                                </div>
+                                                <div>
+                                                    <p className="font-semibold text-base capitalize">{format(parseISO(report.reportDate), "eeee'-feira'", { locale: ptBR })}</p>
+                                                    <p className="text-sm text-muted-foreground">{format(parseISO(report.reportDate), "dd/MM/yyyy")}</p>
+                                                </div>
                                             </div>
-                                            <div className="flex-grow">
-                                                <p className="font-semibold text-base capitalize">{format(parseISO(report.reportDate), "eeee'-feira'", { locale: ptBR })}</p>
-                                                <p className="text-sm text-muted-foreground">{format(parseISO(report.reportDate), "dd/MM/yyyy")}</p>
+                                            <div className="flex items-center gap-6">
+                                                <div className="text-right">
+                                                    <p className="text-xs text-muted-foreground">Total do Dia</p>
+                                                    <p className="text-lg font-bold text-primary">{formatCurrency(report.totalGeral)}</p>
+                                                </div>
+                                                <ChevronDown className="h-5 w-5 shrink-0 transition-transform duration-200" />
                                             </div>
-                                            <div className="text-right ml-auto">
-                                                <p className="text-xs text-muted-foreground">Total do Dia</p>
-                                                <p className="text-lg font-bold text-primary">{formatCurrency(report.totalGeral)}</p>
-                                            </div>
-                                            <ChevronDown className="h-5 w-5 shrink-0 transition-transform duration-200 ml-4" />
                                         </div>
                                     </AccordionTrigger>
-                                    <div className="pr-4">
-                                        <Button
-                                            variant="ghost"
-                                            size="icon"
-                                            className="h-9 w-9 shrink-0 text-muted-foreground hover:text-destructive"
-                                            onClick={(e) => {
-                                                e.stopPropagation();
-                                                handleDeleteReportRequest(report.id!);
-                                            }}
-                                        >
-                                            <Trash2 className="h-4 w-4" />
-                                        </Button>
-                                    </div>
+                                     <Button
+                                        variant="ghost"
+                                        size="icon"
+                                        className="h-9 w-9 shrink-0 text-muted-foreground hover:text-destructive mr-4"
+                                        onClick={(e) => {
+                                            e.stopPropagation();
+                                            handleDeleteReportRequest(report.id!);
+                                        }}
+                                    >
+                                        <Trash2 className="h-4 w-4" />
+                                    </Button>
                                 </div>
                                 <AccordionContent className="p-0 border border-t-0 rounded-b-lg bg-card overflow-hidden">
                                      {selectedReportId === report.id && bomboniereItems ? (
@@ -658,3 +660,4 @@ export default function ReportsPage() {
         <ReportsPageContent />
     )
 }
+
