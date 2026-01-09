@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useMemo, useEffect, useCallback } from 'react';
@@ -598,8 +597,8 @@ function ReportsPageContent() {
                     {savedReports.length > 0 ? (
                         savedReports.map(report => (
                             <AccordionItem value={report.id!} key={report.id} className="border-b-0">
-                                <div className="flex items-center bg-card rounded-lg border hover:bg-accent/50">
-                                    <AccordionTrigger className="flex-1 p-4 hover:no-underline [&[data-state=open]]:rounded-b-none">
+                                <div className="flex items-center bg-card rounded-lg border hover:bg-accent/50 transition-colors">
+                                    <AccordionTrigger className="flex-1 p-4 hover:no-underline [&[data-state=open]]:rounded-b-none w-full">
                                         <div className="flex w-full items-center gap-4 text-left">
                                             <div className="flex flex-col items-center justify-center rounded-md bg-primary p-2 text-primary-foreground w-14 h-14 shrink-0">
                                                 <span className="text-2xl font-bold leading-none">{format(parseISO(report.reportDate), "dd")}</span>
@@ -659,5 +658,3 @@ export default function ReportsPage() {
         <ReportsPageContent />
     )
 }
-
-    
