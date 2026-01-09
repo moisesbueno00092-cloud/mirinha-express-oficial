@@ -44,7 +44,6 @@ import { Label } from '@/components/ui/label';
 import PasswordDialog from '@/components/password-dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useRouter } from 'next/navigation';
-import RelatorioPorCliente from './favoritos/page';
 
 const formatCurrency = (value: number | undefined | null) => {
     return new Intl.NumberFormat("pt-BR", {
@@ -713,10 +712,9 @@ function ReportsPageContent() {
 
             <div className="space-y-4">
                 <Tabs defaultValue="geral" className="w-full">
-                    <TabsList className="grid w-full grid-cols-3">
+                    <TabsList className="grid w-full grid-cols-2">
                         <TabsTrigger value="geral">Relatório Geral</TabsTrigger>
                         <TabsTrigger value="diario">Histórico Diário</TabsTrigger>
-                        <TabsTrigger value="cliente">Por Cliente</TabsTrigger>
                     </TabsList>
                     
                     <TabsContent value="geral">
@@ -777,9 +775,6 @@ function ReportsPageContent() {
                             </CardContent>
                         </Card>
                         )}
-                    </TabsContent>
-                    <TabsContent value="cliente">
-                        <RelatorioPorCliente />
                     </TabsContent>
                 </Tabs>
             </div>
