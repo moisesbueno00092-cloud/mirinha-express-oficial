@@ -4,7 +4,7 @@
 import { useState, useMemo, useEffect, useCallback } from 'react';
 import { useUser, useFirestore, useCollection, useMemoFirebase } from '@/firebase';
 import { collection, query, orderBy, doc, where, getDocs, deleteDoc, writeBatch } from 'firebase/firestore';
-import { format, parse, startOfMonth, endOfMonth, isWithinInterval, addMonths, subMonths, parseISO, startOfDay, endOfDay } from 'date-fns';
+import { format, parse, startOfMonth, endOfMonth, isWithinInterval, addMonths, subMonths, parseISO, startOfDay, endOfDay, isSameDay } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
@@ -30,7 +30,7 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from "@/components/ui/accordion"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Calendar } from "@/components/ui/calendar";
 
 import {
   ChartContainer,
@@ -61,7 +61,7 @@ const formatCurrency = (value: number | undefined | null) => {
     }).format(value || 0);
 };
 
-const ReportDetail = ({ report, bomboniereItems, isAggregate = false }: { report: DailyReport, bomboniereItems: BomboniereItem[], isAggregate?: boolean }) => {
+const ReportDetail = ({ report, bomboniereItems, isAggregate = false }: { report: DailyReport | null, bomboniereItems: BomboniereItem[], isAggregate?: boolean }) => {
     
     const bomboniereNameMap = useMemo(() => {
       const map = new Map<string, string>();
@@ -77,7 +77,6 @@ const ReportDetail = ({ report, bomboniereItems, isAggregate = false }: { report
     const isBomboniere = (itemName: string): boolean => {
       if (!bomboniereItems) return false;
       const lowerItemName = itemName.toLowerCase();
-      // Check by original name, normalized name, or if it exists in the map values derived from IDs.
       return bomboniereItems.some(bi => 
         bi.name.toLowerCase() === lowerItemName || 
         bi.name.toLowerCase().replace(/\s+/g, '-') === lowerItemName
@@ -99,6 +98,17 @@ const ReportDetail = ({ report, bomboniereItems, isAggregate = false }: { report
         }
         return { lanches, bomboniere };
     };
+    
+    if (!report) {
+         return (
+             <Card>
+                <CardContent className="text-center text-muted-foreground p-10 h-[500px] flex flex-col justify-center items-center">
+                    <Info className="mx-auto h-8 w-8 mb-2"/>
+                    <p>Selecione um dia no calendário para ver o relatório.</p>
+                </CardContent>
+            </Card>
+        )
+    }
 
     const chartData = [
         { name: 'Vendas Salão', value: report.totalVendasSalao, fill: 'hsl(var(--primary))' },
@@ -325,10 +335,130 @@ const ReportDetail = ({ report, bomboniereItems, isAggregate = false }: { report
   )
 }
 
-const AggregateReport = ({ reports, bomboniereItems }: { reports: DailyReport[], bomboniereItems: BomboniereItem[] }) => {
+function ReportsPageContent() {
+  const { user, isUserLoading } = useUser();
+  const firestore = useFirestore();
+  const { toast } = useToast();
+  const router = useRouter();
+  
+  const [reportToDelete, setReportToDelete] = useState<DailyReport | null>(null);
+  const [currentMonth, setCurrentMonth] = useState<Date>(startOfMonth(new Date()));
+  const [selectedDay, setSelectedDay] = useState<Date | undefined>(undefined);
+  
+  const [savedReports, setSavedReports] = useState<DailyReport[]>([]);
+  const [isLoadingReports, setIsLoadingReports] = useState(true);
+
+  const bomboniereQuery = useMemoFirebase(
+    () => firestore ? query(collection(firestore, 'bomboniere_items'), orderBy('name', 'asc')) : null,
+    [firestore]
+  );
+
+  const { data: bomboniereItems, isLoading: isLoadingBomboniere, error: bomboniereError } = useCollection<BomboniereItem>(bomboniereQuery);
+
+  const fetchReports = useCallback(async () => {
+    if (!firestore || !user) return;
+    setIsLoadingReports(true);
+
+    const startDate = startOfMonth(currentMonth);
+    const endDate = endOfMonth(currentMonth);
+
+    try {
+        const reportsQuery = query(
+            collection(firestore, 'daily_reports'), 
+            where('reportDate', '>=', startDate.toISOString()),
+            where('reportDate', '<=', endDate.toISOString()),
+            orderBy('reportDate', 'desc')
+        );
+        const reportsSnapshot = await getDocs(reportsQuery);
+        const reportsData = reportsSnapshot.docs.map(doc => ({ ...doc.data(), id: doc.id } as DailyReport));
+        setSavedReports(reportsData);
+
+    } catch (error: any) {
+        console.error("Error fetching reports:", error);
+        toast({
+            title: "Erro ao buscar relatórios",
+            description: `Não foi possível carregar os relatórios. Verifique as permissões ou se os índices da base de dados estão correctos. Detalhes: ${error.message}`,
+            variant: "destructive",
+            duration: 8000
+        });
+    } finally {
+        setIsLoadingReports(false);
+    }
+  }, [firestore, user, toast, currentMonth]);
+
+
+  useEffect(() => {
+    fetchReports();
+  }, [fetchReports]);
+
+  const isLoading = isUserLoading || isLoadingReports || isLoadingBomboniere;
+
+  const handleDayClick = (day: Date) => {
+    if (savedReports.some(report => isSameDay(parseISO(report.reportDate), day))) {
+        setSelectedDay(day);
+    } else {
+        setSelectedDay(undefined);
+    }
+  }
+
+  const handleDeleteReportRequest = (reportId: string) => {
+    const report = savedReports.find(r => r.id === reportId);
+    if(report) {
+        setReportToDelete(report);
+    }
+  };
+
+  const confirmDeleteReport = async () => {
+    if (!firestore || !user || !reportToDelete?.id) return;
     
-    const aggregateReport = useMemo((): DailyReport => {
-        if (!reports || reports.length === 0) {
+    try {
+        const batch = writeBatch(firestore);
+
+        const liveItemsCollectionRef = collection(firestore, 'live_items');
+        const reportStartOfDay = startOfDay(parseISO(reportToDelete.reportDate));
+        const reportEndOfDay = endOfDay(parseISO(reportToDelete.reportDate));
+        
+        const orderItemsQuery = query(collection(firestore, 'order_items'), 
+            where('timestamp', '>=', reportStartOfDay), 
+            where('timestamp', '<=', reportEndOfDay)
+        );
+
+        const orderItemsSnapshot = await getDocs(orderItemsQuery);
+        
+        orderItemsSnapshot.forEach(orderDoc => {
+            const liveItemRef = doc(firestore, 'live_items', orderDoc.id);
+            batch.set(liveItemRef, { ...orderDoc.data(), reportado: false });
+            batch.delete(orderDoc.ref);
+        });
+
+        const reportDocRefGlobal = doc(firestore, "daily_reports", reportToDelete.id);
+        
+        batch.delete(reportDocRefGlobal);
+
+        await batch.commit();
+        
+        setSelectedDay(undefined);
+        fetchReports();
+
+        toast({
+            title: "Sucesso",
+            description: "Relatório excluído e os seus itens foram movidos de volta para a tela principal.",
+        });
+
+    } catch (error: any) {
+        console.error("Error deleting report:", error);
+        toast({
+            variant: "destructive",
+            title: "Erro",
+            description: error.message || "Não foi possível excluir o relatório.",
+        });
+    } finally {
+        setReportToDelete(null);
+    }
+  };
+  
+  const aggregateReport = useMemo((): DailyReport => {
+        if (!savedReports || savedReports.length === 0) {
             return { 
                 id: '0',
                 userId: '', reportDate: '', createdAt: '',
@@ -340,8 +470,8 @@ const AggregateReport = ({ reports, bomboniereItems }: { reports: DailyReport[],
         }
 
         const initial: DailyReport = {
-            id: String(reports.length), // Use ID to store the count of days
-            userId: reports[0].userId,
+            id: String(savedReports.length),
+            userId: savedReports[0].userId,
             reportDate: '',
             createdAt: '',
             totalGeral: 0, totalAVista: 0, totalFiado: 0, totalVendasSalao: 0, totalVendasRua: 0,
@@ -350,7 +480,7 @@ const AggregateReport = ({ reports, bomboniereItems }: { reports: DailyReport[],
             contagemTotal: {}, contagemRua: {},
         };
         
-        return reports.reduce((acc, report) => {
+        return savedReports.reduce((acc, report) => {
             acc.totalGeral += report.totalGeral || 0;
             acc.totalAVista += report.totalAVista || 0;
             acc.totalFiado += report.totalFiado || 0;
@@ -376,226 +506,24 @@ const AggregateReport = ({ reports, bomboniereItems }: { reports: DailyReport[],
             
             return acc;
         }, initial);
-    }, [reports]);
+    }, [savedReports]);
 
-    if (reports.length === 0) {
-        return (
-             <Card className="mt-6">
-                <CardHeader>
-                    <CardTitle className="flex items-center gap-2 text-lg">
-                        <TrendingUp className="h-5 w-5 text-muted-foreground"/>
-                        Relatório Agregado
-                    </CardTitle>
-                </CardHeader>
-                <CardContent className="text-center text-muted-foreground p-10">
-                    <Info className="mx-auto h-8 w-8 mb-2"/>
-                    Nenhum relatório encontrado para este período.
-                </CardContent>
-            </Card>
-        )
-    }
-
-    return (
-        <div className="mt-6">
-             <h2 className="text-xl font-semibold mb-4 flex items-center gap-3">
-                <TrendingUp className="h-6 w-6 text-muted-foreground"/>
-                Relatório Agregado
-             </h2>
-             <ReportDetail report={aggregateReport} bomboniereItems={bomboniereItems} isAggregate={true} />
-        </div>
-    )
-}
-
-
-const generateYearOptions = () => {
-    const currentYear = new Date().getFullYear();
-    const years = [];
-    for (let i = currentYear; i >= currentYear - 5; i--) {
-        years.push({ value: String(i), label: String(i) });
-    }
-    return years;
-}
-
-const monthOptions = Array.from({ length: 12 }, (_, i) => ({
-    value: String(i),
-    label: format(new Date(2000, i), 'MMMM', { locale: ptBR })
-}));
-
-
-function ReportsPageContent() {
-  const { user, isUserLoading } = useUser();
-  const firestore = useFirestore();
-  const { toast } = useToast();
-  const router = useRouter();
+  const selectedReport = useMemo(() => {
+    if (!selectedDay || !savedReports) return null;
+    return savedReports.find(report => isSameDay(parseISO(report.reportDate), selectedDay)) || null;
+  }, [selectedDay, savedReports]);
   
-  const [reportToDelete, setReportToDelete] = useState<DailyReport | null>(null);
-  const [currentMonth, setCurrentMonth] = useState(String(new Date().getMonth()));
-  const [currentYear, setCurrentYear] = useState(String(new Date().getFullYear()));
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [isAuthChecked, setIsAuthChecked] = useState(false);
-  
-  const [savedReports, setSavedReports] = useState<DailyReport[]>([]);
-  const [isLoadingReports, setIsLoadingReports] = useState(true);
-  const [activeTab, setActiveTab] = useState('geral');
+  const reportDays = useMemo(() => {
+    return savedReports.map(r => parseISO(r.reportDate));
+  }, [savedReports]);
 
 
-  useEffect(() => {
-    if (typeof window !== 'undefined') {
-        try {
-            const sessionAuth = sessionStorage.getItem('admin-authenticated');
-            if (sessionAuth === 'true') {
-                setIsAuthenticated(true);
-            }
-        } catch (e) {
-            console.error("Could not read sessionStorage:", e);
-        } finally {
-            setIsAuthChecked(true);
-        }
-    }
-  }, []);
-
-  const bomboniereQuery = useMemoFirebase(
-    () => firestore ? query(collection(firestore, 'bomboniere_items'), orderBy('name', 'asc')) : null,
-    [firestore]
-  );
-
-  const { data: bomboniereItems, isLoading: isLoadingBomboniere, error: bomboniereError } = useCollection<BomboniereItem>(bomboniereQuery);
-
-  const fetchReports = useCallback(async () => {
-    if (!firestore || !user) return;
-    setIsLoadingReports(true);
-
-    const year = parseInt(currentYear);
-    const month = parseInt(currentMonth);
-    const startDate = startOfMonth(new Date(year, month));
-    const endDate = endOfMonth(new Date(year, month));
-
-    try {
-        const reportsQuery = query(
-            collection(firestore, 'daily_reports'), 
-            where('reportDate', '>=', startDate.toISOString()),
-            where('reportDate', '<=', endDate.toISOString()),
-            orderBy('reportDate', 'desc')
-        );
-        const reportsSnapshot = await getDocs(reportsQuery);
-        const reportsData = reportsSnapshot.docs.map(doc => ({ ...doc.data(), id: doc.id } as DailyReport));
-        setSavedReports(reportsData);
-
-    } catch (error: any) {
-        console.error("Error fetching reports:", error);
-        toast({
-            title: "Erro ao buscar relatórios",
-            description: `Não foi possível carregar os relatórios. Verifique as permissões ou se os índices da base de dados estão correctos. Detalhes: ${error.message}`,
-            variant: "destructive",
-            duration: 8000
-        });
-    } finally {
-        setIsLoadingReports(false);
-    }
-  }, [firestore, user, toast, currentYear, currentMonth]);
-
-
-  useEffect(() => {
-    if (isAuthenticated) {
-        fetchReports();
-    }
-  }, [isAuthenticated, fetchReports]);
-
-
-  const isLoading = isUserLoading || isLoadingReports || isLoadingBomboniere;
-
-  const yearOptions = useMemo(() => generateYearOptions(), []);
-  
-  const handleDeleteReportRequest = (report: DailyReport) => {
-    setReportToDelete(report);
-  };
-
-  const confirmDeleteReport = async () => {
-    if (!firestore || !user || !reportToDelete?.id) return;
-    
-    try {
-        const batch = writeBatch(firestore);
-
-        const liveItemsCollectionRef = collection(firestore, 'live_items');
-        const reportStartOfDay = startOfDay(parseISO(reportToDelete.reportDate));
-        const reportEndOfDay = endOfDay(parseISO(reportToDelete.reportDate));
-        
-        const orderItemsQuery = query(collection(firestore, 'order_items'), 
-            where('timestamp', '>=', reportStartOfDay), 
-            where('timestamp', '<=', reportEndOfDay)
-        );
-
-        const orderItemsSnapshot = await getDocs(orderItemsQuery);
-        
-        orderItemsSnapshot.forEach(orderDoc => {
-            const liveItemRef = doc(liveItemsCollectionRef, orderDoc.id);
-            batch.set(liveItemRef, { ...orderDoc.data(), reportado: false });
-            batch.delete(orderDoc.ref);
-        });
-
-        const reportDocRefGlobal = doc(firestore, "daily_reports", reportToDelete.id);
-        
-        batch.delete(reportDocRefGlobal);
-
-        await batch.commit();
-
-        toast({
-            title: "Sucesso",
-            description: "Relatório excluído e os seus itens foram movidos de volta para a tela principal.",
-        });
-
-        fetchReports();
-
-    } catch (error: any) {
-        console.error("Error deleting report:", error);
-        toast({
-            variant: "destructive",
-            title: "Erro",
-            description: error.message || "Não foi possível excluir o relatório.",
-        });
-    } finally {
-        setReportToDelete(null);
-    }
-  };
-  
-  const getFormattedDate = (date: Date | string) => {
-    try {
-        const d = date instanceof Date ? date : parseISO(date);
-        return {
-            day: format(d, "dd"),
-            month: format(d, "MMM", { locale: ptBR }).toUpperCase(),
-            dayOfWeek: format(d, "EEEE", { locale: ptBR }),
-            fullDate: format(d, "dd/MM/yyyy")
-        }
-    } catch {
-        return { day: '??', month: '???', dayOfWeek: 'Data inválida', fullDate: '??/??/????' }
-    }
-  };
-
-  if (isLoading || !isAuthChecked) {
+  if (isLoading) {
     return (
       <div className="flex h-screen items-center justify-center">
         <Loader2 className="h-12 w-12 animate-spin text-primary" />
       </div>
     );
-  }
-  
-  if (!isAuthenticated) {
-    return (
-      <div className="flex h-screen w-full flex-col items-center justify-center p-4">
-        <div className="w-full max-w-sm">
-            <h2 className="text-center text-2xl font-bold mb-2 flex items-center justify-center gap-2"><ShieldX className="h-7 w-7 text-destructive"/> Acesso Restrito</h2>
-            <p className="text-center text-muted-foreground mb-6">Esta secção requer uma senha para aceder.</p>
-            <PasswordDialog 
-                open={true}
-                onOpenChange={(isOpen) => { if(!isOpen) router.push('/'); }}
-                onSuccess={() => setIsAuthenticated(true)}
-                showCancel={true}
-                onCancel={() => router.push('/')}
-            />
-        </div>
-      </div>
-    )
   }
 
   return (
@@ -615,105 +543,75 @@ function ReportsPageContent() {
         </AlertDialogContent>
       </AlertDialog>
 
-      <main className="space-y-8">
-        <Card>
-            <CardContent className="p-4 flex flex-col sm:flex-row gap-4 items-center">
-                <div className="flex-1 w-full sm:w-auto">
-                    <Label htmlFor="report-month" className="text-xs text-muted-foreground">Mês</Label>
-                      <Select value={currentMonth} onValueChange={setCurrentMonth}>
-                        <SelectTrigger id="report-month">
-                            <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                            {monthOptions.map(opt => (
-                            <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
-                            ))}
-                        </SelectContent>
-                    </Select>
-                </div>
-                  <div className="flex-1 w-full sm:w-auto">
-                    <Label htmlFor="report-year" className="text-xs text-muted-foreground">Ano</Label>
-                      <Select value={currentYear} onValueChange={setCurrentYear}>
-                        <SelectTrigger id="report-year">
-                            <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                            {yearOptions.map(opt => (
-                            <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
-                            ))}
-                        </SelectContent>
-                    </Select>
-                </div>
-            </CardContent>
-        </Card>
-
-        <div className="space-y-4">
-            <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-                <TabsList className="grid w-full grid-cols-2">
-                    <TabsTrigger value="geral">Relatório Geral</TabsTrigger>
-                    <TabsTrigger value="diario">Histórico Diário</TabsTrigger>
-                </TabsList>
-                
-                <TabsContent value="geral">
-                    <AggregateReport reports={savedReports} bomboniereItems={bomboniereItems || []} />
-                </TabsContent>
-
-                <TabsContent value="diario" className="pt-4">
-                    <h2 className="text-xl font-semibold mb-4">Relatórios Diários Salvos</h2>
-                    {savedReports && savedReports.length > 0 && bomboniereItems ? (
-                    <Accordion type="single" collapsible className="w-full space-y-2">
-                        {savedReports.map(report => {
-                        const { day, month, dayOfWeek, fullDate } = getFormattedDate(report.createdAt);
-                        return (
-                            <AccordionItem value={report.id!} key={`${report.id}-${report.createdAt}`}>
-                                <div className="bg-card p-2 rounded-lg border flex items-center gap-4">
-                                    <div className="bg-primary text-primary-foreground rounded-md flex flex-col items-center justify-center w-16 h-16 shrink-0">
-                                        <span className="text-2xl font-bold leading-none">{day}</span>
-                                        <span className="text-xs font-semibold uppercase">{month}</span>
-                                    </div>
-
-                                    <div className="flex-grow">
-                                        <p className="font-semibold text-foreground capitalize">{dayOfWeek}</p>
-                                        <p className="text-sm text-muted-foreground">{fullDate}</p>
-                                    </div>
-
-                                    <div className="text-right mr-4">
-                                        <p className="text-xs text-muted-foreground">Total do Dia</p>
-                                        <p className="font-bold text-lg text-primary">{formatCurrency(report.totalGeral)}</p>
-                                    </div>
-
-                                    <AccordionTrigger>
-                                        <ChevronDown className="h-5 w-5 shrink-0 transition-transform duration-200" />
-                                    </AccordionTrigger>
-
-                                    <Button
-                                        variant="ghost"
-                                        size="icon"
-                                        className="h-9 w-9 shrink-0 text-muted-foreground hover:text-destructive"
-                                        onClick={(e) => {
-                                            e.stopPropagation();
-                                            handleDeleteReportRequest(report);
-                                        }}
-                                        >
-                                        <Trash2 className="h-4 w-4" />
-                                    </Button>
-                                </div>
-                                <AccordionContent className="p-2 pt-2">
-                                    <ReportDetail report={report} bomboniereItems={bomboniereItems} />
-                                </AccordionContent>
-                            </AccordionItem>
-                        )
-                        })}
-                    </Accordion>
-                    ) : (
-                    <Card>
-                        <CardContent className="p-10 text-center text-muted-foreground">
-                          {isLoadingReports ? <Loader2 className="h-6 w-6 animate-spin mx-auto" /> : <p>Nenhum relatório salvo encontrado para o período selecionado.</p>}
-                        </CardContent>
-                    </Card>
-                    )}
-                </TabsContent>
-            </Tabs>
+      <main className="space-y-6">
+        <div className="grid grid-cols-1 lg:grid-cols-[auto_1fr] gap-8">
+            <div className="space-y-4">
+                <Card>
+                    <CardContent className="p-2">
+                        <Calendar
+                            mode="single"
+                            selected={selectedDay}
+                            onSelect={handleDayClick}
+                            month={currentMonth}
+                            onMonthChange={setCurrentMonth}
+                            locale={ptBR}
+                            className="rounded-md"
+                             modifiers={{
+                                haveReport: reportDays,
+                            }}
+                            modifiersClassNames={{
+                                haveReport: 'day-have-report',
+                            }}
+                        />
+                    </CardContent>
+                </Card>
+                <Card>
+                    <CardHeader>
+                        <CardTitle className="text-lg">Consolidado do Mês</CardTitle>
+                        <CardDescription>{format(currentMonth, "MMMM 'de' yyyy", { locale: ptBR })}</CardDescription>
+                    </CardHeader>
+                    <CardContent className="space-y-4 text-sm">
+                       <div className="flex justify-between items-center font-semibold">
+                            <span className="text-primary">Faturamento Total:</span>
+                            <span className="text-primary">{formatCurrency(aggregateReport.totalGeral)}</span>
+                        </div>
+                        <Separator />
+                        <div className="flex justify-between items-center">
+                            <span className="text-green-500">Total à Vista:</span>
+                            <span>{formatCurrency(aggregateReport.totalAVista)}</span>
+                        </div>
+                        <div className="flex justify-between items-center">
+                            <span className="text-destructive">Total Fiado:</span>
+                            <span className="text-destructive">{formatCurrency(aggregateReport.totalFiado)}</span>
+                        </div>
+                        <Separator />
+                        <div className="flex justify-between items-center">
+                            <span className="text-muted-foreground">Nº de Pedidos:</span>
+                            <span>{aggregateReport.totalPedidos}</span>
+                        </div>
+                        <div className="flex justify-between items-center">
+                            <span className="text-muted-foreground">Nº de Dias com Relatório:</span>
+                            <span>{savedReports.length}</span>
+                        </div>
+                    </CardContent>
+                </Card>
+            </div>
+            
+            <div className='relative'>
+                 {selectedReport && bomboniereItems && (
+                     <div className="absolute top-4 right-6 z-10">
+                        <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-9 w-9 shrink-0 text-muted-foreground hover:text-destructive"
+                            onClick={() => handleDeleteReportRequest(selectedReport.id!)}
+                            >
+                            <Trash2 className="h-4 w-4" />
+                        </Button>
+                    </div>
+                )}
+                <ReportDetail report={selectedReport} bomboniereItems={bomboniereItems || []} />
+            </div>
         </div>
       </main>
     </>
@@ -721,9 +619,65 @@ function ReportsPageContent() {
 }
 
 export default function ReportsPage() {
+    const { isUserLoading } = useUser();
+    const [isAuthenticated, setIsAuthenticated] = useState(false);
+    const [isAuthChecked, setIsAuthChecked] = useState(false);
+    const router = useRouter();
+
+    useEffect(() => {
+        if (typeof window !== 'undefined') {
+            try {
+                const sessionAuth = sessionStorage.getItem('admin-authenticated');
+                if (sessionAuth === 'true') {
+                    setIsAuthenticated(true);
+                }
+            } catch (e) {
+                console.error("Could not read sessionStorage:", e);
+            } finally {
+                setIsAuthChecked(true);
+            }
+        }
+    }, []);
+
+    const handleAuthSuccess = () => {
+        try {
+            sessionStorage.setItem('admin-authenticated', 'true');
+        } catch (e) {
+            console.error("Could not write to sessionStorage:", e);
+        }
+        setIsAuthenticated(true);
+    };
+
+    if (isUserLoading || !isAuthChecked) {
+        return (
+          <div className="flex h-screen items-center justify-center">
+            <Loader2 className="h-12 w-12 animate-spin text-primary" />
+          </div>
+        );
+    }
+    
+    if (!isAuthenticated) {
+        return (
+          <div className="flex h-screen w-full flex-col items-center justify-center p-4">
+            <div className="w-full max-w-sm">
+                <h2 className="text-center text-2xl font-bold mb-2 flex items-center justify-center gap-2"><ShieldX className="h-7 w-7 text-destructive"/> Acesso Restrito</h2>
+                <p className="text-center text-muted-foreground mb-6">Esta secção requer uma senha para aceder.</p>
+                <PasswordDialog 
+                    open={true}
+                    onOpenChange={(isOpen) => { if(!isOpen) router.push('/'); }}
+                    onSuccess={handleAuthSuccess}
+                    showCancel={true}
+                    onCancel={() => router.push('/')}
+                />
+            </div>
+          </div>
+        )
+    }
+
     return (
         <ReportsPageContent />
     )
 }
 
     
+
