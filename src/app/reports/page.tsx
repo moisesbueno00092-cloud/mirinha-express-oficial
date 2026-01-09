@@ -600,8 +600,8 @@ function ReportsPageContent() {
                             <AccordionItem value={report.id!} key={report.id} className="border-b-0">
                                 <div className="flex items-center bg-card rounded-lg border hover:bg-accent/50">
                                     <AccordionTrigger className="flex-1 p-4 hover:no-underline [&[data-state=open]]:rounded-b-none">
-                                        <div className="flex items-center gap-4 text-left w-full">
-                                            <div className="flex flex-col items-center justify-center p-2 rounded-md bg-primary text-primary-foreground w-14 h-14 shrink-0">
+                                        <div className="flex w-full items-center gap-4 text-left">
+                                            <div className="flex flex-col items-center justify-center rounded-md bg-primary p-2 text-primary-foreground w-14 h-14 shrink-0">
                                                 <span className="text-2xl font-bold leading-none">{format(parseISO(report.reportDate), "dd")}</span>
                                                 <span className="text-xs font-medium uppercase tracking-wider">{format(parseISO(report.reportDate), "MMM", { locale: ptBR })}</span>
                                             </div>
@@ -609,7 +609,7 @@ function ReportsPageContent() {
                                                 <p className="font-semibold text-base capitalize">{format(parseISO(report.reportDate), "eeee'-feira'", { locale: ptBR })}</p>
                                                 <p className="text-sm text-muted-foreground">{format(parseISO(report.reportDate), "dd/MM/yyyy")}</p>
                                             </div>
-                                            <div className="text-right ml-auto">
+                                            <div className="ml-auto text-right">
                                                 <p className="text-xs text-muted-foreground">Total do Dia</p>
                                                 <p className="text-lg font-bold text-primary">{formatCurrency(report.totalGeral)}</p>
                                             </div>
@@ -659,3 +659,5 @@ export default function ReportsPage() {
         <ReportsPageContent />
     )
 }
+
+    
