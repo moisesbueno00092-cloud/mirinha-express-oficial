@@ -44,6 +44,7 @@ import { Label } from '@/components/ui/label';
 import PasswordDialog from '@/components/password-dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useRouter } from 'next/navigation';
+import RelatorioPorCliente from './favoritos/page';
 
 const formatCurrency = (value: number | undefined | null) => {
     return new Intl.NumberFormat("pt-BR", {
@@ -711,13 +712,14 @@ function ReportsPageContent() {
             </Card>
 
             <div className="space-y-4">
-                <Tabs defaultValue="agregado" className="w-full">
-                    <TabsList className="grid w-full grid-cols-2">
-                        <TabsTrigger value="agregado">Relatório Agregado do Mês</TabsTrigger>
-                        <TabsTrigger value="diario">Histórico Diário do Mês</TabsTrigger>
+                <Tabs defaultValue="geral" className="w-full">
+                    <TabsList className="grid w-full grid-cols-3">
+                        <TabsTrigger value="geral">Relatório Geral</TabsTrigger>
+                        <TabsTrigger value="diario">Histórico Diário</TabsTrigger>
+                        <TabsTrigger value="cliente">Por Cliente</TabsTrigger>
                     </TabsList>
                     
-                    <TabsContent value="agregado">
+                    <TabsContent value="geral">
                         <AggregateReport reports={filteredReports} bomboniereItems={bomboniereItems || []} />
                     </TabsContent>
 
@@ -775,6 +777,9 @@ function ReportsPageContent() {
                             </CardContent>
                         </Card>
                         )}
+                    </TabsContent>
+                    <TabsContent value="cliente">
+                        <RelatorioPorCliente />
                     </TabsContent>
                 </Tabs>
             </div>
