@@ -104,7 +104,7 @@ const ReportDetail = ({ report, bomboniereItems, isAggregate = false }: { report
              <Card>
                 <CardContent className="text-center text-muted-foreground p-10 h-[500px] flex flex-col justify-center items-center">
                     <Info className="mx-auto h-8 w-8 mb-2"/>
-                    <p>Selecione um dia no calendário para ver o relatório.</p>
+                    <p>Selecione um dia na lista para ver os detalhes.</p>
                 </CardContent>
             </Card>
         )
@@ -342,8 +342,8 @@ function ReportsPageContent() {
   const router = useRouter();
   
   const [reportToDelete, setReportToDelete] = useState<DailyReport | null>(null);
-  const [currentMonth, setCurrentMonth] = useState<Date>(startOfMonth(new Date()));
-  const [selectedDay, setSelectedDay] = useState<Date | undefined>(undefined);
+  const [currentMonth, setCurrentMonth] = useState<Date>(new Date());
+  const [selectedReportId, setSelectedReportId] = useState<string | null>(null);
   
   const [savedReports, setSavedReports] = useState<DailyReport[]>([]);
   const [isLoadingReports, setIsLoadingReports] = useState(true);
@@ -393,14 +393,6 @@ function ReportsPageContent() {
 
   const isLoading = isUserLoading || isLoadingReports || isLoadingBomboniere;
 
-  const handleDayClick = (day: Date) => {
-    if (savedReports.some(report => isSameDay(parseISO(report.reportDate), day))) {
-        setSelectedDay(day);
-    } else {
-        setSelectedDay(undefined);
-    }
-  }
-
   const handleDeleteReportRequest = (reportId: string) => {
     const report = savedReports.find(r => r.id === reportId);
     if(report) {
@@ -437,7 +429,7 @@ function ReportsPageContent() {
 
         await batch.commit();
         
-        setSelectedDay(undefined);
+        setSelectedReportId(null);
         fetchReports();
 
         toast({
@@ -509,14 +501,9 @@ function ReportsPageContent() {
     }, [savedReports]);
 
   const selectedReport = useMemo(() => {
-    if (!selectedDay || !savedReports) return null;
-    return savedReports.find(report => isSameDay(parseISO(report.reportDate), selectedDay)) || null;
-  }, [selectedDay, savedReports]);
-  
-  const reportDays = useMemo(() => {
-    return savedReports.map(r => parseISO(r.reportDate));
-  }, [savedReports]);
-
+    if (!selectedReportId || !savedReports) return null;
+    return savedReports.find(report => report.id === selectedReportId) || null;
+  }, [selectedReportId, savedReports]);
 
   if (isLoading) {
     return (
@@ -544,139 +531,86 @@ function ReportsPageContent() {
       </AlertDialog>
 
       <main className="space-y-6">
-        <div className="grid grid-cols-1 lg:grid-cols-[auto_1fr] gap-8">
-            <div className="space-y-4">
-                <Card>
-                    <CardContent className="p-2">
-                        <Calendar
-                            mode="single"
-                            selected={selectedDay}
-                            onSelect={handleDayClick}
-                            month={currentMonth}
-                            onMonthChange={setCurrentMonth}
-                            locale={ptBR}
-                            className="rounded-md"
-                             modifiers={{
-                                haveReport: reportDays,
-                            }}
-                            modifiersClassNames={{
-                                haveReport: 'day-have-report',
-                            }}
-                        />
-                    </CardContent>
-                </Card>
-                <Card>
-                    <CardHeader>
-                        <CardTitle className="text-lg">Consolidado do Mês</CardTitle>
-                        <CardDescription>{format(currentMonth, "MMMM 'de' yyyy", { locale: ptBR })}</CardDescription>
-                    </CardHeader>
-                    <CardContent className="space-y-4 text-sm">
-                       <div className="flex justify-between items-center font-semibold">
-                            <span className="text-primary">Faturamento Total:</span>
-                            <span className="text-primary">{formatCurrency(aggregateReport.totalGeral)}</span>
-                        </div>
-                        <Separator />
-                        <div className="flex justify-between items-center">
-                            <span className="text-green-500">Total à Vista:</span>
-                            <span>{formatCurrency(aggregateReport.totalAVista)}</span>
-                        </div>
-                        <div className="flex justify-between items-center">
-                            <span className="text-destructive">Total Fiado:</span>
-                            <span className="text-destructive">{formatCurrency(aggregateReport.totalFiado)}</span>
-                        </div>
-                        <Separator />
-                        <div className="flex justify-between items-center">
-                            <span className="text-muted-foreground">Nº de Pedidos:</span>
-                            <span>{aggregateReport.totalPedidos}</span>
-                        </div>
-                        <div className="flex justify-between items-center">
-                            <span className="text-muted-foreground">Nº de Dias com Relatório:</span>
-                            <span>{savedReports.length}</span>
-                        </div>
-                    </CardContent>
-                </Card>
-            </div>
-            
-            <div className='relative'>
-                 {selectedReport && bomboniereItems && (
-                     <div className="absolute top-4 right-6 z-10">
-                        <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-9 w-9 shrink-0 text-muted-foreground hover:text-destructive"
-                            onClick={() => handleDeleteReportRequest(selectedReport.id!)}
-                            >
-                            <Trash2 className="h-4 w-4" />
+        <Card>
+            <CardHeader className="flex flex-row items-center justify-between">
+                <div>
+                    <CardTitle>Relatórios Salvos</CardTitle>
+                    <div className="flex items-center gap-4 mt-2">
+                        <Button variant="ghost" size="icon" onClick={() => setCurrentMonth(subMonths(currentMonth, 1))}>
+                            <ChevronLeft className="h-5 w-5" />
+                        </Button>
+                        <span className="text-lg font-semibold text-foreground w-48 text-center capitalize">{format(currentMonth, "MMMM 'de' yyyy", { locale: ptBR })}</span>
+                        <Button variant="ghost" size="icon" onClick={() => setCurrentMonth(addMonths(currentMonth, 1))}>
+                            <ChevronRight className="h-5 w-5" />
+                        </Button>
+                        <Button variant="outline" size="icon" onClick={fetchReports}>
+                            <RefreshCw className="h-4 w-4" />
                         </Button>
                     </div>
+                </div>
+                 <div className="text-right">
+                      <p className="text-sm text-muted-foreground">Faturamento Total do Mês</p>
+                      <p className="text-3xl font-bold text-primary">{formatCurrency(aggregateReport.totalGeral)}</p>
+                  </div>
+            </CardHeader>
+            <CardContent>
+                {isLoadingReports ? (
+                    <div className="flex items-center justify-center h-40">
+                        <Loader2 className="h-8 w-8 animate-spin text-primary"/>
+                    </div>
+                ) : (
+                <Accordion type="single" collapsible className="w-full" value={selectedReportId || ''} onValueChange={setSelectedReportId}>
+                    {savedReports.length > 0 ? (
+                        savedReports.map(report => (
+                            <AccordionItem value={report.id!} key={report.id}>
+                                <AccordionTrigger>
+                                    <div className="flex items-center justify-between w-full pr-4">
+                                        <div className="text-left">
+                                            <p className="font-semibold text-base">Relatório de {format(parseISO(report.reportDate), "eeee, dd 'de' MMMM", { locale: ptBR })}</p>
+                                            <p className="text-sm text-muted-foreground">Total: {formatCurrency(report.totalGeral)}</p>
+                                        </div>
+                                        <div className="flex items-center gap-2">
+                                           <Button
+                                                variant="ghost"
+                                                size="icon"
+                                                className="h-9 w-9 shrink-0 text-muted-foreground hover:text-destructive"
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    handleDeleteReportRequest(report.id!);
+                                                }}
+                                            >
+                                                <Trash2 className="h-4 w-4" />
+                                            </Button>
+                                            <ChevronDown className="h-4 w-4 shrink-0 transition-transform duration-200" />
+                                        </div>
+                                    </div>
+                                </AccordionTrigger>
+                                <AccordionContent>
+                                    {selectedReportId === report.id && bomboniereItems ? (
+                                        <ReportDetail report={report} bomboniereItems={bomboniereItems} />
+                                    ) : (
+                                        <div className="flex justify-center p-8"><Loader2 className="h-6 w-6 animate-spin"/></div>
+                                    )}
+                                </AccordionContent>
+                            </AccordionItem>
+                        ))
+                    ) : (
+                         <div className="text-center text-muted-foreground py-10">
+                            <Info className="mx-auto h-8 w-8 mb-2"/>
+                            <p>Nenhum relatório encontrado para o mês de {format(currentMonth, 'MMMM', { locale: ptBR })}.</p>
+                        </div>
+                    )}
+                </Accordion>
                 )}
-                <ReportDetail report={selectedReport} bomboniereItems={bomboniereItems || []} />
-            </div>
-        </div>
+            </CardContent>
+        </Card>
       </main>
     </>
   );
 }
 
 export default function ReportsPage() {
-    const { isUserLoading } = useUser();
-    const [isAuthenticated, setIsAuthenticated] = useState(false);
-    const [isAuthChecked, setIsAuthChecked] = useState(false);
-    const router = useRouter();
-
-    useEffect(() => {
-        if (typeof window !== 'undefined') {
-            try {
-                const sessionAuth = sessionStorage.getItem('admin-authenticated');
-                if (sessionAuth === 'true') {
-                    setIsAuthenticated(true);
-                }
-            } catch (e) {
-                console.error("Could not read sessionStorage:", e);
-            } finally {
-                setIsAuthChecked(true);
-            }
-        }
-    }, []);
-
-    const handleAuthSuccess = () => {
-        try {
-            sessionStorage.setItem('admin-authenticated', 'true');
-        } catch (e) {
-            console.error("Could not write to sessionStorage:", e);
-        }
-        setIsAuthenticated(true);
-    };
-
-    if (isUserLoading || !isAuthChecked) {
-        return (
-          <div className="flex h-screen items-center justify-center">
-            <Loader2 className="h-12 w-12 animate-spin text-primary" />
-          </div>
-        );
-    }
-    
-    if (!isAuthenticated) {
-        return (
-          <div className="flex h-screen w-full flex-col items-center justify-center p-4">
-            <div className="w-full max-w-sm">
-                <h2 className="text-center text-2xl font-bold mb-2 flex items-center justify-center gap-2"><ShieldX className="h-7 w-7 text-destructive"/> Acesso Restrito</h2>
-                <p className="text-center text-muted-foreground mb-6">Esta secção requer uma senha para aceder.</p>
-                <PasswordDialog 
-                    open={true}
-                    onOpenChange={(isOpen) => { if(!isOpen) router.push('/'); }}
-                    onSuccess={handleAuthSuccess}
-                    showCancel={true}
-                    onCancel={() => router.push('/')}
-                />
-            </div>
-          </div>
-        )
-    }
-
     return (
         <ReportsPageContent />
     )
 }
-
-    
