@@ -456,7 +456,7 @@ function ReportsPageContent() {
         if (!savedReports || savedReports.length === 0) {
             return { 
                 id: '0',
-                userId: '', reportDate: '', createdAt: '',
+                reportDate: '', createdAt: '',
                 totalGeral: 0, totalAVista: 0, totalFiado: 0, totalVendasSalao: 0, totalVendasRua: 0,
                 totalFiadoSalao: 0, totalFiadoRua: 0, totalKg: 0, totalTaxas: 0, totalBomboniereSalao: 0,
                 totalBomboniereRua: 0, totalItens: 0, totalPedidos: 0, totalEntregas: 0, totalItensRua: 0,
@@ -466,7 +466,6 @@ function ReportsPageContent() {
 
         const initial: DailyReport = {
             id: String(savedReports.length),
-            userId: '',
             reportDate: '',
             createdAt: '',
             totalGeral: 0, totalAVista: 0, totalFiado: 0, totalVendasSalao: 0, totalVendasRua: 0,
@@ -674,3 +673,5 @@ export default function ReportsPage() {
     
     return <ReportsPageContent />;
 }
+
+    

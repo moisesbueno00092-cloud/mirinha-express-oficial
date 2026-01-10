@@ -18,7 +18,6 @@ import {
   useFirestore,
   useCollection,
   useMemoFirebase,
-  useUser,
 } from '@/firebase';
 import {
   collection,
@@ -95,7 +94,6 @@ const ToastContent = ({ item, title }: { item: Partial<Item>; title: string }) =
 );
 
 function LancheTrackerPageContent() {
-  const { user } = useUser();
   const firestore = useFirestore();
   const router = useRouter();
   const { toast } = useToast();
@@ -202,7 +200,7 @@ function LancheTrackerPageContent() {
 
   async function handleUpsertItem(rawInputToProcess: string, currentItem?: Item | null, favoriteName?: string) {
     setIsProcessing(true);
-    if (!firestore || !user) {
+    if (!firestore) {
       toast({ variant: 'destructive', title: 'Erro', description: 'Base de dados indisponível. A página será recarregada.' });
       setIsProcessing(false);
       setTimeout(() => window.location.reload(), 2000);
@@ -444,7 +442,7 @@ function LancheTrackerPageContent() {
       consolidatedName = nameParts.join(' + ') || 'Lançamento';
       if (consolidatedName.length > 50) consolidatedName = 'Lançamento Misto';
 
-      const finalItem: Omit<Item, 'id'> = {
+      const finalItem: Omit<Item, 'id' | 'userId'> = {
         name: consolidatedName,
         quantity: totalQuantity,
         price: totalPrice,
@@ -454,7 +452,6 @@ function LancheTrackerPageContent() {
         total,
         originalCommand: rawInputToProcess,
         reportado: false,
-        ...(user && { userId: user.uid }),
         ...(customerName && { customerName }),
         ...(individualPrices.length > 0 ? { individualPrices } : {}),
         ...(predefinedItems.length > 0 ? { predefinedItems } : {}),
@@ -525,7 +522,7 @@ function LancheTrackerPageContent() {
   };
 
   const confirmDeleteItem = async () => {
-    if (!itemToDelete || !firestore || !user || !items) return;
+    if (!itemToDelete || !firestore || !items) return;
 
     const liveItemsCollectionRef = collection(firestore, 'live_items');
     const itemBeingDeleted = items.find((it) => it.id === itemToDelete);
@@ -587,7 +584,7 @@ function LancheTrackerPageContent() {
   };
 
   async function handleSaveReport() {
-    if (!firestore || !user || !items || items.length === 0) {
+    if (!firestore || !items || items.length === 0) {
       toast({ variant: 'destructive', title: 'Impossível Salvar', description: 'Não há itens para gerar o relatório.' });
       return;
     }
@@ -599,8 +596,7 @@ function LancheTrackerPageContent() {
       
       const reportDateString = reportDate.toISOString().split('T')[0];
 
-      const report: DailyReport = {
-        userId: user.uid,
+      const report: Omit<DailyReport, 'id' | 'userId'> = {
         reportDate: reportDateString,
         createdAt: reportDate.toISOString(),
         totalGeral: totals.totalGeral,
@@ -893,9 +889,8 @@ function LancheTrackerPageContent() {
 
 
 export default function Home() {
-  const { user, isUserLoading } = useUser();
-  
-  if (isUserLoading || !user) {
+  const firestore = useFirestore();
+  if (!firestore) {
       return (
           <div className="flex h-screen w-full flex-col items-center justify-center text-center p-4">
               <MirinhaLogo className="w-64 sm:w-80 h-auto text-primary mb-4" />
@@ -913,3 +908,6 @@ export default function Home() {
 
     
 
+
+
+    

@@ -17,7 +17,6 @@ import ContasAPagarPanel from '@/components/admin/contas-a-pagar-panel';
 import HistoricoFinanceiroPanel from '@/components/admin/historico-financeiro-panel';
 import FuncionariosPanel from '@/components/admin/funcionarios-panel';
 import { useRouter } from 'next/navigation';
-import { useUser } from '@/firebase';
 
 
 function AdminPageContent() {
@@ -192,3 +191,5 @@ export default function AdminPage() {
         <AdminPageContent />
     )
 }
+
+    
