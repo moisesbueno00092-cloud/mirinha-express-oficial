@@ -4,7 +4,7 @@
 import { useState, useMemo, useEffect, useCallback } from 'react';
 import { useFirestore, useCollection } from '@/firebase';
 import { collection, query, orderBy, doc, where, getDocs, deleteDoc, writeBatch } from 'firebase/firestore';
-import { format, parse, startOfMonth, endOfMonth, isWithinInterval, addMonths, subMonths, parseISO, startOfDay, endOfDay, isSameDay, setMonth, setYear } from 'date-fns';
+import { format, parse, startOfMonth, endOfMonth, isWithinInterval, addMonths, subMonths, parseISO, startOfDay, endOfDay, isSameDay, setMonth, setYear, getUTCMonth, getUTCFullYear } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { useRouter } from 'next/navigation';
 
@@ -369,12 +369,10 @@ function ReportsPageContent() {
               return false;
           }
           try {
-              // By adding T12:00:00Z, we treat the date as noon UTC, avoiding timezone shifts
-              // that could push a date to the previous day.
               const dateString = report.reportDate.split('T')[0];
               const reportDate = parseISO(`${dateString}T12:00:00Z`);
 
-              return reportDate.getUTCMonth() === selectedMonth && reportDate.getUTCFullYear() === selectedYear;
+              return getUTCMonth(reportDate) === selectedMonth && getUTCFullYear(reportDate) === selectedYear;
           } catch (e) {
               console.error(`Invalid report date format: ${report.reportDate}`, report);
               return false;
@@ -690,3 +688,4 @@ export default function ReportsPage() {
     
 
     
+
