@@ -2,7 +2,7 @@
 'use client';
 
 import { useState, useMemo, useEffect, useCallback } from 'react';
-import { useUser, useFirestore, useCollection, useMemoFirebase } from '@/firebase';
+import { useFirestore, useCollection, useMemoFirebase } from '@/firebase';
 import { collection, query, orderBy, doc, where, getDocs, deleteDoc, writeBatch } from 'firebase/firestore';
 import { format, parse, startOfMonth, endOfMonth, isWithinInterval, addMonths, subMonths, parseISO, startOfDay, endOfDay, isSameDay, setMonth, setYear } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -338,7 +338,6 @@ const monthOptions = Array.from({ length: 12 }, (_, i) => ({
 }));
 
 function ReportsPageContent() {
-  const { user, isUserLoading } = useUser();
   const firestore = useFirestore();
   const { toast } = useToast();
   
@@ -387,9 +386,9 @@ function ReportsPageContent() {
     () => firestore ? query(collection(firestore, 'bomboniere_items'), orderBy('name', 'asc')) : null,
     [firestore]
   );
-  const { data: bomboniereItems } = useCollection<BomboniereItem>(bomboniereQuery);
+  const { data: bomboniereItems, isLoading: isLoadingBomboniere } = useCollection<BomboniereItem>(bomboniereQuery);
 
-  const isLoading = isUserLoading || isLoadingReports;
+  const isLoading = isLoadingReports || isLoadingBomboniere;
 
   const handleDeleteReportRequest = (reportId: string) => {
     const report = allReports?.find(r => r.id === reportId);
@@ -467,7 +466,7 @@ function ReportsPageContent() {
 
         const initial: DailyReport = {
             id: String(savedReports.length),
-            userId: savedReports[0]?.userId || '',
+            userId: '',
             reportDate: '',
             createdAt: '',
             totalGeral: 0, totalAVista: 0, totalFiado: 0, totalVendasSalao: 0, totalVendasRua: 0,
@@ -662,9 +661,16 @@ function ReportsPageContent() {
 }
 
 export default function ReportsPage() {
-    return (
-        <ReportsPageContent />
-    )
-}
+    const firestore = useFirestore();
 
+    if (!firestore) {
+        return (
+          <div className="flex h-screen items-center justify-center">
+            <Loader2 className="h-12 w-12 animate-spin text-primary" />
+            <p className="ml-4 text-muted-foreground">A ligar à base de dados...</p>
+          </div>
+        );
+    }
     
+    return <ReportsPageContent />;
+}
