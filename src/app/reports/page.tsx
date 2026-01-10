@@ -359,19 +359,12 @@ function ReportsPageContent() {
   const savedReports = useMemo(() => {
     if (!allReports) return [];
     
-    const selectedYear = currentDate.getFullYear();
-    const selectedMonth = currentDate.getMonth();
-    
-    return allReports.filter(report => {
-        if (!report.reportDate) {
-            console.warn("Report with invalid date skipped", report);
-            return false;
-        }
-        // Force UTC interpretation by adding time and Z
-        const reportDate = new Date(report.reportDate + 'T12:00:00Z');
-        if (isNaN(reportDate.getTime())) return false;
+    // Format the selected month and year into a "YYYY-MM" string for comparison.
+    const selectedPeriod = format(currentDate, 'yyyy-MM');
 
-        return reportDate.getUTCFullYear() === selectedYear && reportDate.getUTCMonth() === selectedMonth;
+    return allReports.filter(report => {
+        // Ensure reportDate is a non-empty string before checking.
+        return report.reportDate && report.reportDate.startsWith(selectedPeriod);
     });
 
   }, [allReports, currentDate]);
@@ -496,6 +489,7 @@ function ReportsPageContent() {
     
   const getReportDate = (report: DailyReport) => {
     try {
+        // Force UTC interpretation by adding a time and Z
         return new Date(report.reportDate + 'T12:00:00Z');
     } catch {
         return new Date(0); 
