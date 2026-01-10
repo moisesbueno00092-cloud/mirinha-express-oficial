@@ -363,7 +363,7 @@ function ReportsPageContent() {
     return allReports
       .filter(report => {
           if (!report.reportDate) {
-              console.warn("Report with missing date found and skipped:", report);
+              console.warn("Report with missing date found and skipped:", report.id);
               return false;
           }
           try {
@@ -591,42 +591,44 @@ function ReportsPageContent() {
                     {savedReports && savedReports.length > 0 ? (
                         savedReports.map(report => (
                             <AccordionItem value={report.id!} key={report.id} className="border-b-0">
-                                <div className="flex items-center bg-card rounded-lg border hover:bg-accent/50 transition-colors">
-                                    <AccordionTrigger className="flex-1 p-0 hover:no-underline [&[data-state=open]]:rounded-b-none">
-                                        <div className="flex flex-1 w-full items-center justify-between p-4">
-                                            <div className="flex flex-1 items-center gap-4">
-                                                <div className="flex flex-col items-center justify-center rounded-md bg-primary p-2 text-primary-foreground w-16 h-16 shrink-0">
-                                                    <span className="text-3xl font-bold leading-none">{format(parseISO(report.reportDate), "dd")}</span>
-                                                    <span className="text-sm font-medium uppercase tracking-wider">{format(parseISO(report.reportDate), "MMM", { locale: ptBR })}</span>
-                                                </div>
-                                                <div>
-                                                    <p className="font-semibold text-lg capitalize">{format(parseISO(report.reportDate), "eeee", { locale: ptBR })}</p>
-                                                    <p className="text-sm text-muted-foreground">{format(parseISO(report.reportDate), "dd 'de' MMMM 'de' yyyy", { locale: ptBR })}</p>
+                                <div className="bg-card rounded-lg border hover:bg-accent/50 transition-colors">
+                                    <div className="flex items-center p-4">
+                                        <AccordionTrigger className="flex-1 p-0 hover:no-underline [&>svg]:hidden">
+                                            <div className="flex flex-1 w-full items-center justify-between">
+                                                <div className="flex flex-1 items-center gap-4">
+                                                    <div className="flex flex-col items-center justify-center rounded-md bg-primary p-2 text-primary-foreground w-16 h-16 shrink-0">
+                                                        <span className="text-3xl font-bold leading-none">{format(parseISO(report.reportDate), "dd")}</span>
+                                                        <span className="text-sm font-medium uppercase tracking-wider">{format(parseISO(report.reportDate), "MMM", { locale: ptBR })}</span>
+                                                    </div>
+                                                    <div>
+                                                        <p className="font-semibold text-lg capitalize">{format(parseISO(report.reportDate), "eeee", { locale: ptBR })}</p>
+                                                        <p className="text-sm text-muted-foreground">{format(parseISO(report.reportDate), "dd 'de' MMMM 'de' yyyy", { locale: ptBR })}</p>
+                                                    </div>
                                                 </div>
                                             </div>
-                                            <div className="text-right">
+                                        </AccordionTrigger>
+                                        <div className="flex items-center gap-2 ml-4">
+                                             <div className="text-right">
                                                 <p className="text-sm text-muted-foreground">Total do Dia</p>
                                                 <p className="text-xl font-bold text-primary">{formatCurrency(report.totalGeral)}</p>
                                             </div>
-                                        </div>
-                                    </AccordionTrigger>
-                                     <div className="flex items-center pr-4">
-                                        <Button
-                                            variant="ghost"
-                                            size="icon"
-                                            className="h-9 w-9 shrink-0 text-muted-foreground hover:text-destructive"
-                                            onClick={(e) => {
-                                                e.stopPropagation();
-                                                handleDeleteReportRequest(report.id!);
-                                            }}
-                                        >
-                                            <Trash2 className="h-4 w-4" />
-                                        </Button>
-                                        <AccordionTrigger asChild className="p-0 flex-none [&_svg]:h-5 [&_svg]:w-5 [&_svg]:shrink-0 [&_svg]:text-muted-foreground [&_svg]:transition-transform [&_svg]:duration-200">
-                                            <Button variant="ghost" size="icon" className="h-9 w-9">
-                                                <ChevronDown/>
+                                            <Button
+                                                variant="ghost"
+                                                size="icon"
+                                                className="h-9 w-9 shrink-0 text-muted-foreground hover:text-destructive"
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    handleDeleteReportRequest(report.id!);
+                                                }}
+                                            >
+                                                <Trash2 className="h-4 w-4" />
                                             </Button>
-                                        </AccordionTrigger>
+                                            <AccordionTrigger asChild className="p-0 flex-none [&_svg]:h-5 [&_svg]:w-5 [&_svg]:shrink-0 [&_svg]:text-muted-foreground [&_svg]:transition-transform [&_svg]:duration-200">
+                                                <Button variant="ghost" size="icon" className="h-9 w-9">
+                                                    <ChevronDown/>
+                                                </Button>
+                                            </AccordionTrigger>
+                                        </div>
                                     </div>
                                 </div>
                                 <AccordionContent className="p-0 border border-t-0 rounded-b-lg bg-card overflow-hidden">
