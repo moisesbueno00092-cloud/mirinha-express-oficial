@@ -359,6 +359,7 @@ function ReportsPageContent() {
   const getReportDate = useCallback((report: DailyReport): Date | null => {
     try {
         if (!report || !report.reportDate) return null;
+        // Treat date string as UTC to avoid timezone issues.
         const utcDate = new Date(`${report.reportDate}T12:00:00Z`);
         if (isNaN(utcDate.getTime())) return null;
         return utcDate;
@@ -595,7 +596,7 @@ function ReportsPageContent() {
                     {savedReports && savedReports.length > 0 ? (
                         savedReports.map(report => {
                             const reportDate = getReportDate(report);
-                            if (!report || !report.id || !reportDate) {
+                            if (!reportDate) {
                                 return null;
                             }
 
