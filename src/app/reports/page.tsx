@@ -370,10 +370,13 @@ function ReportsPageContent() {
               return false;
           }
           try {
-              // Parse the ISO string from Firestore, which is in UTC
-              const reportDate = parseISO(report.reportDate);
-              // Compare the report's month and year in the local timezone
-              return reportDate.getMonth() === selectedMonth && reportDate.getFullYear() === selectedYear;
+              // The reportDate is a string 'YYYY-MM-DD'.
+              // To avoid timezone issues, parse it as noon UTC.
+              const dateString = report.reportDate.split('T')[0];
+              const reportDate = parseISO(`${dateString}T12:00:00Z`);
+
+              // Compare the report's month and year
+              return reportDate.getUTCMonth() === selectedMonth && reportDate.getUTCFullYear() === selectedYear;
           } catch (e) {
               console.error(`Invalid report date format: ${report.reportDate}`, report);
               return false;
@@ -401,7 +404,10 @@ function ReportsPageContent() {
     
     try {
         const batch = writeBatch(firestore);
-        const reportDateToDelete = parseISO(reportToDelete.reportDate);
+        
+        // Use the same timezone-safe parsing logic
+        const reportDateString = reportToDelete.reportDate.split('T')[0];
+        const reportDateToDelete = parseISO(`${reportDateString}T12:00:00Z`);
         
         const orderItemsCollectionRef = collection(firestore, 'order_items');
         const q = query(orderItemsCollectionRef, where('reportado', '==', true));
@@ -598,20 +604,18 @@ function ReportsPageContent() {
                             <AccordionItem value={report.id!} key={report.id} className="border-b-0">
                                 <div className="bg-card rounded-lg border hover:bg-accent/50 transition-colors">
                                     <div className="flex items-center justify-between p-4">
-                                        <div className="flex-1">
-                                            <AccordionTrigger className="p-0 flex hover:no-underline [&>svg]:hidden w-full text-left">
-                                                <div className="flex items-center gap-4">
-                                                    <div className="flex flex-col items-center justify-center rounded-md bg-primary p-2 text-primary-foreground w-16 h-16 shrink-0">
-                                                        <span className="text-3xl font-bold leading-none">{format(parseISO(report.reportDate), "dd")}</span>
-                                                        <span className="text-sm font-medium uppercase tracking-wider">{format(parseISO(report.reportDate), "MMM", { locale: ptBR })}</span>
-                                                    </div>
-                                                    <div>
-                                                         <p className="font-semibold text-lg capitalize">{format(parseISO(report.reportDate), "eeee", { locale: ptBR })}</p>
-                                                        <p className="text-sm text-muted-foreground">{format(parseISO(report.reportDate), "dd 'de' MMMM 'de' yyyy", { locale: ptBR })}</p>
-                                                    </div>
+                                        <AccordionTrigger asChild>
+                                            <div className="flex items-center gap-4 flex-1 cursor-pointer">
+                                                <div className="flex flex-col items-center justify-center rounded-md bg-primary p-2 text-primary-foreground w-16 h-16 shrink-0">
+                                                    <span className="text-3xl font-bold leading-none">{format(parseISO(report.reportDate), "dd")}</span>
+                                                    <span className="text-sm font-medium uppercase tracking-wider">{format(parseISO(report.reportDate), "MMM", { locale: ptBR })}</span>
                                                 </div>
-                                            </AccordionTrigger>
-                                        </div>
+                                                <div>
+                                                     <p className="font-semibold text-lg capitalize">{format(parseISO(report.reportDate), "eeee", { locale: ptBR })}</p>
+                                                    <p className="text-sm text-muted-foreground">{format(parseISO(report.reportDate), "dd 'de' MMMM 'de' yyyy", { locale: ptBR })}</p>
+                                                </div>
+                                            </div>
+                                        </AccordionTrigger>
                                         <div className="flex items-center gap-2 ml-4 shrink-0">
                                             <div className="text-right">
                                                 <p className="text-sm text-muted-foreground">Total do Dia</p>
@@ -665,3 +669,5 @@ export default function ReportsPage() {
         <ReportsPageContent />
     )
 }
+
+    
