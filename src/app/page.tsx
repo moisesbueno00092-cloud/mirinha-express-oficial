@@ -13,7 +13,7 @@ import type {
   ItemCount,
   SavedFavorite,
 } from '@/types';
-import { PREDEFINED_PRICES, DELIVERY_FEE, BOMBONIERE_ITEMS_DEFAULT } from '@/lib/constants';
+import { PREDEFINED_PRICES, DELIVERY_FEE } from '@/lib/constants';
 import {
   useFirestore,
   useCollection,
@@ -147,7 +147,7 @@ function LancheTrackerPage() {
     if (!isLoadingBomboniere && bomboniereItemsFromDB && bomboniereItemsFromDB.length > 0) {
       return bomboniereItemsFromDB;
     }
-    return BOMBONIERE_ITEMS_DEFAULT;
+    return [];
   }, [bomboniereItemsFromDB, isLoadingBomboniere]);
   
   const bomboniereItemsByName = useMemo(() => {
@@ -344,17 +344,29 @@ function LancheTrackerPage() {
             qty = parseInt(qtyMatch[1], 10);
             itemNamePart = qtyMatch[2];
         } else if (isNumeric(part) && i + 1 < parts.length && !isNumeric(parts[i+1])) {
-            qty = parseInt(part, 10);
-            itemNamePart = parts[i+1];
-            i++;
+            // Check if it's a quantity for the next part
+            const nextPartIsPredefined = predefinedPrices[(parts[i+1] || '').toUpperCase()];
+            if(nextPartIsPredefined) {
+              qty = parseInt(part, 10);
+              itemNamePart = parts[i+1];
+              i++;
+            }
         }
         
         const isPredefined = predefinedPrices[itemNamePart.toUpperCase()];
 
         if(isPredefined) {
             let priceToUse = isPredefined;
-             if (i + 1 < parts.length && isNumeric(parts[i+1])) {
-                priceToUse = parseFloat(parts[i + 1].replace(',', '.'));
+            const nextPartIndex = i + 1;
+            const nextNextPartIndex = i + 2;
+
+            const isNextPartNumeric = nextPartIndex < parts.length && isNumeric(parts[nextPartIndex]);
+            const isNextNextPartPredefined = nextNextPartIndex < parts.length && predefinedPrices[(parts[nextNextPartIndex] || '').toUpperCase()];
+            
+            // A number is a custom price ONLY if it's not followed by another predefined item.
+            // This prevents "5 P 1 M" from making 'P' cost 1.00.
+            if (isNextPartNumeric && !isNextNextPartPredefined) {
+                priceToUse = parseFloat(parts[nextPartIndex].replace(',', '.'));
                 i++;
             }
 
@@ -519,7 +531,7 @@ function LancheTrackerPage() {
           const itemDef = bomboniereItems.find((i) => i.id === soldItem.id);
           if (itemDef) {
             const newStock = itemDef.estoque + soldItem.quantity;
-            const docRef = doc(bomboniereCollectionRef, itemDef.id);
+            const docRef = doc(bomboniereCollectionRef, soldItem.id);
             batch.update(docRef, { estoque: newStock });
           }
         }
