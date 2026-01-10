@@ -909,5 +909,3 @@ export default function Home() {
   return <LancheTrackerPageContent />;
 }
     
-
-    

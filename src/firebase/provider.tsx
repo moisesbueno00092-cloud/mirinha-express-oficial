@@ -49,55 +49,31 @@ export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
   const [userError, setUserError] = useState<Error | null>(null);
 
   useEffect(() => {
-    let isMounted = true;
-  
     const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
-      if (!isMounted) return;
-  
       if (currentUser) {
         setUser(currentUser);
-        setUserError(null);
         setIsUserLoading(false);
       } else {
-        // This small delay gives Firebase time to restore a potential existing session.
-        setTimeout(async () => {
-          if (!isMounted || auth.currentUser) {
-            // If another auth event already fired and set a user, or if component unmounted, do nothing.
-            if(auth.currentUser && !user) {
-              setUser(auth.currentUser);
-              setIsUserLoading(false);
-            }
-            return;
-          }
-  
-          try {
-            await signInAnonymously(auth);
-            // The onAuthStateChanged listener will be re-triggered by signInAnonymously,
-            // which will then set the user and update loading state.
-          } catch (error) {
-            console.error("FirebaseProvider: Anonymous sign-in failed.", error);
-            if (isMounted) {
-              setUserError(error as Error);
-              setUser(null);
-              setIsUserLoading(false);
-            }
-          }
-        }, 500); // 500ms delay to wait for session restoration
+        try {
+          // If no user, immediately try to sign in anonymously.
+          // onAuthStateChanged will be called again with the new user.
+          await signInAnonymously(auth);
+        } catch (error) {
+          console.error("FirebaseProvider: Anonymous sign-in failed.", error);
+          setUser(null);
+          setUserError(error as Error);
+          setIsUserLoading(false);
+        }
       }
     }, (error) => {
-      console.error("FirebaseProvider: Auth listener error", error);
-      if (isMounted) {
-        setUserError(error);
-        setUser(null);
-        setIsUserLoading(false);
-      }
+      console.error("FirebaseProvider: Auth state listener error.", error);
+      setUser(null);
+      setUserError(error);
+      setIsUserLoading(false);
     });
   
-    return () => {
-      isMounted = false;
-      unsubscribe();
-    };
-  }, [auth, user]);
+    return () => unsubscribe();
+  }, [auth]);
   
 
   const contextValue = useMemo((): FirebaseContextState => {
