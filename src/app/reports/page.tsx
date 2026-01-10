@@ -351,12 +351,14 @@ function ReportsPageContent() {
     const start = startOfMonth(currentDate);
     const end = endOfMonth(currentDate);
 
-    return query(
+    const q = query(
         collection(firestore, 'daily_reports'),
         where('reportDate', '>=', format(start, 'yyyy-MM-dd')),
         where('reportDate', '<=', format(end, 'yyyy-MM-dd')),
         orderBy('reportDate', 'desc')
     );
+    (q as any).__memo = true; // Mark as memoized
+    return q;
   }, [firestore, currentDate]);
 
   const { data: savedReports, isLoading: isLoadingReports } = useCollection<DailyReport>(reportsQuery);
@@ -671,5 +673,7 @@ export default function ReportsPage() {
     
     return <ReportsPageContent />;
 }
+
+    
 
     
