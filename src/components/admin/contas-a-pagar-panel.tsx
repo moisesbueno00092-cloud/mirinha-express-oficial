@@ -5,7 +5,7 @@ import { useMemo, useState, useEffect, useCallback } from 'react';
 import { useFirestore, useCollection, useMemoFirebase } from '@/firebase';
 import { collection, query, orderBy, doc, updateDoc, deleteDoc } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
-import { format, isPast, isToday, isWithinInterval, parseISO, startOfWeek, endOfWeek, endOfMonth } from 'date-fns';
+import { format, isPast, isToday, isWithinInterval, parseISO, startOfWeek, endOfWeek, endOfMonth, startOfMonth } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
 import type { ContaAPagar, Fornecedor } from '@/types';
@@ -124,7 +124,7 @@ const ContasTable = ({ contas, fornecedorMap, onStatusChange, onDeleteRequest, t
                 </TableBody>
                 <TableFooter>
                     <TableRow>
-                        <TableCell colSpan={3} className="font-semibold">Total do Período</TableCell>
+                        <TableCell colSpan={3} className="font-semibold">Total em Aberto no Período</TableCell>
                         <TableCell className="text-right font-bold text-lg text-destructive" colSpan={2}>{formatCurrency(totalPeriodo)}</TableCell>
                     </TableRow>
                 </TableFooter>
@@ -192,30 +192,31 @@ export default function ContasAPagarPanel() {
     }, [allContas]);
 
     const filteredContasAPagar = useMemo(() => {
-        if (activeFilter === 'all') return contasAPagar;
+        const contasEmAberto = allContas?.filter(c => !c.estaPaga) || [];
+        if (activeFilter === 'all') return contasEmAberto;
 
         const today = new Date();
         today.setHours(0, 0, 0, 0);
 
         if (activeFilter === 'vencidas') {
-            return contasAPagar.filter(c => isPast(parseISO(c.dataVencimento + 'T00:00:00')) && !isToday(parseISO(c.dataVencimento + 'T00:00:00')));
+            return contasEmAberto.filter(c => isPast(parseISO(c.dataVencimento + 'T00:00:00')) && !isToday(parseISO(c.dataVencimento + 'T00:00:00')));
         }
         if (activeFilter === 'hoje') {
-            return contasAPagar.filter(c => isToday(parseISO(c.dataVencimento + 'T00:00:00')));
+            return contasEmAberto.filter(c => isToday(parseISO(c.dataVencimento + 'T00:00:00')));
         }
         if (activeFilter === 'semana') {
             const startOfCurrentWeek = startOfWeek(today, { locale: ptBR });
             const endOfCurrentWeek = endOfWeek(today, { locale: ptBR });
-            return contasAPagar.filter(c => isWithinInterval(parseISO(c.dataVencimento + 'T00:00:00'), { start: startOfCurrentWeek, end: endOfCurrentWeek }));
+            return contasEmAberto.filter(c => isWithinInterval(parseISO(c.dataVencimento + 'T00:00:00'), { start: startOfCurrentWeek, end: endOfCurrentWeek }));
         }
         if (activeFilter === 'mes') {
             const startOfCurrentMonth = startOfMonth(today);
             const endOfCurrentMonth = endOfMonth(today);
-            return contasAPagar.filter(c => isWithinInterval(parseISO(c.dataVencimento + 'T00:00:00'), { start: startOfCurrentMonth, end: endOfCurrentMonth }));
+            return contasEmAberto.filter(c => isWithinInterval(parseISO(c.dataVencimento + 'T00:00:00'), { start: startOfCurrentMonth, end: endOfCurrentMonth }));
         }
         return [];
 
-    }, [contasAPagar, activeFilter]);
+    }, [allContas, activeFilter]);
 
     const totalPeriodo = useMemo(() => {
         return filteredContasAPagar.reduce((acc, conta) => acc + conta.valor, 0);
@@ -254,7 +255,7 @@ export default function ContasAPagarPanel() {
             className="flex items-center gap-2"
         >
             {label}
-            {count > 0 && <Badge variant={activeFilter === filter ? 'secondary' : 'default'} className="bg-red-500">{count}</Badge>}
+            {count > 0 && <Badge variant={activeFilter === filter ? 'secondary' : 'destructive'} >{count}</Badge>}
         </Button>
     )
 
@@ -277,7 +278,7 @@ export default function ContasAPagarPanel() {
             
             <div className="space-y-4">
                 <div className="flex flex-wrap items-center gap-2">
-                    <FilterButton filter="all" label="Todas" count={0} />
+                    <FilterButton filter="all" label="Todas em Aberto" count={0} />
                     <FilterButton filter="vencidas" label="Vencidas" count={counts.vencidas} />
                     <FilterButton filter="hoje" label="Vence Hoje" count={counts.hoje} />
                     <FilterButton filter="semana" label="Esta Semana" count={counts.semana} />
