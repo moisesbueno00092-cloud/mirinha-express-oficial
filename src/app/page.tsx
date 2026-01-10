@@ -102,8 +102,8 @@ function LancheTrackerPage() {
   const { toast } = useToast();
 
   const liveItemsCollectionRef = useMemoFirebase(
-    () => (firestore ? collection(firestore, 'live_items') : null),
-    [firestore]
+    () => (firestore && user ? collection(firestore, 'users', user.uid, 'live_items') : null),
+    [firestore, user]
   );
   
   const liveItemsQuery = useMemoFirebase(
@@ -398,7 +398,7 @@ function LancheTrackerPage() {
           const itemDef = bomboniereItems.find((i) => i.id === soldItem.id);
           if (itemDef) {
             const newStock = itemDef.estoque - soldItem.quantity;
-            const docRef = doc(bomboniereCollectionRef, itemDef.id);
+            const docRef = doc(bomboniereCollectionRef, soldItem.id);
             batch.update(docRef, { estoque: newStock });
           }
         }
@@ -515,7 +515,7 @@ function LancheTrackerPage() {
           const itemDef = bomboniereItems.find((i) => i.id === soldItem.id);
           if (itemDef) {
             const newStock = itemDef.estoque + soldItem.quantity;
-            const docRef = doc(bomboniereCollectionRef, itemDef.id);
+            const docRef = doc(bomboniereCollectionRef, soldItem.id);
             batch.update(docRef, { estoque: newStock });
           }
         }
@@ -573,10 +573,12 @@ function LancheTrackerPage() {
     try {
       const batch = writeBatch(firestore);
       const reportDate = new Date();
+      
+      const reportDateString = reportDate.toISOString().split('T')[0];
 
       const report: DailyReport = {
         userId: user.uid,
-        reportDate: reportDate.toISOString(),
+        reportDate: reportDateString,
         createdAt: reportDate.toISOString(),
         totalGeral: totals.totalGeral,
         totalAVista: totals.totalAVista,
@@ -596,13 +598,14 @@ function LancheTrackerPage() {
         contagemTotal: totals.contagemTotal,
         contagemRua: totals.contagemRua,
       };
-
-      const reportRef = doc(collection(firestore, 'daily_reports'));
+      
+      const reportsCollection = collection(firestore, 'users', user.uid, 'daily_reports');
+      const reportRef = doc(reportsCollection);
       batch.set(reportRef, report);
 
       items.forEach((item) => {
         const liveItemRef = doc(liveItemsCollectionRef!, item.id);
-        const archiveItemRef = doc(collection(firestore, 'order_items'), item.id);
+        const archiveItemRef = doc(collection(firestore, 'users', user.uid, 'order_items'), item.id);
         batch.set(archiveItemRef, { ...item, reportado: true });
         batch.delete(liveItemRef);
       });
@@ -796,11 +799,11 @@ function LancheTrackerPage() {
             <p className="text-muted-foreground -mt-2 text-sm sm:text-base">Controle de Pedidos</p>
           </div>
           <div className="absolute right-0 flex items-center gap-2">
-            <Button variant="outline" onClick={() => handleProtectedAction(() => router.push('/reports'))}>
+            <Button variant="outline" onClick={() => router.push('/reports')}>
               <History className="mr-2 h-4 w-4" />
               Relatórios
             </Button>
-            <Button variant="outline" onClick={() => handleProtectedAction(() => router.push('/admin'))}>
+            <Button variant="outline" onClick={() => router.push('/admin')}>
               <Wrench className="mr-2 h-4 w-4" />
               Admin
             </Button>
