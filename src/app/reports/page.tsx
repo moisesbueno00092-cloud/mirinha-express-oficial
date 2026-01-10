@@ -591,10 +591,10 @@ function ReportsPageContent() {
                     {savedReports && savedReports.length > 0 ? (
                         savedReports.map(report => {
                             const reportDate = getReportDate(report);
-                            if (reportDate.getTime() === 0) return null;
+                            if (!report.id || reportDate.getTime() === 0) return null;
 
                             return (
-                                <AccordionItem value={report.id!} key={report.id} className="border-b-0">
+                                <AccordionItem value={report.id} key={report.id} className="border-b-0">
                                     <div className="bg-card rounded-lg border hover:bg-accent/50 transition-colors">
                                         <div className="flex items-center justify-between p-4">
                                             <AccordionTrigger asChild>
