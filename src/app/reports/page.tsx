@@ -71,7 +71,7 @@ const ReportDetail = ({ report, bomboniereItems, isAggregate = false }: { report
       );
     };
     
-    const separateItemsByCategory = (itemCount: ItemCount) => {
+    const separateItemsByCategory = useCallback((itemCount: ItemCount) => {
         const lanches: ItemCount = {};
         const bomboniere: ItemCount = {};
         if (!itemCount) return { lanches, bomboniere };
@@ -85,7 +85,7 @@ const ReportDetail = ({ report, bomboniereItems, isAggregate = false }: { report
             }
         }
         return { lanches, bomboniere };
-    };
+    }, [isBomboniere, bomboniereNameMap]);
     
     if (!report) {
          return (
@@ -132,7 +132,7 @@ const ReportDetail = ({ report, bomboniereItems, isAggregate = false }: { report
         const { lanches: lanchesRua, bomboniere: bomboniereRua } = separateItemsByCategory(contagemRua);
         
         return { lanchesSalao, bomboniereSalao, lanchesRua, bomboniereRua };
-    }, [report.contagemTotal, report.contagemRua, bomboniereItems, separateItemsByCategory]);
+    }, [report.contagemTotal, report.contagemRua, separateItemsByCategory]);
 
     const renderItemCountList = (counts: ItemCount) => {
       if (!counts || Object.keys(counts).length === 0) {
@@ -373,9 +373,10 @@ function ReportsPageContent() {
     
     const selectedMonthPrefix = format(currentDate, "yyyy-MM");
 
-    return allReports.filter(report => {
-        return report.reportDate.startsWith(selectedMonthPrefix);
-    }).sort((a, b) => b.reportDate.localeCompare(a.reportDate));
+    return allReports
+      .filter(report => report.reportDate.startsWith(selectedMonthPrefix))
+      .sort((a, b) => b.reportDate.localeCompare(a.reportDate));
+      
   }, [allReports, currentDate]);
 
 
@@ -533,7 +534,7 @@ function ReportsPageContent() {
                     <label htmlFor="month-select" className="text-sm font-medium text-muted-foreground">Mês</label>
                     <Select
                         value={String(currentDate.getMonth())}
-                        onValueChange={(value) => setCurrentDate(setMonth(currentDate, parseInt(value)))}
+                        onValueChange={(value) => setCurrentDate(setMonth(new Date(currentDate), parseInt(value)))}
                     >
                         <SelectTrigger id="month-select" className="w-[180px]">
                             <SelectValue />
@@ -547,7 +548,7 @@ function ReportsPageContent() {
                     <label htmlFor="year-select" className="text-sm font-medium text-muted-foreground">Ano</label>
                     <Select
                         value={String(currentDate.getFullYear())}
-                        onValueChange={(value) => setCurrentDate(setYear(currentDate, parseInt(value)))}
+                        onValueChange={(value) => setCurrentDate(setYear(new Date(currentDate), parseInt(value)))}
                     >
                         <SelectTrigger id="year-select" className="w-[120px]">
                             <SelectValue />
