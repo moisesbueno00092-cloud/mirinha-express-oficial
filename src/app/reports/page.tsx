@@ -489,6 +489,7 @@ function ReportsPageContent() {
     
   const getReportDate = (report: DailyReport) => {
     try {
+        if (!report || !report.reportDate) return new Date(0);
         // Force UTC interpretation by adding a time and Z
         return new Date(report.reportDate + 'T12:00:00Z');
     } catch {
@@ -590,8 +591,9 @@ function ReportsPageContent() {
                 <Accordion type="single" collapsible className="w-full space-y-3" value={selectedReportId || ''} onValueChange={setSelectedReportId}>
                     {savedReports && savedReports.length > 0 ? (
                         savedReports.map(report => {
+                            if (!report || !report.id) return null;
                             const reportDate = getReportDate(report);
-                            if (!report.id || reportDate.getTime() === 0) return null;
+                            if (reportDate.getTime() === 0) return null;
 
                             return (
                                 <AccordionItem value={report.id} key={report.id} className="border-b-0">
