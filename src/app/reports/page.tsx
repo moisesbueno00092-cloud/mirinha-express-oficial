@@ -361,14 +361,17 @@ function ReportsPageContent() {
     
     const selectedYear = currentDate.getFullYear();
     const selectedMonth = currentDate.getMonth();
-    const yearMonthPrefix = `${selectedYear}-${String(selectedMonth + 1).padStart(2, '0')}`;
-
+    
     return allReports.filter(report => {
         if (!report.reportDate) {
             console.warn("Report with invalid date skipped", report);
             return false;
         }
-        return report.reportDate.startsWith(yearMonthPrefix);
+        // Force UTC interpretation by adding time and Z
+        const reportDate = new Date(report.reportDate + 'T12:00:00Z');
+        if (isNaN(reportDate.getTime())) return false;
+
+        return reportDate.getUTCFullYear() === selectedYear && reportDate.getUTCMonth() === selectedMonth;
     });
 
   }, [allReports, currentDate]);
@@ -594,7 +597,7 @@ function ReportsPageContent() {
                     {savedReports && savedReports.length > 0 ? (
                         savedReports.map(report => {
                             const reportDate = getReportDate(report);
-                            if (reportDate.getTime() === 0) return null; // Skip rendering if date is invalid
+                            if (reportDate.getTime() === 0) return null;
 
                             return (
                                 <AccordionItem value={report.id!} key={report.id} className="border-b-0">
