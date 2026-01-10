@@ -34,7 +34,6 @@ import {
   where,
   getDocs,
 } from 'firebase/firestore';
-import { parseCustomItemPrice } from '@/ai/flows/parse-custom-item-price';
 
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -96,7 +95,7 @@ const ToastContent = ({ item, title }: { item: Partial<Item>; title: string }) =
 );
 
 function LancheTrackerPageContent() {
-  const { user, isUserLoading } = useUser();
+  const { user } = useUser(); // No longer need isUserLoading here
   const firestore = useFirestore();
   const router = useRouter();
   const { toast } = useToast();
@@ -276,43 +275,41 @@ function LancheTrackerPageContent() {
         
         let bomboniereMatch = null;
         let bomboniereQty = 1;
+        let bestMatchEndIndex = -1;
 
         // Look for multi-word bomboniere items first
         for (let j = parts.length; j > i; j--) {
             const potentialName = parts.slice(i, j).join(' ').toLowerCase();
             if (bomboniereItemsByName[potentialName]) {
                 bomboniereMatch = bomboniereItemsByName[potentialName];
-                
-                // Check for quantity BEFORE the name
-                if (i > 0 && isNumeric(parts[i - 1])) {
-                    bomboniereQty = parseInt(parts[i - 1], 10);
-                    // To correctly advance 'i', we need to "undo" the previous increment
-                    // This is tricky. Let's adjust the logic.
-                }
-
-                let priceToUse = bomboniereMatch.price;
-                const nextPartIndex = j;
-
-                if (nextPartIndex < parts.length && isNumeric(parts[nextPartIndex])) {
-                    priceToUse = parseFloat(parts[nextPartIndex].replace(',', '.'));
-                    i = nextPartIndex + 1; // Consume name + price
-                } else {
-                    i = nextPartIndex; // Consume name only
-                }
-                
-                processedBomboniereItems.push({ id: bomboniereMatch.id, name: bomboniereMatch.name, quantity: bomboniereQty, price: priceToUse });
-                totalPrice += priceToUse * bomboniereQty;
-                totalQuantity += bomboniereQty;
-                
-                // This is a bit of a hack to remove the quantity part if it was processed
-                if (i > 0 && isNumeric(parts[i - (j-i) -1])) {
-                    parts[i - (j-i) -1] = ''; // blank it out
-                }
-                
-                break; // Found the longest match, so break
+                bestMatchEndIndex = j;
+                break; // Found the longest possible match
             }
         }
-        if(bomboniereMatch) continue;
+
+        if(bomboniereMatch) {
+            // Check for quantity BEFORE the name
+            if (i > 0 && isNumeric(parts[i - 1])) {
+                bomboniereQty = parseInt(parts[i - 1], 10);
+                // Blank out the already processed quantity part
+                parts[i - 1] = '';
+            }
+
+            let priceToUse = bomboniereMatch.price;
+            const nextPartIndex = bestMatchEndIndex;
+
+            if (nextPartIndex < parts.length && isNumeric(parts[nextPartIndex])) {
+                priceToUse = parseFloat(parts[nextPartIndex].replace(',', '.'));
+                i = nextPartIndex + 1; // Consume name + price
+            } else {
+                i = nextPartIndex; // Consume name only
+            }
+            
+            processedBomboniereItems.push({ id: bomboniereMatch.id, name: bomboniereMatch.name, quantity: bomboniereQty, price: priceToUse });
+            totalPrice += priceToUse * bomboniereQty;
+            totalQuantity += bomboniereQty;
+            continue;
+        }
 
 
         const part = parts[i];
@@ -543,7 +540,7 @@ function LancheTrackerPageContent() {
           const itemDef = bomboniereItems.find((i) => i.id === soldItem.id);
           if (itemDef) {
             const newStock = itemDef.estoque + soldItem.quantity;
-            const docRef = doc(bomboniereCollectionRef, soldItem.id);
+            const docRef = doc(bomboniereCollectionRef, itemDef.id);
             batch.update(docRef, { estoque: newStock });
           }
         }
@@ -763,16 +760,6 @@ function LancheTrackerPageContent() {
 
   const hasUnsavedChanges = items && items.length > 0;
   
-  if (isUserLoading || !user) {
-    return (
-      <div className="flex h-screen w-full flex-col items-center justify-center text-center p-4">
-        <MirinhaLogo className="w-64 sm:w-80 h-auto text-primary mb-4" />
-        <Loader2 className="h-12 w-12 animate-spin text-primary" />
-        <p className="mt-4 text-muted-foreground">A autenticar...</p>
-      </div>
-    );
-  }
-
   return (
     <>
       <BomboniereModal
@@ -859,7 +846,7 @@ function LancheTrackerPageContent() {
               onDelete={handleDeleteRequest}
               onFavorite={handleFavoriteSave}
               savedFavorites={savedFavorites}
-              isLoading={isLoadingItems || isUserLoading}
+              isLoading={isLoadingItems}
             />
           </div>
         </main>
@@ -907,10 +894,9 @@ function LancheTrackerPageContent() {
 
 
 export default function Home() {
-  const { isUserLoading } = useUser();
+  const { user, isUserLoading } = useUser();
   
-  // This outer component will handle the top-level loading state
-  if (isUserLoading) {
+  if (isUserLoading || !user) {
       return (
           <div className="flex h-screen w-full flex-col items-center justify-center text-center p-4">
               <MirinhaLogo className="w-64 sm:w-80 h-auto text-primary mb-4" />
@@ -922,5 +908,6 @@ export default function Home() {
 
   return <LancheTrackerPageContent />;
 }
+    
 
     

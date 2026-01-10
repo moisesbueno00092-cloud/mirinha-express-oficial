@@ -44,39 +44,61 @@ export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
   firestore,
   auth,
 }) => {
-  const [user, setUser] = useState<User | null>(auth.currentUser);
+  const [user, setUser] = useState<User | null>(null);
   const [isUserLoading, setIsUserLoading] = useState(true); // Start as true
   const [userError, setUserError] = useState<Error | null>(null);
 
   useEffect(() => {
+    let isMounted = true;
+  
     const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
+      if (!isMounted) return;
+  
       if (currentUser) {
         setUser(currentUser);
         setUserError(null);
         setIsUserLoading(false);
       } else {
-        // No user, attempt anonymous sign-in
-        try {
-          // This will sign in or return the existing anonymous user
-          await signInAnonymously(auth);
-          // The onAuthStateChanged listener will be re-triggered with the new/existing
-          // user, which will then set isLoading to false.
-        } catch (error) {
-          console.error("FirebaseProvider: Anonymous sign-in failed.", error);
-          setUserError(error as Error);
-          setUser(null);
-          setIsUserLoading(false);
-        }
+        // This small delay gives Firebase time to restore a potential existing session.
+        setTimeout(async () => {
+          if (!isMounted || auth.currentUser) {
+            // If another auth event already fired and set a user, or if component unmounted, do nothing.
+            if(auth.currentUser && !user) {
+              setUser(auth.currentUser);
+              setIsUserLoading(false);
+            }
+            return;
+          }
+  
+          try {
+            await signInAnonymously(auth);
+            // The onAuthStateChanged listener will be re-triggered by signInAnonymously,
+            // which will then set the user and update loading state.
+          } catch (error) {
+            console.error("FirebaseProvider: Anonymous sign-in failed.", error);
+            if (isMounted) {
+              setUserError(error as Error);
+              setUser(null);
+              setIsUserLoading(false);
+            }
+          }
+        }, 500); // 500ms delay to wait for session restoration
       }
     }, (error) => {
       console.error("FirebaseProvider: Auth listener error", error);
-      setUserError(error);
-      setUser(null);
-      setIsUserLoading(false);
+      if (isMounted) {
+        setUserError(error);
+        setUser(null);
+        setIsUserLoading(false);
+      }
     });
-
-    return () => unsubscribe();
-  }, [auth]);
+  
+    return () => {
+      isMounted = false;
+      unsubscribe();
+    };
+  }, [auth, user]);
+  
 
   const contextValue = useMemo((): FirebaseContextState => {
     return {
@@ -150,5 +172,7 @@ export const useUser = (): UserHookResult => {
   const { user, isUserLoading, userError } = useFirebaseContext();
   return { user, isUserLoading, userError };
 };
+
+    
 
     

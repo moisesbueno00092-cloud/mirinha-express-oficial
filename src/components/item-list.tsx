@@ -203,12 +203,7 @@ export default function ItemList({ items, onEdit, onDelete, onFavorite, savedFav
           </TableRow>
         </TableHeader>
         <TableBody>
-          {[...items].sort((a, b) => {
-              const dateA = a.timestamp ? (a.timestamp as any).toDate ? (a.timestamp as any).toDate().getTime() : new Date(a.timestamp).getTime() : 0;
-              const dateB = b.timestamp ? (b.timestamp as any).toDate ? (b.timestamp as any).toDate().getTime() : new Date(b.timestamp).getTime() : 0;
-              if (isNaN(dateA) || isNaN(dateB)) return 0;
-              return dateB - dateA;
-          }).map((item) => (
+          {[...items].map((item) => (
             <TableRow key={item.id} className={cn(item.group.includes('Fiados') && "text-destructive", "border-b-0")}>
               <TableCell className="font-medium px-2 sm:px-4 align-top">
                 {renderItemName(item)}
@@ -248,5 +243,7 @@ export default function ItemList({ items, onEdit, onDelete, onFavorite, savedFav
     </div>
   );
 }
+
+    
 
     
