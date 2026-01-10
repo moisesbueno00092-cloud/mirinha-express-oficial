@@ -35,10 +35,7 @@ type ReportPeriod = 'month' | 'year';
 
 const ExpenseReport = ({ contasPagas, fornecedorMap, period, year, month }: { contasPagas: ContaAPagar[], fornecedorMap: Map<string, Fornecedor>, period: ReportPeriod, year: number, month: string }) => {
     const aggregatedData = useMemo(() => {
-        let referenceDate = setYear(new Date(), year);
-        if (period === 'month' && month !== 'all') {
-            referenceDate = setMonth(referenceDate, parseInt(month));
-        }
+        let referenceDate = new Date(year, parseInt(month), 1);
 
         const startDate = period === 'month' ? startOfMonth(referenceDate) : startOfYear(referenceDate);
         const endDate = period === 'month' ? endOfMonth(referenceDate) : endOfYear(referenceDate);
@@ -130,10 +127,7 @@ const ExpenseReport = ({ contasPagas, fornecedorMap, period, year, month }: { co
 
 const ComprasReport = ({ allEntradas, period, year, month }: { allEntradas: EntradaMercadoria[], period: ReportPeriod, year: number, month: string }) => {
     const aggregatedData = useMemo(() => {
-        let referenceDate = setYear(new Date(), year);
-        if (period === 'month' && month !== 'all') {
-            referenceDate = setMonth(referenceDate, parseInt(month));
-        }
+        let referenceDate = new Date(year, parseInt(month), 1);
 
         const startDate = period === 'month' ? startOfMonth(referenceDate) : startOfYear(referenceDate);
         const endDate = period === 'month' ? endOfMonth(referenceDate) : endOfYear(referenceDate);
@@ -279,12 +273,13 @@ export default function HistoricoFinanceiroPanel() {
     }, [allEntradas, searchQuery]);
     
     const { contasPagas, expenseSummary } = useMemo(() => {
-        const currentMonthDate = setYear(new Date(), selectedYear);
-        const startOfSelectedMonth = startOfMonth(setMonth(currentMonthDate, parseInt(selectedMonth)));
-        const endOfSelectedMonth = endOfMonth(setMonth(currentMonthDate, parseInt(selectedMonth)));
+        const referenceDate = new Date(selectedYear, parseInt(selectedMonth), 1);
         
-        const startOfSelectedYear = startOfYear(currentMonthDate);
-        const endOfSelectedYear = endOfYear(currentMonthDate);
+        const startOfSelectedMonth = startOfMonth(referenceDate);
+        const endOfSelectedMonth = endOfMonth(referenceDate);
+        
+        const startOfSelectedYear = startOfYear(referenceDate);
+        const endOfSelectedYear = endOfYear(referenceDate);
         
         let monthTotal = 0;
         let yearTotal = 0;
