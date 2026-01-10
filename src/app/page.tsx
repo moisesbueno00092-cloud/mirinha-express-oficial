@@ -105,10 +105,10 @@ function LancheTrackerPageContent() {
 
   const liveItemsQuery = useMemoFirebase(
     () =>
-      firestore && user?.uid
-        ? query(collection(firestore, 'users', user.uid, 'live_items'), orderBy('timestamp', 'desc'))
+      firestore
+        ? query(collection(firestore, 'live_items'), orderBy('timestamp', 'desc'))
         : null,
-    [firestore, user?.uid]
+    [firestore]
   );
   
   const { data: allItems, isLoading: isLoadingItems, error: itemsError } = useCollection<Item>(liveItemsQuery);
@@ -208,7 +208,7 @@ function LancheTrackerPageContent() {
       setTimeout(() => window.location.reload(), 2000);
       return;
     }
-    const liveItemsCollectionRef = collection(firestore, 'users', user.uid, 'live_items');
+    const liveItemsCollectionRef = collection(firestore, 'live_items');
 
 
     try {
@@ -304,7 +304,7 @@ function LancheTrackerPageContent() {
                 priceToUse = parseFloat(parts[nextPartIndex].replace(',', '.'));
                 i = nextPartIndex + 1; // Consume name + price
             } else {
-                i = nextPartIndex; // Consume name only
+                i = bestMatchEndIndex; // Consume name only
             }
             
             // If quantity was found, we need to adjust the consumption logic, but `i` is already moving forward.
@@ -319,7 +319,7 @@ function LancheTrackerPageContent() {
             if (i > 0 && isNumeric(parts[i - 1])) {
                  parts[i-1] = ''; // Blank it out
             }
-            for(let k = i - (j - i); k < i; k++) {
+            for(let k = i - (bestMatchEndIndex - i); k < i; k++) {
                 if(k >=0) parts[k] = '';
             }
 
@@ -545,7 +545,7 @@ function LancheTrackerPageContent() {
   const confirmDeleteItem = async () => {
     if (!itemToDelete || !firestore || !user || !items) return;
 
-    const liveItemsCollectionRef = collection(firestore, 'users', user.uid, 'live_items');
+    const liveItemsCollectionRef = collection(firestore, 'live_items');
     const itemBeingDeleted = items.find((it) => it.id === itemToDelete);
 
     try {
@@ -556,7 +556,7 @@ function LancheTrackerPageContent() {
           const itemDef = bomboniereItems.find((i) => i.id === soldItem.id);
           if (itemDef) {
             const newStock = itemDef.estoque + soldItem.quantity;
-            const docRef = doc(bomboniereCollectionRef, itemDef.id);
+            const docRef = doc(bomboniereCollectionRef, soldItem.id);
             batch.update(docRef, { estoque: newStock });
           }
         }
@@ -640,14 +640,14 @@ function LancheTrackerPageContent() {
         contagemRua: totals.contagemRua,
       };
       
-      const reportsCollection = collection(firestore, 'users', user.uid, 'daily_reports');
+      const reportsCollection = collection(firestore, 'daily_reports');
       const reportRef = doc(reportsCollection);
       batch.set(reportRef, report);
       
-      const liveItemsCollectionRef = collection(firestore, 'users', user.uid, 'live_items');
+      const liveItemsCollectionRef = collection(firestore, 'live_items');
       items.forEach((item) => {
         const liveItemRef = doc(liveItemsCollectionRef, item.id);
-        const archiveItemRef = doc(collection(firestore, 'users', user.uid, 'order_items'), item.id);
+        const archiveItemRef = doc(collection(firestore, 'order_items'), item.id);
         batch.set(archiveItemRef, { ...item, reportado: true });
         batch.delete(liveItemRef);
       });
@@ -925,6 +925,8 @@ export default function Home() {
 
   return <LancheTrackerPageContent />;
 }
+    
+
     
 
     

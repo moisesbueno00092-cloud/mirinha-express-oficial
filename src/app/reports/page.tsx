@@ -347,17 +347,7 @@ function ReportsPageContent() {
   const [selectedReportId, setSelectedReportId] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState('daily');
   
-  // Query for user-specific reports (new structure)
-  const userReportsQuery = useMemoFirebase(() => {
-    if (!firestore || !user) return null;
-    return query(
-        collection(firestore, 'users', user.uid, 'daily_reports'),
-        orderBy('reportDate', 'desc')
-    );
-  }, [firestore, user]);
-
-  // Query for global reports (old structure)
-  const globalReportsQuery = useMemoFirebase(() => {
+  const reportsQuery = useMemoFirebase(() => {
     if (!firestore) return null;
     return query(
         collection(firestore, 'daily_reports'),
@@ -365,15 +355,7 @@ function ReportsPageContent() {
     );
   }, [firestore]);
 
-  const { data: userReports, isLoading: isLoadingUserReports } = useCollection<DailyReport>(userReportsQuery);
-  const { data: globalReports, isLoading: isLoadingGlobalReports } = useCollection<DailyReport>(globalReportsQuery);
-
-  // Combine both report sources
-  const allReports = useMemo(() => {
-    const combined = [...(userReports || []), ...(globalReports || [])];
-    const uniqueReports = Array.from(new Map(combined.map(report => [report.id, report])).values());
-    return uniqueReports.sort((a, b) => new Date(b.reportDate).getTime() - new Date(a.reportDate).getTime());
-  }, [userReports, globalReports]);
+  const { data: allReports, isLoading: isLoadingReports } = useCollection<DailyReport>(reportsQuery);
   
   const savedReports = useMemo(() => {
     if (!allReports) return [];
@@ -407,7 +389,7 @@ function ReportsPageContent() {
   );
   const { data: bomboniereItems } = useCollection<BomboniereItem>(bomboniereQuery);
 
-  const isLoading = isUserLoading || isLoadingUserReports || isLoadingGlobalReports;
+  const isLoading = isUserLoading || isLoadingReports;
 
   const handleDeleteReportRequest = (reportId: string) => {
     const report = allReports?.find(r => r.id === reportId);
@@ -417,7 +399,7 @@ function ReportsPageContent() {
   };
 
   const confirmDeleteReport = async () => {
-    if (!firestore || !user || !reportToDelete?.id || !reportToDelete.reportDate) return;
+    if (!firestore || !reportToDelete?.id || !reportToDelete.reportDate) return;
     
     try {
         const batch = writeBatch(firestore);
@@ -426,7 +408,7 @@ function ReportsPageContent() {
         const reportDateToDelete = parseISO(`${reportDateString}T12:00:00Z`);
         
         const orderItemsQuery = query(
-          collection(firestore, 'users', user.uid, 'order_items'), 
+          collection(firestore, 'order_items'), 
           where('reportado', '==', true)
         );
         const orderItemsSnapshot = await getDocs(orderItemsQuery);
@@ -440,7 +422,7 @@ function ReportsPageContent() {
             const itemTimestamp = item.timestamp?.toDate ? item.timestamp.toDate() : parseISO(item.timestamp);
 
             if (isSameDay(itemTimestamp, reportDateToDelete)) {
-                const liveItemsCollectionRef = collection(firestore, 'users', user.uid, 'live_items');
+                const liveItemsCollectionRef = collection(firestore, 'live_items');
                 const liveItemRef = doc(liveItemsCollectionRef, orderDoc.id);
                 batch.set(liveItemRef, { ...item, reportado: false });
                 batch.delete(orderDoc.ref);
@@ -448,8 +430,8 @@ function ReportsPageContent() {
         });
         
         let reportDocRef;
-        if (reportToDelete.userId) {
-            reportDocRef = doc(firestore, 'users', user.uid, "daily_reports", reportToDelete.id);
+        if (reportToDelete.userId) { // Backwards compatibility for old reports
+            reportDocRef = doc(firestore, 'users', reportToDelete.userId, "daily_reports", reportToDelete.id);
         } else {
             reportDocRef = doc(firestore, "daily_reports", reportToDelete.id);
         }
@@ -689,5 +671,7 @@ export default function ReportsPage() {
         <ReportsPageContent />
     )
 }
+
+    
 
     
