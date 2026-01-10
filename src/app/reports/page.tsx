@@ -359,8 +359,10 @@ function ReportsPageContent() {
   
   const savedReports = useMemo(() => {
     if (!allReports) return [];
-    const startDate = startOfMonth(currentDate);
-    const endDate = endOfMonth(currentDate);
+    
+    const selectedMonth = currentDate.getMonth();
+    const selectedYear = currentDate.getFullYear();
+
     return allReports
       .filter(report => {
           if (!report.reportDate) {
@@ -368,8 +370,10 @@ function ReportsPageContent() {
               return false;
           }
           try {
+              // Parse the ISO string from Firestore, which is in UTC
               const reportDate = parseISO(report.reportDate);
-              return isWithinInterval(reportDate, { start: startDate, end: endDate });
+              // Compare the report's month and year in the local timezone
+              return reportDate.getMonth() === selectedMonth && reportDate.getFullYear() === selectedYear;
           } catch (e) {
               console.error(`Invalid report date format: ${report.reportDate}`, report);
               return false;
@@ -399,34 +403,28 @@ function ReportsPageContent() {
         const batch = writeBatch(firestore);
         const reportDateToDelete = parseISO(reportToDelete.reportDate);
         
-        // This query is now simplified to avoid complex indexes.
         const orderItemsCollectionRef = collection(firestore, 'order_items');
         const q = query(orderItemsCollectionRef, where('reportado', '==', true));
 
         const orderItemsSnapshot = await getDocs(q);
         
-        if (orderItemsSnapshot.empty) {
-          console.warn("No archived items found to revert.");
-        } else {
-            orderItemsSnapshot.forEach(orderDoc => {
-                const item = orderDoc.data();
+        orderItemsSnapshot.forEach(orderDoc => {
+            const item = orderDoc.data();
 
-                if (!item.timestamp) {
-                  console.warn("Skipping item without timestamp:", item);
-                  return; // Skip this item if timestamp is missing
-                }
+            if (!item.timestamp) {
+              console.warn("Skipping item without timestamp:", item);
+              return;
+            }
 
-                // We perform the date check on the client-side.
-                const itemTimestamp = item.timestamp?.toDate ? item.timestamp.toDate() : parseISO(item.timestamp);
+            const itemTimestamp = item.timestamp?.toDate ? item.timestamp.toDate() : parseISO(item.timestamp);
 
-                if (isSameDay(itemTimestamp, reportDateToDelete)) {
-                    const liveItemsCollectionRef = collection(firestore, 'live_items');
-                    const liveItemRef = doc(liveItemsCollectionRef, orderDoc.id);
-                    batch.set(liveItemRef, { ...item, reportado: false });
-                    batch.delete(orderDoc.ref);
-                }
-            });
-        }
+            if (isSameDay(itemTimestamp, reportDateToDelete)) {
+                const liveItemsCollectionRef = collection(firestore, 'live_items');
+                const liveItemRef = doc(liveItemsCollectionRef, orderDoc.id);
+                batch.set(liveItemRef, { ...item, reportado: false });
+                batch.delete(orderDoc.ref);
+            }
+        });
 
         const reportDocRef = doc(firestore, "daily_reports", reportToDelete.id);
         batch.delete(reportDocRef);
@@ -600,18 +598,20 @@ function ReportsPageContent() {
                             <AccordionItem value={report.id!} key={report.id} className="border-b-0">
                                 <div className="bg-card rounded-lg border hover:bg-accent/50 transition-colors">
                                     <div className="flex items-center justify-between p-4">
-                                        <AccordionTrigger className="p-0 flex-1 hover:no-underline [&>svg]:hidden">
-                                            <div className="flex items-center gap-4">
-                                                <div className="flex flex-col items-center justify-center rounded-md bg-primary p-2 text-primary-foreground w-16 h-16 shrink-0">
-                                                    <span className="text-3xl font-bold leading-none">{format(parseISO(report.reportDate), "dd")}</span>
-                                                    <span className="text-sm font-medium uppercase tracking-wider">{format(parseISO(report.reportDate), "MMM", { locale: ptBR })}</span>
+                                        <div className="flex-1">
+                                            <AccordionTrigger className="p-0 flex hover:no-underline [&>svg]:hidden w-full text-left">
+                                                <div className="flex items-center gap-4">
+                                                    <div className="flex flex-col items-center justify-center rounded-md bg-primary p-2 text-primary-foreground w-16 h-16 shrink-0">
+                                                        <span className="text-3xl font-bold leading-none">{format(parseISO(report.reportDate), "dd")}</span>
+                                                        <span className="text-sm font-medium uppercase tracking-wider">{format(parseISO(report.reportDate), "MMM", { locale: ptBR })}</span>
+                                                    </div>
+                                                    <div>
+                                                         <p className="font-semibold text-lg capitalize">{format(parseISO(report.reportDate), "eeee", { locale: ptBR })}</p>
+                                                        <p className="text-sm text-muted-foreground">{format(parseISO(report.reportDate), "dd 'de' MMMM 'de' yyyy", { locale: ptBR })}</p>
+                                                    </div>
                                                 </div>
-                                                <div>
-                                                    <p className="font-semibold text-lg capitalize">{format(parseISO(report.reportDate), "eeee", { locale: ptBR })}</p>
-                                                    <p className="text-sm text-muted-foreground">{format(parseISO(report.reportDate), "dd 'de' MMMM 'de' yyyy", { locale: ptBR })}</p>
-                                                </div>
-                                            </div>
-                                        </AccordionTrigger>
+                                            </AccordionTrigger>
+                                        </div>
                                         <div className="flex items-center gap-2 ml-4 shrink-0">
                                             <div className="text-right">
                                                 <p className="text-sm text-muted-foreground">Total do Dia</p>
