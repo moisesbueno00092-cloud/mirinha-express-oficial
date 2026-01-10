@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useMemo, useEffect, useCallback } from 'react';
@@ -356,18 +355,36 @@ function ReportsPageContent() {
 
   const { data: allReports, isLoading: isLoadingReports } = useCollection<DailyReport>(reportsQuery);
   
+  const getReportDate = useCallback((report: DailyReport): Date | null => {
+    try {
+        // Correctly handle the date string by treating it as UTC.
+        // The 'Z' at the end is crucial for this.
+        if (!report || !report.reportDate) return null;
+        const date = new Date(`${report.reportDate}T12:00:00Z`);
+        if (isNaN(date.getTime())) return null;
+        return date;
+    } catch {
+        return null; 
+    }
+  }, []);
+
   const savedReports = useMemo(() => {
     if (!allReports) return [];
     
-    const year = currentDate.getFullYear();
-    const month = (currentDate.getMonth() + 1).toString().padStart(2, '0');
-    const selectedMonthPrefix = `${year}-${month}`;
+    const startOfSelectedMonth = startOfMonth(currentDate);
+    const endOfSelectedMonth = endOfMonth(currentDate);
 
     return allReports.filter(report => {
-        return report.reportDate.startsWith(selectedMonthPrefix);
-    }).sort((a, b) => new Date(b.reportDate).getTime() - new Date(a.reportDate).getTime());
+        const reportDate = getReportDate(report);
+        if (!reportDate) return false;
+        return isWithinInterval(reportDate, { start: startOfSelectedMonth, end: endOfSelectedMonth });
+    }).sort((a, b) => {
+        const dateA = getReportDate(a)?.getTime() || 0;
+        const dateB = getReportDate(b)?.getTime() || 0;
+        return dateB - dateA;
+    });
 
-  }, [allReports, currentDate]);
+  }, [allReports, currentDate, getReportDate]);
 
   const bomboniereQuery = useMemo(
     () => firestore ? query(collection(firestore, 'bomboniere_items'), orderBy('name', 'asc')) : null,
@@ -383,17 +400,6 @@ function ReportsPageContent() {
         setReportToDelete(report);
     }
   };
-
-  const getReportDate = (report: DailyReport): Date | null => {
-    try {
-        if (!report || !report.reportDate) return null;
-        const date = parseISO(report.reportDate + 'T12:00:00.000Z');
-        if (isNaN(date.getTime())) return null;
-        return date;
-    } catch {
-        return null; 
-    }
-  }
   
   const confirmDeleteReport = async () => {
     if (!firestore || !reportToDelete?.id || !reportToDelete.reportDate) return;
@@ -680,5 +686,3 @@ export default function ReportsPage() {
     
     return <ReportsPageContent />;
 }
-
-    
