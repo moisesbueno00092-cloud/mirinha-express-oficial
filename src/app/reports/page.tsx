@@ -527,7 +527,7 @@ function ReportsPageContent() {
                     <label htmlFor="month-select" className="text-sm font-medium text-muted-foreground">Mês</label>
                     <Select
                         value={String(currentDate.getMonth())}
-                        onValueChange={(value) => setCurrentDate(setMonth(currentDate, parseInt(value)))}
+                        onValueChange={(value) => setCurrentDate(setMonth(new Date(), parseInt(value)))}
                     >
                         <SelectTrigger id="month-select" className="w-[180px]">
                             <SelectValue />
@@ -541,7 +541,7 @@ function ReportsPageContent() {
                     <label htmlFor="year-select" className="text-sm font-medium text-muted-foreground">Ano</label>
                     <Select
                         value={String(currentDate.getFullYear())}
-                        onValueChange={(value) => setCurrentDate(setYear(currentDate, parseInt(value)))}
+                        onValueChange={(value) => setCurrentDate(setYear(new Date(), parseInt(value)))}
                     >
                         <SelectTrigger id="year-select" className="w-[120px]">
                             <SelectValue />
@@ -591,8 +591,8 @@ function ReportsPageContent() {
                         savedReports.map(report => (
                             <AccordionItem value={report.id!} key={report.id} className="border-b-0">
                                 <div className="bg-card rounded-lg border hover:bg-accent/50 transition-colors">
-                                    <div className="flex items-center justify-between p-4">
-                                        <AccordionTrigger className="p-0 hover:no-underline flex-1 [&>svg]:hidden">
+                                    <div className="flex items-center p-4">
+                                        <AccordionTrigger className="p-0 flex-1 hover:no-underline [&>svg]:hidden">
                                             <div className="flex items-center gap-4">
                                                 <div className="flex flex-col items-center justify-center rounded-md bg-primary p-2 text-primary-foreground w-16 h-16 shrink-0">
                                                     <span className="text-3xl font-bold leading-none">{format(parseISO(report.reportDate), "dd")}</span>
@@ -620,7 +620,7 @@ function ReportsPageContent() {
                                             >
                                                 <Trash2 className="h-4 w-4" />
                                             </Button>
-                                            <AccordionTrigger asChild className="p-0 flex-none [&_svg]:h-5 [&_svg]:w-5 [&_svg]:shrink-0 [&_svg]:text-muted-foreground [&_svg]:transition-transform [&_svg]:duration-200">
+                                            <AccordionTrigger asChild className="p-0 flex-none [&>svg]:h-5 [&>svg]:w-5 [&>svg]:shrink-0 [&>svg]:text-muted-foreground [&>svg]:transition-transform [&>svg]:duration-200">
                                                 <Button variant="ghost" size="icon" className="h-9 w-9">
                                                     <ChevronDown/>
                                                 </Button>
@@ -657,5 +657,3 @@ export default function ReportsPage() {
         <ReportsPageContent />
     )
 }
-
-    
