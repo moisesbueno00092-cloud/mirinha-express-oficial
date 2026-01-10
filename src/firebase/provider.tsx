@@ -54,15 +54,15 @@ export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
         setUser(currentUser);
         setIsUserLoading(false);
       } else {
+        // If no user, immediately try to sign in anonymously.
+        // onAuthStateChanged will be called again with the new user.
         try {
-          // If no user, immediately try to sign in anonymously.
-          // onAuthStateChanged will be called again with the new user.
           await signInAnonymously(auth);
         } catch (error) {
           console.error("FirebaseProvider: Anonymous sign-in failed.", error);
           setUser(null);
           setUserError(error as Error);
-          setIsUserLoading(false);
+          setIsUserLoading(false); // Stop loading even if sign-in fails
         }
       }
     }, (error) => {
@@ -148,6 +148,8 @@ export const useUser = (): UserHookResult => {
   const { user, isUserLoading, userError } = useFirebaseContext();
   return { user, isUserLoading, userError };
 };
+
+    
 
     
 

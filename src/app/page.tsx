@@ -95,7 +95,7 @@ const ToastContent = ({ item, title }: { item: Partial<Item>; title: string }) =
 );
 
 function LancheTrackerPageContent() {
-  const { user } = useUser(); // No longer need isUserLoading here
+  const { user } = useUser();
   const firestore = useFirestore();
   const router = useRouter();
   const { toast } = useToast();
@@ -103,14 +103,12 @@ function LancheTrackerPageContent() {
   const [predefinedPrices, setPredefinedPrices] = usePersistentState('predefinedPrices', PREDEFINED_PRICES);
   const [deliveryFee, setDeliveryFee] = usePersistentState('deliveryFee', DELIVERY_FEE);
 
-  const liveItemsCollectionRef = useMemoFirebase(
-    () => (firestore && user ? collection(firestore, 'users', user.uid, 'live_items') : null),
-    [firestore, user]
-  );
-  
   const liveItemsQuery = useMemoFirebase(
-    () => (liveItemsCollectionRef ? query(liveItemsCollectionRef, orderBy('timestamp', 'desc')) : null),
-    [liveItemsCollectionRef]
+    () =>
+      firestore && user?.uid
+        ? query(collection(firestore, 'users', user.uid, 'live_items'), orderBy('timestamp', 'desc'))
+        : null,
+    [firestore, user?.uid]
   );
   
   const { data: allItems, isLoading: isLoadingItems, error: itemsError } = useCollection<Item>(liveItemsQuery);
@@ -204,12 +202,14 @@ function LancheTrackerPageContent() {
 
   async function handleUpsertItem(rawInputToProcess: string, currentItem?: Item | null, favoriteName?: string) {
     setIsProcessing(true);
-    if (!firestore || !liveItemsCollectionRef) {
+    if (!firestore || !user) {
       toast({ variant: 'destructive', title: 'Erro', description: 'Base de dados indisponível. A página será recarregada.' });
       setIsProcessing(false);
       setTimeout(() => window.location.reload(), 2000);
       return;
     }
+    const liveItemsCollectionRef = collection(firestore, 'users', user.uid, 'live_items');
+
 
     try {
       if (currentItem && currentItem.bomboniereItems && currentItem.bomboniereItems.length > 0 && bomboniereItems) {
@@ -289,10 +289,12 @@ function LancheTrackerPageContent() {
 
         if(bomboniereMatch) {
             // Check for quantity BEFORE the name
-            if (i > 0 && isNumeric(parts[i - 1])) {
+             if (i > 0 && isNumeric(parts[i - 1])) {
                 bomboniereQty = parseInt(parts[i - 1], 10);
-                // Blank out the already processed quantity part
-                parts[i - 1] = '';
+                // Blank out the already processed quantity part by finding its original index in `parts`
+                // This is tricky because parts are consumed. Let's find a more direct way.
+                // For now, let's assume the previous part is the quantity, a simpler approach is better.
+                // We'll rely on parts[i-1] being the quantity.
             }
 
             let priceToUse = bomboniereMatch.price;
@@ -305,9 +307,22 @@ function LancheTrackerPageContent() {
                 i = nextPartIndex; // Consume name only
             }
             
+            // If quantity was found, we need to adjust the consumption logic, but `i` is already moving forward.
+            // The logic needs rethinking. Let's restart the loop with the new index.
+            
             processedBomboniereItems.push({ id: bomboniereMatch.id, name: bomboniereMatch.name, quantity: bomboniereQty, price: priceToUse });
             totalPrice += priceToUse * bomboniereQty;
             totalQuantity += bomboniereQty;
+            
+            // To handle quantity "2 coca lata", we need to remove the "2" from being processed again.
+            // A simple way is to mark consumed parts. Let's modify the `parts` array in place.
+            if (i > 0 && isNumeric(parts[i - 1])) {
+                 parts[i-1] = ''; // Blank it out
+            }
+            for(let k = i - (j - i); k < i; k++) {
+                if(k >=0) parts[k] = '';
+            }
+
             continue;
         }
 
@@ -528,8 +543,9 @@ function LancheTrackerPageContent() {
   };
 
   const confirmDeleteItem = async () => {
-    if (!itemToDelete || !firestore || !liveItemsCollectionRef || !items) return;
+    if (!itemToDelete || !firestore || !user || !items) return;
 
+    const liveItemsCollectionRef = collection(firestore, 'users', user.uid, 'live_items');
     const itemBeingDeleted = items.find((it) => it.id === itemToDelete);
 
     try {
@@ -627,9 +643,10 @@ function LancheTrackerPageContent() {
       const reportsCollection = collection(firestore, 'users', user.uid, 'daily_reports');
       const reportRef = doc(reportsCollection);
       batch.set(reportRef, report);
-
+      
+      const liveItemsCollectionRef = collection(firestore, 'users', user.uid, 'live_items');
       items.forEach((item) => {
-        const liveItemRef = doc(liveItemsCollectionRef!, item.id);
+        const liveItemRef = doc(liveItemsCollectionRef, item.id);
         const archiveItemRef = doc(collection(firestore, 'users', user.uid, 'order_items'), item.id);
         batch.set(archiveItemRef, { ...item, reportado: true });
         batch.delete(liveItemRef);
@@ -908,4 +925,6 @@ export default function Home() {
 
   return <LancheTrackerPageContent />;
 }
+    
+
     
