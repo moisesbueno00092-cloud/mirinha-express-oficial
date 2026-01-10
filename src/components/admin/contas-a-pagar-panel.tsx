@@ -64,12 +64,12 @@ const getStatus = (conta: ContaAPagar): { text: string; className: string; isUrg
 };
 
 
-const ContasTable = ({ contas, fornecedorMap, onStatusChange, onDeleteRequest, totalEmAberto }: {
+const ContasTable = ({ contas, fornecedorMap, onStatusChange, onDeleteRequest, totalPeriodo }: {
     contas: ContaAPagar[],
     fornecedorMap: Map<string, Fornecedor>,
     onStatusChange: (conta: ContaAPagar, isPaga: boolean) => void,
     onDeleteRequest: (conta: ContaAPagar) => void,
-    totalEmAberto: number
+    totalPeriodo: number
 }) => {
     if (contas.length === 0) {
         return <p className="p-8 text-center text-sm text-muted-foreground">Nenhuma conta encontrada para os filtros selecionados.</p>;
@@ -124,8 +124,8 @@ const ContasTable = ({ contas, fornecedorMap, onStatusChange, onDeleteRequest, t
                 </TableBody>
                 <TableFooter>
                     <TableRow>
-                        <TableCell colSpan={3} className="font-semibold">Total em Aberto</TableCell>
-                        <TableCell className="text-right font-bold text-lg text-destructive" colSpan={2}>{formatCurrency(totalEmAberto)}</TableCell>
+                        <TableCell colSpan={3} className="font-semibold">Total do Período</TableCell>
+                        <TableCell className="text-right font-bold text-lg text-destructive" colSpan={2}>{formatCurrency(totalPeriodo)}</TableCell>
                     </TableRow>
                 </TableFooter>
             </Table>
@@ -162,16 +162,14 @@ export default function ContasAPagarPanel() {
     }, [fornecedores]);
 
     
-    const { contasAPagar, totalEmAberto, counts } = useMemo(() => {
+    const { contasAPagar, counts } = useMemo(() => {
         let aPagar: ContaAPagar[] = [];
-        let total = 0;
         
-        if (!allContas) return { contasAPagar: [], totalEmAberto: 0, counts: { vencidas: 0, hoje: 0, semana: 0, mes: 0 } };
+        if (!allContas) return { contasAPagar: [], counts: { vencidas: 0, hoje: 0, semana: 0, mes: 0 } };
 
         allContas.forEach(conta => {
             if (!conta.estaPaga) {
                 aPagar.push(conta);
-                total += conta.valor;
             }
         });
 
@@ -183,12 +181,11 @@ export default function ContasAPagarPanel() {
 
         const countVencidas = aPagar.filter(c => isPast(parseISO(c.dataVencimento + 'T00:00:00')) && !isToday(parseISO(c.dataVencimento + 'T00:00:00'))).length;
         const countHoje = aPagar.filter(c => isToday(parseISO(c.dataVencimento + 'T00:00:00'))).length;
-        const countSemana = aPagar.filter(c => isWithinInterval(parseISO(c.dataVencimento + 'T00:00:00'), { start: today, end: endOfCurrentWeek })).length;
+        const countSemana = aPagar.filter(c => isWithinInterval(parseISO(c.dataVencimento + 'T00:00:00'), { start: startOfWeek(new Date(), { locale: ptBR }), end: endOfWeek(new Date(), { locale: ptBR }) })).length;
         const countMes = aPagar.filter(c => isWithinInterval(parseISO(c.dataVencimento + 'T00:00:00'), { start: today, end: endOfCurrentMonth })).length;
 
         return { 
             contasAPagar: aPagar,
-            totalEmAberto: total, 
             counts: { vencidas: countVencidas, hoje: countHoje, semana: countSemana, mes: countMes }
         };
 
@@ -212,12 +209,17 @@ export default function ContasAPagarPanel() {
             return contasAPagar.filter(c => isWithinInterval(parseISO(c.dataVencimento + 'T00:00:00'), { start: startOfCurrentWeek, end: endOfCurrentWeek }));
         }
         if (activeFilter === 'mes') {
+            const startOfCurrentMonth = startOfMonth(today);
             const endOfCurrentMonth = endOfMonth(today);
-            return contasAPagar.filter(c => isWithinInterval(parseISO(c.dataVencimento + 'T00:00:00'), { start: today, end: endOfCurrentMonth }));
+            return contasAPagar.filter(c => isWithinInterval(parseISO(c.dataVencimento + 'T00:00:00'), { start: startOfCurrentMonth, end: endOfCurrentMonth }));
         }
         return [];
 
     }, [contasAPagar, activeFilter]);
+
+    const totalPeriodo = useMemo(() => {
+        return filteredContasAPagar.reduce((acc, conta) => acc + conta.valor, 0);
+    }, [filteredContasAPagar]);
 
 
     const handleStatusChange = async (conta: ContaAPagar, isPaga: boolean) => {
@@ -289,7 +291,7 @@ export default function ContasAPagarPanel() {
                         fornecedorMap={fornecedorMap} 
                         onStatusChange={handleStatusChange} 
                         onDeleteRequest={handleDeleteRequest}
-                        totalEmAberto={totalEmAberto}
+                        totalPeriodo={totalPeriodo}
                     />
                 )}
             </div>
