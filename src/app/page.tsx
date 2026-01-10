@@ -16,7 +16,6 @@ import { PREDEFINED_PRICES, DELIVERY_FEE } from '@/lib/constants';
 import {
   useFirestore,
   useCollection,
-  useMemoFirebase,
 } from '@/firebase';
 import {
   collection,
@@ -100,13 +99,10 @@ function LancheTrackerPageContent() {
   const [predefinedPrices, setPredefinedPrices] = usePersistentState('predefinedPrices', PREDEFINED_PRICES);
   const [deliveryFee, setDeliveryFee] = usePersistentState('deliveryFee', DELIVERY_FEE);
 
-  const liveItemsQuery = useMemoFirebase(
-    () =>
-      firestore
-        ? query(collection(firestore, 'live_items'), orderBy('timestamp', 'desc'))
-        : null,
-    [firestore]
-  );
+  const liveItemsQuery = useMemo(() => {
+    if (!firestore) return null;
+    return query(collection(firestore, 'live_items'), orderBy('timestamp', 'desc'));
+  }, [firestore]);
   
   const { data: allItems, isLoading: isLoadingItems, error: itemsError } = useCollection<Item>(liveItemsQuery);
 
@@ -129,12 +125,12 @@ function LancheTrackerPageContent() {
   }, [itemsError, toast]);
 
 
-  const bomboniereItemsRef = useMemoFirebase(
+  const bomboniereItemsQuery = useMemo(
     () => (firestore ? query(collection(firestore, 'bomboniere_items'), orderBy('name', 'asc')) : null),
     [firestore]
   );
   const { data: bomboniereItemsFromDB, isLoading: isLoadingBomboniere } = useCollection<BomboniereItem>(
-    bomboniereItemsRef
+    bomboniereItemsQuery
   );
 
   const bomboniereItems = useMemo(() => {

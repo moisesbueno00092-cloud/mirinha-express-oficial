@@ -2,7 +2,7 @@
 'use client';
 
 import { useState, useMemo, useRef, useEffect } from 'react';
-import { useCollection, useFirestore, useMemoFirebase } from '@/firebase';
+import { useCollection, useFirestore } from '@/firebase';
 import { collection, query, orderBy, writeBatch, doc, setDoc, addDoc } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import type { ContaAPagar, EntradaMercadoria, Fornecedor, ParsedRomaneioItem, BomboniereItem } from '@/types';
@@ -96,19 +96,19 @@ export default function MercadoriasPanel() {
 
     const scrollViewportRef = useRef<HTMLDivElement>(null);
 
-    const fornecedoresQuery = useMemoFirebase(
+    const fornecedoresQuery = useMemo(
         () => firestore ? query(collection(firestore, 'fornecedores'), orderBy('nome', 'asc')) : null,
         [firestore]
     );
     const { data: fornecedores, isLoading: isLoadingFornecedores } = useCollection<Fornecedor>(fornecedoresQuery);
     
-    const allEntradasQuery = useMemoFirebase(
+    const allEntradasQuery = useMemo(
         () => firestore ? query(collection(firestore, 'entradas_mercadorias'), orderBy('data', 'desc')) : null,
         [firestore]
     );
     const { data: allEntradas } = useCollection<EntradaMercadoria>(allEntradasQuery);
     
-    const bomboniereItemsQuery = useMemoFirebase(() => firestore ? query(collection(firestore, 'bomboniere_items')) : null, [firestore]);
+    const bomboniereItemsQuery = useMemo(() => firestore ? query(collection(firestore, 'bomboniere_items')) : null, [firestore]);
     const { data: bomboniereItems, isLoading: isLoadingBomboniere } = useCollection<BomboniereItem>(bomboniereItemsQuery);
 
     useEffect(() => {

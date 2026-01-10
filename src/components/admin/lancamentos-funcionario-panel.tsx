@@ -5,7 +5,7 @@ import React, { useState, useMemo, useEffect } from 'react';
 import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { useCollection, useFirestore, useMemoFirebase } from '@/firebase';
+import { useCollection, useFirestore } from '@/firebase';
 import { collection, query, where, orderBy, doc, addDoc } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import type { Funcionario, FuncionarioLancamentoFinanceiro } from '@/types';
@@ -123,7 +123,7 @@ export default function LancamentosFuncionarioPanel({ funcionarios, selectedFunc
         form.setValue('funcionarioId', selectedFuncionarioId || '');
     }, [selectedFuncionarioId, form]);
 
-    const lancamentosQuery = useMemoFirebase(
+    const lancamentosQuery = useMemo(
         () => firestore && selectedFuncionarioId ? 
             query(collection(firestore, 'funcionarios', selectedFuncionarioId, 'lancamentos'), orderBy('data', 'desc')) 
             : null,

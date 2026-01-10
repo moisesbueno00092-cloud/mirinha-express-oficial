@@ -5,7 +5,7 @@ import { useState, useMemo } from 'react';
 import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { useCollection, useFirestore, useMemoFirebase } from '@/firebase';
+import { useCollection, useFirestore } from '@/firebase';
 import { collection, query, orderBy, doc, addDoc, updateDoc } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import type { Funcionario } from '@/types';
@@ -132,7 +132,7 @@ export default function FuncionariosPanel() {
     const [selectedFuncionarioId, setSelectedFuncionarioId] = useState<string | null>(null);
     const [funcionarioToDemitir, setFuncionarioToDemitir] = useState<Funcionario | null>(null);
 
-    const funcionariosQuery = useMemoFirebase(
+    const funcionariosQuery = useMemo(
         () => firestore ? query(collection(firestore, 'funcionarios'), orderBy('nome', 'asc')) : null,
         [firestore]
     );

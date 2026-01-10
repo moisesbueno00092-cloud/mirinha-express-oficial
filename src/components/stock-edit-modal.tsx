@@ -10,7 +10,7 @@ import { Trash2, Plus, Save, Loader2, Search, XCircle } from 'lucide-react';
 import type { BomboniereItem, EntradaMercadoria, Item as OrderItem } from '@/types';
 import { useToast } from '@/hooks/use-toast';
 import { collection, doc, writeBatch, query, addDoc, deleteDoc, where, getDocs } from 'firebase/firestore';
-import { useFirestore, useCollection, useMemoFirebase, useUser } from '@/firebase';
+import { useFirestore, useCollection } from '@/firebase';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -42,9 +42,9 @@ export default function StockEditModal({ isOpen, onClose, bomboniereItems: initi
   const [searchTerm, setSearchTerm] = useState("");
   const [originalItemsMap, setOriginalItemsMap] = useState<Record<string, EditableItem>>({});
 
-  const allOrderItemsCollectionRef = useMemoFirebase(() => firestore ? collection(firestore, 'order_items') : null, [firestore]);
-  const allLiveItemsCollectionRef = useMemoFirebase(() => firestore ? collection(firestore, 'live_items') : null, [firestore]);
-  const allEntradasCollectionRef = useMemoFirebase(() => firestore ? collection(firestore, 'entradas_mercadorias') : null, [firestore]);
+  const allOrderItemsCollectionRef = useMemo(() => firestore ? collection(firestore, 'order_items') : null, [firestore]);
+  const allLiveItemsCollectionRef = useMemo(() => firestore ? collection(firestore, 'live_items') : null, [firestore]);
+  const allEntradasCollectionRef = useMemo(() => firestore ? collection(firestore, 'entradas_mercadorias') : null, [firestore]);
 
 
   useEffect(() => {

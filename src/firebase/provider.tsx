@@ -53,15 +53,13 @@ export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
         setUser(currentUser);
         setIsUserLoading(false);
       } else {
-        // If no user, immediately try to sign in anonymously.
-        // onAuthStateChanged will be called again with the new user.
         try {
           await signInAnonymously(auth);
         } catch (error) {
           console.error("FirebaseProvider: Anonymous sign-in failed.", error);
           setUser(null);
           setUserError(error as Error);
-          setIsUserLoading(false); // Stop loading even if sign-in fails
+          setIsUserLoading(false); 
         }
       }
     }, (error) => {
@@ -122,21 +120,6 @@ export const useFirebaseApp = (): FirebaseApp => {
   if (!firebaseApp) throw new Error('Firebase App not available.');
   return firebaseApp;
 };
-
-type MemoFirebase <T> = T & {__memo?: boolean};
-
-export function useMemoFirebase<T>(factory: () => T, deps: React.DependencyList): T | (MemoFirebase<T>) {
-  const memoized = useMemo(factory, deps);
-  
-  if(typeof memoized !== 'object' || memoized === null) return memoized;
-  if(!('__memo' in memoized)) {
-    try {
-     (memoized as MemoFirebase<T>).__memo = true;
-    } catch {}
-  }
-  
-  return memoized;
-}
 
 /**
  * Hook specifically for accessing the authenticated user's state.

@@ -2,7 +2,7 @@
 'use client';
 
 import { useState, useMemo, useEffect, useCallback } from 'react';
-import { useFirestore, useCollection, useMemoFirebase } from '@/firebase';
+import { useFirestore, useCollection } from '@/firebase';
 import { collection, query, orderBy, doc, where, getDocs, deleteDoc, writeBatch } from 'firebase/firestore';
 import { format, parse, startOfMonth, endOfMonth, isWithinInterval, addMonths, subMonths, parseISO, startOfDay, endOfDay, isSameDay, setMonth, setYear } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -346,7 +346,7 @@ function ReportsPageContent() {
   const [selectedReportId, setSelectedReportId] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState('daily');
   
-  const reportsQuery = useMemoFirebase(() => {
+  const reportsQuery = useMemo(() => {
     if (!firestore) return null;
     return query(
         collection(firestore, 'daily_reports'),
@@ -382,7 +382,7 @@ function ReportsPageContent() {
       });
   }, [allReports, currentDate]);
 
-  const bomboniereQuery = useMemoFirebase(
+  const bomboniereQuery = useMemo(
     () => firestore ? query(collection(firestore, 'bomboniere_items'), orderBy('name', 'asc')) : null,
     [firestore]
   );

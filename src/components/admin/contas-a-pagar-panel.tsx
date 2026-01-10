@@ -2,7 +2,7 @@
 'use client';
 
 import { useMemo, useState, useEffect, useCallback } from 'react';
-import { useFirestore, useCollection, useMemoFirebase } from '@/firebase';
+import { useFirestore, useCollection } from '@/firebase';
 import { collection, query, orderBy, doc, updateDoc, deleteDoc } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import { format, isPast, isToday, isWithinInterval, parseISO, startOfWeek, endOfWeek, endOfMonth, startOfMonth } from 'date-fns';
@@ -142,11 +142,11 @@ export default function ContasAPagarPanel() {
     const [contaToDelete, setContaToDelete] = useState<ContaAPagar | null>(null);
     const [activeFilter, setActiveFilter] = useState<FilterType>('all');
 
-    const contasQuery = useMemoFirebase(
+    const contasQuery = useMemo(
         () => firestore ? query(collection(firestore, 'contas_a_pagar'), orderBy('dataVencimento', 'asc')) : null,
         [firestore]
     );
-    const fornecedoresQuery = useMemoFirebase(
+    const fornecedoresQuery = useMemo(
         () => firestore ? query(collection(firestore, 'fornecedores')) : null,
         [firestore]
     );

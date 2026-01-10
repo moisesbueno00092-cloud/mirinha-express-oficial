@@ -2,7 +2,7 @@
 'use client';
 
 import { useMemo, useState, useEffect, useCallback } from 'react';
-import { useFirestore, useCollection, useMemoFirebase } from '@/firebase';
+import { useFirestore, useCollection } from '@/firebase';
 import { collection, query, orderBy } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import { format, isWithinInterval, startOfMonth, endOfMonth, startOfYear, endOfYear, parseISO, setYear, setMonth } from 'date-fns';
@@ -255,9 +255,9 @@ export default function HistoricoFinanceiroPanel() {
     const [selectedMonth, setSelectedMonth] = useState<string>(String(new Date().getMonth()));
     const yearOptions = useMemo(() => generateYearOptions(), []);
 
-    const contasQuery = useMemoFirebase(() => firestore ? query(collection(firestore, 'contas_a_pagar'), orderBy('dataVencimento', 'asc')) : null, [firestore]);
-    const fornecedoresQuery = useMemoFirebase(() => firestore ? query(collection(firestore, 'fornecedores')) : null, [firestore]);
-    const entradasQuery = useMemoFirebase(() => firestore ? query(collection(firestore, 'entradas_mercadorias'), orderBy('data', 'desc')) : null, [firestore]);
+    const contasQuery = useMemo(() => firestore ? query(collection(firestore, 'contas_a_pagar'), orderBy('dataVencimento', 'asc')) : null, [firestore]);
+    const fornecedoresQuery = useMemo(() => firestore ? query(collection(firestore, 'fornecedores')) : null, [firestore]);
+    const entradasQuery = useMemo(() => firestore ? query(collection(firestore, 'entradas_mercadorias'), orderBy('data', 'desc')) : null, [firestore]);
 
     const { data: allContas, isLoading: isLoadingContas } = useCollection<ContaAPagar>(contasQuery);
     const { data: fornecedores, isLoading: isLoadingFornecedores } = useCollection<Fornecedor>(fornecedoresQuery);
