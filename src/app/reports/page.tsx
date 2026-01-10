@@ -622,9 +622,9 @@ function ReportsPageContent() {
                                             >
                                                 <Trash2 className="h-4 w-4" />
                                             </Button>
-                                            <AccordionTrigger asChild className="p-0 flex-none [&>svg]:h-5 [&>svg]:w-5 [&>svg]:shrink-0 [&>svg]:text-muted-foreground [&>svg]:transition-transform [&>svg]:duration-200">
+                                            <AccordionTrigger asChild>
                                                 <Button variant="ghost" size="icon" className="h-9 w-9">
-                                                    <ChevronDown/>
+                                                    <ChevronDown className="h-5 w-5 shrink-0 text-muted-foreground transition-transform duration-200" />
                                                 </Button>
                                             </AccordionTrigger>
                                         </div>
@@ -659,5 +659,3 @@ export default function ReportsPage() {
         <ReportsPageContent />
     )
 }
-
-    
