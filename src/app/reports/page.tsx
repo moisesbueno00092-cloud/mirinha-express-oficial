@@ -360,8 +360,10 @@ function ReportsPageContent() {
     if (!allReports) return [];
     
     const selectedYear = currentDate.getFullYear();
-    const selectedMonth = currentDate.getMonth() + 1; // getMonth is 0-indexed
-    const yearMonthPrefix = `${selectedYear}-${String(selectedMonth).padStart(2, '0')}`;
+    const selectedMonth = currentDate.getMonth(); // getMonth is 0-indexed
+    
+    // Create a prefix for string comparison, like "2024-07"
+    const yearMonthPrefix = `${selectedYear}-${String(selectedMonth + 1).padStart(2, '0')}`;
 
     return allReports.filter(report => {
         if (!report.reportDate) {
@@ -395,7 +397,7 @@ function ReportsPageContent() {
     try {
         const batch = writeBatch(firestore);
         
-        const reportDateToDelete = new Date(reportToDelete.reportDate + 'T12:00:00Z');
+        const reportDateToDelete = getReportDate(reportToDelete);
         
         const orderItemsQuery = query(
           collection(firestore, 'order_items'), 
@@ -494,6 +496,7 @@ function ReportsPageContent() {
     
   const getReportDate = (report: DailyReport) => {
     try {
+        // Forces the date to be parsed as UTC by adding a fixed time and Z
         return new Date(report.reportDate + 'T12:00:00Z');
     } catch {
         return new Date(0); // Return an invalid date
