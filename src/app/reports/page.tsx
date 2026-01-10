@@ -592,18 +592,16 @@ function ReportsPageContent() {
                         savedReports.map(report => (
                             <AccordionItem value={report.id!} key={report.id} className="border-b-0">
                                 <div className="bg-card rounded-lg border hover:bg-accent/50 transition-colors">
-                                    <div className="flex items-center p-4">
-                                        <AccordionTrigger className="flex-1 p-0 hover:no-underline [&>svg]:hidden">
-                                            <div className="flex flex-1 w-full items-center justify-between">
-                                                <div className="flex flex-1 items-center gap-4">
-                                                    <div className="flex flex-col items-center justify-center rounded-md bg-primary p-2 text-primary-foreground w-16 h-16 shrink-0">
-                                                        <span className="text-3xl font-bold leading-none">{format(parseISO(report.reportDate), "dd")}</span>
-                                                        <span className="text-sm font-medium uppercase tracking-wider">{format(parseISO(report.reportDate), "MMM", { locale: ptBR })}</span>
-                                                    </div>
-                                                    <div>
-                                                        <p className="font-semibold text-lg capitalize">{format(parseISO(report.reportDate), "eeee", { locale: ptBR })}</p>
-                                                        <p className="text-sm text-muted-foreground">{format(parseISO(report.reportDate), "dd 'de' MMMM 'de' yyyy", { locale: ptBR })}</p>
-                                                    </div>
+                                    <div className="flex items-center justify-between p-4">
+                                        <AccordionTrigger className="p-0 hover:no-underline flex-1 [&>svg]:hidden">
+                                            <div className="flex items-center gap-4">
+                                                <div className="flex flex-col items-center justify-center rounded-md bg-primary p-2 text-primary-foreground w-16 h-16 shrink-0">
+                                                    <span className="text-3xl font-bold leading-none">{format(parseISO(report.reportDate), "dd")}</span>
+                                                    <span className="text-sm font-medium uppercase tracking-wider">{format(parseISO(report.reportDate), "MMM", { locale: ptBR })}</span>
+                                                </div>
+                                                <div>
+                                                    <p className="font-semibold text-lg capitalize">{format(parseISO(report.reportDate), "eeee", { locale: ptBR })}</p>
+                                                    <p className="text-sm text-muted-foreground">{format(parseISO(report.reportDate), "dd 'de' MMMM 'de' yyyy", { locale: ptBR })}</p>
                                                 </div>
                                             </div>
                                         </AccordionTrigger>
