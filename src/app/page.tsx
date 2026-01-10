@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useMemo, useState, useRef, useEffect } from 'react';
@@ -94,7 +95,7 @@ const ToastContent = ({ item, title }: { item: Partial<Item>; title: string }) =
   </div>
 );
 
-function LancheTrackerPage() {
+function LancheTrackerPageContent() {
   const { user, isUserLoading } = useUser();
   const firestore = useFirestore();
   const router = useRouter();
@@ -275,60 +276,50 @@ function LancheTrackerPage() {
         
         let bomboniereMatch = null;
         let bomboniereQty = 1;
-        let wordsConsumedForBomboniere = 0;
-        let bomboniereStartIndex = i;
 
-        // Check for quantity before bomboniere name
-        if (isNumeric(parts[i]) && i + 1 < parts.length) {
-             // Look ahead to find the longest matching bomboniere name starting from the next part
-            for (let j = parts.length; j > i + 1; j--) {
-                const potentialName = parts.slice(i + 1, j).join(' ').toLowerCase();
-                if (bomboniereItemsByName[potentialName]) {
-                    bomboniereMatch = bomboniereItemsByName[potentialName];
-                    bomboniereQty = parseInt(parts[i], 10);
-                    wordsConsumedForBomboniere = j - (i + 1);
-                    bomboniereStartIndex = i + 1;
-                    break;
+        // Look for multi-word bomboniere items first
+        for (let j = parts.length; j > i; j--) {
+            const potentialName = parts.slice(i, j).join(' ').toLowerCase();
+            if (bomboniereItemsByName[potentialName]) {
+                bomboniereMatch = bomboniereItemsByName[potentialName];
+                
+                // Check for quantity BEFORE the name
+                if (i > 0 && isNumeric(parts[i - 1])) {
+                    bomboniereQty = parseInt(parts[i - 1], 10);
+                    // To correctly advance 'i', we need to "undo" the previous increment
+                    // This is tricky. Let's adjust the logic.
                 }
-            }
-        }
-        
-        // If no quantity was found, try matching from the current position
-        if (!bomboniereMatch) {
-            for (let j = parts.length; j > i; j--) {
-                const potentialName = parts.slice(i, j).join(' ').toLowerCase();
-                if (bomboniereItemsByName[potentialName]) {
-                    bomboniereMatch = bomboniereItemsByName[potentialName];
-                    bomboniereQty = 1;
-                    wordsConsumedForBomboniere = j - i;
-                    bomboniereStartIndex = i;
-                    break;
+
+                let priceToUse = bomboniereMatch.price;
+                const nextPartIndex = j;
+
+                if (nextPartIndex < parts.length && isNumeric(parts[nextPartIndex])) {
+                    priceToUse = parseFloat(parts[nextPartIndex].replace(',', '.'));
+                    i = nextPartIndex + 1; // Consume name + price
+                } else {
+                    i = nextPartIndex; // Consume name only
                 }
+                
+                processedBomboniereItems.push({ id: bomboniereMatch.id, name: bomboniereMatch.name, quantity: bomboniereQty, price: priceToUse });
+                totalPrice += priceToUse * bomboniereQty;
+                totalQuantity += bomboniereQty;
+                
+                // This is a bit of a hack to remove the quantity part if it was processed
+                if (i > 0 && isNumeric(parts[i - (j-i) -1])) {
+                    parts[i - (j-i) -1] = ''; // blank it out
+                }
+                
+                break; // Found the longest match, so break
             }
         }
+        if(bomboniereMatch) continue;
 
-        if (bomboniereMatch) {
-            let priceToUse = bomboniereMatch.price;
-            
-            // This is where we determine how many parts of the string were consumed
-            // If we matched a quantity, we consumed it + the name parts
-            const totalPartsConsumed = (bomboniereStartIndex - i) + wordsConsumedForBomboniere;
-            const nextPartIndex = bomboniereStartIndex + wordsConsumedForBomboniere;
-
-            if (nextPartIndex < parts.length && isNumeric(parts[nextPartIndex])) {
-                priceToUse = parseFloat(parts[nextPartIndex].replace(',', '.'));
-                i = nextPartIndex + 1; // Consume name + price
-            } else {
-                i = nextPartIndex; // Consume name only
-            }
-            
-            processedBomboniereItems.push({ id: bomboniereMatch.id, name: bomboniereMatch.name, quantity: bomboniereQty, price: priceToUse });
-            totalPrice += priceToUse * bomboniereQty;
-            totalQuantity += bomboniereQty;
-            continue;
-        }
 
         const part = parts[i];
+        if (!part) { // It might have been blanked out
+          i++;
+          continue;
+        }
         
         if (part.toUpperCase() === 'KG') {
             i++; 
@@ -376,15 +367,15 @@ function LancheTrackerPage() {
             
             if (nextPartIndex < parts.length && isNumeric(parts[nextPartIndex])) {
                  let isPriceForCurrent = true;
+                 
+                 // Look ahead to see if the number is NOT a quantity for a subsequent predefined item
                  if (nextPartIndex + 1 < parts.length) {
-                    for (let j = parts.length; j > nextPartIndex + 1; j--) {
-                        const potentialBomboniereName = parts.slice(nextPartIndex + 1, j).join(' ').toLowerCase();
-                        if (bomboniereItemsByName[potentialBomboniereName]) {
-                            isPriceForCurrent = false;
-                            break;
-                        }
+                    const followingPart = parts[nextPartIndex + 1].toUpperCase();
+                    if(predefinedPrices[followingPart]) {
+                        isPriceForCurrent = false;
                     }
                  }
+
                  if(isPriceForCurrent) {
                     priceToUse = parseFloat(parts[nextPartIndex].replace(',', '.'));
                     i++; 
@@ -772,7 +763,7 @@ function LancheTrackerPage() {
 
   const hasUnsavedChanges = items && items.length > 0;
   
-  if (isUserLoading) {
+  if (isUserLoading || !user) {
     return (
       <div className="flex h-screen w-full flex-col items-center justify-center text-center p-4">
         <MirinhaLogo className="w-64 sm:w-80 h-auto text-primary mb-4" />
@@ -914,8 +905,22 @@ function LancheTrackerPage() {
   );
 }
 
+
 export default function Home() {
-  return (
-      <LancheTrackerPage />
-  );
+  const { isUserLoading } = useUser();
+  
+  // This outer component will handle the top-level loading state
+  if (isUserLoading) {
+      return (
+          <div className="flex h-screen w-full flex-col items-center justify-center text-center p-4">
+              <MirinhaLogo className="w-64 sm:w-80 h-auto text-primary mb-4" />
+              <Loader2 className="h-12 w-12 animate-spin text-primary" />
+              <p className="mt-4 text-muted-foreground">A ligar à base de dados...</p>
+          </div>
+      )
+  }
+
+  return <LancheTrackerPageContent />;
 }
+
+    
