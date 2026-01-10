@@ -298,38 +298,41 @@ function LancheTrackerPage() {
         }
         
         let qty = 1;
+        let itemNamePart = part;
         let startIdx = i;
 
+        // Logic for separated quantity: "2 M"
         if (isNumeric(part) && parseInt(part) > 0 && i + 1 < parts.length && !isNumeric(parts[i + 1])) {
             qty = parseInt(part, 10);
-            startIdx++; // Start looking for item name from the next part
+            itemNamePart = parts[i + 1];
+            startIdx++; // item name is the next part
+        } else {
+             // Logic for combined quantity: "2M"
+             const quantityMatch = part.match(/^(\d+)([\w\d-]+)$/i);
+             if (quantityMatch) {
+                const [, qtyStr, nameStr] = quantityMatch;
+                qty = parseInt(qtyStr, 10);
+                itemNamePart = nameStr;
+             }
         }
-
-        const currentItemNameOnly = parts[startIdx] || '';
         
-        // This logic was removed as it was causing issues with prices like '2M' being read as 2.00
-        // const quantityMatch = parts[startIdx]?.match(/^(\d+)([\w\d-]+)$/i);
-        // let baseQuantity = qty;
-        // let currentItemNameOnly = parts[startIdx] || '';
-        // if (quantityMatch) {
-        //     baseQuantity = qty * parseInt(quantityMatch[1], 10);
-        //     currentItemNameOnly = quantityMatch[2];
-        // }
-        let baseQuantity = qty;
+        const isPredefined = PREDEFINED_PRICES[itemNamePart.toUpperCase()];
 
-        const isPredefined = PREDEFINED_PRICES[currentItemNameOnly.toUpperCase()];
         if (isPredefined) {
             let priceToUse = isPredefined;
-            if (i + 1 < parts.length && isNumeric(parts[i + 1])) {
-                priceToUse = parseFloat(parts[i + 1].replace(',', '.'));
-                i++;
+            // Check for custom price *after* the item name
+            if (startIdx + 1 < parts.length && isNumeric(parts[startIdx + 1])) {
+                priceToUse = parseFloat(parts[startIdx + 1].replace(',', '.'));
+                i = startIdx + 1; // consume item name and price
+            } else {
+                i = startIdx; // consume only item name (and potential combined qty)
             }
 
-            for (let j = 0; j < baseQuantity; j++) {
-                predefinedItems.push({ name: currentItemNameOnly.toUpperCase(), price: priceToUse });
+            for (let j = 0; j < qty; j++) {
+                predefinedItems.push({ name: itemNamePart.toUpperCase(), price: priceToUse });
                 totalPrice += priceToUse;
             }
-            totalQuantity += baseQuantity;
+            totalQuantity += qty;
             i++; // Move to the next part
             continue;
         }
@@ -337,11 +340,20 @@ function LancheTrackerPage() {
         // New Bomboniere logic
         let bomboniereMatch = null;
         let wordsConsumed = 0;
-        for (let j = parts.length - 1; j >= startIdx; j--) {
-            const potentialName = parts.slice(startIdx, j + 1).join(' ').toLowerCase();
+        let bomboniereNameStartIndex = startIdx;
+        
+        // If qty was separate, bomboniere name lookup starts from the next part
+        if (isNumeric(part) && parseInt(part) > 0 && i + 1 < parts.length && !isNumeric(parts[i + 1])) {
+            bomboniereNameStartIndex = i + 1;
+        } else {
+            bomboniereNameStartIndex = i;
+        }
+
+        for (let j = parts.length - 1; j >= bomboniereNameStartIndex; j--) {
+            const potentialName = parts.slice(bomboniereNameStartIndex, j + 1).join(' ').toLowerCase();
             if (bomboniereItemsByName[potentialName]) {
                 bomboniereMatch = bomboniereItemsByName[potentialName];
-                wordsConsumed = j - startIdx + 1;
+                wordsConsumed = j - bomboniereNameStartIndex + 1;
                 break;
             }
         }
@@ -349,21 +361,21 @@ function LancheTrackerPage() {
         if (bomboniereMatch) {
             let priceToUse = bomboniereMatch.price;
             // Check for custom price
-            if (startIdx + wordsConsumed < parts.length && isNumeric(parts[startIdx + wordsConsumed])) {
-                priceToUse = parseFloat(parts[startIdx + wordsConsumed].replace(',', '.'));
-                i = startIdx + wordsConsumed + 1; // move index past name and price
+            if (bomboniereNameStartIndex + wordsConsumed < parts.length && isNumeric(parts[bomboniereNameStartIndex + wordsConsumed])) {
+                priceToUse = parseFloat(parts[bomboniereNameStartIndex + wordsConsumed].replace(',', '.'));
+                i = bomboniereNameStartIndex + wordsConsumed + 1;
             } else {
-                i = startIdx + wordsConsumed; // move index past name
+                i = bomboniereNameStartIndex + wordsConsumed;
             }
 
             processedBomboniereItems.push({
                 id: bomboniereMatch.id,
                 name: bomboniereMatch.name,
-                quantity: baseQuantity,
+                quantity: qty,
                 price: priceToUse,
             });
-            totalPrice += priceToUse * baseQuantity;
-            totalQuantity += baseQuantity;
+            totalPrice += priceToUse * qty;
+            totalQuantity += qty;
             continue;
         }
         
@@ -885,3 +897,5 @@ export default function Home() {
       <LancheTrackerPage />
   );
 }
+
+    
