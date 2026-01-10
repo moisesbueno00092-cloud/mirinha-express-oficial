@@ -410,6 +410,12 @@ function ReportsPageContent() {
         } else {
             orderItemsSnapshot.forEach(orderDoc => {
                 const item = orderDoc.data();
+
+                if (!item.timestamp) {
+                  console.warn("Skipping item without timestamp:", item);
+                  return; // Skip this item if timestamp is missing
+                }
+
                 // We perform the date check on the client-side.
                 const itemTimestamp = item.timestamp?.toDate ? item.timestamp.toDate() : parseISO(item.timestamp);
 
