@@ -101,6 +101,9 @@ function LancheTrackerPage() {
   const router = useRouter();
   const { toast } = useToast();
 
+  const [predefinedPrices, setPredefinedPrices] = usePersistentState('predefinedPrices', PREDEFINED_PRICES);
+  const [deliveryFee, setDeliveryFee] = usePersistentState('deliveryFee', DELIVERY_FEE);
+
   const liveItemsCollectionRef = useMemoFirebase(
     () => (firestore && user ? collection(firestore, 'users', user.uid, 'live_items') : null),
     [firestore, user]
@@ -266,15 +269,53 @@ function LancheTrackerPage() {
       let predefinedItems: PredefinedItem[] = [];
       let processedBomboniereItems: SelectedBomboniereItem[] = [];
       let customDeliveryFee: number | null = null;
-
       let potentialCustomerNameParts: string[] = [];
-
+      
       let i = 0;
       while (i < parts.length) {
+        let bomboniereMatch = null;
+        let wordsConsumedForBomboniere = 0;
+        
+        for (let j = parts.length; j > i; j--) {
+            const potentialName = parts.slice(i, j).join(' ').toLowerCase();
+            if (bomboniereItemsByName[potentialName]) {
+                bomboniereMatch = bomboniereItemsByName[potentialName];
+                wordsConsumedForBomboniere = j - i;
+                break;
+            }
+        }
+
+        if (bomboniereMatch) {
+            let qty = 1;
+            let priceToUse = bomboniereMatch.price;
+            
+            if (i > 0 && isNumeric(parts[i - 1])) {
+                const prevPartIsQtyForBomboniere = i - 2 < 0 || !Object.keys(predefinedPrices).includes(parts[i - 2].toUpperCase());
+                 if (prevPartIsQtyForBomboniere) {
+                   qty = parseInt(parts[i-1], 10);
+                   parts.splice(i-1, 1);
+                   i--;
+                 }
+            }
+            
+            const nextPartIndex = i + wordsConsumedForBomboniere;
+            if (nextPartIndex < parts.length && isNumeric(parts[nextPartIndex])) {
+                priceToUse = parseFloat(parts[nextPartIndex].replace(',', '.'));
+                i = nextPartIndex + 1;
+            } else {
+                i = nextPartIndex;
+            }
+            
+            processedBomboniereItems.push({ id: bomboniereMatch.id, name: bomboniereMatch.name, quantity: qty, price: priceToUse });
+            totalPrice += priceToUse * qty;
+            totalQuantity += qty;
+            continue;
+        }
+
         const part = parts[i];
         
         if (part.toUpperCase() === 'KG') {
-            i++; // move past 'KG'
+            i++; 
             while (i < parts.length && isNumeric(parts[i])) {
                 const price = parseFloat(parts[i].replace(',', '.'));
                 individualPrices.push(price);
@@ -282,81 +323,39 @@ function LancheTrackerPage() {
                 i++;
             }
             totalQuantity += individualPrices.length;
-            continue; // continue to next iteration of while loop
+            continue; 
         }
 
         if (part.toUpperCase() === 'TX') {
             if (i + 1 < parts.length && isNumeric(parts[i + 1])) {
                 customDeliveryFee = parseFloat(parts[i + 1].replace(',', '.'));
-                i += 2; // consume 'TX' and price
+                i += 2; 
             } else {
-                i++; // consume 'TX' only
+                i++;
             }
             continue;
         }
 
         let qty = 1;
         let itemNamePart = part;
-        let startIdx = i;
-        
-        // Logic for quantity: "2 M" or "2M"
-        if (isNumeric(part) && parseInt(part, 10) > 0 && i + 1 < parts.length && !isNumeric(parts[i + 1])) {
+        const qtyMatch = part.match(/^(\d+)([a-zA-Z\s]+)/);
+
+        if (qtyMatch) {
+            qty = parseInt(qtyMatch[1], 10);
+            itemNamePart = qtyMatch[2];
+        } else if (isNumeric(part) && i + 1 < parts.length && !isNumeric(parts[i+1])) {
             qty = parseInt(part, 10);
             itemNamePart = parts[i+1];
-            startIdx = i + 1;
-        } else {
-            const quantityMatch = part.match(/^(\d+)([\w\d-]+)$/i);
-            if (quantityMatch) {
-                const [, qtyStr, nameStr] = quantityMatch;
-                qty = parseInt(qtyStr, 10);
-                itemNamePart = nameStr;
-            }
+            i++;
         }
         
-        // --- START NEW LOGIC: Prioritize bomboniere full name match ---
-        let bomboniereMatch = null;
-        let wordsConsumed = 0;
-        
-        for (let j = parts.length; j > startIdx; j--) {
-            const potentialName = parts.slice(startIdx, j).join(' ').toLowerCase();
-            if (bomboniereItemsByName[potentialName]) {
-                bomboniereMatch = bomboniereItemsByName[potentialName];
-                wordsConsumed = j - startIdx;
-                break;
-            }
-        }
+        const isPredefined = predefinedPrices[itemNamePart.toUpperCase()];
 
-        if (bomboniereMatch) {
-            let priceToUse = bomboniereMatch.price;
-            // Check for custom price right after the full name
-            if (startIdx + wordsConsumed < parts.length && isNumeric(parts[startIdx + wordsConsumed])) {
-                priceToUse = parseFloat(parts[startIdx + wordsConsumed].replace(',', '.'));
-                i = startIdx + wordsConsumed + 1; // consume name + price
-            } else {
-                i = startIdx + wordsConsumed; // consume name
-            }
-
-            processedBomboniereItems.push({
-                id: bomboniereMatch.id,
-                name: bomboniereMatch.name,
-                quantity: qty,
-                price: priceToUse,
-            });
-            totalPrice += priceToUse * qty;
-            totalQuantity += qty;
-            continue;
-        }
-        // --- END NEW LOGIC ---
-
-        const isPredefined = PREDEFINED_PRICES[itemNamePart.toUpperCase()];
-        if (isPredefined) {
+        if(isPredefined) {
             let priceToUse = isPredefined;
-            // Check for custom price *after* the item name
-            if (startIdx + 1 < parts.length && isNumeric(parts[startIdx + 1])) {
-                priceToUse = parseFloat(parts[startIdx + 1].replace(',', '.'));
-                i = startIdx + 2; // consume item name and price
-            } else {
-                i = startIdx + 1; // consume only item name (and potential combined qty)
+             if (i + 1 < parts.length && isNumeric(parts[i+1])) {
+                priceToUse = parseFloat(parts[i + 1].replace(',', '.'));
+                i++;
             }
 
             for (let j = 0; j < qty; j++) {
@@ -364,10 +363,10 @@ function LancheTrackerPage() {
                 totalPrice += priceToUse;
             }
             totalQuantity += qty;
+            i++;
             continue;
         }
-
-        // If not a bomboniere or predefined, it could be a customer name
+        
         if (!isNumeric(part) && /^[a-zA-Z\s]+$/.test(part) && (group.startsWith('Fiado') || !customerName)) {
             potentialCustomerNameParts.push(part);
         }
@@ -410,8 +409,8 @@ function LancheTrackerPage() {
         await batch.commit();
       }
 
-      const deliveryFee = isTaxExempt ? 0 : customDeliveryFee !== null ? customDeliveryFee : deliveryFeeApplicable ? DELIVERY_FEE : 0;
-      const total = totalPrice + deliveryFee;
+      const finalDeliveryFee = isTaxExempt ? 0 : customDeliveryFee !== null ? customDeliveryFee : deliveryFeeApplicable ? deliveryFee : 0;
+      const total = totalPrice + finalDeliveryFee;
 
       let consolidatedName: string;
       const hasKgItems = individualPrices.length > 0;
@@ -433,7 +432,7 @@ function LancheTrackerPage() {
         price: totalPrice,
         group,
         timestamp: serverTimestamp() as Timestamp,
-        deliveryFee,
+        deliveryFee: finalDeliveryFee,
         total,
         originalCommand: rawInputToProcess,
         reportado: false,
