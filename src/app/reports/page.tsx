@@ -348,13 +348,18 @@ function ReportsPageContent() {
   
   const reportsQuery = useMemo(() => {
     if (!firestore) return null;
+    const start = startOfMonth(currentDate);
+    const end = endOfMonth(currentDate);
+
     return query(
         collection(firestore, 'daily_reports'),
+        where('reportDate', '>=', format(start, 'yyyy-MM-dd')),
+        where('reportDate', '<=', format(end, 'yyyy-MM-dd')),
         orderBy('reportDate', 'desc')
     );
-  }, [firestore]);
+  }, [firestore, currentDate]);
 
-  const { data: allReports, isLoading: isLoadingReports } = useCollection<DailyReport>(reportsQuery);
+  const { data: savedReports, isLoading: isLoadingReports } = useCollection<DailyReport>(reportsQuery);
   
   const getReportDate = useCallback((report: DailyReport): Date | null => {
     try {
@@ -368,15 +373,6 @@ function ReportsPageContent() {
     }
   }, []);
 
-  const savedReports = useMemo(() => {
-    if (!allReports) return [];
-    const selectedMonthPrefix = format(currentDate, "yyyy-MM");
-    return allReports
-      .filter(report => report.reportDate && report.reportDate.startsWith(selectedMonthPrefix))
-      .sort((a, b) => b.reportDate.localeCompare(a.reportDate));
-  }, [allReports, currentDate]);
-
-
   const bomboniereQuery = useMemo(
     () => firestore ? query(collection(firestore, 'bomboniere_items'), orderBy('name', 'asc')) : null,
     [firestore]
@@ -386,7 +382,7 @@ function ReportsPageContent() {
   const isLoading = isLoadingReports || isLoadingBomboniere;
 
   const handleDeleteReportRequest = (reportId: string) => {
-    const report = allReports?.find(r => r.id === reportId);
+    const report = savedReports?.find(r => r.id === reportId);
     if(report) {
         setReportToDelete(report);
     }
@@ -675,3 +671,5 @@ export default function ReportsPage() {
     
     return <ReportsPageContent />;
 }
+
+    
