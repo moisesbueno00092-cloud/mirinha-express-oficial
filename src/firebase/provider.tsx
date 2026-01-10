@@ -56,17 +56,24 @@ export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
         setUserError(null);
         setIsUserLoading(false);
       } else {
-        // If there's no user, try to sign in anonymously.
-        try {
-          await signInAnonymously(auth);
-          // The onAuthStateChanged listener will handle the new user state,
-          // so we just let it run its course. isUserLoading remains true until a user is set.
-        } catch (error) {
-          console.error("FirebaseProvider: Anonymous sign-in failed.", error);
-          setUserError(error as Error);
-          setUser(null);
-          setIsUserLoading(false);
-        }
+        // If there's no user, there's a brief period during initialization where
+        // currentUser is null. We wait a moment to allow Firebase to restore
+        // the last session. If after a short delay there's still no user,
+        // we then proceed with anonymous sign-in.
+        setTimeout(async () => {
+          if (!auth.currentUser) {
+            try {
+              await signInAnonymously(auth);
+              // The onAuthStateChanged listener will handle the new user state,
+              // so we just let it run its course. isUserLoading remains true until a user is set.
+            } catch (error) {
+              console.error("FirebaseProvider: Anonymous sign-in failed.", error);
+              setUserError(error as Error);
+              setUser(null);
+              setIsUserLoading(false);
+            }
+          }
+        }, 1000); // Wait 1 second before creating a new anonymous user.
       }
     }, (error) => {
       console.error("FirebaseProvider: Auth listener error", error);
