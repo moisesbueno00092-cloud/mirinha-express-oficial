@@ -260,7 +260,7 @@ function LancheTrackerPageContent() {
         mainInput = mainInput.substring(2).trim();
       }
 
-      const parts = mainInput.split(' ').filter((part) => part.trim() !== '');
+      let parts = mainInput.split(' ').filter((part) => part.trim() !== '');
 
       let totalQuantity = 0;
       let totalPrice = 0;
@@ -272,29 +272,23 @@ function LancheTrackerPageContent() {
       
       let i = 0;
       while (i < parts.length) {
-        
         let bomboniereMatch = null;
         let bomboniereQty = 1;
         let bestMatchEndIndex = -1;
 
-        // Look for multi-word bomboniere items first
         for (let j = parts.length; j > i; j--) {
             const potentialName = parts.slice(i, j).join(' ').toLowerCase();
             if (bomboniereItemsByName[potentialName]) {
                 bomboniereMatch = bomboniereItemsByName[potentialName];
                 bestMatchEndIndex = j;
-                break; // Found the longest possible match
+                break;
             }
         }
 
-        if(bomboniereMatch) {
-            // Check for quantity BEFORE the name
-             if (i > 0 && isNumeric(parts[i - 1])) {
+        if (bomboniereMatch) {
+            if (i > 0 && isNumeric(parts[i - 1])) {
                 bomboniereQty = parseInt(parts[i - 1], 10);
-                // Blank out the already processed quantity part by finding its original index in `parts`
-                // This is tricky because parts are consumed. Let's find a more direct way.
-                // For now, let's assume the previous part is the quantity, a simpler approach is better.
-                // We'll rely on parts[i-1] being the quantity.
+                parts[i-1] = ''; // Blank out the already processed quantity part
             }
 
             let priceToUse = bomboniereMatch.price;
@@ -302,33 +296,23 @@ function LancheTrackerPageContent() {
 
             if (nextPartIndex < parts.length && isNumeric(parts[nextPartIndex])) {
                 priceToUse = parseFloat(parts[nextPartIndex].replace(',', '.'));
-                i = nextPartIndex + 1; // Consume name + price
+                i = nextPartIndex + 1;
             } else {
-                i = bestMatchEndIndex; // Consume name only
+                i = nextPartIndex;
             }
-            
-            // If quantity was found, we need to adjust the consumption logic, but `i` is already moving forward.
-            // The logic needs rethinking. Let's restart the loop with the new index.
             
             processedBomboniereItems.push({ id: bomboniereMatch.id, name: bomboniereMatch.name, quantity: bomboniereQty, price: priceToUse });
             totalPrice += priceToUse * bomboniereQty;
             totalQuantity += bomboniereQty;
-            
-            // To handle quantity "2 coca lata", we need to remove the "2" from being processed again.
-            // A simple way is to mark consumed parts. Let's modify the `parts` array in place.
-            if (i > 0 && isNumeric(parts[i - 1])) {
-                 parts[i-1] = ''; // Blank it out
-            }
-            for(let k = i - (bestMatchEndIndex - i); k < i; k++) {
+
+            for(let k = i - (bestMatchEndIndex - (i - (nextPartIndex < i ? 1 : 0))); k < i; k++) {
                 if(k >=0) parts[k] = '';
             }
-
             continue;
         }
 
-
         const part = parts[i];
-        if (!part) { // It might have been blanked out
+        if (!part) {
           i++;
           continue;
         }
@@ -380,7 +364,6 @@ function LancheTrackerPageContent() {
             if (nextPartIndex < parts.length && isNumeric(parts[nextPartIndex])) {
                  let isPriceForCurrent = true;
                  
-                 // Look ahead to see if the number is NOT a quantity for a subsequent predefined item
                  if (nextPartIndex + 1 < parts.length) {
                     const followingPart = parts[nextPartIndex + 1].toUpperCase();
                     if(predefinedPrices[followingPart]) {
@@ -409,7 +392,6 @@ function LancheTrackerPageContent() {
         
         i++;
       }
-
 
       if (!customerName && potentialCustomerNameParts.length > 0) {
         customerName = potentialCustomerNameParts.join(' ');
@@ -556,7 +538,7 @@ function LancheTrackerPageContent() {
           const itemDef = bomboniereItems.find((i) => i.id === soldItem.id);
           if (itemDef) {
             const newStock = itemDef.estoque + soldItem.quantity;
-            const docRef = doc(bomboniereCollectionRef, soldItem.id);
+            const docRef = doc(bomboniereCollectionRef, itemDef.id);
             batch.update(docRef, { estoque: newStock });
           }
         }
