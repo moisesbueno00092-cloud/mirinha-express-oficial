@@ -359,7 +359,6 @@ function ReportsPageContent() {
   const getReportDate = useCallback((report: DailyReport): Date | null => {
     try {
         if (!report || !report.reportDate) return null;
-        // Force the date to be interpreted as UTC at noon to avoid timezone issues.
         const utcDate = parseISO(`${report.reportDate}T12:00:00Z`);
         if (isNaN(utcDate.getTime())) return null;
         return utcDate;
@@ -370,13 +369,10 @@ function ReportsPageContent() {
 
   const savedReports = useMemo(() => {
     if (!allReports) return [];
-    
     const selectedMonthPrefix = format(currentDate, "yyyy-MM");
-
     return allReports
       .filter(report => report.reportDate && report.reportDate.startsWith(selectedMonthPrefix))
       .sort((a, b) => b.reportDate.localeCompare(a.reportDate));
-      
   }, [allReports, currentDate]);
 
 
@@ -678,5 +674,7 @@ export default function ReportsPage() {
     
     return <ReportsPageContent />;
 }
+
+    
 
     
