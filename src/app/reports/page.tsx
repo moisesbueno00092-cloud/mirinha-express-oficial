@@ -4,7 +4,7 @@
 import { useState, useMemo, useEffect, useCallback } from 'react';
 import { useFirestore, useCollection } from '@/firebase';
 import { collection, query, orderBy, doc, where, getDocs, deleteDoc, writeBatch } from 'firebase/firestore';
-import { format, parse, startOfMonth, endOfMonth, isWithinInterval, addMonths, subMonths, parseISO, startOfDay, endOfDay, isSameDay, setMonth, setYear } from 'date-fns';
+import { format, startOfMonth, endOfMonth, isSameDay, setMonth, setYear, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { useRouter } from 'next/navigation';
 
