@@ -347,15 +347,33 @@ function ReportsPageContent() {
   const [selectedReportId, setSelectedReportId] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState('daily');
   
-  const reportsQuery = useMemoFirebase(() => {
+  // Query for user-specific reports (new structure)
+  const userReportsQuery = useMemoFirebase(() => {
     if (!firestore || !user) return null;
     return query(
-        collection(firestore, 'daily_reports'),
+        collection(firestore, 'users', user.uid, 'daily_reports'),
         orderBy('reportDate', 'desc')
     );
   }, [firestore, user]);
 
-  const { data: allReports, isLoading: isLoadingReports } = useCollection<DailyReport>(reportsQuery);
+  // Query for global reports (old structure)
+  const globalReportsQuery = useMemoFirebase(() => {
+    if (!firestore) return null;
+    return query(
+        collection(firestore, 'daily_reports'),
+        orderBy('reportDate', 'desc')
+    );
+  }, [firestore]);
+
+  const { data: userReports, isLoading: isLoadingUserReports } = useCollection<DailyReport>(userReportsQuery);
+  const { data: globalReports, isLoading: isLoadingGlobalReports } = useCollection<DailyReport>(globalReportsQuery);
+
+  // Combine both report sources
+  const allReports = useMemo(() => {
+    const combined = [...(userReports || []), ...(globalReports || [])];
+    const uniqueReports = Array.from(new Map(combined.map(report => [report.id, report])).values());
+    return uniqueReports.sort((a, b) => new Date(b.reportDate).getTime() - new Date(a.reportDate).getTime());
+  }, [userReports, globalReports]);
   
   const savedReports = useMemo(() => {
     if (!allReports) return [];
@@ -370,12 +388,9 @@ function ReportsPageContent() {
               return false;
           }
           try {
-              // The reportDate is a string 'YYYY-MM-DD'.
-              // To avoid timezone issues, parse it as noon UTC.
               const dateString = report.reportDate.split('T')[0];
               const reportDate = parseISO(`${dateString}T12:00:00Z`);
 
-              // Compare the report's month and year
               return reportDate.getUTCMonth() === selectedMonth && reportDate.getUTCFullYear() === selectedYear;
           } catch (e) {
               console.error(`Invalid report date format: ${report.reportDate}`, report);
@@ -390,7 +405,7 @@ function ReportsPageContent() {
   );
   const { data: bomboniereItems } = useCollection<BomboniereItem>(bomboniereQuery);
 
-  const isLoading = isUserLoading || isLoadingReports;
+  const isLoading = isUserLoading || isLoadingUserReports || isLoadingGlobalReports;
 
   const handleDeleteReportRequest = (reportId: string) => {
     const report = allReports?.find(r => r.id === reportId);
@@ -405,35 +420,49 @@ function ReportsPageContent() {
     try {
         const batch = writeBatch(firestore);
         
-        // Use the same timezone-safe parsing logic
         const reportDateString = reportToDelete.reportDate.split('T')[0];
         const reportDateToDelete = parseISO(`${reportDateString}T12:00:00Z`);
         
-        const orderItemsCollectionRef = collection(firestore, 'order_items');
-        const q = query(orderItemsCollectionRef, where('reportado', '==', true));
+        const collectionsToSearch = [
+            collection(firestore, 'order_items'), // Old global collection
+            collection(firestore, 'users', user.uid, 'order_items') // New user-specific collection
+        ];
 
-        const orderItemsSnapshot = await getDocs(q);
+        for (const collRef of collectionsToSearch) {
+            const q = query(collRef, where('reportado', '==', true));
+            const orderItemsSnapshot = await getDocs(q);
+
+            orderItemsSnapshot.forEach(orderDoc => {
+                const item = orderDoc.data();
+                if (!item.timestamp) {
+                    console.warn("Skipping item without timestamp:", item);
+                    return;
+                }
+                const itemTimestamp = item.timestamp?.toDate ? item.timestamp.toDate() : parseISO(item.timestamp);
+                if (isSameDay(itemTimestamp, reportDateToDelete)) {
+                    const liveItemsCollectionRef = collection(firestore, 'live_items');
+                    const liveItemRef = doc(liveItemsCollectionRef, orderDoc.id);
+                    batch.set(liveItemRef, { ...item, reportado: false });
+                    batch.delete(orderDoc.ref);
+                }
+            });
+        }
         
-        orderItemsSnapshot.forEach(orderDoc => {
-            const item = orderDoc.data();
-
-            if (!item.timestamp) {
-              console.warn("Skipping item without timestamp:", item);
-              return;
-            }
-
-            const itemTimestamp = item.timestamp?.toDate ? item.timestamp.toDate() : parseISO(item.timestamp);
-
-            if (isSameDay(itemTimestamp, reportDateToDelete)) {
-                const liveItemsCollectionRef = collection(firestore, 'live_items');
-                const liveItemRef = doc(liveItemsCollectionRef, orderDoc.id);
-                batch.set(liveItemRef, { ...item, reportado: false });
-                batch.delete(orderDoc.ref);
-            }
-        });
-
-        const reportDocRef = doc(firestore, "daily_reports", reportToDelete.id);
-        batch.delete(reportDocRef);
+        // Decide which report document to delete
+        let reportDocRef;
+        const userReportDoc = doc(firestore, 'users', user.uid, "daily_reports", reportToDelete.id);
+        const globalReportDoc = doc(firestore, "daily_reports", reportToDelete.id);
+        
+        // This logic is a bit tricky. We assume if it has a userId, it's in the user's subcollection.
+        // A more robust way might be to check existence, but for now this should work.
+        if (reportToDelete.userId) {
+            reportDocRef = userReportDoc;
+        } else {
+            reportDocRef = globalReportDoc;
+        }
+        // To be safe, let's just try deleting from both possible locations if we're not sure.
+        batch.delete(globalReportDoc);
+        batch.delete(userReportDoc);
 
         await batch.commit();
         
@@ -578,7 +607,7 @@ function ReportsPageContent() {
                 </TabsTrigger>
             </TabsList>
             <TabsContent value="aggregate" className="mt-4">
-                 {isLoadingReports ? (
+                 {isLoading ? (
                     <div className="flex justify-center p-8"><Loader2 className="h-8 w-8 animate-spin"/></div>
                  ) : savedReports && savedReports.length > 0 ? (
                     <ReportDetail report={aggregateReport} bomboniereItems={bomboniereItems || []} isAggregate={true} />
@@ -593,7 +622,7 @@ function ReportsPageContent() {
             </TabsContent>
             <TabsContent value="daily" className="mt-4">
                  <h2 className="text-lg font-semibold mb-4">Relatórios Salvos no Mês</h2>
-                {isLoadingReports ? (
+                {isLoading ? (
                     <div className="flex items-center justify-center h-40">
                         <Loader2 className="h-8 w-8 animate-spin text-primary"/>
                     </div>
