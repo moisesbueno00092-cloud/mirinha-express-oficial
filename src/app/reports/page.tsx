@@ -359,8 +359,6 @@ function ReportsPageContent() {
   const getReportDate = useCallback((report: DailyReport): Date | null => {
     try {
         if (!report || !report.reportDate) return null;
-        // The safest way to parse YYYY-MM-DD is to treat it as UTC to avoid timezone shifts.
-        // Adding T12:00:00Z makes it noon UTC, safely within the correct day.
         const utcDate = parseISO(`${report.reportDate}T12:00:00Z`);
         if (isNaN(utcDate.getTime())) return null;
         return utcDate;
@@ -679,3 +677,5 @@ export default function ReportsPage() {
     
     return <ReportsPageContent />;
 }
+
+    
