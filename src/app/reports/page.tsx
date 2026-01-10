@@ -132,7 +132,7 @@ const ReportDetail = ({ report, bomboniereItems, isAggregate = false }: { report
         const { lanches: lanchesRua, bomboniere: bomboniereRua } = separateItemsByCategory(contagemRua);
         
         return { lanchesSalao, bomboniereSalao, lanchesRua, bomboniereRua };
-    }, [report.contagemTotal, report.contagemRua, bomboniereItems]);
+    }, [report.contagemTotal, report.contagemRua, bomboniereItems, separateItemsByCategory]);
 
     const renderItemCountList = (counts: ItemCount) => {
       if (!counts || Object.keys(counts).length === 0) {
@@ -360,8 +360,8 @@ function ReportsPageContent() {
     try {
         if (!report || !report.reportDate) return null;
         // The 'Z' at the end is crucial to interpret the date as UTC.
-        // Appending T12:00:00 places it safely in the middle of the day.
-        const utcDate = parseISO(`${report.reportDate}T12:00:00Z`);
+        // Appending T12:00:00 places it safely in the middle of the day, avoiding timezone issues at boundaries.
+        const utcDate = new Date(`${report.reportDate}T12:00:00Z`);
         if (isNaN(utcDate.getTime())) return null;
         return utcDate;
     } catch {
@@ -688,3 +688,5 @@ export default function ReportsPage() {
     
     return <ReportsPageContent />;
 }
+
+    
