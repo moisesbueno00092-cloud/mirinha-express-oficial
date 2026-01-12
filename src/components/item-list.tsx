@@ -13,6 +13,7 @@ import {
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Pencil, Trash2, Loader2, User, Star } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -24,6 +25,9 @@ interface ItemListProps {
   onFavorite: (item: Item) => void;
   savedFavorites: SavedFavorite[];
   isLoading: boolean;
+  isSelectionMode?: boolean;
+  selectedItems?: string[];
+  onItemSelect?: (itemId: string, isSelected: boolean) => void;
 }
 
 const formatCurrency = (value: number) => {
@@ -168,7 +172,17 @@ export const renderItemName = (item: Item) => {
     );
 }
 
-export default function ItemList({ items, onEdit, onDelete, onFavorite, savedFavorites, isLoading }: ItemListProps) {
+export default function ItemList({ 
+  items, 
+  onEdit, 
+  onDelete, 
+  onFavorite, 
+  savedFavorites, 
+  isLoading,
+  isSelectionMode = false,
+  selectedItems = [],
+  onItemSelect = () => {},
+}: ItemListProps) {
   if (isLoading) {
     return (
       <div className="flex justify-center items-center py-10">
@@ -195,16 +209,26 @@ export default function ItemList({ items, onEdit, onDelete, onFavorite, savedFav
       <Table>
         <TableHeader>
           <TableRow>
+            {isSelectionMode && <TableHead className="w-10 px-2 sm:px-4" />}
             <TableHead className="px-2 sm:px-4">Item</TableHead>
             <TableHead className="px-2 sm:px-4">Grupo</TableHead>
             <TableHead className="text-right px-2 sm:px-4">Total</TableHead>
             <TableHead className="text-right px-2 sm:px-4">Hora</TableHead>
-            <TableHead className="text-right px-2 sm:px-4">Ações</TableHead>
+            {!isSelectionMode && <TableHead className="text-right px-2 sm:px-4">Ações</TableHead>}
           </TableRow>
         </TableHeader>
         <TableBody>
           {[...items].map((item) => (
-            <TableRow key={item.id} className={cn(item.group.includes('Fiados') && "text-destructive", "border-b-0")}>
+            <TableRow key={item.id} className={cn(item.group.includes('Fiados') && "text-destructive", "border-b-0", isSelectionMode && "cursor-pointer")} onClick={() => isSelectionMode && onItemSelect(item.id, !selectedItems.includes(item.id))}>
+              {isSelectionMode && (
+                <TableCell className="px-2 sm:px-4 align-top">
+                  <Checkbox 
+                    checked={selectedItems.includes(item.id)}
+                    onCheckedChange={(checked) => onItemSelect(item.id, !!checked)}
+                    aria-label="Selecionar item"
+                  />
+                </TableCell>
+              )}
               <TableCell className="font-medium px-2 sm:px-4 align-top">
                 {renderItemName(item)}
               </TableCell>
@@ -223,19 +247,21 @@ export default function ItemList({ items, onEdit, onDelete, onFavorite, savedFav
                 )}
               </TableCell>
               <TableCell className="text-right px-2 sm:px-4 align-top">{formatTimestamp(item.timestamp)}</TableCell>
-              <TableCell className="p-0 align-top">
-                <div className="flex justify-end">
-                   <Button variant="ghost" size="icon" onClick={() => onFavorite(item)} disabled={!item.originalCommand || isFavorited(item)}>
-                    <Star className={cn("h-4 w-4", isFavorited(item) ? "text-yellow-400 fill-yellow-400" : "text-muted-foreground")} />
-                  </Button>
-                  <Button variant="ghost" size="icon" onClick={() => onEdit(item)}>
-                    <Pencil className="h-4 w-4" />
-                  </Button>
-                  <Button variant="ghost" size="icon" onClick={() => onDelete(item.id)} className="text-destructive hover:text-destructive">
-                    <Trash2 className="h-4 w-4" />
-                  </Button>
-                </div>
-              </TableCell>
+              {!isSelectionMode && (
+                <TableCell className="p-0 align-top">
+                  <div className="flex justify-end">
+                     <Button variant="ghost" size="icon" onClick={() => onFavorite(item)} disabled={!item.originalCommand || isFavorited(item)}>
+                      <Star className={cn("h-4 w-4", isFavorited(item) ? "text-yellow-400 fill-yellow-400" : "text-muted-foreground")} />
+                    </Button>
+                    <Button variant="ghost" size="icon" onClick={() => onEdit(item)}>
+                      <Pencil className="h-4 w-4" />
+                    </Button>
+                    <Button variant="ghost" size="icon" onClick={() => onDelete(item.id)} className="text-destructive hover:text-destructive">
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </TableCell>
+              )}
             </TableRow>
           ))}
         </TableBody>

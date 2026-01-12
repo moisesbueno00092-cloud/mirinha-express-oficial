@@ -52,6 +52,8 @@ import {
   History,
   Wrench,
   Star,
+  Settings,
+  Trash2,
 } from 'lucide-react';
 
 import ItemForm from '@/components/item-form';
@@ -162,6 +164,11 @@ function LancheTrackerPageContent() {
   const [savedFavorites, setSavedFavorites] = usePersistentState<SavedFavorite[]>('savedFavorites', []);
 
   const [passwordPrompt, setPasswordPrompt] = useState<{ open: boolean; onSuccess: () => void; onCancel?: () => void; } | null>(null);
+
+  // States for multi-delete
+  const [isSelectionModeActive, setIsSelectionModeActive] = useState(false);
+  const [selectedItems, setSelectedItems] = useState<string[]>([]);
+  const [isDeleteSelectedAlertOpen, setIsDeleteSelectedAlertOpen] = useState(false);
 
   const handlePasswordSuccess = () => {
     if (passwordPrompt?.onSuccess) {
@@ -643,6 +650,76 @@ function LancheTrackerPageContent() {
     }
   };
 
+  const handleToggleSelectionMode = () => {
+    setIsSelectionModeActive(prev => !prev);
+    setSelectedItems([]); // Clear selection when toggling mode
+  };
+  
+  const handleItemSelect = (itemId: string, isSelected: boolean) => {
+    setSelectedItems(prev => {
+      if (isSelected) {
+        return [...prev, itemId];
+      } else {
+        return prev.filter(id => id !== itemId);
+      }
+    });
+  };
+  
+  const handleDeleteSelected = async () => {
+    if (!firestore || selectedItems.length === 0 || !items) {
+      setIsDeleteSelectedAlertOpen(false);
+      return;
+    }
+  
+    const liveItemsCollectionRef = collection(firestore, 'live_items');
+    const bomboniereCollectionRef = collection(firestore, 'bomboniere_items');
+    const deleteBatch = writeBatch(firestore);
+    let itemsRestoredToStock = 0;
+  
+    try {
+      for (const itemId of selectedItems) {
+        const itemBeingDeleted = items.find((it) => it.id === itemId);
+  
+        // Restore stock for bomboniere items
+        if (itemBeingDeleted && itemBeingDeleted.bomboniereItems && bomboniereItems) {
+          for (const soldItem of itemBeingDeleted.bomboniereItems) {
+            const itemDef = bomboniereItems.find((i) => i.id === soldItem.id);
+            if (itemDef) {
+              const newStock = itemDef.estoque + soldItem.quantity;
+              const docRef = doc(bomboniereCollectionRef, itemDef.id);
+              deleteBatch.update(docRef, { estoque: newStock });
+              itemsRestoredToStock++;
+            }
+          }
+        }
+  
+        // Delete the item from live_items
+        const docRef = doc(liveItemsCollectionRef, itemId);
+        deleteBatch.delete(docRef);
+      }
+  
+      await deleteBatch.commit();
+  
+      toast({
+        title: 'Itens Removidos',
+        description: `${selectedItems.length} lançamento(s) foram excluídos com sucesso.`,
+      });
+  
+    } catch (error: any) {
+      console.error('Error deleting selected items:', error);
+      toast({
+        variant: 'destructive',
+        title: 'Erro ao Remover',
+        description: error.message || 'Não foi possível remover os itens selecionados.',
+      });
+    } finally {
+      setSelectedItems([]);
+      setIsSelectionModeActive(false);
+      setIsDeleteSelectedAlertOpen(false);
+    }
+  };
+
+
   const totals = useMemo(() => {
     if (!items || items.length === 0) {
       return {
@@ -794,10 +871,25 @@ function LancheTrackerPageContent() {
         </AlertDialogContent>
       </AlertDialog>
 
+      <AlertDialog open={isDeleteSelectedAlertOpen} onOpenChange={setIsDeleteSelectedAlertOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Excluir {selectedItems.length} Lançamentos?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Esta ação não pode ser desfeita. Os itens serão excluídos permanentemente. Estoque de bomboniere será devolvido.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDeleteSelected}>Confirmar Exclusão</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
       <div className="container mx-auto max-w-4xl p-2 sm:p-4 lg:p-8 pb-36">
         <header className="relative mb-6 flex h-20 items-center justify-center">
           <div className="absolute left-0 flex items-center gap-2">
-            {/* Placeholder to balance the right side, can be hidden or used for other controls */}
+            {/* Placeholder */}
           </div>
           <div className="flex flex-col items-center">
             <MirinhaLogo className="w-64 sm:w-80 h-auto text-primary" />
@@ -811,6 +903,9 @@ function LancheTrackerPageContent() {
             <Button variant="outline" onClick={() => router.push('/admin')}>
               <Wrench className="mr-2 h-4 w-4" />
               Admin
+            </Button>
+            <Button variant="ghost" size="icon" className="h-10 w-10 text-muted-foreground" onClick={handleToggleSelectionMode}>
+                <Settings className="h-5 w-5" />
             </Button>
           </div>
         </header>
@@ -826,6 +921,29 @@ function LancheTrackerPageContent() {
           >
             <FavoritesMenu savedFavorites={savedFavorites} onSelect={handleFavoriteSelect} onDelete={handleFavoriteDelete} />
           </ItemForm>
+          
+          {isSelectionModeActive && (
+              <Card>
+                <CardContent className="p-3 flex items-center justify-between">
+                    <div className="text-sm font-medium">
+                        Modo de Seleção Ativo: {selectedItems.length} item(s) selecionado(s).
+                    </div>
+                    <div className="flex items-center gap-2">
+                         <Button variant="outline" onClick={handleToggleSelectionMode}>
+                            Cancelar
+                        </Button>
+                        <Button
+                            variant="destructive"
+                            onClick={() => setIsDeleteSelectedAlertOpen(true)}
+                            disabled={selectedItems.length === 0}
+                        >
+                            <Trash2 className="mr-2 h-4 w-4" />
+                            Excluir Selecionados
+                        </Button>
+                    </div>
+                </CardContent>
+              </Card>
+          )}
 
           <div className="space-y-4 pt-6">
             <Separator />
@@ -837,6 +955,9 @@ function LancheTrackerPageContent() {
               onFavorite={handleFavoriteSave}
               savedFavorites={savedFavorites}
               isLoading={isLoadingItems}
+              isSelectionMode={isSelectionModeActive}
+              selectedItems={selectedItems}
+              onItemSelect={handleItemSelect}
             />
           </div>
         </main>
