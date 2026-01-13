@@ -30,6 +30,8 @@ interface FornecedoresEditModalProps {
 
 type EditableFornecedor = Fornecedor;
 
+const PROTECTED_IDS = ['delivery_fees_provider', 'extra_expenses_provider'];
+
 export default function FornecedoresEditModal({ isOpen, onClose, fornecedores: initialFornecedores }: FornecedoresEditModalProps) {
   const firestore = useFirestore();
   const { toast } = useToast();
@@ -66,9 +68,9 @@ export default function FornecedoresEditModal({ isOpen, onClose, fornecedores: i
 
   const confirmDelete = async () => {
       if (!firestore || !fornecedorToDelete || !fornecedorToDelete.id) return;
-      // You cannot delete the delivery fees provider
-      if(fornecedorToDelete.id === 'delivery_fees_provider') {
-        toast({ variant: 'destructive', title: "Ação não permitida", description: "Não pode apagar o fornecedor de taxas de entrega."});
+      
+      if (PROTECTED_IDS.includes(fornecedorToDelete.id)) {
+        toast({ variant: 'destructive', title: "Ação não permitida", description: "Não pode apagar fornecedores protegidos do sistema."});
         setFornecedorToDelete(null);
         return;
       }
@@ -157,14 +159,14 @@ export default function FornecedoresEditModal({ isOpen, onClose, fornecedores: i
                             onChange={(e) => handleNameChange(fornecedor.id, e.target.value)}
                             placeholder="Nome do Fornecedor"
                             className="flex-grow"
-                            disabled={fornecedor.id === 'delivery_fees_provider'}
+                            disabled={PROTECTED_IDS.includes(fornecedor.id)}
                         />
                         <Button
                             variant="ghost"
                             size="icon"
                             className="h-9 w-9 text-muted-foreground hover:text-destructive shrink-0"
                             onClick={() => handleDeleteRequest(fornecedor)}
-                             disabled={fornecedor.id === 'delivery_fees_provider'}
+                            disabled={PROTECTED_IDS.includes(fornecedor.id)}
                         >
                             <Trash2 className="h-4 w-4" />
                         </Button>

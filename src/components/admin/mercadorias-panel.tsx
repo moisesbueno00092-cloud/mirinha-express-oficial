@@ -112,15 +112,31 @@ export default function MercadoriasPanel() {
     const { data: bomboniereItems, isLoading: isLoadingBomboniere } = useCollection<BomboniereItem>(bomboniereItemsQuery);
 
     useEffect(() => {
-        const ensureDeliveryProvider = async () => {
+        const ensureProviders = async () => {
             if (!firestore || isLoadingFornecedores || !fornecedores) return;
-            const deliveryProviderExists = fornecedores.some(f => f.id === 'delivery_fees_provider');
-            if (!deliveryProviderExists) {
-                const docRef = doc(firestore, 'fornecedores', 'delivery_fees_provider');
-                await setDoc(docRef, { nome: 'Taxas de Entrega', color: '#9ca3af' });
+
+            const providersToEnsure = [
+                { id: 'delivery_fees_provider', name: 'Taxas de Entrega', color: '#9ca3af' },
+                { id: 'extra_expenses_provider', name: 'Despesas Extras', color: '#6b7280' }
+            ];
+
+            const batch = writeBatch(firestore);
+            let needsCommit = false;
+
+            for (const provider of providersToEnsure) {
+                const providerExists = fornecedores.some(f => f.id === provider.id);
+                if (!providerExists) {
+                    const docRef = doc(firestore, 'fornecedores', provider.id);
+                    batch.set(docRef, { nome: provider.name, color: provider.color });
+                    needsCommit = true;
+                }
+            }
+
+            if (needsCommit) {
+                await batch.commit();
             }
         };
-        ensureDeliveryProvider();
+        ensureProviders();
     }, [firestore, fornecedores, isLoadingFornecedores]);
 
     useEffect(() => {
@@ -438,14 +454,16 @@ export default function MercadoriasPanel() {
     };
 
     const handleRegisterEntry = async () => {
-        if (!firestore || !fornecedorId || produtosLancados.length === 0 || isLoadingBomboniere) {
-            toast({ variant: 'destructive', title: 'Faltam dados', description: 'Por favor, selecione um fornecedor, espere os itens da bomboniere carregarem, e adicione pelo menos um produto.' });
+        if (!firestore || produtosLancados.length === 0 || isLoadingBomboniere) {
+            toast({ variant: 'destructive', title: 'Faltam dados', description: 'Por favor, adicione pelo menos um produto e espere os itens da bomboniere carregarem.' });
             return;
         }
         setIsSubmitting(true);
+        
+        const finalFornecedorId = fornecedorId || 'extra_expenses_provider';
 
         try {
-            const fornecedorNome = fornecedores?.find(f => f.id === fornecedorId)?.nome || 'Fornecedor desconhecido';
+            const fornecedorNome = fornecedores?.find(f => f.id === finalFornecedorId)?.nome || 'Fornecedor desconhecido';
             const parcelas = parseInt(numParcelas, 10);
             
             const vencimentoBase = dataVencimento || new Date();
@@ -459,7 +477,7 @@ export default function MercadoriasPanel() {
                 const vencimentoParcela = addDays(vencimentoBase, i * 7);
                 const novaConta: Omit<ContaAPagar, 'id'> = {
                     descricao: `Compra de mercadorias - ${fornecedorNome} (${i + 1}/${parcelas})`,
-                    fornecedorId: fornecedorId,
+                    fornecedorId: finalFornecedorId,
                     valor: valorParcela,
                     dataVencimento: formatDateFn(vencimentoParcela, 'yyyy-MM-dd'),
                     estaPaga: estaPaga,
@@ -471,7 +489,7 @@ export default function MercadoriasPanel() {
             for (const produto of produtosLancados) {
                 const novaEntrada: Omit<EntradaMercadoria, 'id'> = {
                     produtoNome: produto.produtoNome,
-                    fornecedorId: fornecedorId,
+                    fornecedorId: finalFornecedorId,
                     data: new Date().toISOString(),
                     quantidade: produto.quantidade,
                     precoUnitario: produto.precoUnitario,
@@ -737,7 +755,7 @@ export default function MercadoriasPanel() {
                 <div className="flex justify-end pt-4">
                     <Button 
                         onClick={handleRegisterEntry}
-                        disabled={isSubmitting || !fornecedorId || produtosLancados.length === 0 || isLoadingBomboniere}
+                        disabled={isSubmitting || produtosLancados.length === 0 || isLoadingBomboniere}
                     >
                         {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                         Registar Entrada e Criar Conta(s)
