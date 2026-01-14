@@ -326,6 +326,12 @@ function LancheTrackerPageContent() {
               }
               if(individualPrices.length > 0) { 
                 totalQuantity += individualPrices.length;
+              } else if (i + 1 < parts.length && isNumeric(parts[i + 1])) {
+                  const price = parseFloat(parts[i + 1].replace(',', '.'));
+                  individualPrices.push(price);
+                  totalPrice += price;
+                  totalQuantity += 1;
+                  partsToAdvance++;
               }
               i += partsToAdvance;
               continue;
@@ -374,7 +380,7 @@ function LancheTrackerPageContent() {
                                break;
                            }
                        }
-                       if (isFollowedByBomboniere) {
+                       if (isFollowedByBomboniere && isNumeric(parts[nextPartIndex+1])) {
                            isPriceForCurrent = false;
                        }
                   }
