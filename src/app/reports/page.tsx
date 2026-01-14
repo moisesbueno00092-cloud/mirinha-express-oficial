@@ -357,7 +357,6 @@ function ReportsPageContent() {
         where('reportDate', '<=', format(end, 'yyyy-MM-dd')),
         orderBy('reportDate', 'desc')
     );
-    // This is the critical "signature" that tells useCollection the query is memoized and stable
     (q as any).__memo = true; 
     return q;
   }, [firestore, currentDate]);
@@ -396,20 +395,16 @@ function ReportsPageContent() {
     try {
         const batch = writeBatch(firestore);
         
-        // Use the reportDate string to build a correct local-time date range
-        const reportDate = parseISO(reportToDelete.reportDate);
-        const dayStart = startOfDay(reportDate);
-        const dayEnd = endOfDay(reportDate);
+        const reportDateStr = reportToDelete.reportDate;
 
         const orderItemsQuery = query(
           collection(firestore, 'order_items'), 
-          where('timestamp', '>=', dayStart),
-          where('timestamp', '<=', dayEnd)
+          where('reportDate', '==', reportDateStr)
         );
         const orderItemsSnapshot = await getDocs(orderItemsQuery);
 
         if (orderItemsSnapshot.empty) {
-            console.warn("No archived items found for this report date range. Deleting report only.");
+            console.warn("No archived items found for this report date. Deleting report only.");
         }
 
         orderItemsSnapshot.forEach(orderDoc => {
@@ -672,3 +667,5 @@ export default function ReportsPage() {
     
     return <ReportsPageContent />;
 }
+
+    

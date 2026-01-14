@@ -598,11 +598,8 @@ function LancheTrackerPageContent() {
     try {
       const batch = writeBatch(firestore);
       const now = new Date();
-      
-      const year = now.getFullYear();
-      const month = String(now.getMonth() + 1).padStart(2, '0');
-      const day = String(now.getDate()).padStart(2, '0');
-      const reportDateString = `${year}-${month}-${day}`;
+      const reportDateString = formatDateFn(now, 'yyyy-MM-dd');
+
 
       const report: Omit<DailyReport, 'id'> = {
         reportDate: reportDateString,
@@ -634,7 +631,7 @@ function LancheTrackerPageContent() {
       items.forEach((item) => {
         const liveItemRef = doc(liveItemsCollectionRef, item.id);
         const archiveItemRef = doc(collection(firestore, 'order_items'), item.id);
-        batch.set(archiveItemRef, { ...item, reportado: true });
+        batch.set(archiveItemRef, { ...item, reportado: true, reportDate: reportDateString });
         batch.delete(liveItemRef);
       });
 

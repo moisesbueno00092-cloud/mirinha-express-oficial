@@ -47,6 +47,7 @@ export interface Item {
 
   // Status field
   reportado?: boolean;
+  reportDate?: string; // YYYY-MM-DD
 }
 
 export type ItemCount = { [itemName: string]: number };
