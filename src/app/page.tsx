@@ -17,6 +17,7 @@ import { PREDEFINED_PRICES, DELIVERY_FEE } from '@/lib/constants';
 import {
   useFirestore,
   useCollection,
+  useUser,
 } from '@/firebase';
 import {
   collection,
@@ -96,6 +97,7 @@ const ToastContent = ({ item, title }: { item: Partial<Item>; title: string }) =
 
 function LancheTrackerPageContent() {
   const firestore = useFirestore();
+  const { user, isUserLoading } = useUser();
   const router = useRouter();
   const { toast } = useToast();
 
@@ -103,10 +105,10 @@ function LancheTrackerPageContent() {
   const [deliveryFee, setDeliveryFee] = usePersistentState('deliveryFee', DELIVERY_FEE);
 
   const liveItemsQuery = useMemo(() => {
-    if (!firestore) return null;
-    const q = query(collection(firestore, 'live_items'), orderBy('timestamp', 'desc'));
+    if (!firestore || !user?.uid) return null;
+    const q = query(collection(firestore, 'users', user.uid, 'live_items'), orderBy('timestamp', 'desc'));
     return q;
-  }, [firestore]);
+  }, [firestore, user]);
   
   const { data: allItems, isLoading: isLoadingItems, error: itemsError } = useCollection<Item>(liveItemsQuery);
 
@@ -204,13 +206,13 @@ function LancheTrackerPageContent() {
 
   async function handleUpsertItem(rawInputToProcess: string, currentItem?: Item | null, favoriteName?: string) {
     setIsProcessing(true);
-    if (!firestore) {
+    if (!firestore || !user?.uid) {
       toast({ variant: 'destructive', title: 'Erro', description: 'Base de dados indisponível. A página será recarregada.' });
       setIsProcessing(false);
       setTimeout(() => window.location.reload(), 2000);
       return;
     }
-    const liveItemsCollectionRef = collection(firestore, 'live_items');
+    const liveItemsCollectionRef = collection(firestore, 'users', user.uid, 'live_items');
 
 
     try {
@@ -434,7 +436,7 @@ function LancheTrackerPageContent() {
       consolidatedName = nameParts.join(' + ') || 'Lançamento';
       if (consolidatedName.length > 50) consolidatedName = 'Lançamento Misto';
 
-      const finalItem: Omit<Item, 'id'> = {
+      const finalItem: Omit<Item, 'id' | 'userId'> = {
         name: consolidatedName,
         quantity: totalQuantity,
         price: totalPrice,
@@ -452,13 +454,13 @@ function LancheTrackerPageContent() {
 
       if (currentItem) {
         const itemRef = doc(liveItemsCollectionRef, currentItem.id);
-        await setDoc(itemRef, finalItem);
+        await setDoc(itemRef, { ...finalItem, userId: currentItem.userId });
         toast({
           duration: 4000,
           component: <ToastContent item={{ ...finalItem, total: finalItem.total }} title="Lançamento Atualizado" />,
         });
       } else {
-        await addDoc(liveItemsCollectionRef, finalItem);
+        await addDoc(liveItemsCollectionRef, { ...finalItem, userId: user.uid });
         toast({
           duration: 4000,
           component: <ToastContent item={{ ...finalItem, total: finalItem.total }} title="Lançamento Adicionado" />,
@@ -514,9 +516,9 @@ function LancheTrackerPageContent() {
   };
 
   const confirmDeleteItem = async () => {
-    if (!itemToDelete || !firestore || !items) return;
+    if (!itemToDelete || !firestore || !items || !user?.uid) return;
 
-    const liveItemsCollectionRef = collection(firestore, 'live_items');
+    const liveItemsCollectionRef = collection(firestore, 'users', user.uid, 'live_items');
     const itemBeingDeleted = items.find((it) => it.id === itemToDelete);
 
     try {
@@ -576,7 +578,7 @@ function LancheTrackerPageContent() {
   };
 
   async function handleSaveReport() {
-    if (!firestore || !items || items.length === 0) {
+    if (!firestore || !items || items.length === 0 || !user?.uid) {
       toast({ variant: 'destructive', title: 'Impossível Salvar', description: 'Não há itens para gerar o relatório.' });
       return;
     }
@@ -608,16 +610,18 @@ function LancheTrackerPageContent() {
         totalItensRua: totals.totalItensRua,
         contagemTotal: totals.contagemTotal,
         contagemRua: totals.contagemRua,
+        userId: user.uid,
       };
       
-      const reportsCollection = collection(firestore, 'daily_reports');
+      const reportsCollection = collection(firestore, 'users', user.uid, 'daily_reports');
       const reportRef = doc(reportsCollection);
       batch.set(reportRef, report);
       
-      const liveItemsCollectionRef = collection(firestore, 'live_items');
+      const liveItemsCollectionRef = collection(firestore, 'users', user.uid, 'live_items');
+      const archiveItemsCollectionRef = collection(firestore, 'users', user.uid, 'order_items');
       items.forEach((item) => {
         const liveItemRef = doc(liveItemsCollectionRef, item.id);
-        const archiveItemRef = doc(collection(firestore, 'order_items'), item.id);
+        const archiveItemRef = doc(archiveItemsCollectionRef, item.id);
         batch.set(archiveItemRef, { ...item, reportado: true, reportDate: reportDateString });
         batch.delete(liveItemRef);
       });
@@ -664,12 +668,12 @@ function LancheTrackerPageContent() {
   };
   
   const handleDeleteSelected = async () => {
-    if (!firestore || selectedItems.length === 0 || !items) {
+    if (!firestore || selectedItems.length === 0 || !items || !user?.uid) {
       setIsDeleteSelectedAlertOpen(false);
       return;
     }
   
-    const liveItemsCollectionRef = collection(firestore, 'live_items');
+    const liveItemsCollectionRef = collection(firestore, 'users', user.uid, 'live_items');
     const bomboniereCollectionRef = collection(firestore, 'bomboniere_items');
     const deleteBatch = writeBatch(firestore);
     let itemsRestoredToStock = 0;
@@ -952,7 +956,7 @@ function LancheTrackerPageContent() {
               onDelete={handleDeleteRequest}
               onFavorite={handleFavoriteSave}
               savedFavorites={savedFavorites}
-              isLoading={isLoadingItems}
+              isLoading={isLoadingItems || isUserLoading}
               isSelectionMode={isSelectionModeActive}
               selectedItems={selectedItems}
               onItemSelect={handleItemSelect}
@@ -1004,8 +1008,9 @@ function LancheTrackerPageContent() {
 
 
 export default function Home() {
-  const firestore = useFirestore();
-  if (!firestore) {
+  const { isUserLoading } = useUser();
+
+  if (isUserLoading) {
       return (
           <div className="flex h-screen w-full flex-col items-center justify-center text-center p-4">
               <MirinhaLogo className="w-64 sm:w-80 h-auto text-primary mb-4" />
@@ -1017,9 +1022,3 @@ export default function Home() {
 
   return <LancheTrackerPageContent />;
 }
-
-
-
-    
-
-    

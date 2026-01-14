@@ -2,7 +2,7 @@
 'use client';
 
 import { useState, useMemo, useEffect, useCallback } from 'react';
-import { useFirestore, useCollection } from '@/firebase';
+import { useFirestore, useCollection, useUser } from '@/firebase';
 import { collection, query, orderBy, doc, where, getDocs, deleteDoc, writeBatch, updateDoc } from 'firebase/firestore';
 import { format, startOfMonth, endOfMonth, isSameDay, setMonth, setYear, parseISO, startOfDay, endOfDay } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -340,6 +340,7 @@ const monthOptions = Array.from({ length: 12 }, (_, i) => ({
 
 function ReportsPageContent() {
   const firestore = useFirestore();
+  const { user, isUserLoading } = useUser();
   const { toast } = useToast();
   
   const [reportToEdit, setReportToEdit] = useState<DailyReport | null>(null);
@@ -351,18 +352,18 @@ function ReportsPageContent() {
   const [activeTab, setActiveTab] = useState('daily');
   
   const reportsQuery = useMemo(() => {
-    if (!firestore) return null;
+    if (!firestore || !user?.uid) return null;
     const start = startOfMonth(currentDate);
     const end = endOfMonth(currentDate);
 
     const q = query(
-        collection(firestore, 'daily_reports'),
+        collection(firestore, 'users', user.uid, 'daily_reports'),
         where('reportDate', '>=', format(start, 'yyyy-MM-dd')),
         where('reportDate', '<=', format(end, 'yyyy-MM-dd')),
         orderBy('reportDate', 'desc')
     );
     return q;
-  }, [firestore, currentDate]);
+  }, [firestore, user, currentDate]);
 
   const { data: savedReports, isLoading: isLoadingReports } = useCollection<DailyReport>(reportsQuery);
   
@@ -370,7 +371,8 @@ function ReportsPageContent() {
     try {
         if (!report || !report.reportDate) return null;
         const [year, month, day] = report.reportDate.split('-').map(part => parseInt(part, 10));
-        return new Date(year, month - 1, day);
+        // Use UTC to avoid timezone shifts. The components will display it in local time, but the underlying date object is consistent.
+        return new Date(Date.UTC(year, month - 1, day));
     } catch {
         return null; 
     }
@@ -382,7 +384,7 @@ function ReportsPageContent() {
   );
   const { data: bomboniereItems, isLoading: isLoadingBomboniere } = useCollection<BomboniereItem>(bomboniereQuery);
 
-  const isLoading = isLoadingReports || isLoadingBomboniere;
+  const isLoading = isLoadingReports || isLoadingBomboniere || isUserLoading;
 
   const handleEditDateRequest = (report: DailyReport) => {
     setNewReportDate(getReportDate(report) || new Date());
@@ -390,10 +392,10 @@ function ReportsPageContent() {
   };
 
   const confirmEditDate = async () => {
-    if (!firestore || !reportToEdit || !newReportDate) return;
+    if (!firestore || !reportToEdit || !newReportDate || !user?.uid) return;
 
     try {
-        const reportDocRef = doc(firestore, 'daily_reports', reportToEdit.id!);
+        const reportDocRef = doc(firestore, 'users', user.uid, 'daily_reports', reportToEdit.id!);
         const newDateString = format(newReportDate, 'yyyy-MM-dd');
 
         await updateDoc(reportDocRef, {
@@ -425,15 +427,16 @@ function ReportsPageContent() {
   };
   
   const confirmDeleteReport = async () => {
-    if (!firestore || !reportToDelete?.id || !reportToDelete.reportDate) return;
+    if (!firestore || !reportToDelete?.id || !reportToDelete.reportDate || !user?.uid) return;
     
     try {
         const batch = writeBatch(firestore);
         
         const reportDateStr = reportToDelete.reportDate;
+        const userPath = `users/${user.uid}`;
 
         const orderItemsQuery = query(
-          collection(firestore, 'order_items'), 
+          collection(firestore, userPath, 'order_items'), 
           where('reportDate', '==', reportDateStr)
         );
         const orderItemsSnapshot = await getDocs(orderItemsQuery);
@@ -444,12 +447,12 @@ function ReportsPageContent() {
 
         orderItemsSnapshot.forEach(orderDoc => {
             const item = orderDoc.data();
-            const liveItemRef = doc(collection(firestore, 'live_items'), orderDoc.id);
+            const liveItemRef = doc(collection(firestore, userPath, 'live_items'), orderDoc.id);
             batch.set(liveItemRef, { ...item, reportado: false });
             batch.delete(orderDoc.ref);
         });
         
-        const reportDocRef = doc(firestore, "daily_reports", reportToDelete.id);
+        const reportDocRef = doc(firestore, userPath, "daily_reports", reportToDelete.id);
         batch.delete(reportDocRef);
 
         await batch.commit();
@@ -473,22 +476,14 @@ function ReportsPageContent() {
     }
   };
   
-  const aggregateReport = useMemo((): DailyReport => {
-        if (!savedReports || savedReports.length === 0) {
-            return { 
-                id: '0',
-                reportDate: '', createdAt: '',
-                totalGeral: 0, totalAVista: 0, totalFiado: 0, totalVendasSalao: 0, totalVendasRua: 0,
-                totalFiadoSalao: 0, totalFiadoRua: 0, totalKg: 0, totalTaxas: 0, totalBomboniereSalao: 0,
-                totalBomboniereRua: 0, totalItens: 0, totalPedidos: 0, totalEntregas: 0, totalItensRua: 0,
-                contagemTotal: {}, contagemRua: {},
-            };
-        }
+  const aggregateReport = useMemo((): DailyReport | null => {
+        if (!savedReports || savedReports.length === 0) return null;
 
         const initial: DailyReport = {
             id: String(savedReports.length),
             reportDate: '',
             createdAt: '',
+            userId: user?.uid || '',
             totalGeral: 0, totalAVista: 0, totalFiado: 0, totalVendasSalao: 0, totalVendasRua: 0,
             totalFiadoSalao: 0, totalFiadoRua: 0, totalKg: 0, totalTaxas: 0, totalBomboniereSalao: 0,
             totalBomboniereRua: 0, totalItens: 0, totalPedidos: 0, totalEntregas: 0, totalItensRua: 0,
@@ -521,7 +516,7 @@ function ReportsPageContent() {
             
             return acc;
         }, initial);
-    }, [savedReports]);
+    }, [savedReports, user]);
 
   if (isLoading) {
     return (
@@ -619,7 +614,7 @@ function ReportsPageContent() {
             <TabsContent value="aggregate" className="mt-4">
                  {isLoading ? (
                     <div className="flex justify-center p-8"><Loader2 className="h-8 w-8 animate-spin"/></div>
-                 ) : savedReports && savedReports.length > 0 ? (
+                 ) : savedReports && savedReports.length > 0 && aggregateReport ? (
                     <ReportDetail report={aggregateReport} bomboniereItems={bomboniereItems || []} isAggregate={true} />
                  ) : (
                     <Card>
@@ -720,9 +715,9 @@ function ReportsPageContent() {
 }
 
 export default function ReportsPage() {
-    const firestore = useFirestore();
+    const { isUserLoading } = useUser();
 
-    if (!firestore) {
+    if (isUserLoading) {
         return (
           <div className="flex h-screen items-center justify-center">
             <Loader2 className="h-12 w-12 animate-spin text-primary" />
@@ -733,9 +728,3 @@ export default function ReportsPage() {
     
     return <ReportsPageContent />;
 }
-
-    
-
-    
-
-    
