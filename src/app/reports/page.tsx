@@ -368,17 +368,6 @@ function ReportsPageContent() {
 
   const { data: savedReports, isLoading: isLoadingReports } = useCollection<DailyReport>(reportsQuery);
   
-  const getReportDate = useCallback((report: DailyReport): Date | null => {
-    try {
-        if (!report || !report.reportDate) return null;
-        // Correctly parse YYYY-MM-DD as a local date by splitting
-        const parts = report.reportDate.split('-').map(Number);
-        // new Date(year, monthIndex, day)
-        return new Date(parts[0], parts[1] - 1, parts[2]);
-    } catch {
-        return null; 
-    }
-  }, []);
 
   const bomboniereQuery = useMemo(
     () => firestore ? query(collection(firestore, 'bomboniere_items'), orderBy('name', 'asc')) : null,
@@ -389,9 +378,7 @@ function ReportsPageContent() {
   const isLoading = isLoadingReports || isLoadingBomboniere || isUserLoading;
 
   const handleEditDateRequest = (report: DailyReport) => {
-    // Use parseISO to correctly handle the date string without timezone shifts.
-    const safeDate = parseISO(report.reportDate);
-    setNewReportDate(safeDate);
+    setNewReportDate(parseISO(report.reportDate));
     setReportToEdit(report);
   };
 
@@ -658,8 +645,8 @@ function ReportsPageContent() {
                 <Accordion type="single" collapsible className="w-full space-y-3" value={selectedReportId || ''} onValueChange={setSelectedReportId}>
                     {savedReports && savedReports.length > 0 ? (
                         savedReports.map(report => {
-                            const reportDate = getReportDate(report);
-                            if (!report || !report.id || !reportDate) return null;
+                            if (!report || !report.id || !report.reportDate) return null;
+                            const reportDate = parseISO(report.reportDate);
 
                             return (
                                 <AccordionItem value={report.id} key={report.id} className="border-b-0">
