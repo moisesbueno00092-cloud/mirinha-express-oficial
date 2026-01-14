@@ -371,7 +371,9 @@ function ReportsPageContent() {
   const getReportDate = useCallback((report: DailyReport): Date | null => {
     try {
         if (!report || !report.reportDate) return null;
+        // Correctly parse YYYY-MM-DD as a local date by splitting
         const parts = report.reportDate.split('-').map(Number);
+        // new Date(year, monthIndex, day)
         return new Date(parts[0], parts[1] - 1, parts[2]);
     } catch {
         return null; 
@@ -387,8 +389,9 @@ function ReportsPageContent() {
   const isLoading = isLoadingReports || isLoadingBomboniere || isUserLoading;
 
   const handleEditDateRequest = (report: DailyReport) => {
-    const safeDate = getReportDate(report);
-    setNewReportDate(safeDate || undefined);
+    // Use parseISO to correctly handle the date string without timezone shifts.
+    const safeDate = parseISO(report.reportDate);
+    setNewReportDate(safeDate);
     setReportToEdit(report);
   };
 
@@ -397,6 +400,7 @@ function ReportsPageContent() {
 
     try {
         const reportDocRef = doc(firestore, 'daily_reports', reportToEdit.id!);
+        // Format the date correctly to 'yyyy-MM-dd' to avoid timezone issues on save.
         const newDateString = format(newReportDate, 'yyyy-MM-dd');
 
         await updateDoc(reportDocRef, {
@@ -417,6 +421,7 @@ function ReportsPageContent() {
         });
     } finally {
         setReportToEdit(null);
+        setNewReportDate(undefined);
     }
   };
 
