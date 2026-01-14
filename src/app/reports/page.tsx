@@ -35,7 +35,7 @@ import {
   ChartTooltipContent,
   type ChartConfig,
 } from "@/components/ui/chart"
-import { DatePicker } from '@/components/ui/date-picker';
+import { Calendar } from '@/components/ui/calendar';
 import { PieChart, Pie, ResponsiveContainer, Cell } from "recharts"
 import type { DailyReport, ItemCount, BomboniereItem, SavedFavorite } from '@/types';
 import { cn } from '@/lib/utils';
@@ -343,7 +343,7 @@ function ReportsPageContent() {
   const { toast } = useToast();
   
   const [reportToDelete, setReportToDelete] = useState<DailyReport | null>(null);
-  const [reportToEditDate, setReportToEditDate] = useState<DailyReport | null>(null);
+  const [reportToEdit, setReportToEdit] = useState<DailyReport | null>(null);
   const [newReportDate, setNewReportDate] = useState<Date | undefined>(undefined);
 
   const [currentDate, setCurrentDate] = useState<Date>(new Date());
@@ -370,12 +370,17 @@ function ReportsPageContent() {
     try {
         if (!report || !report.reportDate) return null;
         
-        // Fix for timezone issues. '2024-01-15' was being parsed as UTC, becoming 2024-01-14 in some timezones.
-        // By splitting and creating a new date, we ensure it's treated as local time.
+        // This format '2024-01-15' can be parsed by `new Date()`
+        // but it will be parsed as UTC midnight. 
+        // new Date('2024-01-15') -> 2024-01-15T00:00:00.000Z
+        // In a timezone like GMT-3, this becomes 2024-01-14T21:00:00.000-03:00
+        // To avoid this, we can split the string and construct the date manually.
         const [year, month, day] = report.reportDate.split('-').map(Number);
         if (!year || !month || !day) return null;
 
+        // new Date(year, monthIndex, day) creates a date in the local timezone.
         const date = new Date(year, month - 1, day);
+        
         if (isNaN(date.getTime())) return null;
         return date;
     } catch {
@@ -393,14 +398,14 @@ function ReportsPageContent() {
 
   const handleEditDateRequest = (report: DailyReport) => {
     setNewReportDate(getReportDate(report) || new Date());
-    setReportToEditDate(report);
+    setReportToEdit(report);
   };
 
   const confirmEditDate = async () => {
-    if (!firestore || !reportToEditDate || !newReportDate) return;
+    if (!firestore || !reportToEdit || !newReportDate) return;
 
     try {
-        const reportDocRef = doc(firestore, 'daily_reports', reportToEditDate.id!);
+        const reportDocRef = doc(firestore, 'daily_reports', reportToEdit.id!);
         const newDateString = format(newReportDate, 'yyyy-MM-dd');
 
         await updateDoc(reportDocRef, {
@@ -420,7 +425,7 @@ function ReportsPageContent() {
             description: error.message || "Não foi possível atualizar a data do relatório.",
         });
     } finally {
-        setReportToEditDate(null);
+        setReportToEdit(null);
     }
   };
 
@@ -555,20 +560,25 @@ function ReportsPageContent() {
         </AlertDialogContent>
       </AlertDialog>
 
-      <AlertDialog open={!!reportToEditDate} onOpenChange={setReportToEditDate.bind(null, null)}>
+      <AlertDialog open={!!reportToEdit} onOpenChange={() => setReportToEdit(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Alterar Data do Relatório</AlertDialogTitle>
             <AlertDialogDescription>
-              Selecione a nova data para o relatório de {reportToEditDate?.reportDate}.
+              Selecione a nova data para o relatório de {reportToEdit?.reportDate}.
             </AlertDialogDescription>
           </AlertDialogHeader>
-          <div className="py-4">
-            <DatePicker date={newReportDate} setDate={setNewReportDate} />
+          <div className="py-4 flex justify-center">
+            <Calendar
+                mode="single"
+                selected={newReportDate}
+                onSelect={setNewReportDate}
+                initialFocus
+            />
           </div>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancelar</AlertDialogCancel>
-            <AlertDialogAction onClick={confirmEditDate}>Confirmar</AlertDialogAction>
+            <AlertDialogAction onClick={confirmEditDate} disabled={!newReportDate}>Confirmar</AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
@@ -735,3 +745,5 @@ export default function ReportsPage() {
     
     return <ReportsPageContent />;
 }
+
+    
