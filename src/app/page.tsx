@@ -263,6 +263,7 @@ function LancheTrackerPageContent() {
       }
 
       let parts = mainInput.split(' ').filter((part) => part.trim() !== '');
+      let consumedParts = new Array(parts.length).fill(false);
       
       let totalQuantity = 0;
       let totalPrice = 0;
@@ -270,146 +271,133 @@ function LancheTrackerPageContent() {
       let predefinedItems: PredefinedItem[] = [];
       let processedBomboniereItems: SelectedBomboniereItem[] = [];
       let customDeliveryFee: number | null = null;
-      let potentialCustomerNameParts: string[] = [];
       
-      let i = 0;
-      while (i < parts.length) {
-          const part = parts[i];
-          if (!part) {
-              i++;
-              continue;
-          }
-  
-          let bomboniereMatch = null;
-          let bestMatchEndIndex = -1;
-  
-          for (let j = parts.length; j > i; j--) {
-              const potentialName = parts.slice(i, j).join(' ').toLowerCase();
-              if (bomboniereItemsByName[potentialName]) {
-                  bomboniereMatch = bomboniereItemsByName[potentialName];
-                  bestMatchEndIndex = j;
-                  break;
-              }
-          }
-  
-          if (bomboniereMatch) {
-              let bomboniereQty = 1;
-              
-              if (i > 0 && isNumeric(parts[i - 1])) {
-                   bomboniereQty = parseInt(parts[i-1], 10);
-                   parts[i-1] = ''; // Mark part as consumed
-              }
-  
-              let priceToUse = bomboniereMatch.price;
-              let partsToAdvance = bestMatchEndIndex - i;
-  
-              if (bestMatchEndIndex < parts.length && isNumeric(parts[bestMatchEndIndex])) {
-                  priceToUse = parseFloat(parts[bestMatchEndIndex].replace(',', '.'));
-                  partsToAdvance++;
-              }
-  
-              processedBomboniereItems.push({ id: bomboniereMatch.id, name: bomboniereMatch.name, quantity: bomboniereQty, price: priceToUse });
-              totalPrice += priceToUse * bomboniereQty;
-              totalQuantity += bomboniereQty;
-              i += partsToAdvance;
-              continue;
-          }
-  
-          if (part.toUpperCase() === 'KG') {
-              let kgPrices: number[] = [];
-              let partsToAdvance = 1;
-              while (i + partsToAdvance < parts.length && isNumeric(parts[i + partsToAdvance])) {
-                  const price = parseFloat(parts[i + partsToAdvance].replace(',', '.'));
-                  individualPrices.push(price);
-                  totalPrice += price;
-                  partsToAdvance++;
-              }
-              if(individualPrices.length > 0) { 
-                totalQuantity += individualPrices.length;
-              } else if (i + 1 < parts.length && isNumeric(parts[i + 1])) {
-                  const price = parseFloat(parts[i + 1].replace(',', '.'));
-                  individualPrices.push(price);
-                  totalPrice += price;
-                  totalQuantity += 1;
-                  partsToAdvance++;
-              }
-              i += partsToAdvance;
-              continue;
-          }
-  
-          if (part.toUpperCase() === 'TX') {
-              if (i + 1 < parts.length && isNumeric(parts[i + 1])) {
-                  customDeliveryFee = parseFloat(parts[i + 1].replace(',', '.'));
-                  i += 2;
-              } else {
-                  i++;
-              }
-              continue;
-          }
-  
-          let qty = 1;
-          let itemNamePart = part;
-          const qtyMatch = part.match(/^(\d+)([a-zA-Z\s]+)/);
-  
-          if (qtyMatch) {
-              qty = parseInt(qtyMatch[1], 10);
-              itemNamePart = qtyMatch[2];
-          } else if (isNumeric(part) && (i + 1 < parts.length) && !isNumeric(parts[i+1])) {
-              const nextPartIsPredefined = predefinedPrices[(parts[i+1] || '').toUpperCase()];
-              if(nextPartIsPredefined) {
-                qty = parseInt(part, 10);
-                itemNamePart = parts[i+1];
-                i++;
-              }
-          }
-  
-          const isPredefined = predefinedPrices[itemNamePart.toUpperCase()];
-          
-          if (isPredefined) {
-              let priceToUse = isPredefined;
-              const nextPartIndex = i + 1;
-  
-              if (nextPartIndex < parts.length && isNumeric(parts[nextPartIndex])) {
-                  let isPriceForCurrent = true;
-                  if (nextPartIndex + 1 < parts.length) {
-                       let isFollowedByBomboniere = false;
-                       for (let k = parts.length; k > nextPartIndex + 1; k--) {
-                           const potentialBomboniereName = parts.slice(nextPartIndex + 1, k).join(' ').toLowerCase();
-                           if (bomboniereItemsByName[potentialBomboniereName]) {
-                               isFollowedByBomboniere = true;
-                               break;
-                           }
-                       }
-                       if (isFollowedByBomboniere && isNumeric(parts[nextPartIndex+1])) {
-                           isPriceForCurrent = false;
-                       }
-                  }
 
-                  if (isPriceForCurrent) {
-                      priceToUse = parseFloat(parts[nextPartIndex].replace(',', '.'));
-                      i++;
-                  }
-              }
-  
-              for (let j = 0; j < qty; j++) {
-                  predefinedItems.push({ name: itemNamePart.toUpperCase(), price: priceToUse });
-                  totalPrice += priceToUse;
-              }
-              totalQuantity += qty;
-              i++;
-              continue;
+      // --- Main Parsing Loop ---
+      for (let i = 0; i < parts.length; i++) {
+        if (consumedParts[i]) continue;
+      
+        const part = parts[i];
+      
+        // Try to match longest possible bomboniere item name
+        let bomboniereMatch = null;
+        let bestMatchEndIndex = -1;
+        for (let j = parts.length; j > i; j--) {
+          const potentialName = parts.slice(i, j).join(' ').toLowerCase();
+          if (bomboniereItemsByName[potentialName]) {
+            bomboniereMatch = bomboniereItemsByName[potentialName];
+            bestMatchEndIndex = j;
+            break;
           }
-  
-          if (!isNumeric(part) && (group.startsWith('Fiado') || !customerName)) {
-              potentialCustomerNameParts.push(part);
+        }
+      
+        if (bomboniereMatch) {
+          let bomboniereQty = 1;
+          // Check for quantity BEFORE the name
+          if (i > 0 && !consumedParts[i - 1] && isNumeric(parts[i - 1])) {
+            bomboniereQty = parseInt(parts[i - 1], 10);
+            consumedParts[i - 1] = true; 
           }
+      
+          let priceToUse = bomboniereMatch.price;
+          // Check for price AFTER the name
+          if (bestMatchEndIndex < parts.length && !consumedParts[bestMatchEndIndex] && isNumeric(parts[bestMatchEndIndex])) {
+            priceToUse = parseFloat(parts[bestMatchEndIndex].replace(',', '.'));
+            consumedParts[bestMatchEndIndex] = true;
+          }
+      
+          processedBomboniereItems.push({ id: bomboniereMatch.id, name: bomboniereMatch.name, quantity: bomboniereQty, price: priceToUse });
+          totalPrice += priceToUse * bomboniereQty;
+          totalQuantity += bomboniereQty;
           
-          i++;
+          // Mark all parts of the bomboniere name as consumed
+          for (let k = i; k < bestMatchEndIndex; k++) {
+            consumedParts[k] = true;
+          }
+          i = bestMatchEndIndex - 1; // Continue loop from last consumed part
+          continue;
+        }
+
+        // Handle KG
+        if (part.toUpperCase() === 'KG') {
+            consumedParts[i] = true;
+            // A KG item can have multiple price entries after it
+            let kgPricesFound = 0;
+            let nextIndex = i + 1;
+            while(nextIndex < parts.length && !consumedParts[nextIndex] && isNumeric(parts[nextIndex])) {
+                const price = parseFloat(parts[nextIndex].replace(',', '.'));
+                individualPrices.push(price);
+                totalPrice += price;
+                consumedParts[nextIndex] = true;
+                kgPricesFound++;
+                nextIndex++;
+            }
+            totalQuantity += kgPricesFound > 0 ? kgPricesFound : 1;
+            i = nextIndex -1;
+            continue;
+        }
+        
+        // Handle TX
+        if (part.toUpperCase() === 'TX') {
+          if (i + 1 < parts.length && !consumedParts[i+1] && isNumeric(parts[i + 1])) {
+            customDeliveryFee = parseFloat(parts[i + 1].replace(',', '.'));
+            consumedParts[i] = true;
+            consumedParts[i+1] = true;
+            i++;
+          }
+          continue;
+        }
+      
+        // Handle predefined items
+        let qty = 1;
+        let itemNamePart = part;
+        const qtyMatch = part.match(/^(\d+)([a-zA-Z\s]+)/);
+
+        if (qtyMatch) {
+            qty = parseInt(qtyMatch[1], 10);
+            itemNamePart = qtyMatch[2];
+        }
+
+        const isPredefined = predefinedPrices[itemNamePart.toUpperCase()];
+        if (isPredefined) {
+            consumedParts[i] = true;
+            let priceToUse = isPredefined;
+            const nextPartIndex = i + 1;
+
+            if (nextPartIndex < parts.length && !consumedParts[nextPartIndex] && isNumeric(parts[nextPartIndex])) {
+                // Check if the part after the number is NOT a bomboniere item, if so, it's a price
+                let isFollowedByBomboniere = false;
+                if(nextPartIndex + 1 < parts.length) {
+                    for (let k = parts.length; k > nextPartIndex + 1; k--) {
+                        const potentialBomboniereName = parts.slice(nextPartIndex + 1, k).join(' ').toLowerCase();
+                        if (bomboniereItemsByName[potentialBomboniereName]) {
+                            isFollowedByBomboniere = true;
+                            break;
+                        }
+                    }
+                }
+
+                if (!isFollowedByBomboniere) {
+                    priceToUse = parseFloat(parts[nextPartIndex].replace(',', '.'));
+                    consumedParts[nextPartIndex] = true;
+                    i++; // extra increment
+                }
+            }
+
+            for (let j = 0; j < qty; j++) {
+                predefinedItems.push({ name: itemNamePart.toUpperCase(), price: priceToUse });
+                totalPrice += priceToUse;
+            }
+            totalQuantity += qty;
+            continue;
+        }
       }
+      // --- End of Main Parsing Loop ---
 
-      const finalPotentialCustomerNameParts = potentialCustomerNameParts.filter(p => p !== '');
-      if (!customerName && finalPotentialCustomerNameParts.length > 0) {
-        customerName = finalPotentialCustomerNameParts.join(' ');
+
+      const potentialCustomerNameParts = parts.filter((_, index) => !consumedParts[index]);
+      if (!customerName && potentialCustomerNameParts.length > 0) {
+        customerName = potentialCustomerNameParts.join(' ');
       }
 
       if (predefinedItems.length === 0 && individualPrices.length === 0 && processedBomboniereItems.length === 0) {
