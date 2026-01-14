@@ -361,6 +361,7 @@ function ReportsPageContent() {
         where('reportDate', '<=', format(end, 'yyyy-MM-dd')),
         orderBy('reportDate', 'desc')
     );
+    (q as any).__memo = true;
     return q;
   }, [firestore, currentDate]);
 
@@ -730,4 +731,3 @@ export default function ReportsPage() {
     
     return <ReportsPageContent />;
 }
-
