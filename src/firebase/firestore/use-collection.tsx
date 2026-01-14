@@ -68,7 +68,9 @@ export function useCollection<T = DocumentData>(
     );
 
     return () => unsubscribe();
-  }, [memoizedTargetRefOrQuery]);
+  // Using JSON.stringify on the query object's internal representation is a reliable way
+  // to ensure the effect re-runs when the query's filters, ordering, or path changes.
+  }, [memoizedTargetRefOrQuery && JSON.stringify((memoizedTargetRefOrQuery as any)._query)]);
 
   return { data, isLoading, error };
 }
