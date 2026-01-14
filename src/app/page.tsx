@@ -105,10 +105,10 @@ function LancheTrackerPageContent() {
   const [deliveryFee, setDeliveryFee] = usePersistentState('deliveryFee', DELIVERY_FEE);
 
   const liveItemsQuery = useMemo(() => {
-    if (!firestore || !user?.uid) return null;
-    const q = query(collection(firestore, 'users', user.uid, 'live_items'), orderBy('timestamp', 'desc'));
+    if (!firestore) return null;
+    const q = query(collection(firestore, 'live_items'), orderBy('timestamp', 'desc'));
     return q;
-  }, [firestore, user]);
+  }, [firestore]);
   
   const { data: allItems, isLoading: isLoadingItems, error: itemsError } = useCollection<Item>(liveItemsQuery);
 
@@ -212,7 +212,7 @@ function LancheTrackerPageContent() {
       setTimeout(() => window.location.reload(), 2000);
       return;
     }
-    const liveItemsCollectionRef = collection(firestore, 'users', user.uid, 'live_items');
+    const liveItemsCollectionRef = collection(firestore, 'live_items');
 
 
     try {
@@ -436,7 +436,8 @@ function LancheTrackerPageContent() {
       consolidatedName = nameParts.join(' + ') || 'Lançamento';
       if (consolidatedName.length > 50) consolidatedName = 'Lançamento Misto';
 
-      const finalItem: Omit<Item, 'id' | 'userId'> = {
+      const finalItem: Omit<Item, 'id'> = {
+        userId: user.uid,
         name: consolidatedName,
         quantity: totalQuantity,
         price: totalPrice,
@@ -454,13 +455,13 @@ function LancheTrackerPageContent() {
 
       if (currentItem) {
         const itemRef = doc(liveItemsCollectionRef, currentItem.id);
-        await setDoc(itemRef, { ...finalItem, userId: currentItem.userId });
+        await setDoc(itemRef, { ...finalItem });
         toast({
           duration: 4000,
           component: <ToastContent item={{ ...finalItem, total: finalItem.total }} title="Lançamento Atualizado" />,
         });
       } else {
-        await addDoc(liveItemsCollectionRef, { ...finalItem, userId: user.uid });
+        await addDoc(liveItemsCollectionRef, { ...finalItem });
         toast({
           duration: 4000,
           component: <ToastContent item={{ ...finalItem, total: finalItem.total }} title="Lançamento Adicionado" />,
@@ -516,9 +517,9 @@ function LancheTrackerPageContent() {
   };
 
   const confirmDeleteItem = async () => {
-    if (!itemToDelete || !firestore || !items || !user?.uid) return;
+    if (!itemToDelete || !firestore || !items) return;
 
-    const liveItemsCollectionRef = collection(firestore, 'users', user.uid, 'live_items');
+    const liveItemsCollectionRef = collection(firestore, 'live_items');
     const itemBeingDeleted = items.find((it) => it.id === itemToDelete);
 
     try {
@@ -613,12 +614,12 @@ function LancheTrackerPageContent() {
         userId: user.uid,
       };
       
-      const reportsCollection = collection(firestore, 'users', user.uid, 'daily_reports');
+      const reportsCollection = collection(firestore, 'daily_reports');
       const reportRef = doc(reportsCollection);
       batch.set(reportRef, report);
       
-      const liveItemsCollectionRef = collection(firestore, 'users', user.uid, 'live_items');
-      const archiveItemsCollectionRef = collection(firestore, 'users', user.uid, 'order_items');
+      const liveItemsCollectionRef = collection(firestore, 'live_items');
+      const archiveItemsCollectionRef = collection(firestore, 'order_items');
       items.forEach((item) => {
         const liveItemRef = doc(liveItemsCollectionRef, item.id);
         const archiveItemRef = doc(archiveItemsCollectionRef, item.id);
@@ -668,12 +669,12 @@ function LancheTrackerPageContent() {
   };
   
   const handleDeleteSelected = async () => {
-    if (!firestore || selectedItems.length === 0 || !items || !user?.uid) {
+    if (!firestore || selectedItems.length === 0 || !items) {
       setIsDeleteSelectedAlertOpen(false);
       return;
     }
   
-    const liveItemsCollectionRef = collection(firestore, 'users', user.uid, 'live_items');
+    const liveItemsCollectionRef = collection(firestore, 'live_items');
     const bomboniereCollectionRef = collection(firestore, 'bomboniere_items');
     const deleteBatch = writeBatch(firestore);
     let itemsRestoredToStock = 0;
@@ -1022,3 +1023,5 @@ export default function Home() {
 
   return <LancheTrackerPageContent />;
 }
+
+    

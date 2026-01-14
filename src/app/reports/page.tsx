@@ -352,18 +352,18 @@ function ReportsPageContent() {
   const [activeTab, setActiveTab] = useState('daily');
   
   const reportsQuery = useMemo(() => {
-    if (!firestore || !user?.uid) return null;
+    if (!firestore) return null;
     const start = startOfMonth(currentDate);
     const end = endOfMonth(currentDate);
 
     const q = query(
-        collection(firestore, 'users', user.uid, 'daily_reports'),
+        collection(firestore, 'daily_reports'),
         where('reportDate', '>=', format(start, 'yyyy-MM-dd')),
         where('reportDate', '<=', format(end, 'yyyy-MM-dd')),
         orderBy('reportDate', 'desc')
     );
     return q;
-  }, [firestore, user, currentDate]);
+  }, [firestore, currentDate]);
 
   const { data: savedReports, isLoading: isLoadingReports } = useCollection<DailyReport>(reportsQuery);
   
@@ -392,10 +392,10 @@ function ReportsPageContent() {
   };
 
   const confirmEditDate = async () => {
-    if (!firestore || !reportToEdit || !newReportDate || !user?.uid) return;
+    if (!firestore || !reportToEdit || !newReportDate) return;
 
     try {
-        const reportDocRef = doc(firestore, 'users', user.uid, 'daily_reports', reportToEdit.id!);
+        const reportDocRef = doc(firestore, 'daily_reports', reportToEdit.id!);
         const newDateString = format(newReportDate, 'yyyy-MM-dd');
 
         await updateDoc(reportDocRef, {
@@ -427,16 +427,15 @@ function ReportsPageContent() {
   };
   
   const confirmDeleteReport = async () => {
-    if (!firestore || !reportToDelete?.id || !reportToDelete.reportDate || !user?.uid) return;
+    if (!firestore || !reportToDelete?.id || !reportToDelete.reportDate) return;
     
     try {
         const batch = writeBatch(firestore);
         
         const reportDateStr = reportToDelete.reportDate;
-        const userPath = `users/${user.uid}`;
 
         const orderItemsQuery = query(
-          collection(firestore, userPath, 'order_items'), 
+          collection(firestore, 'order_items'), 
           where('reportDate', '==', reportDateStr)
         );
         const orderItemsSnapshot = await getDocs(orderItemsQuery);
@@ -447,12 +446,12 @@ function ReportsPageContent() {
 
         orderItemsSnapshot.forEach(orderDoc => {
             const item = orderDoc.data();
-            const liveItemRef = doc(collection(firestore, userPath, 'live_items'), orderDoc.id);
+            const liveItemRef = doc(collection(firestore, 'live_items'), orderDoc.id);
             batch.set(liveItemRef, { ...item, reportado: false });
             batch.delete(orderDoc.ref);
         });
         
-        const reportDocRef = doc(firestore, userPath, "daily_reports", reportToDelete.id);
+        const reportDocRef = doc(firestore, "daily_reports", reportToDelete.id);
         batch.delete(reportDocRef);
 
         await batch.commit();
@@ -728,3 +727,5 @@ export default function ReportsPage() {
     
     return <ReportsPageContent />;
 }
+
+    

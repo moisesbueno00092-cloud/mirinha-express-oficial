@@ -197,45 +197,33 @@
   "firestore": {
     "structure": [
       {
-        "path": "/users/{userId}",
+        "path": "/live_items/{itemId}",
         "definition": {
-          "entityName": "UserProfile",
+          "entityName": "OrderItem",
           "schema": {
-            "$ref": "#/entities/UserProfile"
+            "$ref": "#/entities/OrderItem"
           },
-          "description": "Stores user profile data.",
-          "collections": [
-            {
-              "path": "live_items",
-              "definition": {
-                "entityName": "OrderItem",
-                "schema": {
-                  "$ref": "#/entities/OrderItem"
-                },
-                "description": "Collection of real-time order items for a specific user for the current day."
-              }
-            },
-            {
-              "path": "order_items",
-              "definition": {
-                "entityName": "OrderItem",
-                "schema": {
-                  "$ref": "#/entities/OrderItem"
-                },
-                "description": "Collection of historical order items for a specific user."
-              }
-            },
-            {
-              "path": "daily_reports",
-              "definition": {
-                "entityName": "DailyReport",
-                "schema": {
-                  "$ref": "#/entities/DailyReport"
-                },
-                "description": "Stores consolidated daily sales reports for a specific user."
-              }
-            }
-          ]
+          "description": "Collection of real-time order items for the current day."
+        }
+      },
+      {
+        "path": "/order_items/{itemId}",
+        "definition": {
+          "entityName": "OrderItem",
+          "schema": {
+            "$ref": "#/entities/OrderItem"
+          },
+          "description": "Collection of historical order items."
+        }
+      },
+      {
+        "path": "/daily_reports/{reportId}",
+        "definition": {
+          "entityName": "DailyReport",
+          "schema": {
+            "$ref": "#/entities/DailyReport"
+          },
+          "description": "Stores consolidated daily sales reports."
         }
       },
       {
@@ -305,3 +293,5 @@
     ]
   }
 }
+
+    
