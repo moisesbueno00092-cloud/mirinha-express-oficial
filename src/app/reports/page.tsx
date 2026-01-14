@@ -371,10 +371,7 @@ function ReportsPageContent() {
   const getReportDate = useCallback((report: DailyReport): Date | null => {
     try {
         if (!report || !report.reportDate) return null;
-        // The 'T00:00:00' part is crucial to tell the parser that the date is in the local timezone,
-        // preventing it from shifting to the previous day when converting from UTC.
-        // Replacing dashes with slashes is a common way to force browsers to parse as local time.
-        return new Date(report.reportDate.replace(/-/g, '/') + 'T00:00:00');
+        return parseISO(`${report.reportDate}T00:00:00`);
     } catch {
         return null; 
     }
