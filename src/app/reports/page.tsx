@@ -312,7 +312,8 @@ const ReportDetail = ({ report, bomboniereItems, isAggregate = false }: { report
                               {chartData.map((entry) => (
                                   <Cell key={`cell-${entry.name}`} fill={entry.fill} />
                               ))}
-                              </PieChart>
+                              </Pie>
+                          </PieChart>
                       </ResponsiveContainer>
                   </ChartContainer>
               </div>
@@ -369,14 +370,9 @@ function ReportsPageContent() {
     try {
         if (!report || !report.reportDate) return null;
         
-        // This format '2024-01-15' can be parsed by `new Date()`
-        // but it will be parsed as UTC midnight. 
-        // new Date('2024-01-15') -> 2024-01-15T00:00:00.000Z
-        // In a timezone like GMT-3, this becomes 2024-01-14T21:00:00.000-03:00
         const [year, month, day] = report.reportDate.split('-').map(part => parseInt(part, 10));
         if (!year || !month || !day) return null;
 
-        // new Date(year, monthIndex, day) creates a date in the local timezone, avoiding timezone issues.
         const date = new Date(year, month - 1, day);
         
         if (isNaN(date.getTime())) return null;
@@ -558,7 +554,7 @@ function ReportsPageContent() {
         </AlertDialogContent>
       </AlertDialog>
 
-      <AlertDialog open={!!reportToEdit} onOpenChange={() => setReportToEdit(null)}>
+      <AlertDialog open={!!reportToEdit} onOpenChange={(open) => setReportToEdit(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Alterar Data do Relatório</AlertDialogTitle>
@@ -743,5 +739,7 @@ export default function ReportsPage() {
     
     return <ReportsPageContent />;
 }
+
+    
 
     
