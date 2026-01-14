@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import {
   Query,
   onSnapshot,
@@ -22,7 +22,7 @@ export interface UseCollectionResult<T> {
 }
 
 export function useCollection<T = DocumentData>(
-    memoizedTargetRefOrQuery: ((CollectionReference<DocumentData> | Query<DocumentData>) & {__memo?: boolean})  | null | undefined,
+    memoizedTargetRefOrQuery: CollectionReference<DocumentData> | Query<DocumentData> | null | undefined,
 ): UseCollectionResult<T> {
   type ResultItemType = WithId<T>;
   type StateDataType = ResultItemType[] | null;
@@ -31,6 +31,9 @@ export function useCollection<T = DocumentData>(
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [error, setError] = useState<FirestoreError | Error | null>(null);
   
+  // Use a string representation of the query path for a stable dependency
+  const queryPath = useMemo(() => (memoizedTargetRefOrQuery as any)?.path, [memoizedTargetRefOrQuery]);
+
   useEffect(() => {
     if (!memoizedTargetRefOrQuery) {
       setIsLoading(false);
@@ -68,11 +71,7 @@ export function useCollection<T = DocumentData>(
     );
 
     return () => unsubscribe();
-  }, [memoizedTargetRefOrQuery]);
+  }, [queryPath]); // Use the stable queryPath as the dependency
 
-  if(memoizedTargetRefOrQuery && !memoizedTargetRefOrQuery.__memo) {
-    console.warn('Query was not properly memoized using useMemoFirebase. This can cause infinite loops.');
-  }
-  
   return { data, isLoading, error };
 }
