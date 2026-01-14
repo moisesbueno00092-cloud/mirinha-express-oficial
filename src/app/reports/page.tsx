@@ -326,7 +326,7 @@ const ReportDetail = ({ report, bomboniereItems, isAggregate = false }: { report
 const generateYearOptions = () => {
     const currentYear = new Date().getFullYear();
     const years = [];
-    for (let i = currentYear; i >= currentYear - 5; i--) {
+    for (let i = currentYear + 5; i >= currentYear - 5; i--) {
         years.push(i);
     }
     return years;
@@ -357,7 +357,8 @@ function ReportsPageContent() {
         where('reportDate', '<=', format(end, 'yyyy-MM-dd')),
         orderBy('reportDate', 'desc')
     );
-    (q as any).__memo = true;
+    // This is the critical "signature" that tells useCollection the query is memoized and stable
+    (q as any).__memo = true; 
     return q;
   }, [firestore, currentDate]);
 
@@ -645,7 +646,7 @@ function ReportsPageContent() {
                     ) : (
                          <div className="text-center text-muted-foreground py-10">
                             <Info className="mx-auto h-8 w-8 mb-2"/>
-                            <p>Nenhum relatório encontrado para o mês de {format(currentDate, 'MMMM', { locale: ptBR })}.</p>
+                            <p>Nenhum relatório encontrado para o mês de {format(currentDate, 'MMMM', { locale: ptBR })} de {currentDate.getFullYear()}.</p>
                         </div>
                     )}
                 </Accordion>
@@ -671,7 +672,5 @@ export default function ReportsPage() {
     
     return <ReportsPageContent />;
 }
-
-
 
     
