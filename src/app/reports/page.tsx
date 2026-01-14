@@ -3,7 +3,7 @@
 
 import { useState, useMemo, useEffect, useCallback } from 'react';
 import { useFirestore, useCollection } from '@/firebase';
-import { collection, query, orderBy, doc, where, getDocs, deleteDoc, writeBatch } from 'firebase/firestore';
+import { collection, query, orderBy, doc, where, getDocs, deleteDoc, writeBatch, updateDoc } from 'firebase/firestore';
 import { format, startOfMonth, endOfMonth, isSameDay, setMonth, setYear, parseISO, startOfDay, endOfDay } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { useRouter } from 'next/navigation';
@@ -11,7 +11,7 @@ import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
-import { Loader2, Trash2, ChevronDown, TrendingUp, Info, Users, BarChart } from 'lucide-react';
+import { Loader2, Trash2, ChevronDown, TrendingUp, Info, Users, BarChart, Pencil } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import {
   AlertDialog,
@@ -35,6 +35,7 @@ import {
   ChartTooltipContent,
   type ChartConfig,
 } from "@/components/ui/chart"
+import { DatePicker } from '@/components/ui/date-picker';
 import { PieChart, Pie, ResponsiveContainer, Cell } from "recharts"
 import type { DailyReport, ItemCount, BomboniereItem, SavedFavorite } from '@/types';
 import { cn } from '@/lib/utils';
@@ -342,6 +343,9 @@ function ReportsPageContent() {
   const { toast } = useToast();
   
   const [reportToDelete, setReportToDelete] = useState<DailyReport | null>(null);
+  const [reportToEditDate, setReportToEditDate] = useState<DailyReport | null>(null);
+  const [newReportDate, setNewReportDate] = useState<Date | undefined>(undefined);
+
   const [currentDate, setCurrentDate] = useState<Date>(new Date());
   const [selectedReportId, setSelectedReportId] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState('daily');
@@ -365,15 +369,8 @@ function ReportsPageContent() {
   const getReportDate = useCallback((report: DailyReport): Date | null => {
     try {
         if (!report || !report.reportDate) return null;
-        // The reportDate is a string like "2026-01-14".
-        // The Date constructor can parse this format directly.
-        // By using `new Date(report.reportDate)` it correctly handles it
-        // as a local date instead of forcing UTC, which caused the issue.
         const date = new Date(report.reportDate);
-        
-        // Add 12 hours to avoid timezone-related "day before" issues.
         date.setHours(12, 0, 0, 0);
-
         if (isNaN(date.getTime())) return null;
         return date;
     } catch {
@@ -388,6 +385,39 @@ function ReportsPageContent() {
   const { data: bomboniereItems, isLoading: isLoadingBomboniere } = useCollection<BomboniereItem>(bomboniereQuery);
 
   const isLoading = isLoadingReports || isLoadingBomboniere;
+
+  const handleEditDateRequest = (report: DailyReport) => {
+    setReportToEditDate(report);
+    setNewReportDate(getReportDate(report) || new Date());
+  };
+
+  const confirmEditDate = async () => {
+    if (!firestore || !reportToEditDate || !newReportDate) return;
+
+    try {
+        const reportDocRef = doc(firestore, 'daily_reports', reportToEditDate.id!);
+        const newDateString = format(newReportDate, 'yyyy-MM-dd');
+
+        await updateDoc(reportDocRef, {
+            reportDate: newDateString
+        });
+        
+        toast({
+            title: "Sucesso",
+            description: "A data do relatório foi atualizada.",
+        });
+
+    } catch (error: any) {
+        console.error("Error updating report date:", error);
+        toast({
+            variant: "destructive",
+            title: "Erro",
+            description: error.message || "Não foi possível atualizar a data do relatório.",
+        });
+    } finally {
+        setReportToEditDate(null);
+    }
+  };
 
   const handleDeleteReportRequest = (reportId: string) => {
     const report = savedReports?.find(r => r.id === reportId);
@@ -417,13 +447,10 @@ function ReportsPageContent() {
         orderItemsSnapshot.forEach(orderDoc => {
             const item = orderDoc.data();
             const liveItemRef = doc(collection(firestore, 'live_items'), orderDoc.id);
-            // Move item back to live_items, ensuring reportado is false
             batch.set(liveItemRef, { ...item, reportado: false });
-            // Delete from archive
             batch.delete(orderDoc.ref);
         });
         
-        // Delete the report document itself
         const reportDocRef = doc(firestore, "daily_reports", reportToDelete.id);
         batch.delete(reportDocRef);
 
@@ -519,6 +546,24 @@ function ReportsPageContent() {
           <AlertDialogFooter>
             <AlertDialogCancel>Cancelar</AlertDialogCancel>
             <AlertDialogAction onClick={confirmDeleteReport}>Confirmar</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog open={!!reportToEditDate} onOpenChange={(open) => !open && setReportToEditDate(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Alterar Data do Relatório</AlertDialogTitle>
+            <AlertDialogDescription>
+              Selecione a nova data para o relatório de {reportToEditDate?.reportDate}.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <div className="py-4">
+            <DatePicker date={newReportDate} setDate={setNewReportDate} />
+          </div>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmEditDate}>Confirmar</AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
@@ -619,6 +664,17 @@ function ReportsPageContent() {
                                                 <Button
                                                     variant="ghost"
                                                     size="icon"
+                                                    className="h-9 w-9 text-muted-foreground hover:text-blue-500"
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        handleEditDateRequest(report);
+                                                    }}
+                                                >
+                                                    <Pencil className="h-4 w-4" />
+                                                </Button>
+                                                <Button
+                                                    variant="ghost"
+                                                    size="icon"
                                                     className="h-9 w-9 text-muted-foreground hover:text-destructive"
                                                     onClick={(e) => {
                                                         e.stopPropagation();
@@ -674,3 +730,5 @@ export default function ReportsPage() {
     
     return <ReportsPageContent />;
 }
+
+    

@@ -68,7 +68,9 @@ export function useCollection<T = DocumentData>(
     );
 
     return () => unsubscribe();
-  }, [JSON.stringify(memoizedTargetRefOrQuery)]);
+  }, [memoizedTargetRefOrQuery && JSON.stringify((memoizedTargetRefOrQuery as any)._query)]);
 
   return { data, isLoading, error };
 }
+
+    
