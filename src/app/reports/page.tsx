@@ -35,9 +35,7 @@ import {
   ChartTooltipContent,
   type ChartConfig,
 } from "@/components/ui/chart"
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
-import { PieChart, Pie, ResponsiveContainer, Cell } from "recharts"
 import type { DailyReport, ItemCount, BomboniereItem, SavedFavorite } from '@/types';
 import { cn } from '@/lib/utils';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -378,6 +376,7 @@ function ReportsPageContent() {
   const isLoading = isLoadingReports || isLoadingBomboniere || isUserLoading;
 
   const handleEditDateRequest = (report: DailyReport) => {
+    // Directly parse the reportDate string to avoid timezone issues.
     setNewReportDate(parseISO(report.reportDate));
     setReportToEdit(report);
   };
@@ -540,33 +539,16 @@ function ReportsPageContent() {
             <AlertDialogHeader>
                 <AlertDialogTitle>Alterar Data do Relatório</AlertDialogTitle>
                 <AlertDialogDescription>
-                    Selecione a nova data para o relatório de <span className='font-bold'>{reportToEdit?.reportDate}</span>.
-                    A data atual é <span className='font-bold'>{newReportDate ? format(newReportDate, "PPP", { locale: ptBR }) : 'N/A'}</span>.
+                    Selecione a nova data para o relatório de <span className='font-bold'>{reportToEdit?.reportDate && format(parseISO(reportToEdit.reportDate), "PPP", { locale: ptBR })}</span>.
                 </AlertDialogDescription>
             </AlertDialogHeader>
             <div className="py-4 flex justify-center">
-                <Popover>
-                    <PopoverTrigger asChild>
-                        <Button
-                            variant={"outline"}
-                            className={cn(
-                                "w-[280px] justify-start text-left font-normal",
-                                !newReportDate && "text-muted-foreground"
-                            )}
-                        >
-                            <CalendarIcon className="mr-2 h-4 w-4" />
-                            {newReportDate ? format(newReportDate, "PPP", { locale: ptBR }) : <span>Selecione uma data</span>}
-                        </Button>
-                    </PopoverTrigger>
-                    <PopoverContent className="w-auto p-0">
-                        <Calendar
-                            mode="single"
-                            selected={newReportDate}
-                            onSelect={setNewReportDate}
-                            initialFocus
-                        />
-                    </PopoverContent>
-                </Popover>
+                 <Calendar
+                    mode="single"
+                    selected={newReportDate}
+                    onSelect={setNewReportDate}
+                    initialFocus
+                />
             </div>
             <AlertDialogFooter>
                 <AlertDialogCancel>Cancelar</AlertDialogCancel>
@@ -738,3 +720,5 @@ export default function ReportsPage() {
     
     return <ReportsPageContent />;
 }
+
+    
