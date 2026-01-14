@@ -4,7 +4,7 @@
 import { useState, useMemo, useEffect, useCallback } from 'react';
 import { useFirestore, useCollection } from '@/firebase';
 import { collection, query, orderBy, doc, where, getDocs, deleteDoc, writeBatch } from 'firebase/firestore';
-import { format, startOfMonth, endOfMonth, isSameDay, setMonth, setYear, parseISO } from 'date-fns';
+import { format, startOfMonth, endOfMonth, isSameDay, setMonth, setYear, parseISO, startOfDay, endOfDay } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { useRouter } from 'next/navigation';
 
@@ -395,33 +395,32 @@ function ReportsPageContent() {
     try {
         const batch = writeBatch(firestore);
         
-        const reportDateToDelete = getReportDate(reportToDelete);
-        if (!reportDateToDelete) {
-             toast({ variant: "destructive", title: "Erro", description: "Data do relatório inválida." });
-             return;
-        }
-        
+        // Use the reportDate string to build a correct local-time date range
+        const reportDate = parseISO(reportToDelete.reportDate);
+        const dayStart = startOfDay(reportDate);
+        const dayEnd = endOfDay(reportDate);
+
         const orderItemsQuery = query(
           collection(firestore, 'order_items'), 
-          where('reportado', '==', true)
+          where('timestamp', '>=', dayStart),
+          where('timestamp', '<=', dayEnd)
         );
         const orderItemsSnapshot = await getDocs(orderItemsQuery);
 
+        if (orderItemsSnapshot.empty) {
+            console.warn("No archived items found for this report date range. Deleting report only.");
+        }
+
         orderItemsSnapshot.forEach(orderDoc => {
             const item = orderDoc.data();
-            if (!item.timestamp) {
-                console.warn("Skipping item without timestamp:", item);
-                return;
-            }
-            const itemTimestamp = item.timestamp?.toDate ? item.timestamp.toDate() : new Date(item.timestamp);
-
-            if (isSameDay(itemTimestamp, reportDateToDelete)) {
-                const liveItemRef = doc(collection(firestore, 'live_items'), orderDoc.id);
-                batch.set(liveItemRef, { ...item, reportado: false });
-                batch.delete(orderDoc.ref);
-            }
+            const liveItemRef = doc(collection(firestore, 'live_items'), orderDoc.id);
+            // Move item back to live_items, ensuring reportado is false
+            batch.set(liveItemRef, { ...item, reportado: false });
+            // Delete from archive
+            batch.delete(orderDoc.ref);
         });
         
+        // Delete the report document itself
         const reportDocRef = doc(firestore, "daily_reports", reportToDelete.id);
         batch.delete(reportDocRef);
 
@@ -672,5 +671,6 @@ export default function ReportsPage() {
     
     return <ReportsPageContent />;
 }
+
 
     
