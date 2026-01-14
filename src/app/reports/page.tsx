@@ -11,7 +11,7 @@ import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
-import { Loader2, Trash2, ChevronDown, TrendingUp, Info, Users, BarChart, Pencil } from 'lucide-react';
+import { Loader2, Trash2, ChevronDown, TrendingUp, Info, Users, BarChart, Pencil, Calendar as CalendarIcon } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import {
   AlertDialog,
@@ -35,6 +35,7 @@ import {
   ChartTooltipContent,
   type ChartConfig,
 } from "@/components/ui/chart"
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
 import { PieChart, Pie, ResponsiveContainer, Cell } from "recharts"
 import type { DailyReport, ItemCount, BomboniereItem, SavedFavorite } from '@/types';
@@ -544,26 +545,44 @@ function ReportsPageContent() {
       
       <AlertDialog open={!!reportToEdit} onOpenChange={(open) => setReportToEdit(open ? reportToEdit : null)}>
         <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Alterar Data do Relatório</AlertDialogTitle>
-            <AlertDialogDescription>
-              Selecione a nova data para o relatório de {reportToEdit?.reportDate}.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <div className="py-4 flex justify-center">
-            <Calendar
-              mode="single"
-              selected={newReportDate}
-              onSelect={setNewReportDate}
-              initialFocus
-            />
-          </div>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancelar</AlertDialogCancel>
-            <AlertDialogAction onClick={confirmEditDate} disabled={!newReportDate}>Confirmar</AlertDialogAction>
-          </AlertDialogFooter>
+            <AlertDialogHeader>
+                <AlertDialogTitle>Alterar Data do Relatório</AlertDialogTitle>
+                <AlertDialogDescription>
+                    Selecione a nova data para o relatório de <span className='font-bold'>{reportToEdit?.reportDate}</span>.
+                    A data atual é <span className='font-bold'>{newReportDate ? format(newReportDate, "PPP", { locale: ptBR }) : 'N/A'}</span>.
+                </AlertDialogDescription>
+            </AlertDialogHeader>
+            <div className="py-4 flex justify-center">
+                <Popover>
+                    <PopoverTrigger asChild>
+                        <Button
+                            variant={"outline"}
+                            className={cn(
+                                "w-[280px] justify-start text-left font-normal",
+                                !newReportDate && "text-muted-foreground"
+                            )}
+                        >
+                            <CalendarIcon className="mr-2 h-4 w-4" />
+                            {newReportDate ? format(newReportDate, "PPP", { locale: ptBR }) : <span>Selecione uma data</span>}
+                        </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0">
+                        <Calendar
+                            mode="single"
+                            selected={newReportDate}
+                            onSelect={setNewReportDate}
+                            initialFocus
+                        />
+                    </PopoverContent>
+                </Popover>
+            </div>
+            <AlertDialogFooter>
+                <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                <AlertDialogAction onClick={confirmEditDate} disabled={!newReportDate}>Confirmar</AlertDialogAction>
+            </AlertDialogFooter>
         </AlertDialogContent>
-      </AlertDialog>
+    </AlertDialog>
+
 
       <main className="space-y-6">
         <div className="flex items-center justify-between">
@@ -727,5 +746,3 @@ export default function ReportsPage() {
     
     return <ReportsPageContent />;
 }
-
-    
