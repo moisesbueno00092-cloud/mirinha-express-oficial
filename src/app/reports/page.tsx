@@ -357,7 +357,6 @@ function ReportsPageContent() {
         where('reportDate', '<=', format(end, 'yyyy-MM-dd')),
         orderBy('reportDate', 'desc')
     );
-    // This "signature" is crucial for useCollection to detect query changes.
     (q as any).__memo = true;
     return q;
   }, [firestore, currentDate]);
@@ -367,7 +366,6 @@ function ReportsPageContent() {
   const getReportDate = useCallback((report: DailyReport): Date | null => {
     try {
         if (!report || !report.reportDate) return null;
-        // Treat date string as UTC to avoid timezone shifts during parsing
         const utcDate = parseISO(`${report.reportDate}T12:00:00Z`);
         if (isNaN(utcDate.getTime())) return null;
         return utcDate;

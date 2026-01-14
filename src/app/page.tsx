@@ -104,7 +104,9 @@ function LancheTrackerPageContent() {
 
   const liveItemsQuery = useMemo(() => {
     if (!firestore) return null;
-    return query(collection(firestore, 'live_items'), orderBy('timestamp', 'desc'));
+    const q = query(collection(firestore, 'live_items'), orderBy('timestamp', 'desc'));
+    (q as any).__memo = true;
+    return q;
   }, [firestore]);
   
   const { data: allItems, isLoading: isLoadingItems, error: itemsError } = useCollection<Item>(liveItemsQuery);
@@ -597,7 +599,6 @@ function LancheTrackerPageContent() {
       const batch = writeBatch(firestore);
       const now = new Date();
       
-      // Get YYYY-MM-DD from local timezone
       const year = now.getFullYear();
       const month = String(now.getMonth() + 1).padStart(2, '0');
       const day = String(now.getDate()).padStart(2, '0');
@@ -605,7 +606,7 @@ function LancheTrackerPageContent() {
 
       const report: Omit<DailyReport, 'id'> = {
         reportDate: reportDateString,
-        createdAt: now.toISOString(),
+        createdAt: new Date().toISOString(),
         totalGeral: totals.totalGeral,
         totalAVista: totals.totalAVista,
         totalFiado: totals.totalFiado,
@@ -1032,13 +1033,5 @@ export default function Home() {
 
   return <LancheTrackerPageContent />;
 }
-    
 
     
-
-    
-
-    
-
-    
-
