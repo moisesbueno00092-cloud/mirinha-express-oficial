@@ -371,6 +371,7 @@ function ReportsPageContent() {
   const getReportDate = useCallback((report: DailyReport): Date | null => {
     try {
         if (!report || !report.reportDate) return null;
+        // This is the robust way to parse YYYY-MM-DD without timezone shifts.
         const parts = report.reportDate.split('-').map(Number);
         return new Date(parts[0], parts[1] - 1, parts[2]);
     } catch {
@@ -387,7 +388,8 @@ function ReportsPageContent() {
   const isLoading = isLoadingReports || isLoadingBomboniere || isUserLoading;
 
   const handleEditDateRequest = (report: DailyReport) => {
-    setNewReportDate(getReportDate(report) || new Date());
+    const safeDate = getReportDate(report);
+    setNewReportDate(safeDate || new Date());
     setReportToEdit(report);
   };
 
