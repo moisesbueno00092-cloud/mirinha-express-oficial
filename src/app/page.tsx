@@ -273,67 +273,69 @@ function LancheTrackerPageContent() {
       let customDeliveryFee: number | null = null;
       
 
-      // --- Main Parsing Loop ---
+      // --- Pass 1: Bomboniere Items ---
+      // This loop is tricky because bomboniere names can have spaces.
+      // We look for the longest possible match first.
+      for (let i = 0; i < parts.length; i++) {
+        if (consumedParts[i]) continue;
+
+        let bestMatch = null;
+        let bestMatchEndIndex = -1;
+        
+        for (let j = parts.length; j > i; j--) {
+            const potentialName = parts.slice(i, j).join(' ').toLowerCase();
+            if (bomboniereItemsByName[potentialName]) {
+                bestMatch = bomboniereItemsByName[potentialName];
+                bestMatchEndIndex = j;
+                break;
+            }
+        }
+
+        if (bestMatch) {
+            let bomboniereQty = 1;
+            // Rule: "qualquer numero q anteceder algum bomboniere é a quantidade do mesmo"
+            if (i > 0 && !consumedParts[i - 1] && isNumeric(parts[i - 1])) {
+                bomboniereQty = parseInt(parts[i - 1], 10);
+                consumedParts[i - 1] = true;
+            }
+
+            let priceToUse = bestMatch.price;
+            if (bestMatchEndIndex < parts.length && !consumedParts[bestMatchEndIndex] && isNumeric(parts[bestMatchEndIndex])) {
+                priceToUse = parseFloat(parts[bestMatchEndIndex].replace(',', '.'));
+                consumedParts[bestMatchEndIndex] = true;
+            }
+            
+            processedBomboniereItems.push({ id: bestMatch.id, name: bestMatch.name, quantity: bomboniereQty, price: priceToUse });
+            totalPrice += priceToUse * bomboniereQty;
+            totalQuantity += bomboniereQty;
+
+            for (let k = i; k < bestMatchEndIndex; k++) {
+                consumedParts[k] = true;
+            }
+            i = bestMatchEndIndex - 1; // Continue loop after the consumed parts
+        }
+      }
+
+      // --- Pass 2: KG, TX, Predefined Items ---
       for (let i = 0; i < parts.length; i++) {
         if (consumedParts[i]) continue;
       
         const part = parts[i];
       
-        // Try to match longest possible bomboniere item name
-        let bomboniereMatch = null;
-        let bestMatchEndIndex = -1;
-        for (let j = parts.length; j > i; j--) {
-          const potentialName = parts.slice(i, j).join(' ').toLowerCase();
-          if (bomboniereItemsByName[potentialName]) {
-            bomboniereMatch = bomboniereItemsByName[potentialName];
-            bestMatchEndIndex = j;
-            break;
-          }
-        }
-      
-        if (bomboniereMatch) {
-          let bomboniereQty = 1;
-          // Check for quantity BEFORE the name
-          if (i > 0 && !consumedParts[i - 1] && isNumeric(parts[i - 1])) {
-            bomboniereQty = parseInt(parts[i - 1], 10);
-            consumedParts[i - 1] = true; 
-          }
-      
-          let priceToUse = bomboniereMatch.price;
-          // Check for price AFTER the name
-          if (bestMatchEndIndex < parts.length && !consumedParts[bestMatchEndIndex] && isNumeric(parts[bestMatchEndIndex])) {
-            priceToUse = parseFloat(parts[bestMatchEndIndex].replace(',', '.'));
-            consumedParts[bestMatchEndIndex] = true;
-          }
-      
-          processedBomboniereItems.push({ id: bomboniereMatch.id, name: bomboniereMatch.name, quantity: bomboniereQty, price: priceToUse });
-          totalPrice += priceToUse * bomboniereQty;
-          totalQuantity += bomboniereQty;
-          
-          // Mark all parts of the bomboniere name as consumed
-          for (let k = i; k < bestMatchEndIndex; k++) {
-            consumedParts[k] = true;
-          }
-          i = bestMatchEndIndex - 1; // Continue loop from last consumed part
-          continue;
-        }
-
         // Handle KG
         if (part.toUpperCase() === 'KG') {
             consumedParts[i] = true;
-            // A KG item can have multiple price entries after it
-            let kgPricesFound = 0;
             let nextIndex = i + 1;
+            // KG can be followed by multiple prices
             while(nextIndex < parts.length && !consumedParts[nextIndex] && isNumeric(parts[nextIndex])) {
                 const price = parseFloat(parts[nextIndex].replace(',', '.'));
                 individualPrices.push(price);
                 totalPrice += price;
+                totalQuantity++;
                 consumedParts[nextIndex] = true;
-                kgPricesFound++;
                 nextIndex++;
             }
-            totalQuantity += kgPricesFound > 0 ? kgPricesFound : 1;
-            i = nextIndex -1;
+            i = nextIndex - 1; // Adjust outer loop
             continue;
         }
         
@@ -362,26 +364,12 @@ function LancheTrackerPageContent() {
         if (isPredefined) {
             consumedParts[i] = true;
             let priceToUse = isPredefined;
-            const nextPartIndex = i + 1;
-
-            if (nextPartIndex < parts.length && !consumedParts[nextPartIndex] && isNumeric(parts[nextPartIndex])) {
-                // Check if the part after the number is NOT a bomboniere item, if so, it's a price
-                let isFollowedByBomboniere = false;
-                if(nextPartIndex + 1 < parts.length) {
-                    for (let k = parts.length; k > nextPartIndex + 1; k--) {
-                        const potentialBomboniereName = parts.slice(nextPartIndex + 1, k).join(' ').toLowerCase();
-                        if (bomboniereItemsByName[potentialBomboniereName]) {
-                            isFollowedByBomboniere = true;
-                            break;
-                        }
-                    }
-                }
-
-                if (!isFollowedByBomboniere) {
-                    priceToUse = parseFloat(parts[nextPartIndex].replace(',', '.'));
-                    consumedParts[nextPartIndex] = true;
-                    i++; // extra increment
-                }
+            
+            // Check for a manual price ONLY if the next part is a number AND hasn't been consumed
+            if (i + 1 < parts.length && !consumedParts[i + 1] && isNumeric(parts[i + 1])) {
+                priceToUse = parseFloat(parts[i + 1].replace(',', '.'));
+                consumedParts[i + 1] = true;
+                i++; // extra increment since we consumed the price
             }
 
             for (let j = 0; j < qty; j++) {
@@ -392,7 +380,6 @@ function LancheTrackerPageContent() {
             continue;
         }
       }
-      // --- End of Main Parsing Loop ---
 
 
       const potentialCustomerNameParts = parts.filter((_, index) => !consumedParts[index]);
@@ -1032,5 +1019,7 @@ export default function Home() {
 }
 
 
+
+    
 
     
