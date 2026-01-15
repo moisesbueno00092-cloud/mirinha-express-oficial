@@ -273,6 +273,7 @@ function LancheTrackerPageContent() {
       let predefinedItems: PredefinedItem[] = [];
       let processedBomboniereItems: SelectedBomboniereItem[] = [];
       let customDeliveryFee: number | null = null;
+      let addFeeToTotal = true;
       
 
       // --- Pass 1: Bomboniere Items ---
@@ -343,11 +344,19 @@ function LancheTrackerPageContent() {
         
         // Handle TX
         if (part.toUpperCase() === 'TX') {
-          if (i + 1 < parts.length && !consumedParts[i+1] && isNumeric(parts[i + 1])) {
-            customDeliveryFee = parseFloat(parts[i + 1].replace(',', '.'));
-            consumedParts[i] = true;
-            consumedParts[i+1] = true;
-            i++;
+          if (i + 1 < parts.length && !consumedParts[i+1]) {
+            let feePart = parts[i + 1];
+            if (feePart.toLowerCase().startsWith('d')) {
+                addFeeToTotal = false;
+                feePart = feePart.substring(1);
+            }
+
+            if (isNumeric(feePart)) {
+                customDeliveryFee = parseFloat(feePart.replace(',', '.'));
+                consumedParts[i] = true;
+                consumedParts[i+1] = true;
+                i++;
+            }
           }
           continue;
         }
@@ -420,7 +429,7 @@ function LancheTrackerPageContent() {
       }
 
       const finalDeliveryFee = isTaxExempt ? 0 : customDeliveryFee !== null ? customDeliveryFee : deliveryFeeApplicable ? deliveryFee : 0;
-      const total = totalPrice + finalDeliveryFee;
+      const total = addFeeToTotal ? (totalPrice + finalDeliveryFee) : totalPrice;
 
       let consolidatedName: string;
       const hasKgItems = individualPrices.length > 0;
