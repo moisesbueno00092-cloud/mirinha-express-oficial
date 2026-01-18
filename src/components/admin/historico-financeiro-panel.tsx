@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useMemo, useState, useEffect, useCallback } from 'react';
@@ -419,15 +418,16 @@ export default function HistoricoFinanceiroPanel() {
                                 <TableRow>
                                     <TableHead>Data</TableHead>
                                     <TableHead>Produto</TableHead>
+                                    <TableHead>Qtd.</TableHead>
                                     <TableHead>Fornecedor</TableHead>
-                                    <TableHead className="text-right">Preço Unitário</TableHead>
+                                    <TableHead className="text-right">Preço Unit.</TableHead>
                                     <TableHead className="text-right">Valor Total</TableHead>
                                 </TableRow>
                             </TableHeader>
                             <TableBody>
                                 {isLoading ? (
                                     <TableRow>
-                                        <TableCell colSpan={5} className="h-24 text-center">
+                                        <TableCell colSpan={6} className="h-24 text-center">
                                             <Loader2 className="h-6 w-6 animate-spin mx-auto text-muted-foreground" />
                                         </TableCell>
                                     </TableRow>
@@ -438,6 +438,7 @@ export default function HistoricoFinanceiroPanel() {
                                             <TableRow key={entry.id}>
                                                 <TableCell>{format(new Date(entry.data), 'dd/MM/yy HH:mm')}</TableCell>
                                                 <TableCell className="font-medium">{entry.produtoNome}</TableCell>
+                                                <TableCell>{entry.quantidade.toLocaleString('pt-BR')}</TableCell>
                                                 <TableCell style={{ color: fornecedor?.color || 'inherit' }}>
                                                     {fornecedor?.nome || 'Desconhecido'}
                                                 </TableCell>
@@ -448,7 +449,7 @@ export default function HistoricoFinanceiroPanel() {
                                     })
                                 ) : (
                                     <TableRow>
-                                        <TableCell colSpan={5} className="h-24 text-center text-muted-foreground">
+                                        <TableCell colSpan={6} className="h-24 text-center text-muted-foreground">
                                             Nenhum resultado para sua busca.
                                         </TableCell>
                                     </TableRow>
