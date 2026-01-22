@@ -2,11 +2,11 @@
 
 import { useMemo, useState, useEffect, useCallback } from 'react';
 import { useFirestore, useCollection } from '@/firebase';
-import { collection, query, orderBy } from 'firebase/firestore';
+import { collection, query, orderBy, doc, writeBatch, updateDoc } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import { format, isWithinInterval, startOfMonth, endOfMonth, startOfYear, endOfYear, parseISO, setYear, setMonth } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import type { ContaAPagar, Fornecedor, EntradaMercadoria } from '@/types';
+import type { ContaAPagar, Fornecedor, EntradaMercadoria, BomboniereItem } from '@/types';
 
 import {
   Table,
@@ -20,9 +20,11 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { Loader2, Search, CalendarDays, TrendingUp } from 'lucide-react';
+import { Loader2, Search, CalendarDays, TrendingUp, Trash2, Pencil, Save } from 'lucide-react';
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '../ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogClose } from '@/components/ui/dialog';
 
 
 const formatCurrency = (value: number) => {
@@ -31,6 +33,33 @@ const formatCurrency = (value: number) => {
       currency: "BRL",
     }).format(value);
 };
+
+const findBestBomboniereMatch = (productName: string, bomboniereItems: BomboniereItem[]): BomboniereItem | undefined => {
+    if (!productName || !bomboniereItems) return undefined;
+
+    const lowerProductName = productName.toLowerCase();
+    let bestMatch: BomboniereItem | undefined = undefined;
+    let longestMatchLength = 0;
+
+    for (const bomboniereItem of bomboniereItems) {
+        // Normalize bomboniere name by removing content in parentheses
+        const baseBomboniereName = bomboniereItem.name.toLowerCase().replace(/\s*\(.*\)\s*/, '').trim();
+
+        if (!baseBomboniereName) continue;
+        
+        // Check if the invoice product name starts with the base bomboniere name
+        if (lowerProductName.startsWith(baseBomboniereName)) {
+            // We want the longest possible match to avoid "bala" matching "bala de goma" incorrectly.
+            if (baseBomboniereName.length > longestMatchLength) {
+                bestMatch = bomboniereItem;
+                longestMatchLength = baseBomboniereName.length;
+            }
+        }
+    }
+
+    return bestMatch;
+};
+
 
 type ReportPeriod = 'month' | 'year';
 
@@ -216,7 +245,12 @@ const ComprasReport = ({ allEntradas, period, year, month }: { allEntradas: Entr
     )
 }
 
-const DetailedExpensesTable = ({ entradas, fornecedorMap }: { entradas: EntradaMercadoria[], fornecedorMap: Map<string, Fornecedor> }) => {
+const DetailedExpensesTable = ({ entradas, fornecedorMap, onEditRequest, onDeleteRequest }: { 
+    entradas: EntradaMercadoria[], 
+    fornecedorMap: Map<string, Fornecedor>,
+    onEditRequest: (entrada: EntradaMercadoria) => void,
+    onDeleteRequest: (entrada: EntradaMercadoria) => void
+}) => {
     if (entradas.length === 0) {
         return <p className="p-8 text-center text-sm text-muted-foreground">Nenhuma despesa paga encontrada para este período.</p>;
     }
@@ -238,6 +272,7 @@ const DetailedExpensesTable = ({ entradas, fornecedorMap }: { entradas: EntradaM
                                 <TableHead>Qtd.</TableHead>
                                 <TableHead className="text-right">Preço Unit.</TableHead>
                                 <TableHead className="text-right">Valor Total</TableHead>
+                                <TableHead className="text-right">Ações</TableHead>
                             </TableRow>
                         </TableHeader>
                         <TableBody>
@@ -253,6 +288,16 @@ const DetailedExpensesTable = ({ entradas, fornecedorMap }: { entradas: EntradaM
                                         <TableCell>{entry.quantidade.toLocaleString('pt-BR')}</TableCell>
                                         <TableCell className="text-right font-mono">{formatCurrency(entry.precoUnitario)}</TableCell>
                                         <TableCell className="text-right font-mono font-semibold">{formatCurrency(entry.valorTotal)}</TableCell>
+                                        <TableCell className="text-right">
+                                            <div className="flex items-center justify-end gap-1">
+                                                <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => onEditRequest(entry)}>
+                                                    <Pencil className="h-4 w-4 text-blue-500" />
+                                                </Button>
+                                                <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => onDeleteRequest(entry)}>
+                                                    <Trash2 className="h-4 w-4 text-muted-foreground hover:text-destructive" />
+                                                </Button>
+                                            </div>
+                                        </TableCell>
                                     </TableRow>
                                 );
                             })}
@@ -292,6 +337,7 @@ const monthOptions = [
 
 export default function HistoricoFinanceiroPanel() {
     const firestore = useFirestore();
+    const { toast } = useToast();
     
     const [searchQuery, setSearchQuery] = useState('');
     const [reportPeriod, setReportPeriod] = useState<ReportPeriod>('month');
@@ -300,15 +346,28 @@ export default function HistoricoFinanceiroPanel() {
     const [activeTab, setActiveTab] = useState('aggregated');
     const yearOptions = useMemo(() => generateYearOptions(), []);
 
+    const [isProcessing, setIsProcessing] = useState(false);
+    const [entradaToDelete, setEntradaToDelete] = useState<EntradaMercadoria | null>(null);
+    const [entradaToEdit, setEntradaToEdit] = useState<EntradaMercadoria | null>(null);
+    const [editedProductName, setEditedProductName] = useState('');
+
     const contasQuery = useMemo(() => firestore ? query(collection(firestore, 'contas_a_pagar'), orderBy('dataVencimento', 'asc')) : null, [firestore]);
     const fornecedoresQuery = useMemo(() => firestore ? query(collection(firestore, 'fornecedores')) : null, [firestore]);
     const entradasQuery = useMemo(() => firestore ? query(collection(firestore, 'entradas_mercadorias'), orderBy('data', 'desc')) : null, [firestore]);
+    const bomboniereItemsQuery = useMemo(() => firestore ? query(collection(firestore, 'bomboniere_items')) : null, [firestore]);
 
     const { data: allContas, isLoading: isLoadingContas } = useCollection<ContaAPagar>(contasQuery);
     const { data: fornecedores, isLoading: isLoadingFornecedores } = useCollection<Fornecedor>(fornecedoresQuery);
     const { data: allEntradas, isLoading: isLoadingEntradas } = useCollection<EntradaMercadoria>(entradasQuery);
+    const { data: bomboniereItems, isLoading: isLoadingBomboniere } = useCollection<BomboniereItem>(bomboniereItemsQuery);
 
-    const isLoading = isLoadingContas || isLoadingFornecedores || isLoadingEntradas;
+    const isLoading = isLoadingContas || isLoadingFornecedores || isLoadingEntradas || isLoadingBomboniere;
+
+    useEffect(() => {
+        if (entradaToEdit) {
+            setEditedProductName(entradaToEdit.produtoNome);
+        }
+    }, [entradaToEdit]);
 
     const fornecedorMap = useMemo(() => {
         if (!fornecedores) return new Map<string, Fornecedor>();
@@ -382,9 +441,117 @@ export default function HistoricoFinanceiroPanel() {
         });
     }, [allEntradas, reportPeriod, selectedYear, selectedMonth]);
 
+    const handleDeleteRequest = (entrada: EntradaMercadoria) => {
+        setEntradaToDelete(entrada);
+    };
+
+    const handleEditRequest = (entrada: EntradaMercadoria) => {
+        setEntradaToEdit(entrada);
+    };
+
+    const confirmDeleteEntrada = async () => {
+        if (!firestore || !entradaToDelete || !bomboniereItems) return;
+    
+        setIsProcessing(true);
+        
+        try {
+            const batch = writeBatch(firestore);
+    
+            const matchedItem = findBestBomboniereMatch(entradaToDelete.produtoNome, bomboniereItems);
+            if (matchedItem) {
+                const bomboniereDocRef = doc(firestore, 'bomboniere_items', matchedItem.id);
+                const currentStock = bomboniereItems.find(bi => bi.id === matchedItem.id)?.estoque ?? 0;
+                const newStock = currentStock - entradaToDelete.quantidade;
+                batch.update(bomboniereDocRef, { estoque: newStock });
+            }
+    
+            const entradaDocRef = doc(firestore, 'entradas_mercadorias', entradaToDelete.id);
+            batch.delete(entradaDocRef);
+    
+            await batch.commit();
+            
+            toast({
+                title: "Sucesso!",
+                description: "A entrada de mercadoria foi excluída com sucesso.",
+            });
+    
+        } catch (error: any) {
+            console.error("Error deleting entrada mercadoria:", error);
+            toast({
+                variant: "destructive",
+                title: "Erro ao Excluir",
+                description: error.message || "Não foi possível remover a entrada.",
+            });
+        } finally {
+            setEntradaToDelete(null);
+            setIsProcessing(false);
+        }
+    };
+    
+    const handleSaveEdit = async () => {
+        if (!firestore || !entradaToEdit || !editedProductName.trim()) return;
+    
+        setIsProcessing(true);
+        const docRef = doc(firestore, 'entradas_mercadorias', entradaToEdit.id);
+    
+        try {
+            await updateDoc(docRef, { produtoNome: editedProductName.trim() });
+            toast({ title: 'Sucesso', description: 'Nome do produto atualizado.' });
+            setEntradaToEdit(null);
+        } catch (error: any) {
+            toast({ variant: 'destructive', title: 'Erro', description: error.message });
+        } finally {
+            setIsProcessing(false);
+        }
+    }
+
+
     return (
         <div className="space-y-6">
             
+             <AlertDialog open={!!entradaToDelete} onOpenChange={(open) => !open && setEntradaToDelete(null)}>
+                <AlertDialogContent>
+                    <AlertDialogHeader>
+                        <AlertDialogTitle>Excluir Entrada?</AlertDialogTitle>
+                        <AlertDialogDescription>
+                            Esta ação não pode ser desfeita. A entrada de "{entradaToDelete?.produtoNome}" será permanentemente removida. Se for um item de bomboniere, o estoque será revertido.
+                        </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                        <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                        <AlertDialogAction onClick={confirmDeleteEntrada} disabled={isProcessing}>
+                            {isProcessing ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : "Confirmar"}
+                        </AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
+            
+             <Dialog open={!!entradaToEdit} onOpenChange={(open) => !open && setEntradaToEdit(null)}>
+                <DialogContent>
+                    <DialogHeader>
+                        <DialogTitle>Editar Nome do Produto</DialogTitle>
+                        <DialogDescription>
+                            Altere o nome do produto registado. Apenas o nome será modificado.
+                        </DialogDescription>
+                    </DialogHeader>
+                    <div className="py-4">
+                        <Label htmlFor="edit-product-name">Nome do Produto</Label>
+                        <Input 
+                            id="edit-product-name"
+                            value={editedProductName}
+                            onChange={(e) => setEditedProductName(e.target.value)}
+                        />
+                    </div>
+                    <DialogFooter>
+                        <DialogClose asChild><Button variant="outline">Cancelar</Button></DialogClose>
+                        <Button onClick={handleSaveEdit} disabled={isProcessing}>
+                            {isProcessing ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : <Save className="mr-2 h-4 w-4" />}
+                            Salvar
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+
              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <Card>
                     <CardHeader className="flex flex-row items-center justify-between pb-2">
@@ -472,7 +639,12 @@ export default function HistoricoFinanceiroPanel() {
                         <ComprasReport allEntradas={allEntradas || []} period={reportPeriod} year={selectedYear} month={selectedMonth} />
                     </TabsContent>
                     <TabsContent value="details" className="mt-4">
-                        <DetailedExpensesTable entradas={filteredEntradasByPeriod} fornecedorMap={fornecedorMap} />
+                        <DetailedExpensesTable 
+                            entradas={filteredEntradasByPeriod} 
+                            fornecedorMap={fornecedorMap}
+                            onEditRequest={handleEditRequest}
+                            onDeleteRequest={handleDeleteRequest}
+                        />
                     </TabsContent>
                 </Tabs>
             )}
