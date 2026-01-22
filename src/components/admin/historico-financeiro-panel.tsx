@@ -22,6 +22,8 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Loader2, Search, CalendarDays, TrendingUp } from 'lucide-react';
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '../ui/select';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+
 
 const formatCurrency = (value: number) => {
     return new Intl.NumberFormat("pt-BR", {
@@ -214,6 +216,55 @@ const ComprasReport = ({ allEntradas, period, year, month }: { allEntradas: Entr
     )
 }
 
+const DetailedExpensesTable = ({ entradas, fornecedorMap }: { entradas: EntradaMercadoria[], fornecedorMap: Map<string, Fornecedor> }) => {
+    if (entradas.length === 0) {
+        return <p className="p-8 text-center text-sm text-muted-foreground">Nenhuma despesa encontrada para este período.</p>;
+    }
+
+    return (
+        <Card>
+            <CardHeader>
+                <CardTitle>Detalhe de Entradas de Mercadorias</CardTitle>
+                <CardDescription>Lista de todas as mercadorias e despesas lançadas no período selecionado, ordenadas da mais recente para a mais antiga.</CardDescription>
+            </CardHeader>
+            <CardContent>
+                <div className="rounded-md border max-h-[600px] overflow-y-auto">
+                    <Table>
+                        <TableHeader>
+                            <TableRow>
+                                <TableHead>Data</TableHead>
+                                <TableHead>Produto</TableHead>
+                                <TableHead>Fornecedor</TableHead>
+                                <TableHead>Qtd.</TableHead>
+                                <TableHead className="text-right">Preço Unit.</TableHead>
+                                <TableHead className="text-right">Valor Total</TableHead>
+                            </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                            {entradas.map((entry) => {
+                                const fornecedor = fornecedorMap.get(entry.fornecedorId);
+                                return (
+                                    <TableRow key={entry.id}>
+                                        <TableCell>{format(new Date(entry.data), 'dd/MM/yy HH:mm')}</TableCell>
+                                        <TableCell className="font-medium">{entry.produtoNome}</TableCell>
+                                        <TableCell style={{ color: fornecedor?.color || 'inherit' }}>
+                                            {fornecedor?.nome || 'Desconhecido'}
+                                        </TableCell>
+                                        <TableCell>{entry.quantidade.toLocaleString('pt-BR')}</TableCell>
+                                        <TableCell className="text-right font-mono">{formatCurrency(entry.precoUnitario)}</TableCell>
+                                        <TableCell className="text-right font-mono font-semibold">{formatCurrency(entry.valorTotal)}</TableCell>
+                                    </TableRow>
+                                );
+                            })}
+                        </TableBody>
+                    </Table>
+                </div>
+            </CardContent>
+        </Card>
+    );
+};
+
+
 const generateYearOptions = () => {
     const currentYear = new Date().getFullYear();
     const years = [];
@@ -246,6 +297,7 @@ export default function HistoricoFinanceiroPanel() {
     const [reportPeriod, setReportPeriod] = useState<ReportPeriod>('month');
     const [selectedYear, setSelectedYear] = useState<number>(new Date().getFullYear());
     const [selectedMonth, setSelectedMonth] = useState<string>(String(new Date().getMonth()));
+    const [activeTab, setActiveTab] = useState('aggregated');
     const yearOptions = useMemo(() => generateYearOptions(), []);
 
     const contasQuery = useMemo(() => firestore ? query(collection(firestore, 'contas_a_pagar'), orderBy('dataVencimento', 'asc')) : null, [firestore]);
@@ -263,7 +315,7 @@ export default function HistoricoFinanceiroPanel() {
         return new Map(fornecedores.map(f => [f.id, f]));
     }, [fornecedores]);
 
-    const filteredEntradas = useMemo(() => {
+    const filteredEntradasBySearch = useMemo(() => {
         if (!allEntradas) return [];
         if (!searchQuery.trim()) return [];
         return allEntradas.filter(entrada => 
@@ -309,6 +361,23 @@ export default function HistoricoFinanceiroPanel() {
         };
 
     }, [allContas, selectedYear, selectedMonth]);
+    
+    const filteredEntradasByPeriod = useMemo(() => {
+        if (!allEntradas) return [];
+
+        let referenceDate = new Date(selectedYear, parseInt(selectedMonth), 1);
+        
+        const startDate = reportPeriod === 'month' ? startOfMonth(referenceDate) : startOfYear(referenceDate);
+        const endDate = reportPeriod === 'month' ? endOfMonth(referenceDate) : endOfYear(referenceDate);
+
+        return allEntradas.filter(e => {
+            try {
+                return isWithinInterval(parseISO(e.data), { start: startDate, end: endDate });
+            } catch {
+                return false;
+            }
+        });
+    }, [allEntradas, reportPeriod, selectedYear, selectedMonth]);
 
     return (
         <div className="space-y-6">
@@ -390,10 +459,19 @@ export default function HistoricoFinanceiroPanel() {
             {isLoading ? (
                 <div className="flex justify-center p-8"><Loader2 className="h-8 w-8 animate-spin"/></div>
             ) : (
-                <div className="space-y-4">
-                    <ExpenseReport contasPagas={contasPagas || []} fornecedorMap={fornecedorMap} period={reportPeriod} year={selectedYear} month={selectedMonth} />
-                    <ComprasReport allEntradas={allEntradas || []} period={reportPeriod} year={selectedYear} month={selectedMonth} />
-                </div>
+                <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full mt-6">
+                    <TabsList className="grid w-full grid-cols-2">
+                        <TabsTrigger value="aggregated">Relatórios Agregados</TabsTrigger>
+                        <TabsTrigger value="details">Despesas Detalhadas</TabsTrigger>
+                    </TabsList>
+                    <TabsContent value="aggregated" className="mt-4 space-y-4">
+                        <ExpenseReport contasPagas={contasPagas || []} fornecedorMap={fornecedorMap} period={reportPeriod} year={selectedYear} month={selectedMonth} />
+                        <ComprasReport allEntradas={allEntradas || []} period={reportPeriod} year={selectedYear} month={selectedMonth} />
+                    </TabsContent>
+                    <TabsContent value="details" className="mt-4">
+                        <DetailedExpensesTable entradas={filteredEntradasByPeriod} fornecedorMap={fornecedorMap} />
+                    </TabsContent>
+                </Tabs>
             )}
         
             <Card>
@@ -431,8 +509,8 @@ export default function HistoricoFinanceiroPanel() {
                                             <Loader2 className="h-6 w-6 animate-spin mx-auto text-muted-foreground" />
                                         </TableCell>
                                     </TableRow>
-                                ) : filteredEntradas.length > 0 ? (
-                                    filteredEntradas.map((entry) => {
+                                ) : filteredEntradasBySearch.length > 0 ? (
+                                    filteredEntradasBySearch.map((entry) => {
                                         const fornecedor = fornecedorMap.get(entry.fornecedorId);
                                         return (
                                             <TableRow key={entry.id}>
