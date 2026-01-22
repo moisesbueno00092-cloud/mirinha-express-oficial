@@ -18,8 +18,8 @@
       ]
     },
     {
-      "collectionGroup": "entradas_mercadorias",
-      "queryScope": "COLLECTION_GROUP",
+      "collectionId": "entradas_mercadorias",
+      "queryScope": "COLLECTION",
       "fields": [
         { "fieldPath": "estaPaga", "order": "ASCENDING" },
         { "fieldPath": "data", "order": "ASCENDING" }
