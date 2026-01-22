@@ -112,6 +112,7 @@ export interface EntradaMercadoria {
   quantidade: number;
   precoUnitario: number;
   valorTotal: number;
+  estaPaga?: boolean;
 }
 
 export interface Funcionario {

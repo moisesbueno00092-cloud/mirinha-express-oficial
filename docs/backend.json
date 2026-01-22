@@ -128,7 +128,8 @@
             "data": { "type": "string", "format": "date-time" },
             "quantidade": { "type": "number" },
             "precoUnitario": { "type": "number" },
-            "valorTotal": { "type": "number" }
+            "valorTotal": { "type": "number" },
+            "estaPaga": { "type": "boolean" }
         },
         "required": ["produtoNome", "fornecedorId", "data", "quantidade", "precoUnitario", "valorTotal"]
     },

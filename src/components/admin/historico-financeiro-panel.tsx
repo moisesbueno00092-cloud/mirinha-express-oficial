@@ -218,14 +218,14 @@ const ComprasReport = ({ allEntradas, period, year, month }: { allEntradas: Entr
 
 const DetailedExpensesTable = ({ entradas, fornecedorMap }: { entradas: EntradaMercadoria[], fornecedorMap: Map<string, Fornecedor> }) => {
     if (entradas.length === 0) {
-        return <p className="p-8 text-center text-sm text-muted-foreground">Nenhuma despesa encontrada para este período.</p>;
+        return <p className="p-8 text-center text-sm text-muted-foreground">Nenhuma despesa paga encontrada para este período.</p>;
     }
 
     return (
         <Card>
             <CardHeader>
-                <CardTitle>Detalhe de Entradas de Mercadorias</CardTitle>
-                <CardDescription>Lista de todas as mercadorias e despesas lançadas no período selecionado, ordenadas da mais recente para a mais antiga.</CardDescription>
+                <CardTitle>Detalhe de Entradas de Mercadorias (Pagas)</CardTitle>
+                <CardDescription>Lista de todas as mercadorias e despesas pagas no período selecionado, ordenadas da mais recente para a mais antiga.</CardDescription>
             </CardHeader>
             <CardContent>
                 <div className="rounded-md border max-h-[600px] overflow-y-auto">
@@ -371,6 +371,9 @@ export default function HistoricoFinanceiroPanel() {
         const endDate = reportPeriod === 'month' ? endOfMonth(referenceDate) : endOfYear(referenceDate);
 
         return allEntradas.filter(e => {
+            if (e.estaPaga !== true) {
+                return false;
+            }
             try {
                 return isWithinInterval(parseISO(e.data), { start: startDate, end: endDate });
             } catch {

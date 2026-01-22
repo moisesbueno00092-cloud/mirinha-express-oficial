@@ -525,6 +525,7 @@ export default function MercadoriasPanel() {
                     quantidade: produto.quantidade,
                     precoUnitario: produto.precoUnitario,
                     valorTotal: produto.preco,
+                    estaPaga: estaPaga,
                 };
                 const entradaDocRef = doc(collection(firestore, 'entradas_mercadorias'));
                 batch.set(entradaDocRef, novaEntrada);
