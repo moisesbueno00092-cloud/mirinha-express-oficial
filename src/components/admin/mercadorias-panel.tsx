@@ -384,18 +384,15 @@ export default function MercadoriasPanel() {
     const handleCameraCapture = async (dataUri: string | null) => {
         if (dataUri) {
             setIsParsingRomaneio(true);
-            setIsCameraSheetOpen(false); // Close sheet immediately
+            setIsCameraSheetOpen(false);
             try {
                 const compressedUri = await compressImage(dataUri, 0.85);
-                
-                // This is the AI Call
                 const { items } = await parseRomaneio({ romaneioPhoto: compressedUri });
 
                 if (items.length === 0) {
                     toast({ variant: 'destructive', title: 'Nenhum item encontrado', description: 'A IA não conseguiu extrair itens da imagem fornecida.' });
                     return;
                 }
-
                 const newProdutos: LancamentoProduto[] = items.map(item => {
                     const valorTotal = item.valorTotal;
                     const quantidade = item.quantidade > 0 ? item.quantidade : 1;
@@ -438,10 +435,18 @@ export default function MercadoriasPanel() {
                         });
                     }
                 }
-
             } catch (error: any) {
-                console.error("Erro ao analisar a imagem da câmera:", error);
-                toast({ variant: 'destructive', title: 'Erro de Análise', description: error.message || 'Não foi possível extrair os itens da imagem. Tente uma foto mais nítida.' });
+                if (error.message && (error.message.includes('429') || error.message.includes('Quota exceeded'))) {
+                    toast({
+                        variant: 'destructive',
+                        title: 'Limite de Pedidos Atingido',
+                        description: 'Por favor, aguarde um minuto antes de tentar novamente. O plano gratuito de IA tem um limite de pedidos por minuto.',
+                        duration: 8000,
+                    });
+                } else {
+                    console.error("Erro ao analisar a imagem da câmera:", error);
+                    toast({ variant: 'destructive', title: 'Erro de Análise', description: error.message || 'Não foi possível extrair os itens da imagem.' });
+                }
             } finally {
                 setIsParsingRomaneio(false);
             }
@@ -476,8 +481,6 @@ export default function MercadoriasPanel() {
                 });
     
                 const compressedUri = await compressImage(dataUri, 0.85);
-                
-                // AI Call is here
                 const { items } = await parseRomaneio({ romaneioPhoto: compressedUri });
     
                 if (items.length === 0) {
@@ -523,11 +526,19 @@ export default function MercadoriasPanel() {
                     }
                 }
             } catch (error: any) {
-                console.error(`Error processing image ${file.name}:`, error);
-                const errorMessage = error.message || `Não foi possível processar: ${file.name}`;
-                toast({ variant: 'destructive', title: `Erro na Imagem ${index + 1}`, description: errorMessage });
+                if (error.message && (error.message.includes('429') || error.message.includes('Quota exceeded'))) {
+                     toast({
+                        variant: 'destructive',
+                        title: 'Limite de Pedidos Atingido',
+                        description: `O processamento da imagem "${file.name}" falhou. A aguardar 1 minuto para tentar a próxima.`,
+                        duration: 8000,
+                    });
+                } else {
+                    console.error(`Error processing image ${file.name}:`, error);
+                    const errorMessage = error.message || `Não foi possível processar: ${file.name}`;
+                    toast({ variant: 'destructive', title: `Erro na Imagem ${index + 1}`, description: errorMessage });
+                }
             } finally {
-                // This pause is critical to respect API rate limits
                 if (index < files.length - 1) {
                     await new Promise(resolve => setTimeout(resolve, 61000));
                 }
