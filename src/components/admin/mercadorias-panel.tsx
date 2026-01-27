@@ -465,8 +465,8 @@ export default function MercadoriasPanel() {
         if (files.length > 1) {
             toast({
                 title: "Processamento em Lote",
-                description: "Para evitar exceder os limites da IA, haverá uma pequena pausa entre a análise de cada imagem.",
-                duration: 5000,
+                description: "Para evitar exceder os limites da IA, haverá uma pausa de 15 segundos entre cada imagem.",
+                duration: 8000,
             });
         }
     
@@ -481,14 +481,12 @@ export default function MercadoriasPanel() {
                 const compressedUri = await compressImage(dataUri, 0.85);
                 await processImage(compressedUri, 'file');
                 
-                // Add a delay between API calls if there are more files to process
                 if (index < files.length - 1) {
-                    await new Promise(resolve => setTimeout(resolve, 4000)); // 4-second delay to respect free tier limits
+                    await new Promise(resolve => setTimeout(resolve, 15000));
                 }
             } catch (error) {
                 console.error("Error processing image:", error);
                 toast({ variant: 'destructive', title: 'Erro de Processamento', description: 'Não foi possível processar uma das imagens.' });
-                // We'll continue with the next images
             }
         }
     
