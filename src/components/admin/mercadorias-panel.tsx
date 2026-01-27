@@ -461,8 +461,16 @@ export default function MercadoriasPanel() {
     
         setIsParsingRomaneio(true);
         toast({ title: "A analisar o(s) romaneio(s)...", description: `A IA está a processar ${files.length} imagem(ns). Isto pode demorar alguns segundos.` });
+
+        if (files.length > 1) {
+            toast({
+                title: "Processamento em Lote",
+                description: "Para evitar exceder os limites da IA, haverá uma pequena pausa entre a análise de cada imagem.",
+                duration: 5000,
+            });
+        }
     
-        for (const file of Array.from(files)) {
+        for (const [index, file] of Array.from(files).entries()) {
             const dataUri = await new Promise<string>((resolve, reject) => {
                 const reader = new FileReader();
                 reader.readAsDataURL(file);
@@ -472,9 +480,15 @@ export default function MercadoriasPanel() {
             try {
                 const compressedUri = await compressImage(dataUri, 0.85);
                 await processImage(compressedUri, 'file');
+                
+                // Add a delay between API calls if there are more files to process
+                if (index < files.length - 1) {
+                    await new Promise(resolve => setTimeout(resolve, 4000)); // 4-second delay to respect free tier limits
+                }
             } catch (error) {
-                console.error("Error compressing image:", error);
-                toast({ variant: 'destructive', title: 'Erro de Compressão', description: 'Não foi possível processar a imagem.' });
+                console.error("Error processing image:", error);
+                toast({ variant: 'destructive', title: 'Erro de Processamento', description: 'Não foi possível processar uma das imagens.' });
+                // We'll continue with the next images
             }
         }
     
