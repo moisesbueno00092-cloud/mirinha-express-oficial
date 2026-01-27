@@ -465,7 +465,7 @@ export default function MercadoriasPanel() {
         if (files.length > 1) {
             toast({
                 title: "Processamento em Lote",
-                description: "Para evitar exceder os limites da IA, haverá uma pausa de 15 segundos entre cada imagem.",
+                description: "Para evitar exceder os limites da IA, haverá uma pausa de 35 segundos entre cada imagem.",
                 duration: 8000,
             });
         }
@@ -482,7 +482,7 @@ export default function MercadoriasPanel() {
                 await processImage(compressedUri, 'file');
                 
                 if (index < files.length - 1) {
-                    await new Promise(resolve => setTimeout(resolve, 15000));
+                    await new Promise(resolve => setTimeout(resolve, 35000));
                 }
             } catch (error) {
                 console.error("Error processing image:", error);
