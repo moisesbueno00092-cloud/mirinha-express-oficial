@@ -381,70 +381,67 @@ export default function MercadoriasPanel() {
         setNumParcelas('1');
     }
     
-    const processImage = async (dataUri: string) => {
-        if (!firestore) throw new Error('Firestore not initialized');
-        
-        const { items } = await parseRomaneio({ romaneioPhoto: dataUri });
-
-        if (items.length === 0) {
-            toast({ variant: 'destructive', title: 'Nenhum item encontrado', description: 'A IA não conseguiu extrair itens da imagem fornecida.' });
-            return;
-        }
-
-        const newProdutos: LancamentoProduto[] = items.map(item => {
-            const valorTotal = item.valorTotal;
-            const quantidade = item.quantidade > 0 ? item.quantidade : 1;
-            const precoUnitario = valorTotal / quantidade;
-
-            return {
-                id: Date.now() + Math.random(),
-                produtoNome: item.produtoNome,
-                quantidade,
-                precoUnitario,
-                preco: valorTotal,
-            };
-        });
-
-        setProdutosLancados(prev => [...prev, ...newProdutos]);
-        toast({ title: 'Sucesso!', description: `${newProdutos.length} itens foram extraídos e adicionados à lista.` });
-        
-        if (bomboniereItems && bomboniereItems.length > 0) {
-            const bomboniereCollectionRef = collection(firestore, 'bomboniere_items');
-            const batch = writeBatch(firestore);
-            let stockUpdatesCount = 0;
-            
-            for (const item of newProdutos) {
-                const matchedItem = findBestBomboniereMatch(item.produtoNome, bomboniereItems);
-
-                if (matchedItem) {
-                    const docRef = doc(bomboniereCollectionRef, matchedItem.id);
-                    const currentStock = bomboniereItems.find(bi => bi.id === matchedItem.id)?.estoque ?? 0;
-                    const newStock = currentStock + item.quantidade;
-                    batch.update(docRef, { estoque: newStock });
-                    stockUpdatesCount++;
-                }
-            }
-
-            if (stockUpdatesCount > 0) {
-                await batch.commit();
-                toast({
-                    title: 'Estoque Atualizado Automaticamente',
-                    description: `${stockUpdatesCount} iten(s) da bomboniere tiveram seu estoque atualizado.`
-                });
-            }
-        }
-    };
-    
     const handleCameraCapture = async (dataUri: string | null) => {
         if (dataUri) {
             setIsParsingRomaneio(true);
             setIsCameraSheetOpen(false); // Close sheet immediately
             try {
                 const compressedUri = await compressImage(dataUri, 0.85);
-                await processImage(compressedUri);
-            } catch (error) {
+                
+                // This is the AI Call
+                const { items } = await parseRomaneio({ romaneioPhoto: compressedUri });
+
+                if (items.length === 0) {
+                    toast({ variant: 'destructive', title: 'Nenhum item encontrado', description: 'A IA não conseguiu extrair itens da imagem fornecida.' });
+                    return;
+                }
+
+                const newProdutos: LancamentoProduto[] = items.map(item => {
+                    const valorTotal = item.valorTotal;
+                    const quantidade = item.quantidade > 0 ? item.quantidade : 1;
+                    const precoUnitario = valorTotal / quantidade;
+
+                    return {
+                        id: Date.now() + Math.random(),
+                        produtoNome: item.produtoNome,
+                        quantidade,
+                        precoUnitario,
+                        preco: valorTotal,
+                    };
+                });
+
+                setProdutosLancados(prev => [...prev, ...newProdutos]);
+                toast({ title: 'Sucesso!', description: `${newProdutos.length} itens foram extraídos e adicionados à lista.` });
+                
+                if (firestore && bomboniereItems && bomboniereItems.length > 0) {
+                    const bomboniereCollectionRef = collection(firestore, 'bomboniere_items');
+                    const batch = writeBatch(firestore);
+                    let stockUpdatesCount = 0;
+                    
+                    for (const item of newProdutos) {
+                        const matchedItem = findBestBomboniereMatch(item.produtoNome, bomboniereItems);
+
+                        if (matchedItem) {
+                            const docRef = doc(bomboniereCollectionRef, matchedItem.id);
+                            const currentStock = bomboniereItems.find(bi => bi.id === matchedItem.id)?.estoque ?? 0;
+                            const newStock = currentStock + item.quantidade;
+                            batch.update(docRef, { estoque: newStock });
+                            stockUpdatesCount++;
+                        }
+                    }
+
+                    if (stockUpdatesCount > 0) {
+                        await batch.commit();
+                        toast({
+                            title: 'Estoque Atualizado Automaticamente',
+                            description: `${stockUpdatesCount} iten(s) da bomboniere tiveram seu estoque atualizado.`
+                        });
+                    }
+                }
+
+            } catch (error: any) {
                 console.error("Erro ao analisar a imagem da câmera:", error);
-                toast({ variant: 'destructive', title: 'Erro de Análise', description: 'Não foi possível extrair os itens da imagem. Tente uma foto mais nítida.' });
+                toast({ variant: 'destructive', title: 'Erro de Análise', description: error.message || 'Não foi possível extrair os itens da imagem. Tente uma foto mais nítida.' });
             } finally {
                 setIsParsingRomaneio(false);
             }
@@ -470,20 +467,67 @@ export default function MercadoriasPanel() {
         for (const [index, file] of Array.from(files).entries()) {
             try {
                 toast({ title: `A processar imagem ${index + 1} de ${files.length}`, description: file.name });
+                
                 const dataUri = await new Promise<string>((resolve, reject) => {
                     const reader = new FileReader();
                     reader.readAsDataURL(file);
                     reader.onload = () => resolve(reader.result as string);
                     reader.onerror = (error) => reject(error);
                 });
-
+    
                 const compressedUri = await compressImage(dataUri, 0.85);
-                await processImage(compressedUri);
                 
-            } catch (error) {
+                // AI Call is here
+                const { items } = await parseRomaneio({ romaneioPhoto: compressedUri });
+    
+                if (items.length === 0) {
+                    toast({ variant: 'destructive', title: 'Nenhum item encontrado', description: `A IA não conseguiu extrair itens da imagem: ${file.name}` });
+                } else {
+                    const newProdutos: LancamentoProduto[] = items.map(item => {
+                        const valorTotal = item.valorTotal;
+                        const quantidade = item.quantidade > 0 ? item.quantidade : 1;
+                        const precoUnitario = valorTotal / quantidade;
+                        return {
+                            id: Date.now() + Math.random(),
+                            produtoNome: item.produtoNome,
+                            quantidade,
+                            precoUnitario,
+                            preco: valorTotal,
+                        };
+                    });
+    
+                    setProdutosLancados(prev => [...prev, ...newProdutos]);
+                    toast({ title: 'Sucesso!', description: `${newProdutos.length} itens foram extraídos de ${file.name}.` });
+                    
+                    if (firestore && bomboniereItems && bomboniereItems.length > 0) {
+                        const bomboniereCollectionRef = collection(firestore, 'bomboniere_items');
+                        const batch = writeBatch(firestore);
+                        let stockUpdatesCount = 0;
+                        for (const item of newProdutos) {
+                            const matchedItem = findBestBomboniereMatch(item.produtoNome, bomboniereItems);
+                            if (matchedItem) {
+                                const docRef = doc(bomboniereCollectionRef, matchedItem.id);
+                                const currentStock = bomboniereItems.find(bi => bi.id === matchedItem.id)?.estoque ?? 0;
+                                const newStock = currentStock + item.quantidade;
+                                batch.update(docRef, { estoque: newStock });
+                                stockUpdatesCount++;
+                            }
+                        }
+                        if (stockUpdatesCount > 0) {
+                            await batch.commit();
+                            toast({
+                                title: 'Estoque Atualizado',
+                                description: `${stockUpdatesCount} iten(s) da bomboniere tiveram seu estoque atualizado.`
+                            });
+                        }
+                    }
+                }
+            } catch (error: any) {
                 console.error(`Error processing image ${file.name}:`, error);
-                toast({ variant: 'destructive', title: `Erro na Imagem ${index + 1}`, description: `Não foi possível processar: ${file.name}` });
+                const errorMessage = error.message || `Não foi possível processar: ${file.name}`;
+                toast({ variant: 'destructive', title: `Erro na Imagem ${index + 1}`, description: errorMessage });
             } finally {
+                // This pause is critical to respect API rate limits
                 if (index < files.length - 1) {
                     await new Promise(resolve => setTimeout(resolve, 61000));
                 }
