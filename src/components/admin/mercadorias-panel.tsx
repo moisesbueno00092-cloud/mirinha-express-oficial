@@ -469,6 +469,8 @@ export default function MercadoriasPanel() {
             });
         }
     
+        let totalItemsAdded = 0;
+
         for (const [index, file] of Array.from(files).entries()) {
             try {
                 toast({ title: `A processar imagem ${index + 1} de ${files.length}`, description: file.name });
@@ -499,6 +501,7 @@ export default function MercadoriasPanel() {
                         };
                     });
     
+                    totalItemsAdded += newProdutos.length;
                     setProdutosLancados(prev => [...prev, ...newProdutos]);
                     toast({ title: 'Sucesso!', description: `${newProdutos.length} itens foram extraídos de ${file.name}.` });
                     
@@ -549,7 +552,12 @@ export default function MercadoriasPanel() {
         if (fileInputRef.current) {
             fileInputRef.current.value = '';
         }
-        toast({ title: "Processamento em lote finalizado." });
+        
+        if (totalItemsAdded > 0) {
+            toast({ title: "Processamento em lote finalizado.", description: `${totalItemsAdded} ite${totalItemsAdded > 1 ? 'ns' : 'm'} adicionado${totalItemsAdded > 1 ? 's' : ''} no total.` });
+        } else {
+             toast({ variant: "destructive", title: "Processamento finalizado sem sucesso.", description: "Nenhum item foi adicionado. Verifique os erros e tente novamente." });
+        }
     };
 
     const handleRegisterEntry = async () => {
