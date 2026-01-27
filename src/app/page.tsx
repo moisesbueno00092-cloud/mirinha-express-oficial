@@ -69,7 +69,6 @@ import ItemList from '@/components/item-list';
 import { Separator } from '@/components/ui/separator';
 import PasswordDialog from '@/components/password-dialog';
 import usePersistentState from '@/hooks/use-persistent-state';
-import { Calendar } from '@/components/ui/calendar';
 
 const formatCurrency = (value: number) => {
   return new Intl.NumberFormat('pt-BR', {
@@ -175,10 +174,6 @@ function LancheTrackerPageContent() {
   const [isSelectionModeActive, setIsSelectionModeActive] = useState(false);
   const [selectedItems, setSelectedItems] = useState<string[]>([]);
   const [isDeleteSelectedAlertOpen, setIsDeleteSelectedAlertOpen] = useState(false);
-
-  // States for saving report with custom date
-  const [isSaveReportAlertOpen, setIsSaveReportAlertOpen] = useState(false);
-  const [saveDate, setSaveDate] = useState<Date | undefined>(new Date());
 
   const handlePasswordSuccess = () => {
     if (passwordPrompt?.onSuccess) {
@@ -593,7 +588,7 @@ function LancheTrackerPageContent() {
     toast({ title: 'Favorito removido.', variant: 'destructive' });
   };
 
-  async function handleSaveReport(dateToSave: Date) {
+  async function handleSaveReport() {
     if (!firestore || !items || items.length === 0 || !user?.uid) {
       toast({ variant: 'destructive', title: 'Impossível Salvar', description: 'Não há itens para gerar o relatório.' });
       return;
@@ -602,7 +597,8 @@ function LancheTrackerPageContent() {
 
     try {
       const batch = writeBatch(firestore);
-      const reportDateString = formatDateFn(dateToSave, 'yyyy-MM-dd');
+      const reportDate = new Date();
+      const reportDateString = formatDateFn(reportDate, 'yyyy-MM-dd');
 
 
       const report: Omit<DailyReport, 'id'> = {
@@ -645,7 +641,7 @@ function LancheTrackerPageContent() {
 
       toast({
         title: 'Relatório Salvo!',
-        description: `O relatório do dia ${formatDateFn(dateToSave, 'dd/MM/yyyy')} foi salvo e os itens arquivados.`,
+        description: `O relatório do dia ${formatDateFn(reportDate, 'dd/MM/yyyy', { locale: ptBR })} foi salvo e os itens arquivados.`,
       });
     } catch (error: any) {
       console.error('Error saving report:', error);
@@ -656,7 +652,6 @@ function LancheTrackerPageContent() {
         });
     } finally {
       setIsSavingReport(false);
-      setIsSaveReportAlertOpen(false);
     }
   };
 
@@ -904,40 +899,6 @@ function LancheTrackerPageContent() {
         </AlertDialogContent>
       </AlertDialog>
 
-      <AlertDialog open={isSaveReportAlertOpen} onOpenChange={setIsSaveReportAlertOpen}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Salvar Relatório</AlertDialogTitle>
-            <AlertDialogDescription>
-              Selecione a data para a qual deseja salvar este relatório. Por padrão, é a data de hoje.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <div className="flex justify-center py-4">
-            <Calendar
-              mode="single"
-              selected={saveDate}
-              onSelect={setSaveDate}
-              className="rounded-md border"
-              locale={ptBR}
-              disabled={(date) => date > new Date() || date < new Date('2020-01-01')}
-            />
-          </div>
-          <AlertDialogFooter>
-            <AlertDialogCancel onClick={() => setIsSavingReport(false)}>Cancelar</AlertDialogCancel>
-            <Button
-              onClick={() => {
-                if (saveDate) {
-                  handleSaveReport(saveDate);
-                }
-              }}
-              disabled={!saveDate || isSavingReport}
-            >
-              {isSavingReport ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : 'Confirmar e Salvar'}
-            </Button>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-
       <div className="container mx-auto max-w-4xl p-2 sm:p-4 lg:p-8 pb-36">
         <header className="relative mb-6 flex h-20 items-center justify-center">
           <div className="absolute left-0 flex items-center gap-2">
@@ -1042,15 +1003,12 @@ function LancheTrackerPageContent() {
               <span className="text-base font-bold text-primary">{formatCurrency(totals.totalGeral)}</span>
             </div>
             <Button
-              onClick={() => {
-                setSaveDate(new Date());
-                setIsSaveReportAlertOpen(true);
-              }}
-              disabled={!hasUnsavedChanges}
+              onClick={handleSaveReport}
+              disabled={!hasUnsavedChanges || isSavingReport}
               size="sm"
               className="h-full"
             >
-              <Save className="h-4 w-4" />
+              {isSavingReport ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
             </Button>
           </div>
         </div>
@@ -1075,7 +1033,3 @@ export default function Home() {
 
   return <LancheTrackerPageContent />;
 }
-
-    
-
-    
