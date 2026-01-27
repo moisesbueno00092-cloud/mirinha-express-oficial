@@ -381,118 +381,124 @@ export default function MercadoriasPanel() {
         setNumParcelas('1');
     }
     
-    const processImage = async (dataUri: string, source: 'file' | 'camera') => {
-        if (!firestore) return;
-        setIsParsingRomaneio(true);
+    const processImage = async (dataUri: string) => {
+        if (!firestore) throw new Error('Firestore not initialized');
+        
         toast({ title: 'A analisar a imagem...', description: 'A IA está a processar a foto. Isto pode demorar alguns segundos.' });
-    
-        try {
-            const { items } = await parseRomaneio({ romaneioPhoto: dataUri });
-    
-            if (items.length === 0) {
-                toast({ variant: 'destructive', title: 'Nenhum item encontrado', description: 'A IA não conseguiu extrair itens da imagem fornecida.' });
-                setIsParsingRomaneio(false);
-                return;
-            }
-    
-            // Add items to the Lancamento list
-            const newProdutos: LancamentoProduto[] = items.map(item => {
-                const valorTotal = item.valorTotal;
-                const quantidade = item.quantidade > 0 ? item.quantidade : 1;
-                const precoUnitario = valorTotal / quantidade;
-    
-                return {
-                    id: Date.now() + Math.random(),
-                    produtoNome: item.produtoNome,
-                    quantidade,
-                    precoUnitario,
-                    preco: valorTotal,
-                };
-            });
-    
-            setProdutosLancados(prev => [...prev, ...newProdutos]);
-            toast({ title: 'Sucesso!', description: `${newProdutos.length} itens foram extraídos e adicionados à lista.` });
-            
-            // --- Automatic Stock Update Logic ---
-            if (bomboniereItems && bomboniereItems.length > 0) {
-                const bomboniereCollectionRef = collection(firestore, 'bomboniere_items');
-                const batch = writeBatch(firestore);
-                let stockUpdatesCount = 0;
-                
-                for (const item of newProdutos) {
-                    const matchedItem = findBestBomboniereMatch(item.produtoNome, bomboniereItems);
-    
-                    if (matchedItem) {
-                        const docRef = doc(bomboniereCollectionRef, matchedItem.id);
-                        // We need the current stock from the DB, but since we have it from useCollection, we can use it.
-                        // For more accuracy in high-concurrency, a transaction would be better, but this is fine for this app.
-                        const currentStock = bomboniereItems.find(bi => bi.id === matchedItem.id)?.estoque ?? 0;
-                        const newStock = currentStock + item.quantidade;
-                        batch.update(docRef, { estoque: newStock });
-                        stockUpdatesCount++;
-                    }
-                }
-    
-                if (stockUpdatesCount > 0) {
-                    await batch.commit();
-                    toast({
-                        title: 'Estoque Atualizado Automaticamente',
-                        description: `${stockUpdatesCount} iten(s) da bomboniere tiveram seu estoque atualizado.`
-                    });
-                }
-            }
-            // --- End Automatic Stock Update Logic ---
 
-            if (source === 'camera') {
-                setIsCameraSheetOpen(false);
+        const { items } = await parseRomaneio({ romaneioPhoto: dataUri });
+
+        if (items.length === 0) {
+            toast({ variant: 'destructive', title: 'Nenhum item encontrado', description: 'A IA não conseguiu extrair itens da imagem fornecida.' });
+            return;
+        }
+
+        const newProdutos: LancamentoProduto[] = items.map(item => {
+            const valorTotal = item.valorTotal;
+            const quantidade = item.quantidade > 0 ? item.quantidade : 1;
+            const precoUnitario = valorTotal / quantidade;
+
+            return {
+                id: Date.now() + Math.random(),
+                produtoNome: item.produtoNome,
+                quantidade,
+                precoUnitario,
+                preco: valorTotal,
+            };
+        });
+
+        setProdutosLancados(prev => [...prev, ...newProdutos]);
+        toast({ title: 'Sucesso!', description: `${newProdutos.length} itens foram extraídos e adicionados à lista.` });
+        
+        if (bomboniereItems && bomboniereItems.length > 0) {
+            const bomboniereCollectionRef = collection(firestore, 'bomboniere_items');
+            const batch = writeBatch(firestore);
+            let stockUpdatesCount = 0;
+            
+            for (const item of newProdutos) {
+                const matchedItem = findBestBomboniereMatch(item.produtoNome, bomboniereItems);
+
+                if (matchedItem) {
+                    const docRef = doc(bomboniereCollectionRef, matchedItem.id);
+                    const currentStock = bomboniereItems.find(bi => bi.id === matchedItem.id)?.estoque ?? 0;
+                    const newStock = currentStock + item.quantidade;
+                    batch.update(docRef, { estoque: newStock });
+                    stockUpdatesCount++;
+                }
             }
-    
-        } catch (error) {
-            console.error('Erro ao analisar a imagem:', error);
-            toast({ variant: 'destructive', title: 'Erro de Análise', description: 'Não foi possível extrair os itens. Tente uma imagem mais nítida.' });
-        } finally {
-            setIsParsingRomaneio(false);
+
+            if (stockUpdatesCount > 0) {
+                await batch.commit();
+                toast({
+                    title: 'Estoque Atualizado Automaticamente',
+                    description: `${stockUpdatesCount} iten(s) da bomboniere tiveram seu estoque atualizado.`
+                });
+            }
         }
     };
     
+    const handleCameraCapture = async (dataUri: string | null) => {
+        if (dataUri) {
+            setIsParsingRomaneio(true);
+            setIsCameraSheetOpen(false); // Close sheet immediately
+            try {
+                const compressedUri = await compressImage(dataUri, 0.85);
+                await processImage(compressedUri);
+            } catch (error) {
+                console.error("Erro ao analisar a imagem da câmera:", error);
+                toast({ variant: 'destructive', title: 'Erro de Análise', description: 'Não foi possível extrair os itens da imagem. Tente uma foto mais nítida.' });
+            } finally {
+                setIsParsingRomaneio(false);
+            }
+        } else {
+             setIsCameraSheetOpen(false);
+        }
+    };
+
     const handleRomaneioUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
         const files = event.target.files;
         if (!files || files.length === 0) return;
-    
-        setIsParsingRomaneio(true);
-        toast({ title: "A analisar o(s) romaneio(s)...", description: `A IA está a processar ${files.length} imagem(ns). Isto pode demorar alguns segundos.` });
 
+        setIsParsingRomaneio(true);
+        toast({ title: "Processamento em Lote...", description: `A processar ${files.length} imagem(ns).` });
         if (files.length > 1) {
-            toast({
-                title: "Processamento em Lote",
+             toast({
+                title: "Atenção",
                 description: "Para evitar exceder os limites da IA, haverá uma pausa de 61 segundos entre cada imagem.",
                 duration: 8000,
             });
         }
     
-        for (const [index, file] of Array.from(files).entries()) {
-            const dataUri = await new Promise<string>((resolve, reject) => {
-                const reader = new FileReader();
-                reader.readAsDataURL(file);
-                reader.onload = () => resolve(reader.result as string);
-                reader.onerror = (error) => reject(error);
-            });
-            try {
-                const compressedUri = await compressImage(dataUri, 0.85);
-                await processImage(compressedUri, 'file');
-                
-                if (index < files.length - 1) {
-                    await new Promise(resolve => setTimeout(resolve, 61000));
+        try {
+            for (const [index, file] of Array.from(files).entries()) {
+                const dataUri = await new Promise<string>((resolve, reject) => {
+                    const reader = new FileReader();
+                    reader.readAsDataURL(file);
+                    reader.onload = () => resolve(reader.result as string);
+                    reader.onerror = (error) => reject(error);
+                });
+
+                try {
+                    const compressedUri = await compressImage(dataUri, 0.85);
+                    await processImage(compressedUri);
+                    
+                    if (index < files.length - 1) {
+                        await new Promise(resolve => setTimeout(resolve, 61000));
+                    }
+                } catch (error) {
+                    console.error("Error processing image:", error);
+                    toast({ variant: 'destructive', title: 'Erro de Processamento', description: 'Não foi possível processar uma das imagens.' });
+                     if (index < files.length - 1) {
+                        await new Promise(resolve => setTimeout(resolve, 61000));
+                    }
                 }
-            } catch (error) {
-                console.error("Error processing image:", error);
-                toast({ variant: 'destructive', title: 'Erro de Processamento', description: 'Não foi possível processar uma das imagens.' });
             }
-        }
-    
-        setIsParsingRomaneio(false);
-        if (fileInputRef.current) {
-            fileInputRef.current.value = '';
+        } finally {
+            setIsParsingRomaneio(false);
+            if (fileInputRef.current) {
+                fileInputRef.current.value = '';
+            }
+            toast({ title: "Processamento em lote finalizado." });
         }
     };
 
@@ -586,11 +592,7 @@ export default function MercadoriasPanel() {
              <CameraCaptureSheet
                 isOpen={isCameraSheetOpen}
                 onClose={() => setIsCameraSheetOpen(false)}
-                onCapture={async (dataUri) => {
-                    if (dataUri) {
-                        await processImage(dataUri, 'camera');
-                    }
-                }}
+                onCapture={handleCameraCapture}
                 isProcessing={isParsingRomaneio}
             />
             <input 
