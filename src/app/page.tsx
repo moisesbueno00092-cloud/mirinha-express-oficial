@@ -998,9 +998,9 @@ function LancheTrackerPageContent() {
             </div>
           </div>
           <div className="flex items-center justify-between gap-2">
-            <div className="flex flex-col items-center justify-center rounded-lg bg-primary/10 p-1 flex-grow">
-              <span className="text-xs font-semibold uppercase tracking-wider text-primary/80">Total</span>
-              <span className="text-base font-bold text-primary">{formatCurrency(totals.totalGeral)}</span>
+            <div className="flex flex-col items-center justify-center rounded-lg bg-blue-500/10 p-1 flex-grow">
+              <span className="text-xs font-semibold uppercase tracking-wider text-blue-500/80">Total</span>
+              <span className="text-base font-bold text-blue-500">{formatCurrency(totals.totalGeral)}</span>
             </div>
             <Button
               onClick={handleSaveReport}
