@@ -343,7 +343,7 @@ export default function HistoricoFinanceiroPanel() {
     const [reportPeriod, setReportPeriod] = useState<ReportPeriod>('month');
     const [selectedYear, setSelectedYear] = useState<number>(new Date().getFullYear());
     const [selectedMonth, setSelectedMonth] = useState<string>(String(new Date().getMonth()));
-    const [activeTab, setActiveTab] = useState('aggregated');
+    const [activeTab, setActiveTab] = useState('details');
     const yearOptions = useMemo(() => generateYearOptions(), []);
 
     const [isProcessing, setIsProcessing] = useState(false);
