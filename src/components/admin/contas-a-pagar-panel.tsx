@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useMemo, useState, useEffect, useCallback } from 'react';
@@ -22,7 +21,7 @@ import {
 import { Badge } from '@/components/ui/badge';
 import { Switch } from '@/components/ui/switch';
 import { Button } from '@/components/ui/button';
-import { Loader2, Trash2, FileText, Save } from 'lucide-react';
+import { Loader2, Trash2, FileText, Save, Pencil } from 'lucide-react';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -42,6 +41,7 @@ import {
 } from "@/components/ui/tooltip";
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Input } from '@/components/ui/input';
+import { Label } from '../ui/label';
 
 
 const formatCurrency = (value: number) => {
@@ -198,7 +198,9 @@ export default function ContasAPagarPanel() {
 
     const [editedRomaneioItems, setEditedRomaneioItems] = useState<EntradaMercadoria[]>([]);
     const [isSaving, setIsSaving] = useState(false);
-    const [isEditConfirmOpen, setIsEditConfirmOpen] = useState(false);
+    
+    const [itemToEdit, setItemToEdit] = useState<EntradaMercadoria | null>(null);
+    const [editedItemData, setEditedItemData] = useState<Partial<EntradaMercadoria>>({});
 
     const contasQuery = useMemo(() => firestore ? query(collection(firestore, 'contas_a_pagar'), orderBy('dataVencimento', 'asc')) : null, [firestore]);
     const fornecedoresQuery = useMemo(() => firestore ? query(collection(firestore, 'fornecedores')) : null, [firestore]);
@@ -291,31 +293,60 @@ export default function ContasAPagarPanel() {
             setIsLoadingRomaneio(false);
         }
     };
-    
-    const handleItemChange = (itemId: string, field: keyof EntradaMercadoria, value: string) => {
-        setEditedRomaneioItems(prev => {
-            return prev.map(item => {
-                if (item.id === itemId) {
-                    const newItem = { ...item, [field]: value };
-                    if (field === 'quantidade' || field === 'precoUnitario') {
-                        const qty = parseFloat(String(newItem.quantidade || '0').replace(',', '.'));
-                        const price = parseFloat(String(newItem.precoUnitario || '0').replace(',', '.'));
-                        if (!isNaN(qty) && !isNaN(price)) {
-                            newItem.valorTotal = qty * price;
-                        }
-                    }
-                    return newItem;
-                }
-                return item;
-            });
-        });
+
+    const handleEditRequest = (item: EntradaMercadoria) => {
+        setEditedItemData(item);
+        setItemToEdit(item);
     };
-    
+
+    const handleItemDataChange = (field: keyof EntradaMercadoria, value: string) => {
+        const newEditedData = { ...editedItemData, [field]: value };
+
+        if (field === 'quantidade' || field === 'precoUnitario') {
+            const qty = parseFloat(String(newEditedData.quantidade || '0').replace(',', '.'));
+            const price = parseFloat(String(newEditedData.precoUnitario || '0').replace(',', '.'));
+            if (!isNaN(qty) && !isNaN(price)) {
+                newEditedData.valorTotal = qty * price;
+            }
+        }
+        setEditedItemData(newEditedData);
+    };
+
+    const handleSaveItemEdit = () => {
+        if (!itemToEdit || !editedItemData) return;
+
+        if (!editedItemData.produtoNome?.trim() || !(Number(editedItemData.valorTotal) >= 0)) {
+            toast({
+                variant: 'destructive',
+                title: 'Dados Inválidos',
+                description: 'O nome do produto não pode ser vazio e os valores numéricos devem ser válidos.',
+            });
+            return;
+        }
+
+        const finalEditedItem = {
+            ...itemToEdit,
+            ...editedItemData,
+            quantidade: Number(String(editedItemData.quantidade || '0').replace(',', '.')) || 0,
+            precoUnitario: Number(String(editedItemData.precoUnitario || '0').replace(',', '.')) || 0,
+        };
+        finalEditedItem.valorTotal = finalEditedItem.quantidade * finalEditedItem.precoUnitario;
+
+
+        setEditedRomaneioItems(prev => 
+            prev.map(item => 
+                item.id === itemToEdit.id ? finalEditedItem as EntradaMercadoria : item
+            )
+        );
+
+        setItemToEdit(null);
+        setEditedItemData({});
+    };
+
     const confirmSaveRomaneio = async () => {
         if (!firestore || !editedRomaneioItems || !selectedRomaneio || !bomboniereItems) return;
 
         setIsSaving(true);
-        setIsEditConfirmOpen(false);
         
         try {
             const batch = writeBatch(firestore);
@@ -331,15 +362,8 @@ export default function ContasAPagarPanel() {
                 if (hasChanged) {
                     const entradaDocRef = doc(firestore, 'entradas_mercadorias', editedItem.id);
 
-                    const newEntrada: Partial<EntradaMercadoria> = {
-                        produtoNome: editedItem.produtoNome,
-                        quantidade: Number(String(editedItem.quantidade).replace(',', '.')) || 0,
-                        precoUnitario: Number(String(editedItem.precoUnitario).replace(',', '.')) || 0,
-                    };
-                    newEntrada.valorTotal = newEntrada.quantidade! * newEntrada.precoUnitario!;
-                    
                     const oldMatched = findBestBomboniereMatch(originalItem.produtoNome, bomboniereItems);
-                    const newMatched = findBestBomboniereMatch(newEntrada.produtoNome!, bomboniereItems);
+                    const newMatched = findBestBomboniereMatch(editedItem.produtoNome!, bomboniereItems);
 
                     if (oldMatched && oldMatched.id !== newMatched?.id) {
                         const bomboniereDocRef = doc(firestore, 'bomboniere_items', oldMatched.id);
@@ -349,11 +373,16 @@ export default function ContasAPagarPanel() {
                     if (newMatched) {
                         const bomboniereDocRef = doc(firestore, 'bomboniere_items', newMatched.id);
                         const currentStock = bomboniereItems.find(bi => bi.id === newMatched.id)?.estoque ?? 0;
-                        const quantityDiff = oldMatched?.id === newMatched.id ? (newEntrada.quantidade! - originalItem.quantidade) : newEntrada.quantidade!;
+                        const quantityDiff = oldMatched?.id === newMatched.id ? (editedItem.quantidade! - originalItem.quantidade) : editedItem.quantidade!;
                         batch.update(bomboniereDocRef, { estoque: currentStock + quantityDiff });
                     }
 
-                    batch.update(entradaDocRef, newEntrada);
+                    batch.update(entradaDocRef, {
+                        produtoNome: editedItem.produtoNome,
+                        quantidade: editedItem.quantidade,
+                        precoUnitario: editedItem.precoUnitario,
+                        valorTotal: editedItem.valorTotal,
+                    });
                 }
             }
 
@@ -426,28 +455,57 @@ export default function ContasAPagarPanel() {
                 </AlertDialogContent>
             </AlertDialog>
             
-            <AlertDialog open={isEditConfirmOpen} onOpenChange={setIsEditConfirmOpen}>
-                <AlertDialogContent>
-                    <AlertDialogHeader>
-                        <AlertDialogTitle>Confirmar Alterações?</AlertDialogTitle>
-                        <AlertDialogDescription>
-                           A alteração deste romaneio <span className="font-bold">NÃO</span> irá atualizar o valor da Conta a Pagar associada.
-                           Esta ação serve apenas para correção de dados. Deseja continuar?
-                        </AlertDialogDescription>
-                    </AlertDialogHeader>
-                    <AlertDialogFooter>
-                        <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                        <AlertDialogAction onClick={confirmSaveRomaneio}>Sim, Continuar</AlertDialogAction>
-                    </AlertDialogFooter>
-                </AlertDialogContent>
-            </AlertDialog>
-            
+            <Dialog open={!!itemToEdit} onOpenChange={(open) => !open && setItemToEdit(null)}>
+                <DialogContent>
+                    <DialogHeader>
+                        <DialogTitle>Editar Item do Romaneio</DialogTitle>
+                    </DialogHeader>
+                    <div className="py-4 space-y-4">
+                        <div className="space-y-1">
+                            <Label htmlFor="edit-product-name">Nome do Produto</Label>
+                            <Input
+                                id="edit-product-name"
+                                value={editedItemData.produtoNome || ''}
+                                onChange={(e) => handleItemDataChange('produtoNome', e.target.value)}
+                            />
+                        </div>
+                        <div className="grid grid-cols-2 gap-4">
+                            <div className="space-y-1">
+                                <Label htmlFor="edit-quantity">Quantidade</Label>
+                                <Input
+                                    id="edit-quantity"
+                                    value={String(editedItemData.quantidade || '').replace('.', ',')}
+                                    onChange={(e) => handleItemDataChange('quantidade', e.target.value)}
+                                />
+                            </div>
+                            <div className="space-y-1">
+                                <Label htmlFor="edit-unit-price">Preço Unitário (R$)</Label>
+                                <Input
+                                    id="edit-unit-price"
+                                    value={String(editedItemData.precoUnitario || '').replace('.', ',')}
+                                    onChange={(e) => handleItemDataChange('precoUnitario', e.target.value)}
+                                    className="text-right"
+                                />
+                            </div>
+                        </div>
+                        <div className="text-right">
+                            <p className="text-sm text-muted-foreground">Valor Total Calculado</p>
+                            <p className="font-bold text-lg text-primary">{formatCurrency(editedItemData.valorTotal || 0)}</p>
+                        </div>
+                    </div>
+                    <DialogFooter>
+                        <Button variant="outline" onClick={() => setItemToEdit(null)}>Cancelar</Button>
+                        <Button onClick={handleSaveItemEdit}>Salvar Item</Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+
             <Dialog open={isRomaneioModalOpen} onOpenChange={setIsRomaneioModalOpen}>
                 <DialogContent className="max-w-3xl">
                     <DialogHeader>
                         <DialogTitle>Itens do Romaneio</DialogTitle>
                         <DialogDescription>
-                            {selectedRomaneio?.conta.descricao}. Faça as edições necessárias abaixo.
+                            Clique no lápis para editar um item. A alteração destes itens NÃO irá atualizar o valor da Conta a Pagar associada.
                         </DialogDescription>
                     </DialogHeader>
                     {isLoadingRomaneio ? (
@@ -461,27 +519,27 @@ export default function ContasAPagarPanel() {
                                         <TableHead>Qtd.</TableHead>
                                         <TableHead className="text-right">Preço Unit.</TableHead>
                                         <TableHead className="text-right">Total</TableHead>
+                                        <TableHead className="text-right">Ação</TableHead>
                                     </TableRow>
                                 </TableHeader>
                                 <TableBody>
                                     {editedRomaneioItems.map(item => (
                                         <TableRow key={item.id}>
-                                            <TableCell className="font-medium">
-                                                <Input value={item.produtoNome} onChange={(e) => handleItemChange(item.id, 'produtoNome', e.target.value)} className="h-8"/>
-                                            </TableCell>
-                                            <TableCell>
-                                                <Input value={String(item.quantidade).replace('.', ',')} onChange={(e) => handleItemChange(item.id, 'quantidade', e.target.value)} className="h-8"/>
-                                            </TableCell>
-                                            <TableCell className="text-right font-mono">
-                                                <Input value={String(item.precoUnitario).replace('.', ',')} onChange={(e) => handleItemChange(item.id, 'precoUnitario', e.target.value)} className="h-8 text-right"/>
-                                            </TableCell>
+                                            <TableCell className="font-medium">{item.produtoNome}</TableCell>
+                                            <TableCell>{item.quantidade}</TableCell>
+                                            <TableCell className="text-right font-mono">{formatCurrency(item.precoUnitario)}</TableCell>
                                             <TableCell className="text-right font-mono font-semibold">{formatCurrency(item.valorTotal)}</TableCell>
+                                            <TableCell className="text-right">
+                                                <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleEditRequest(item)}>
+                                                    <Pencil className="h-4 w-4 text-blue-500" />
+                                                </Button>
+                                            </TableCell>
                                         </TableRow>
                                     ))}
                                 </TableBody>
                                 <TableFooter>
                                     <TableRow>
-                                        <TableCell colSpan={3} className="font-semibold">Valor Total da Nota</TableCell>
+                                        <TableCell colSpan={4} className="font-semibold">Valor Total da Nota</TableCell>
                                         <TableCell className="text-right font-bold text-lg text-primary">{formatCurrency(totalRomaneioEditado)}</TableCell>
                                     </TableRow>
                                 </TableFooter>
@@ -492,11 +550,11 @@ export default function ContasAPagarPanel() {
                     )}
                     <DialogFooter>
                       <DialogClose asChild>
-                          <Button variant="outline">Cancelar</Button>
+                          <Button variant="outline">Fechar</Button>
                       </DialogClose>
-                      <Button onClick={() => setIsEditConfirmOpen(true)} disabled={isSaving}>
+                      <Button onClick={confirmSaveRomaneio} disabled={isSaving}>
                         {isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : <Save className="mr-2 h-4 w-4" />}
-                        Salvar Alterações
+                        Salvar Alterações no Histórico
                       </Button>
                     </DialogFooter>
                 </DialogContent>
@@ -528,5 +586,3 @@ export default function ContasAPagarPanel() {
         </div>
     );
 }
-
-    
