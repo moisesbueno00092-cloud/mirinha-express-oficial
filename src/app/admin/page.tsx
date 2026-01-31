@@ -1,8 +1,9 @@
+
 'use client';
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { ArrowLeft, Box, HandCoins, History, Users, Wrench, BookOpen, ShieldX, Loader2 } from 'lucide-react';
+import { ArrowLeft, Box, HandCoins, Users, Wrench, ShieldX, Loader2 } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -16,6 +17,7 @@ import FechamentoCaixaPanel from '@/components/admin/fechamento-caixa-panel';
 import HistoricoFinanceiroPanel from '@/components/admin/historico-financeiro-panel';
 import FuncionariosPanel from '@/components/admin/funcionarios-panel';
 import { useRouter } from 'next/navigation';
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 
 
 function AdminPageContent() {
@@ -121,26 +123,42 @@ function AdminPageContent() {
                 </CardContent>
               </Card>
             </TabsContent>
-            <TabsContent value="financeiro" className="space-y-6">
-              <FechamentoCaixaPanel />
-              <Card>
-                <CardHeader>
-                  <CardTitle>Contas a Pagar</CardTitle>
-                  <CardDescription>Controle as suas contas pendentes e pagamentos. Clique no ícone de documento para ver o romaneio.</CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <ContasAPagarPanel />
-                </CardContent>
-              </Card>
-              <Card>
-                <CardHeader>
-                  <CardTitle>Histórico e Edição de Compras</CardTitle>
-                  <CardDescription>Consulte o histórico detalhado, edite ou apague entradas de mercadorias já pagas.</CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <HistoricoFinanceiroPanel />
-                </CardContent>
-              </Card>
+            <TabsContent value="financeiro" className="space-y-4 pt-4">
+              <Accordion type="multiple" collapsible className="w-full space-y-4">
+                 <AccordionItem value="fechamento-caixa">
+                    <Card>
+                      <AccordionTrigger className="flex w-full items-center justify-between p-6 text-lg font-semibold hover:no-underline">
+                        <span>Fechamento de Caixa do Dia</span>
+                      </AccordionTrigger>
+                      <AccordionContent className="px-6 pb-6 pt-0">
+                        <CardDescription className="mb-4">Use esta ferramenta para fazer a prova real do seu caixa em dinheiro.</CardDescription>
+                        <FechamentoCaixaPanel />
+                      </AccordionContent>
+                    </Card>
+                 </AccordionItem>
+                 <AccordionItem value="contas-pagar">
+                    <Card>
+                      <AccordionTrigger className="flex w-full items-center justify-between p-6 text-lg font-semibold hover:no-underline">
+                        <span>Contas a Pagar</span>
+                      </AccordionTrigger>
+                      <AccordionContent className="px-6 pb-6 pt-0">
+                        <CardDescription className="mb-4">Controle as suas contas pendentes e pagamentos. Clique no ícone de documento para ver o romaneio.</CardDescription>
+                        <ContasAPagarPanel />
+                      </AccordionContent>
+                    </Card>
+                 </AccordionItem>
+                 <AccordionItem value="historico-compras">
+                    <Card>
+                      <AccordionTrigger className="flex w-full items-center justify-between p-6 text-lg font-semibold hover:no-underline">
+                        <span>Histórico e Edição de Compras</span>
+                      </AccordionTrigger>
+                      <AccordionContent className="px-6 pb-6 pt-0">
+                        <CardDescription className="mb-4">Consulte o histórico detalhado, edite ou apague entradas de mercadorias já pagas.</CardDescription>
+                        <HistoricoFinanceiroPanel />
+                      </AccordionContent>
+                    </Card>
+                 </AccordionItem>
+              </Accordion>
             </TabsContent>
             <TabsContent value="rh">
                {isAuthChecked && isRhAuthenticated ? (
