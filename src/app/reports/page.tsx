@@ -7,7 +7,7 @@ import { format, startOfMonth, endOfMonth, isSameDay, setMonth, setYear, parseIS
 import { ptBR } from 'date-fns/locale';
 import { useRouter } from 'next/navigation';
 
-import { Button } from '@/components/ui/button';
+import { Button, buttonVariants } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
 import { Loader2, Trash2, ChevronDown, TrendingUp, Info, Users, BarChart, Pencil, Calendar as CalendarIcon } from 'lucide-react';
@@ -572,39 +572,44 @@ function ReportsPageContent() {
 
                             return (
                                 <AccordionItem value={report.id} key={report.id} className="border-b-0">
-                                    <AccordionTrigger className="p-4 w-full hover:no-underline rounded-lg border bg-card data-[state=open]:rounded-b-none data-[state=open]:border-b-0 hover:bg-accent/50 transition-colors">
-                                        <div className="flex items-center justify-between w-full">
-                                            {/* Left Part */}
-                                            <div className="flex items-center gap-4">
-                                                <div className="flex flex-col items-center justify-center rounded-md bg-primary p-2 text-primary-foreground w-16 h-16 shrink-0">
-                                                    <span className="text-3xl font-bold leading-none">{format(reportDate, "dd")}</span>
-                                                    <span className="text-sm font-medium uppercase tracking-wider">{format(reportDate, "MMM", { locale: ptBR })}</span>
+                                    <div className="flex items-center rounded-lg border bg-card data-[state=open]:rounded-b-none data-[state=open]:border-b-0 hover:bg-accent/50 transition-colors">
+                                        <AccordionTrigger className="p-4 flex-grow hover:no-underline text-left">
+                                            <div className="flex items-center justify-between w-full">
+                                                <div className="flex items-center gap-4">
+                                                    <div className="flex flex-col items-center justify-center rounded-md bg-primary p-2 text-primary-foreground w-16 h-16 shrink-0">
+                                                        <span className="text-3xl font-bold leading-none">{format(reportDate, "dd")}</span>
+                                                        <span className="text-sm font-medium uppercase tracking-wider">{format(reportDate, "MMM", { locale: ptBR })}</span>
+                                                    </div>
+                                                    <div>
+                                                         <p className="font-semibold text-lg capitalize">{format(reportDate, "eeee", { locale: ptBR })}</p>
+                                                        <p className="text-sm text-muted-foreground">{format(reportDate, "dd 'de' MMMM 'de' yyyy", { locale: ptBR })}</p>
+                                                    </div>
                                                 </div>
-                                                <div>
-                                                     <p className="font-semibold text-lg capitalize">{format(reportDate, "eeee", { locale: ptBR })}</p>
-                                                    <p className="text-sm text-muted-foreground">{format(reportDate, "dd 'de' MMMM 'de' yyyy", { locale: ptBR })}</p>
-                                                </div>
-                                            </div>
-                                            {/* Right Part */}
-                                            <div className="flex items-center gap-2 ml-4 shrink-0">
                                                 <div className="text-right">
                                                     <p className="text-sm text-muted-foreground">Total do Dia</p>
                                                     <p className="text-xl font-bold text-primary">{formatCurrency(report.totalGeral)}</p>
                                                 </div>
-                                                <Button
-                                                    variant="ghost"
-                                                    size="icon"
-                                                    className="h-9 w-9 text-muted-foreground hover:text-destructive"
-                                                    onClick={(e) => {
-                                                        e.stopPropagation();
-                                                        handleDeleteReportRequest(report.id!);
-                                                    }}
-                                                >
-                                                    <Trash2 className="h-4 w-4" />
-                                                </Button>
                                             </div>
+                                        </AccordionTrigger>
+                                        <div
+                                            role="button"
+                                            tabIndex={0}
+                                            aria-label="Excluir Relatório"
+                                            className={cn(buttonVariants({ variant: 'ghost', size: 'icon' }), "h-9 w-9 text-muted-foreground hover:text-destructive shrink-0 mr-2")}
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                handleDeleteReportRequest(report.id!);
+                                            }}
+                                            onKeyDown={(e) => {
+                                                if (e.key === 'Enter' || e.key === ' ') {
+                                                   e.stopPropagation();
+                                                   handleDeleteReportRequest(report.id!);
+                                                }
+                                            }}
+                                        >
+                                            <Trash2 className="h-4 w-4" />
                                         </div>
-                                    </AccordionTrigger>
+                                    </div>
                                     <AccordionContent className="p-0 border border-t-0 rounded-t-none rounded-b-lg bg-card overflow-hidden">
                                          {selectedReportId === report.id && bomboniereItems ? (
                                             <ReportDetail report={report} bomboniereItems={bomboniereItems} />
