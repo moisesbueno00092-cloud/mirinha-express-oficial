@@ -2,15 +2,14 @@
 
 import { useState, useMemo, useEffect, useCallback } from 'react';
 import { useFirestore, useCollection, useUser } from '@/firebase';
-import { collection, query, orderBy, doc, where, getDocs, deleteDoc, writeBatch, updateDoc } from 'firebase/firestore';
-import { format, startOfMonth, endOfMonth, isSameDay, setMonth, setYear, parseISO, startOfDay, endOfDay } from 'date-fns';
+import { collection, query, orderBy, doc, where, getDocs, deleteDoc, writeBatch } from 'firebase/firestore';
+import { format, startOfMonth, endOfMonth, setMonth, setYear, parseISO, isSameDay } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import { useRouter } from 'next/navigation';
 
 import { Button, buttonVariants } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
-import { Loader2, Trash2, ChevronDown, TrendingUp, Info, Users, BarChart, Pencil, Calendar as CalendarIcon } from 'lucide-react';
+import { Loader2, Trash2, TrendingUp, Info, BarChart, Pencil } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import {
   AlertDialog,
@@ -27,15 +26,14 @@ import {
   AccordionContent,
   AccordionItem,
   AccordionTrigger,
-} from "@/components/ui/accordion"
+} from "@/components/ui/accordion";
 import {
   ChartContainer,
   ChartTooltip,
   ChartTooltipContent,
   type ChartConfig,
 } from "@/components/ui/chart"
-import { Calendar } from '@/components/ui/calendar';
-import type { DailyReport, ItemCount, BomboniereItem, SavedFavorite } from '@/types';
+import type { DailyReport, ItemCount, BomboniereItem } from '@/types';
 import { cn } from '@/lib/utils';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -49,7 +47,7 @@ const formatCurrency = (value: number | undefined | null) => {
     }).format(value || 0);
 };
 
-const ReportDetail = ({ report, bomboniereItems, isAggregate = false, onDelete }: { report: DailyReport | null, bomboniereItems: BomboniereItem[], isAggregate?: boolean, onDelete?: (reportId: string) => void }) => {
+const ReportDetail = ({ report, bomboniereItems }: { report: DailyReport | null, bomboniereItems: BomboniereItem[] }) => {
     
     const bomboniereNameMap = useMemo(() => {
       const map = new Map<string, string>();
@@ -88,14 +86,7 @@ const ReportDetail = ({ report, bomboniereItems, isAggregate = false, onDelete }
     }, [isBomboniere, bomboniereNameMap]);
     
     if (!report) {
-         return (
-             <Card>
-                <CardContent className="text-center text-muted-foreground p-10 h-[500px] flex flex-col justify-center items-center">
-                    <Info className="mx-auto h-8 w-8 mb-2"/>
-                    <p>Selecione um dia no calendário para ver os detalhes.</p>
-                </CardContent>
-            </Card>
-        )
+         return null;
     }
 
     const chartData = [
@@ -191,145 +182,121 @@ const ReportDetail = ({ report, bomboniereItems, isAggregate = false, onDelete }
 
 
   return (
-    <Card>
-        <CardHeader className="flex flex-row items-start justify-between">
-            <div>
-                <CardTitle className="text-lg">{isAggregate ? "Relatório Agregado do Mês" : "Resumo do Dia"}</CardTitle>
-                 {!isAggregate && report ? (
-                    <CardDescription>{format(parseISO(report.reportDate), "dd 'de' MMMM 'de' yyyy", { locale: ptBR })}</CardDescription>
-                ) : isAggregate ? (
-                    <CardDescription>{report.totalPedidos} pedidos em {report.id} dias</CardDescription>
-                ) : null}
-            </div>
-            <div className="flex flex-col items-end gap-2">
-                <p className="text-3xl font-bold text-primary">{formatCurrency(report.totalGeral)}</p>
-                <p className="text-sm text-muted-foreground">
-                    À Vista: <span className="font-semibold text-green-500">{formatCurrency(report.totalAVista)}</span>
-                </p>
-                 {!isAggregate && onDelete && (
-                    <Button variant="outline" size="sm" className="mt-2" onClick={() => onDelete(report.id!)}>
-                        <Trash2 className="h-4 w-4 mr-2" />
-                        Excluir Relatório
-                    </Button>
-                )}
-            </div>
-        </CardHeader>
-        <CardContent className="space-y-8">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-            <div className="space-y-4">
-              <div>
-                <h3 className="font-semibold mb-2">Resumo Financeiro</h3>
-                <div className="space-y-1 text-sm">
-                  <div className="flex justify-between items-center"><span className="text-purple-400">Vendas Salão:</span> <span className="font-mono">{formatCurrency(report.totalVendasSalao)}</span></div>
-                  <div className="flex justify-between items-center"><span className="text-blue-400">Vendas Rua:</span> <span className="font-mono">{formatCurrency(report.totalVendasRua)}</span></div>
-                  <div className="flex justify-between items-center text-destructive"><span>Fiado Salão:</span> <span className="font-mono text-destructive">{formatCurrency(report.totalFiadoSalao)}</span></div>
-                  <div className="flex justify-between items-center text-destructive"><span>Fiado Rua:</span> <span className="font-mono text-destructive">{formatCurrency(report.totalFiadoRua)}</span></div>
-                </div>
-              </div>
-              <Separator/>
-              <div>
-                <div className="space-y-1 text-sm">
-                  <div className="flex justify-between items-center"><span>Total Geral Bomboniere:</span> <span className="font-mono">{formatCurrency(totalGeralBomboniere)}</span></div>
-                </div>
-              </div>
-              <Separator/>
-              <div>
-                <div className="space-y-1 text-sm">
-                  <div className="flex justify-between items-center text-destructive"><span>Total Entregas:</span> <span className="font-mono font-bold">{report.totalEntregas || 0} ({formatCurrency(report.totalTaxas)})</span></div>
-                  <div className="flex justify-between items-center text-muted-foreground"><span>Total Geral (Itens):</span> <span className="font-mono font-bold text-foreground">{report.totalItens || 0}</span></div>
-                </div>
-              </div>
-            </div>
-
-            <div className="space-y-4">
-              <div>
-                  <h3 className="font-semibold mb-2">Contagem de Itens</h3>
-                  <div className="grid grid-cols-[1fr_auto_1fr] gap-4">
-                        <div>
-                            <h4 className="font-medium text-sm text-purple-400 mb-1">Salão</h4>
-                            {renderItemCountList(lanchesSalao)}
-                            {totalLanchesSalaoItens > 0 && (
-                                <div className="mt-2 pt-2 border-t border-dashed">
-                                    <div className="grid grid-cols-2 items-end text-xs">
-                                        <span className="text-muted-foreground">({totalLanchesSalaoItens} itens)</span>
-                                        <div className="flex justify-end items-center gap-2">
-                                            <span className="font-semibold text-purple-400">Total:</span>
-                                            <span className="font-bold font-mono text-purple-400">{formatCurrency(totalLanchesSalaoValor)}</span>
-                                        </div>
-                                    </div>
-                                </div>
-                            )}
-                            {renderTitledItemCountList(bomboniereSalao, "Bomboniere", "text-purple-400")}
-                            {report.totalBomboniereSalao > 0 && (
-                                <div className="mt-2 pt-2 border-t border-dashed">
-                                    <div className="grid grid-cols-2 items-end text-xs">
-                                      <span className="text-muted-foreground">({totalBomboniereSalaoItens} itens)</span>
-                                      <div className="flex justify-end items-center gap-2">
-                                          <span className="font-semibold text-purple-400">Total:</span>
-                                          <span className="font-bold font-mono text-purple-400">{formatCurrency(report.totalBomboniereSalao)}</span>
-                                      </div>
-                                    </div>
-                                </div>
-                            )}
-                        </div>
-                        <Separator orientation="vertical" />
-                        <div>
-                            <h4 className="font-medium text-sm text-blue-400 mb-1">Rua</h4>
-                            {renderItemCountList(lanchesRua)}
-                             {totalLanchesRuaItens > 0 && (
-                                <div className="mt-2 pt-2 border-t border-dashed">
-                                     <div className="grid grid-cols-2 items-end text-xs">
-                                        <span className="text-muted-foreground">({totalLanchesRuaItens} itens)</span>
-                                        <div className="flex justify-end items-center gap-2">
-                                            <span className="font-semibold text-blue-400">Total:</span>
-                                            <span className="font-bold font-mono text-blue-400">{formatCurrency(totalLanchesRuaValor)}</span>
-                                        </div>
-                                    </div>
-                                </div>
-                            )}
-                            {renderTitledItemCountList(bomboniereRua, "Bomboniere", "text-blue-400")}
-                             {report.totalBomboniereRua > 0 && (
-                                <div className="mt-2 pt-2 border-t border-dashed">
-                                     <div className="grid grid-cols-2 items-end text-xs">
-                                        <span className="text-muted-foreground">({totalBomboniereRuaItens} itens)</span>
-                                        <div className="flex justify-end items-center gap-2">
-                                            <span className="font-semibold text-blue-400">Total:</span>
-                                            <span className="font-bold font-mono text-blue-400">{formatCurrency(report.totalBomboniereRua)}</span>
-                                        </div>
-                                    </div>
-                                </div>
-                            )}
-                        </div>
-                  </div>
-              </div>
-              <Separator />
-              <div>
-                  <h3 className="font-semibold mb-2">Proporção de Vendas</h3>
-                  <ChartContainer config={chartConfig} className="mx-auto aspect-square h-[180px]">
-                      <ResponsiveContainer width="100%" height="100%">
-                          <PieChart>
-                              <ChartTooltip
-                              cursor={false}
-                              content={<ChartTooltipContent hideLabel formatter={(value, name, item) => (
-                                  <div className="flex flex-col">
-                                      <span>{item.payload.name}</span>
-                                      <span className="font-bold">{formatCurrency(value as number)}</span>
-                                  </div>
-                              )} />}
-                              />
-                              <Pie data={chartData} dataKey="value" nameKey="name" innerRadius={40} strokeWidth={2}>
-                              {chartData.map((entry) => (
-                                  <Cell key={`cell-${entry.name}`} fill={entry.fill} />
-                              ))}
-                              </Pie>
-                          </PieChart>
-                      </ResponsiveContainer>
-                  </ChartContainer>
-              </div>
+    <div className="space-y-8 pt-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+        <div className="space-y-4">
+          <div>
+            <h3 className="font-semibold mb-2">Resumo Financeiro</h3>
+            <div className="space-y-1 text-sm">
+              <div className="flex justify-between items-center"><span className="text-purple-400">Vendas Salão:</span> <span className="font-mono">{formatCurrency(report.totalVendasSalao)}</span></div>
+              <div className="flex justify-between items-center"><span className="text-blue-400">Vendas Rua:</span> <span className="font-mono">{formatCurrency(report.totalVendasRua)}</span></div>
+              <div className="flex justify-between items-center text-destructive"><span>Fiado Salão:</span> <span className="font-mono text-destructive">{formatCurrency(report.totalFiadoSalao)}</span></div>
+              <div className="flex justify-between items-center text-destructive"><span>Fiado Rua:</span> <span className="font-mono text-destructive">{formatCurrency(report.totalFiadoRua)}</span></div>
             </div>
           </div>
-        </CardContent>
-    </Card>
+          <Separator/>
+          <div>
+            <div className="space-y-1 text-sm">
+              <div className="flex justify-between items-center"><span>Total Geral Bomboniere:</span> <span className="font-mono">{formatCurrency(totalGeralBomboniere)}</span></div>
+            </div>
+          </div>
+          <Separator/>
+          <div>
+            <div className="space-y-1 text-sm">
+              <div className="flex justify-between items-center text-destructive"><span>Total Entregas:</span> <span className="font-mono font-bold">{report.totalEntregas || 0} ({formatCurrency(report.totalTaxas)})</span></div>
+              <div className="flex justify-between items-center text-muted-foreground"><span>Total Geral (Itens):</span> <span className="font-mono font-bold text-foreground">{report.totalItens || 0}</span></div>
+            </div>
+          </div>
+        </div>
+
+        <div className="space-y-4">
+          <div>
+              <h3 className="font-semibold mb-2">Contagem de Itens</h3>
+              <div className="grid grid-cols-[1fr_auto_1fr] gap-4">
+                    <div>
+                        <h4 className="font-medium text-sm text-purple-400 mb-1">Salão</h4>
+                        {renderItemCountList(lanchesSalao)}
+                        {totalLanchesSalaoItens > 0 && (
+                            <div className="mt-2 pt-2 border-t border-dashed">
+                                <div className="grid grid-cols-2 items-end text-xs">
+                                    <span className="text-muted-foreground">({totalLanchesSalaoItens} itens)</span>
+                                    <div className="flex justify-end items-center gap-2">
+                                        <span className="font-semibold text-purple-400">Total:</span>
+                                        <span className="font-bold font-mono text-purple-400">{formatCurrency(totalLanchesSalaoValor)}</span>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+                        {renderTitledItemCountList(bomboniereSalao, "Bomboniere", "text-purple-400")}
+                        {report.totalBomboniereSalao > 0 && (
+                            <div className="mt-2 pt-2 border-t border-dashed">
+                                <div className="grid grid-cols-2 items-end text-xs">
+                                  <span className="text-muted-foreground">({totalBomboniereSalaoItens} itens)</span>
+                                  <div className="flex justify-end items-center gap-2">
+                                      <span className="font-semibold text-purple-400">Total:</span>
+                                      <span className="font-bold font-mono text-purple-400">{formatCurrency(report.totalBomboniereSalao)}</span>
+                                  </div>
+                                </div>
+                            </div>
+                        )}
+                    </div>
+                    <Separator orientation="vertical" />
+                    <div>
+                        <h4 className="font-medium text-sm text-blue-400 mb-1">Rua</h4>
+                        {renderItemCountList(lanchesRua)}
+                         {totalLanchesRuaItens > 0 && (
+                            <div className="mt-2 pt-2 border-t border-dashed">
+                                 <div className="grid grid-cols-2 items-end text-xs">
+                                    <span className="text-muted-foreground">({totalLanchesRuaItens} itens)</span>
+                                    <div className="flex justify-end items-center gap-2">
+                                        <span className="font-semibold text-blue-400">Total:</span>
+                                        <span className="font-bold font-mono text-blue-400">{formatCurrency(totalLanchesRuaValor)}</span>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+                        {renderTitledItemCountList(bomboniereRua, "Bomboniere", "text-blue-400")}
+                         {report.totalBomboniereRua > 0 && (
+                            <div className="mt-2 pt-2 border-t border-dashed">
+                                 <div className="grid grid-cols-2 items-end text-xs">
+                                    <span className="text-muted-foreground">({totalBomboniereRuaItens} itens)</span>
+                                    <div className="flex justify-end items-center gap-2">
+                                        <span className="font-semibold text-blue-400">Total:</span>
+                                        <span className="font-bold font-mono text-blue-400">{formatCurrency(report.totalBomboniereRua)}</span>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+                    </div>
+              </div>
+          </div>
+          <Separator />
+          <div>
+              <h3 className="font-semibold mb-2">Proporção de Vendas</h3>
+              <ChartContainer config={chartConfig} className="mx-auto aspect-square h-[180px]">
+                  <ResponsiveContainer width="100%" height="100%">
+                      <PieChart>
+                          <ChartTooltip
+                          cursor={false}
+                          content={<ChartTooltipContent hideLabel formatter={(value, name, item) => (
+                              <div className="flex flex-col">
+                                  <span>{item.payload.name}</span>
+                                  <span className="font-bold">{formatCurrency(value as number)}</span>
+                              </div>
+                          )} />}
+                          />
+                          <Pie data={chartData} dataKey="value" nameKey="name" innerRadius={40} strokeWidth={2}>
+                          {chartData.map((entry) => (
+                              <Cell key={`cell-${entry.name}`} fill={entry.fill} />
+                          ))}
+                          </Pie>
+                      </PieChart>
+                  </ResponsiveContainer>
+              </ChartContainer>
+          </div>
+        </div>
+      </div>
+    </div>
   )
 }
 
@@ -353,9 +320,7 @@ function ReportsPageContent() {
   const { toast } = useToast();
   
   const [reportToDelete, setReportToDelete] = useState<DailyReport | null>(null);
-
   const [currentDate, setCurrentDate] = useState<Date>(new Date());
-  const [selectedDate, setSelectedDate] = useState<Date | undefined>();
   const [activeTab, setActiveTab] = useState('daily');
   
   const reportsQuery = useMemo(() => {
@@ -373,7 +338,6 @@ function ReportsPageContent() {
   }, [firestore, currentDate]);
 
   const { data: savedReports, isLoading: isLoadingReports } = useCollection<DailyReport>(reportsQuery);
-  
 
   const bomboniereQuery = useMemo(
     () => firestore ? query(collection(firestore, 'bomboniere_items'), orderBy('name', 'asc')) : null,
@@ -382,7 +346,6 @@ function ReportsPageContent() {
   const { data: bomboniereItems, isLoading: isLoadingBomboniere } = useCollection<BomboniereItem>(bomboniereQuery);
 
   const isLoading = isLoadingReports || isLoadingBomboniere || isUserLoading;
-
 
   const handleDeleteReportRequest = (reportId: string) => {
     const report = savedReports?.find(r => r.id === reportId);
@@ -420,8 +383,6 @@ function ReportsPageContent() {
         batch.delete(reportDocRef);
 
         await batch.commit();
-        
-        setSelectedDate(undefined);
         
         toast({
             title: "Sucesso",
@@ -482,28 +443,6 @@ function ReportsPageContent() {
         }, initial);
     }, [savedReports, user]);
 
-    const reportDays = useMemo(() => {
-        if (!savedReports) return [];
-        return savedReports.map(r => parseISO(r.reportDate));
-    }, [savedReports]);
-
-    const selectedReport = useMemo(() => {
-        if (!selectedDate || !savedReports) return null;
-        return savedReports.find(r => {
-            try {
-                return isSameDay(parseISO(r.reportDate), selectedDate);
-            } catch {
-                return false;
-            }
-        }) || null;
-    }, [selectedDate, savedReports]);
-
-    const handleMonthChange = (date: Date) => {
-        setCurrentDate(date);
-        setSelectedDate(undefined);
-    };
-
-
   if (isLoading && !savedReports) {
     return (
       <div className="flex h-screen items-center justify-center">
@@ -536,7 +475,7 @@ function ReportsPageContent() {
                     <label htmlFor="month-select" className="text-sm font-medium text-muted-foreground">Mês</label>
                     <Select
                         value={String(currentDate.getMonth())}
-                        onValueChange={(value) => handleMonthChange(setMonth(new Date(currentDate), parseInt(value)))}
+                        onValueChange={(value) => setCurrentDate(setMonth(new Date(currentDate), parseInt(value)))}
                     >
                         <SelectTrigger id="month-select" className="w-[180px]">
                             <SelectValue />
@@ -550,7 +489,7 @@ function ReportsPageContent() {
                     <label htmlFor="year-select" className="text-sm font-medium text-muted-foreground">Ano</label>
                     <Select
                         value={String(currentDate.getFullYear())}
-                        onValueChange={(value) => handleMonthChange(setYear(new Date(currentDate), parseInt(value)))}
+                        onValueChange={(value) => setCurrentDate(setYear(new Date(currentDate), parseInt(value)))}
                     >
                         <SelectTrigger id="year-select" className="w-[120px]">
                             <SelectValue />
@@ -570,57 +509,86 @@ function ReportsPageContent() {
                     Relatório Agregado do Mês
                 </TabsTrigger>
                 <TabsTrigger value="daily">
-                    <CalendarIcon className="mr-2 h-4 w-4" />
+                    <BarChart className="mr-2 h-4 w-4" />
                     Histórico Diário do Mês
                 </TabsTrigger>
             </TabsList>
             <TabsContent value="aggregate" className="mt-4">
-                 {isLoadingReports ? (
+                {isLoadingReports ? (
                     <div className="flex justify-center p-8"><Loader2 className="h-8 w-8 animate-spin"/></div>
-                 ) : savedReports && savedReports.length > 0 && aggregateReport ? (
-                    <ReportDetail report={aggregateReport} bomboniereItems={bomboniereItems || []} isAggregate={true} />
-                 ) : (
+                ) : savedReports && savedReports.length > 0 && aggregateReport ? (
+                    <Card>
+                        <CardHeader>
+                            <CardTitle>Relatório Agregado</CardTitle>
+                            <CardDescription>Resumo de {format(currentDate, 'MMMM \'de\' yyyy', { locale: ptBR })} - {aggregateReport.totalPedidos} pedidos em {aggregateReport.id} dias</CardDescription>
+                        </CardHeader>
+                        <CardContent>
+                           <ReportDetail report={aggregateReport} bomboniereItems={bomboniereItems || []} />
+                        </CardContent>
+                    </Card>
+                ) : (
                     <Card>
                         <CardContent className="text-center text-muted-foreground py-20">
                             <Info className="mx-auto h-8 w-8 mb-2"/>
                             <p>Nenhum relatório encontrado para o mês de {format(currentDate, 'MMMM', { locale: ptBR })}.</p>
                         </CardContent>
                     </Card>
-                 )}
+                )}
             </TabsContent>
             <TabsContent value="daily" className="mt-4">
-                 <div className="grid grid-cols-1 lg:grid-cols-[auto_1fr] gap-8">
-                    <Card className="p-0 max-w-sm w-full mx-auto">
-                         <Calendar
-                            mode="single"
-                            selected={selectedDate}
-                            onSelect={setSelectedDate}
-                            month={currentDate}
-                            onMonthChange={handleMonthChange}
-                            modifiers={{ haveReport: reportDays }}
-                            modifiersClassNames={{ haveReport: 'day-have-report' }}
-                            disabled={(date) => date > new Date() || date < new Date("2023-01-01")}
-                            className="p-0"
-                            locale={ptBR}
-                        />
+                {isLoadingReports ? (
+                    <div className="flex justify-center p-8"><Loader2 className="h-8 w-8 animate-spin"/></div>
+                ) : savedReports && savedReports.length > 0 ? (
+                    <Accordion type="single" collapsible className="w-full space-y-4">
+                        {savedReports.map((report) => (
+                            <AccordionItem key={report.id} value={report.id}>
+                                <Card>
+                                     <AccordionTrigger className="p-4 w-full text-left hover:no-underline">
+                                          <div className="flex justify-between items-center w-full">
+                                              <div className="flex items-center gap-4">
+                                                  <div className="text-center">
+                                                      <p className="text-2xl font-bold">{format(parseISO(report.reportDate), 'dd')}</p>
+                                                      <p className="text-xs uppercase text-muted-foreground">{format(parseISO(report.reportDate), 'MMM', { locale: ptBR })}</p>
+                                                  </div>
+                                                  <div>
+                                                      <p className="font-semibold text-base">{format(parseISO(report.reportDate), "EEEE", { locale: ptBR })}</p>
+                                                      <p className="text-sm text-muted-foreground">{report.totalPedidos} pedidos</p>
+                                                  </div>
+                                              </div>
+                                              <div className="flex items-center gap-2">
+                                                  <div className="text-right">
+                                                      <p className="text-sm text-muted-foreground">Total do Dia</p>
+                                                      <p className="text-lg font-bold text-primary">{formatCurrency(report.totalGeral)}</p>
+                                                  </div>
+                                                  <div
+                                                      role="button"
+                                                      aria-label="Excluir Relatório"
+                                                      className={cn(buttonVariants({ variant: 'ghost', size: 'icon' }), "h-9 w-9 text-muted-foreground hover:text-destructive z-10")}
+                                                      onClick={(e) => {
+                                                          e.stopPropagation();
+                                                          if(report.id) handleDeleteReportRequest(report.id);
+                                                      }}
+                                                  >
+                                                      <Trash2 className="h-4 w-4" />
+                                                  </div>
+                                              </div>
+                                          </div>
+                                      </AccordionTrigger>
+                                    <AccordionContent className="p-4 pt-0">
+                                        <ReportDetail report={report} bomboniereItems={bomboniereItems || []} />
+                                    </AccordionContent>
+                                </Card>
+                            </AccordionItem>
+                        ))}
+                    </Accordion>
+                ) : (
+                     <Card>
+                        <CardContent className="text-center text-muted-foreground py-20">
+                            <Info className="mx-auto h-8 w-8 mb-2"/>
+                            <p>Nenhum relatório encontrado para o mês de {format(currentDate, 'MMMM', { locale: ptBR })}.</p>
+                        </CardContent>
                     </Card>
-                    <div className="min-w-0">
-                        {selectedDate && !selectedReport && !isLoadingReports ? (
-                             <Card>
-                                <CardContent className="text-center text-muted-foreground p-10 h-full flex flex-col justify-center items-center">
-                                    <Info className="mx-auto h-8 w-8 mb-2"/>
-                                    <p>Nenhum relatório encontrado para o dia {format(selectedDate, 'dd/MM/yyyy', {locale: ptBR})}.</p>
-                                </CardContent>
-                            </Card>
-                        ) : (
-                            <ReportDetail 
-                                report={selectedReport} 
-                                bomboniereItems={bomboniereItems || []} 
-                                onDelete={handleDeleteReportRequest}
-                            />
-                        )}
-                    </div>
-                </div>
+                )}
             </TabsContent>
         </Tabs>
       </main>
