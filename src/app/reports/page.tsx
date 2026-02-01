@@ -49,7 +49,7 @@ const formatCurrency = (value: number | undefined | null) => {
     }).format(value || 0);
 };
 
-const ReportDetail = ({ report, bomboniereItems, isAggregate = false }: { report: DailyReport | null, bomboniereItems: BomboniereItem[], isAggregate?: boolean }) => {
+const ReportDetail = ({ report, bomboniereItems, isAggregate = false, onDelete }: { report: DailyReport | null, bomboniereItems: BomboniereItem[], isAggregate?: boolean, onDelete?: (reportId: string) => void }) => {
     
     const bomboniereNameMap = useMemo(() => {
       const map = new Map<string, string>();
@@ -92,7 +92,7 @@ const ReportDetail = ({ report, bomboniereItems, isAggregate = false }: { report
              <Card>
                 <CardContent className="text-center text-muted-foreground p-10 h-[500px] flex flex-col justify-center items-center">
                     <Info className="mx-auto h-8 w-8 mb-2"/>
-                    <p>Selecione um dia na lista para ver os detalhes.</p>
+                    <p>Selecione um dia no calendário para ver os detalhes.</p>
                 </CardContent>
             </Card>
         )
@@ -195,13 +195,23 @@ const ReportDetail = ({ report, bomboniereItems, isAggregate = false }: { report
         <CardHeader className="flex flex-row items-start justify-between">
             <div>
                 <CardTitle className="text-lg">{isAggregate ? "Relatório Agregado do Mês" : "Resumo do Dia"}</CardTitle>
-                {isAggregate && <CardDescription>{report.totalPedidos} pedidos em {report.id} dias</CardDescription>}
+                 {!isAggregate && report ? (
+                    <CardDescription>{format(parseISO(report.reportDate), "dd 'de' MMMM 'de' yyyy", { locale: ptBR })}</CardDescription>
+                ) : isAggregate ? (
+                    <CardDescription>{report.totalPedidos} pedidos em {report.id} dias</CardDescription>
+                ) : null}
             </div>
-            <div className="text-right">
+            <div className="flex flex-col items-end gap-2">
                 <p className="text-3xl font-bold text-primary">{formatCurrency(report.totalGeral)}</p>
-                <p className="text-sm text-muted-foreground mt-1">
-                    Faturamento à Vista: <span className="font-semibold text-green-500">{formatCurrency(report.totalAVista)}</span>
+                <p className="text-sm text-muted-foreground">
+                    À Vista: <span className="font-semibold text-green-500">{formatCurrency(report.totalAVista)}</span>
                 </p>
+                 {!isAggregate && onDelete && (
+                    <Button variant="outline" size="sm" className="mt-2" onClick={() => onDelete(report.id!)}>
+                        <Trash2 className="h-4 w-4 mr-2" />
+                        Excluir Relatório
+                    </Button>
+                )}
             </div>
         </CardHeader>
         <CardContent className="space-y-8">
@@ -345,7 +355,7 @@ function ReportsPageContent() {
   const [reportToDelete, setReportToDelete] = useState<DailyReport | null>(null);
 
   const [currentDate, setCurrentDate] = useState<Date>(new Date());
-  const [selectedReportId, setSelectedReportId] = useState<string | null>(null);
+  const [selectedDate, setSelectedDate] = useState<Date | undefined>();
   const [activeTab, setActiveTab] = useState('daily');
   
   const reportsQuery = useMemo(() => {
@@ -411,7 +421,7 @@ function ReportsPageContent() {
 
         await batch.commit();
         
-        setSelectedReportId(null);
+        setSelectedDate(undefined);
         
         toast({
             title: "Sucesso",
@@ -472,8 +482,29 @@ function ReportsPageContent() {
         }, initial);
     }, [savedReports, user]);
 
+    const reportDays = useMemo(() => {
+        if (!savedReports) return [];
+        return savedReports.map(r => parseISO(r.reportDate));
+    }, [savedReports]);
 
-  if (isLoading) {
+    const selectedReport = useMemo(() => {
+        if (!selectedDate || !savedReports) return null;
+        return savedReports.find(r => {
+            try {
+                return isSameDay(parseISO(r.reportDate), selectedDate);
+            } catch {
+                return false;
+            }
+        }) || null;
+    }, [selectedDate, savedReports]);
+
+    const handleMonthChange = (date: Date) => {
+        setCurrentDate(date);
+        setSelectedDate(undefined);
+    };
+
+
+  if (isLoading && !savedReports) {
     return (
       <div className="flex h-screen items-center justify-center">
         <Loader2 className="h-12 w-12 animate-spin text-primary" />
@@ -505,7 +536,7 @@ function ReportsPageContent() {
                     <label htmlFor="month-select" className="text-sm font-medium text-muted-foreground">Mês</label>
                     <Select
                         value={String(currentDate.getMonth())}
-                        onValueChange={(value) => setCurrentDate(setMonth(new Date(currentDate), parseInt(value)))}
+                        onValueChange={(value) => handleMonthChange(setMonth(new Date(currentDate), parseInt(value)))}
                     >
                         <SelectTrigger id="month-select" className="w-[180px]">
                             <SelectValue />
@@ -519,7 +550,7 @@ function ReportsPageContent() {
                     <label htmlFor="year-select" className="text-sm font-medium text-muted-foreground">Ano</label>
                     <Select
                         value={String(currentDate.getFullYear())}
-                        onValueChange={(value) => setCurrentDate(setYear(new Date(currentDate), parseInt(value)))}
+                        onValueChange={(value) => handleMonthChange(setYear(new Date(currentDate), parseInt(value)))}
                     >
                         <SelectTrigger id="year-select" className="w-[120px]">
                             <SelectValue />
@@ -539,12 +570,12 @@ function ReportsPageContent() {
                     Relatório Agregado do Mês
                 </TabsTrigger>
                 <TabsTrigger value="daily">
-                    <BarChart className="mr-2 h-4 w-4" />
+                    <CalendarIcon className="mr-2 h-4 w-4" />
                     Histórico Diário do Mês
                 </TabsTrigger>
             </TabsList>
             <TabsContent value="aggregate" className="mt-4">
-                 {isLoading ? (
+                 {isLoadingReports ? (
                     <div className="flex justify-center p-8"><Loader2 className="h-8 w-8 animate-spin"/></div>
                  ) : savedReports && savedReports.length > 0 && aggregateReport ? (
                     <ReportDetail report={aggregateReport} bomboniereItems={bomboniereItems || []} isAggregate={true} />
@@ -558,76 +589,38 @@ function ReportsPageContent() {
                  )}
             </TabsContent>
             <TabsContent value="daily" className="mt-4">
-                 <h2 className="text-lg font-semibold mb-4">Relatórios Salvos no Mês</h2>
-                {isLoading ? (
-                    <div className="flex items-center justify-center h-40">
-                        <Loader2 className="h-8 w-8 animate-spin text-primary"/>
+                 <div className="grid grid-cols-1 lg:grid-cols-[auto_1fr] gap-8">
+                    <Card className="p-0 max-w-sm w-full mx-auto">
+                         <Calendar
+                            mode="single"
+                            selected={selectedDate}
+                            onSelect={setSelectedDate}
+                            month={currentDate}
+                            onMonthChange={handleMonthChange}
+                            modifiers={{ haveReport: reportDays }}
+                            modifiersClassNames={{ haveReport: 'day-have-report' }}
+                            disabled={(date) => date > new Date() || date < new Date("2023-01-01")}
+                            className="p-0"
+                            locale={ptBR}
+                        />
+                    </Card>
+                    <div className="min-w-0">
+                        {selectedDate && !selectedReport && !isLoadingReports ? (
+                             <Card>
+                                <CardContent className="text-center text-muted-foreground p-10 h-full flex flex-col justify-center items-center">
+                                    <Info className="mx-auto h-8 w-8 mb-2"/>
+                                    <p>Nenhum relatório encontrado para o dia {format(selectedDate, 'dd/MM/yyyy', {locale: ptBR})}.</p>
+                                </CardContent>
+                            </Card>
+                        ) : (
+                            <ReportDetail 
+                                report={selectedReport} 
+                                bomboniereItems={bomboniereItems || []} 
+                                onDelete={handleDeleteReportRequest}
+                            />
+                        )}
                     </div>
-                ) : (
-                <Accordion type="single" collapsible className="w-full space-y-3" value={selectedReportId || ''} onValueChange={setSelectedReportId}>
-                    {savedReports && savedReports.length > 0 ? (
-                        savedReports.map(report => {
-                            if (!report || !report.id || !report.reportDate) return null;
-                            const reportDate = parseISO(report.reportDate);
-
-                            return (
-                                <AccordionItem value={report.id} key={report.id} className="border-b-0">
-                                    <div className="flex items-center rounded-lg border bg-card data-[state=open]:rounded-b-none data-[state=open]:border-b-0 hover:bg-accent/50 transition-colors">
-                                        <AccordionTrigger className="p-4 flex-1 hover:no-underline text-left">
-                                            <div className="flex items-center justify-between w-full">
-                                                <div className="flex items-center gap-4">
-                                                    <div className="flex flex-col items-center justify-center rounded-md bg-primary p-2 text-primary-foreground w-16 h-16 shrink-0">
-                                                        <span className="text-3xl font-bold leading-none">{format(reportDate, "dd")}</span>
-                                                        <span className="text-sm font-medium uppercase tracking-wider">{format(reportDate, "MMM", { locale: ptBR })}</span>
-                                                    </div>
-                                                    <div>
-                                                         <p className="font-semibold text-lg capitalize">{format(reportDate, "eeee", { locale: ptBR })}</p>
-                                                        <p className="text-sm text-muted-foreground">{format(reportDate, "dd 'de' MMMM 'de' yyyy", { locale: ptBR })}</p>
-                                                    </div>
-                                                </div>
-                                                <div className="text-right">
-                                                    <p className="text-sm text-muted-foreground">Total do Dia</p>
-                                                    <p className="text-xl font-bold text-primary">{formatCurrency(report.totalGeral)}</p>
-                                                </div>
-                                            </div>
-                                        </AccordionTrigger>
-                                        <div
-                                            role="button"
-                                            tabIndex={0}
-                                            aria-label="Excluir Relatório"
-                                            className={cn(buttonVariants({ variant: 'ghost', size: 'icon' }), "h-9 w-9 text-muted-foreground hover:text-destructive shrink-0 mr-2")}
-                                            onClick={(e) => {
-                                                e.stopPropagation();
-                                                handleDeleteReportRequest(report.id!);
-                                            }}
-                                            onKeyDown={(e) => {
-                                                if (e.key === 'Enter' || e.key === ' ') {
-                                                   e.stopPropagation();
-                                                   handleDeleteReportRequest(report.id!);
-                                                }
-                                            }}
-                                        >
-                                            <Trash2 className="h-4 w-4" />
-                                        </div>
-                                    </div>
-                                    <AccordionContent className="p-0 border border-t-0 rounded-t-none rounded-b-lg bg-card overflow-hidden">
-                                         {selectedReportId === report.id && bomboniereItems ? (
-                                            <ReportDetail report={report} bomboniereItems={bomboniereItems} />
-                                        ) : (
-                                            <div className="flex justify-center p-8"><Loader2 className="h-6 w-6 animate-spin"/></div>
-                                        )}
-                                    </AccordionContent>
-                                </AccordionItem>
-                            )
-                        })
-                    ) : (
-                         <div className="text-center text-muted-foreground py-10">
-                            <Info className="mx-auto h-8 w-8 mb-2"/>
-                            <p>Nenhum relatório encontrado para o mês de {format(currentDate, 'MMMM', { locale: ptBR })} de {currentDate.getFullYear()}.</p>
-                        </div>
-                    )}
-                </Accordion>
-                )}
+                </div>
             </TabsContent>
         </Tabs>
       </main>
