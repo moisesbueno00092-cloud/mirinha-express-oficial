@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState } from 'react';
@@ -91,6 +90,34 @@ export default function LaunchGuideSheet() {
                                   <li><strong>Itens por Quilo (KG):</strong> Use a sigla <code className="bg-muted px-1.5 py-0.5 rounded-sm font-mono">KG</code> seguida pelos valores de cada item. Ex: <code className="bg-muted px-1.5 py-0.5 rounded-sm font-mono">KG 25,50 18,20</code> (dois itens pesados).</li>
                                   <li><strong>Itens da Bomboniere:</strong> Use o nome do item (ex: `coca-lata`) ou abra o menu "Outros". Para preço personalizado, use o formato <code className="bg-muted px-1.5 py-0.5 rounded-sm font-mono">nome preço</code>. Ex: <code className="bg-muted px-1.5 py-0.5 rounded-sm font-mono">chocolate 4,50</code></li>
                               </ul>
+                          </AccordionContent>
+                      </AccordionItem>
+                      <AccordionItem value="item-4">
+                          <AccordionTrigger>Siglas e Abreviações</AccordionTrigger>
+                          <AccordionContent>
+                              <div className="space-y-3 mt-2 text-sm text-muted-foreground">
+                                <p><strong>R:</strong> Venda para a <strong>R</strong>ua (com taxa de entrega).</p>
+                                <p><strong>FR:</strong> <strong>F</strong>iado para a <strong>R</strong>ua (com taxa de entrega).</p>
+                                <p><strong>F:</strong> <strong>F</strong>iado no Salão.</p>
+                                <p><strong>E:</strong> Isenção de taxa d<strong>e</strong> entrega.</p>
+                                <p><strong>TX:</strong> <strong>T</strong>a<strong>x</strong>a de entrega manual.</p>
+                                
+                                <h4 className="font-semibold text-foreground pt-3">Itens Pré-definidos:</h4>
+                                <ul className="list-disc pl-5 grid grid-cols-2 gap-x-4 gap-y-1">
+                                    <li><strong>PP:</strong> Refeição Pequena-Pequena</li>
+                                    <li><strong>P:</strong> Refeição Pequena</li>
+                                    <li><strong>M:</strong> Refeição Média</li>
+                                    <li><strong>G:</strong> Refeição Grande</li>
+                                    <li><strong>GG:</strong> Refeição Gigante</li>
+                                    <li><strong>KITM:</strong> Kit Médio</li>
+                                    <li><strong>KITG:</strong> Kit Grande</li>
+                                    <li><strong>PF:</strong> Prato Feito</li>
+                                    <li><strong>SL:</strong> Salada</li>
+                                    <li><strong>SLKIT:</strong> Kit Salada</li>
+                                    <li><strong>S:</strong> Refeição 'S'</li>
+                                    <li><strong>KG:</strong> Venda por Quilo</li>
+                                </ul>
+                              </div>
                           </AccordionContent>
                       </AccordionItem>
                       <AccordionItem value="item-3">
