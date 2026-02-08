@@ -162,6 +162,8 @@ function LancheTrackerPageContent() {
   const [isStockEditModalOpen, setIsStockEditModalOpen] = useState(false);
   const [rawInput, setRawInput] = useState('');
   const inputRef = useRef<HTMLInputElement>(null);
+  const prevIsProcessing = useRef<boolean>();
+
 
   const [itemToDelete, setItemToDelete] = useState<string | null>(null);
   const [itemToEdit, setItemToEdit] = useState<Item | null>(null);
@@ -174,6 +176,14 @@ function LancheTrackerPageContent() {
   const [isSelectionModeActive, setIsSelectionModeActive] = useState(false);
   const [selectedItems, setSelectedItems] = useState<string[]>([]);
   const [isDeleteSelectedAlertOpen, setIsDeleteSelectedAlertOpen] = useState(false);
+
+  useEffect(() => {
+    if (prevIsProcessing.current === true && !isProcessing) {
+      inputRef.current?.focus();
+    }
+    prevIsProcessing.current = isProcessing;
+  }, [isProcessing]);
+
 
   const handlePasswordSuccess = () => {
     if (passwordPrompt?.onSuccess) {
@@ -488,9 +498,6 @@ function LancheTrackerPageContent() {
       setIsProcessing(false);
       setRawInput('');
       setItemToEdit(null);
-      setTimeout(() => {
-        inputRef.current?.focus();
-      }, 0);
     }
   }
 
