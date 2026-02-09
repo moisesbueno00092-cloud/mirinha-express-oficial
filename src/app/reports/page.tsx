@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { useFirestore, useCollection, useUser } from '@/firebase';
 import { collection, query, orderBy, doc, where, getDocs, deleteDoc, writeBatch } from 'firebase/firestore';
 import { 
@@ -56,10 +56,11 @@ import {
   ChartTooltipContent,
   type ChartConfig,
 } from "@/components/ui/chart"
-import type { DailyReport, ItemCount, BomboniereItem } from '@/types';
+import type { DailyReport, ItemCount, BomboniereItem, Item } from '@/types';
 import { cn } from '@/lib/utils';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { PieChart, Pie, Cell, ResponsiveContainer } from 'recharts';
+import ArchivedReportCharts from '@/components/archived-report-charts';
 
 const formatCurrency = (value: number | undefined | null) => {
     return new Intl.NumberFormat("pt-BR", {
@@ -382,6 +383,10 @@ const DailyReportsSection = ({ reports, bomboniereItems, onDeleteRequest, onEdit
     onEditDateRequest: (report: DailyReport) => void 
 }) => {
     const [currentDate, setCurrentDate] = useState<Date>(new Date());
+    const [openReportId, setOpenReportId] = useState('');
+    const [reportItems, setReportItems] = useState<Item[] | null>(null);
+    const [isLoadingItems, setIsLoadingItems] = useState(false);
+    const firestore = useFirestore();
     
     const monthlyReports = useMemo(() => {
         if(!reports) return [];
@@ -390,6 +395,40 @@ const DailyReportsSection = ({ reports, bomboniereItems, onDeleteRequest, onEdit
             return reportDate.getFullYear() === currentDate.getFullYear() && reportDate.getMonth() === currentDate.getMonth();
         }).sort((a, b) => parseISO(b.reportDate).getTime() - parseISO(a.reportDate).getTime());
     }, [reports, currentDate]);
+
+    useEffect(() => {
+        if (!openReportId || !firestore) {
+            setReportItems(null);
+            return;
+        }
+
+        const fetchItems = async () => {
+            setIsLoadingItems(true);
+            const report = reports.find(r => r.id === openReportId);
+            if (!report) {
+                setIsLoadingItems(false);
+                setReportItems(null);
+                return;
+            }
+
+            try {
+                const itemsQuery = query(
+                    collection(firestore, 'order_items'),
+                    where('reportDate', '==', report.reportDate)
+                );
+                const snapshot = await getDocs(itemsQuery);
+                const items = snapshot.docs.map(doc => ({...doc.data(), id: doc.id })) as Item[];
+                setReportItems(items);
+            } catch (e) {
+                console.error("Failed to fetch report items:", e);
+                setReportItems(null);
+            } finally {
+                setIsLoadingItems(false);
+            }
+        };
+
+        fetchItems();
+    }, [openReportId, firestore, reports]);
 
     return (
         <div className="space-y-4">
@@ -424,7 +463,7 @@ const DailyReportsSection = ({ reports, bomboniereItems, onDeleteRequest, onEdit
                 </div>
             </div>
             {monthlyReports.length > 0 ? (
-                <Accordion type="single" collapsible className="w-full space-y-4">
+                <Accordion type="single" collapsible className="w-full space-y-4" onValueChange={setOpenReportId}>
                     {monthlyReports.map((report) => (
                         <AccordionItem key={report.id} value={report.id}>
                             <Card>
@@ -472,6 +511,15 @@ const DailyReportsSection = ({ reports, bomboniereItems, onDeleteRequest, onEdit
                                   </AccordionTrigger>
                                 <AccordionContent className="p-4 pt-0">
                                     <ReportDetail report={report} bomboniereItems={bomboniereItems} />
+                                    {openReportId === report.id && (
+                                        isLoadingItems ? (
+                                            <div className="flex justify-center items-center h-40">
+                                                <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                                            </div>
+                                        ) : reportItems && (
+                                            <ArchivedReportCharts items={reportItems} />
+                                        )
+                                    )}
                                 </AccordionContent>
                             </Card>
                         </AccordionItem>
@@ -985,5 +1033,3 @@ export default function ReportsPage() {
     
     return <ReportsPageContent />;
 }
-
-    
