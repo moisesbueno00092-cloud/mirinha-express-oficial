@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogClose } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -38,6 +38,7 @@ export default function BomboniereModal({ isOpen, onClose, onAddItems, bombonier
   const [searchTerm, setSearchTerm] = useState('');
   const [isStockEditModalOpen, setStockEditModalOpen] = useState(false);
   const [passwordPrompt, setPasswordPrompt] = useState<{ open: boolean, onSuccess: () => void, onCancel?: () => void } | null>(null);
+  const searchInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (isOpen) {
@@ -92,6 +93,7 @@ export default function BomboniereModal({ isOpen, onClose, onAddItems, bombonier
       }
       return { ...prev, [itemId]: newQuantity };
     });
+    searchInputRef.current?.focus();
   };
 
   const handleAddClick = () => {
@@ -152,6 +154,7 @@ export default function BomboniereModal({ isOpen, onClose, onAddItems, bombonier
               
               <div className="px-1 pt-2 pb-1">
                   <Input 
+                      ref={searchInputRef}
                       placeholder="Buscar item..."
                       value={searchTerm}
                       onChange={(e) => setSearchTerm(e.target.value)}
