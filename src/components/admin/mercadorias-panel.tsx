@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo, useRef, useEffect } from 'react';
+import { useState, useMemo, useRef, useEffect, useCallback } from 'react';
 import { useCollection, useFirestore } from '@/firebase';
 import { collection, query, orderBy, writeBatch, doc, setDoc, addDoc } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
@@ -135,6 +135,48 @@ export default function MercadoriasPanel() {
     
     const bomboniereItemsQuery = useMemo(() => firestore ? query(collection(firestore, 'bomboniere_items')) : null, [firestore]);
     const { data: bomboniereItems, isLoading: isLoadingBomboniere } = useCollection<BomboniereItem>(bomboniereItemsQuery);
+
+    const predictAndSetSupplier = useCallback((currentProdutos: LancamentoProduto[]) => {
+        if (!currentProdutos.length || !allEntradas?.length || !fornecedores?.length) {
+            return;
+        }
+    
+        const supplierScores: Record<string, number> = {};
+    
+        // For each product in the current launch, find its most common historical supplier
+        for (const produto of currentProdutos) {
+            const productHistory: Record<string, number> = {};
+            allEntradas.forEach(entry => {
+                if (entry.produtoNome.toLowerCase() === produto.produtoNome.toLowerCase()) {
+                    productHistory[entry.fornecedorId] = (productHistory[entry.fornecedorId] || 0) + 1;
+                }
+            });
+    
+            if (Object.keys(productHistory).length > 0) {
+                const mostLikelySupplierForProduct = Object.entries(productHistory).reduce((a, b) => a[1] > b[1] ? a : b)[0];
+                if (mostLikelySupplierForProduct) {
+                    supplierScores[mostLikelySupplierForProduct] = (supplierScores[mostLikelySupplierForProduct] || 0) + 1;
+                }
+            }
+        }
+        
+        if (Object.keys(supplierScores).length === 0) {
+            return; // No historical data found for any of the products
+        }
+    
+        const bestMatchId = Object.entries(supplierScores).reduce((a, b) => a[1] > b[1] ? a : b)[0];
+        
+        if (bestMatchId && fornecedores.some(f => f.id === bestMatchId)) {
+            setFornecedorId(bestMatchId);
+            const fornecedorNome = fornecedores.find(f => f.id === bestMatchId)?.nome;
+            toast({
+                title: "Fornecedor Sugerido",
+                description: `Com base nos produtos, selecionámos "${fornecedorNome}".`,
+            });
+        }
+    
+    }, [allEntradas, fornecedores, toast]);
+
 
     useEffect(() => {
         const ensureProviders = async () => {
@@ -419,26 +461,12 @@ export default function MercadoriasPanel() {
                     };
                 });
 
-                setProdutosLancados(prev => [...prev, ...newProdutos]);
+                setProdutosLancados(prev => {
+                    const newList = [...prev, ...newProdutos];
+                    predictAndSetSupplier(newList);
+                    return newList;
+                });
                 toast({ title: 'Sucesso!', description: `${newProdutos.length} itens foram extraídos e adicionados.` });
-
-                if (firestore && bomboniereItems?.length) {
-                    const batch = writeBatch(firestore);
-                    let stockUpdates = 0;
-                    for (const produto of newProdutos) {
-                        const matched = findBestBomboniereMatch(produto.produtoNome, bomboniereItems);
-                        if (matched) {
-                            const itemRef = doc(firestore, 'bomboniere_items', matched.id);
-                            const newStock = (matched.estoque || 0) + produto.quantidade;
-                            batch.update(itemRef, { estoque: newStock });
-                            stockUpdates++;
-                        }
-                    }
-                    if (stockUpdates > 0) {
-                        await batch.commit();
-                        toast({ title: 'Estoque Atualizado', description: `${stockUpdates} item(ns) da bomboniere tiveram o estoque atualizado.` });
-                    }
-                }
             }
         } catch (error: any) {
             console.error("Erro ao analisar a imagem da câmera:", error);
@@ -470,7 +498,7 @@ export default function MercadoriasPanel() {
             duration: (files.length + 1) * 60000
         });
 
-        let totalItemsAdded = 0;
+        let allNewItemsFromAllFiles: LancamentoProduto[] = [];
         let hasAnySuccess = false;
 
         for (const [index, file] of Array.from(files).entries()) {
@@ -504,31 +532,8 @@ export default function MercadoriasPanel() {
                             preco: valorTotal
                         };
                     });
-
-                    totalItemsAdded += newProdutos.length;
-                    setProdutosLancados(prev => [...prev, ...newProdutos]);
-
-                    if (firestore && bomboniereItems?.length) {
-                        const stockBatch = writeBatch(firestore);
-                        let stockUpdatesCount = 0;
-                        for (const produto of newProdutos) {
-                            const matchedItem = findBestBomboniereMatch(produto.produtoNome, bomboniereItems);
-                            if (matchedItem) {
-                                const docRef = doc(firestore, 'bomboniere_items', matchedItem.id);
-                                const currentStock = bomboniereItems.find(bi => bi.id === matchedItem.id)?.estoque ?? 0;
-                                const newStock = currentStock + produto.quantidade;
-                                stockBatch.update(docRef, { estoque: newStock });
-                                stockUpdatesCount++;
-                            }
-                        }
-                        if (stockUpdatesCount > 0) {
-                            await stockBatch.commit();
-                            toast({
-                                title: `Estoque Atualizado (${file.name})`,
-                                description: `${stockUpdatesCount} item(ns) da bomboniere tiveram o estoque atualizado.`
-                            });
-                        }
-                    }
+                    
+                    allNewItemsFromAllFiles.push(...newProdutos);
                 }
             } catch (error: any) {
                 const errorMessage = error.message.includes('429')
@@ -541,7 +546,6 @@ export default function MercadoriasPanel() {
                     duration: 10000
                 });
             } finally {
-                // This ensures a delay even after errors
                 if (index < files.length - 1) {
                     await new Promise(resolve => setTimeout(resolve, 61000));
                 }
@@ -551,14 +555,19 @@ export default function MercadoriasPanel() {
         if (fileInputRef.current) {
             fileInputRef.current.value = "";
         }
-        
+
         if (hasAnySuccess) {
+            setProdutosLancados(prev => {
+                const newList = [...prev, ...allNewItemsFromAllFiles];
+                predictAndSetSupplier(newList);
+                return newList;
+            });
             toast({
                 title: "Processamento Finalizado",
-                description: `${totalItemsAdded} item(ns) adicionado(s) no total.`,
+                description: `${allNewItemsFromAllFiles.length} item(ns) adicionado(s) no total.`,
             });
         } else {
-             toast({
+            toast({
                 variant: "destructive",
                 title: "Processamento Finalizado Sem Sucesso",
                 description: "Nenhum item foi extraído. Verifique os erros e tente novamente.",
