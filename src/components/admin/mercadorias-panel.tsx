@@ -460,12 +460,11 @@ export default function MercadoriasPanel() {
                         quantidade, precoUnitario, preco: valorTotal,
                     };
                 });
+                
+                const newList = [...produtosLancados, ...newProdutos];
+                setProdutosLancados(newList);
+                predictAndSetSupplier(newList);
 
-                setProdutosLancados(prev => {
-                    const newList = [...prev, ...newProdutos];
-                    predictAndSetSupplier(newList);
-                    return newList;
-                });
                 toast({ title: 'Sucesso!', description: `${newProdutos.length} itens foram extraídos e adicionados.` });
             }
         } catch (error: any) {
@@ -557,11 +556,10 @@ export default function MercadoriasPanel() {
         }
 
         if (hasAnySuccess) {
-            setProdutosLancados(prev => {
-                const newList = [...prev, ...allNewItemsFromAllFiles];
-                predictAndSetSupplier(newList);
-                return newList;
-            });
+            const newList = [...produtosLancados, ...allNewItemsFromAllFiles];
+            setProdutosLancados(newList);
+            predictAndSetSupplier(newList);
+
             toast({
                 title: "Processamento Finalizado",
                 description: `${allNewItemsFromAllFiles.length} item(ns) adicionado(s) no total.`,
