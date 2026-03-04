@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useMemo, useEffect } from 'react';
@@ -23,7 +24,7 @@ import { ptBR } from 'date-fns/locale';
 import { Button, buttonVariants } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
-import { Loader2, Trash2, Info, CalendarDays, BarChart4, AreaChart, LineChart, GanttChart } from 'lucide-react';
+import { Loader2, Trash2, Info, CalendarDays, BarChart4, AreaChart, LineChart, GanttChart, ListOrdered } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import {
   AlertDialog,
@@ -61,6 +62,7 @@ import { cn } from '@/lib/utils';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { PieChart, Pie, Cell, ResponsiveContainer } from 'recharts';
 import ArchivedReportCharts from '@/components/archived-report-charts';
+import ItemList from '@/components/item-list';
 
 const formatCurrency = (value: number | undefined | null) => {
     return new Intl.NumberFormat("pt-BR", {
@@ -414,7 +416,8 @@ const DailyReportsSection = ({ reports, bomboniereItems, onDeleteRequest, onEdit
             try {
                 const itemsQuery = query(
                     collection(firestore, 'order_items'),
-                    where('reportDate', '==', report.reportDate)
+                    where('reportDate', '==', report.reportDate),
+                    orderBy('timestamp', 'asc')
                 );
                 const snapshot = await getDocs(itemsQuery);
                 const items = snapshot.docs.map(doc => ({...doc.data(), id: doc.id })) as Item[];
@@ -511,14 +514,34 @@ const DailyReportsSection = ({ reports, bomboniereItems, onDeleteRequest, onEdit
                                   </AccordionTrigger>
                                 <AccordionContent className="p-4 pt-0">
                                     <ReportDetail report={report} bomboniereItems={bomboniereItems} />
+                                    
                                     {openReportId === report.id && (
-                                        isLoadingItems ? (
-                                            <div className="flex justify-center items-center h-40">
-                                                <Loader2 className="h-8 w-8 animate-spin text-primary" />
-                                            </div>
-                                        ) : reportItems && (
-                                            <ArchivedReportCharts items={reportItems} />
-                                        )
+                                        <div className="mt-8 space-y-8">
+                                            {isLoadingItems ? (
+                                                <div className="flex justify-center items-center h-40">
+                                                    <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                                                </div>
+                                            ) : reportItems && (
+                                                <>
+                                                    <ArchivedReportCharts items={reportItems} />
+                                                    
+                                                    <Separator />
+                                                    
+                                                    <div className="space-y-4">
+                                                        <div className="flex items-center gap-2 mb-2">
+                                                            <ListOrdered className="h-5 w-5 text-primary" />
+                                                            <h3 className="text-lg font-semibold">Listagem de Pedidos Detalhada</h3>
+                                                        </div>
+                                                        <div className="rounded-md border bg-muted/10 p-2 overflow-hidden">
+                                                            <ItemList 
+                                                                items={reportItems}
+                                                                isLoading={false}
+                                                            />
+                                                        </div>
+                                                    </div>
+                                                </>
+                                            )}
+                                        </div>
                                     )}
                                 </AccordionContent>
                             </Card>

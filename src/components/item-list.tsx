@@ -20,10 +20,10 @@ import { cn } from "@/lib/utils";
 
 interface ItemListProps {
   items: Item[];
-  onEdit: (item: Item) => void;
-  onDelete: (id: string) => void;
-  onFavorite: (item: Item) => void;
-  savedFavorites: SavedFavorite[];
+  onEdit?: (item: Item) => void;
+  onDelete?: (id: string) => void;
+  onFavorite?: (item: Item) => void;
+  savedFavorites?: SavedFavorite[];
   isLoading: boolean;
   isSelectionMode?: boolean;
   selectedItems?: string[];
@@ -178,7 +178,7 @@ export default function ItemList({
   onEdit, 
   onDelete, 
   onFavorite, 
-  savedFavorites, 
+  savedFavorites = [], 
   isLoading,
   isSelectionMode = false,
   selectedItems = [],
@@ -207,6 +207,7 @@ export default function ItemList({
   };
 
   const areAllSelected = items.length > 0 && selectedItems.length === items.length;
+  const showActions = !!onEdit || !!onDelete || !!onFavorite;
 
   return (
     <div className="overflow-x-auto">
@@ -226,7 +227,7 @@ export default function ItemList({
             <TableHead className="px-2 sm:px-4">Grupo</TableHead>
             <TableHead className="text-right px-2 sm:px-4">Total</TableHead>
             <TableHead className="text-right px-2 sm:px-4">Hora</TableHead>
-            {!isSelectionMode && <TableHead className="text-right px-2 sm:px-4">Ações</TableHead>}
+            {showActions && !isSelectionMode && <TableHead className="text-right px-2 sm:px-4">Ações</TableHead>}
           </TableRow>
         </TableHeader>
         <TableBody>
@@ -259,18 +260,24 @@ export default function ItemList({
                 )}
               </TableCell>
               <TableCell className="text-right px-2 sm:px-4 align-top">{formatTimestamp(item.timestamp)}</TableCell>
-              {!isSelectionMode && (
+              {showActions && !isSelectionMode && (
                 <TableCell className="p-0 align-top">
                   <div className="flex justify-end">
-                     <Button variant="ghost" size="icon" onClick={() => onFavorite(item)} disabled={!item.originalCommand || isFavorited(item)}>
-                      <Star className={cn("h-4 w-4", isFavorited(item) ? "text-yellow-400 fill-yellow-400" : "text-muted-foreground")} />
-                    </Button>
-                    <Button variant="ghost" size="icon" onClick={() => onEdit(item)}>
-                      <Pencil className="h-4 w-4" />
-                    </Button>
-                    <Button variant="ghost" size="icon" onClick={() => onDelete(item.id)} className="text-destructive hover:text-destructive">
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
+                     {onFavorite && (
+                        <Button variant="ghost" size="icon" onClick={() => onFavorite(item)} disabled={!item.originalCommand || isFavorited(item)}>
+                          <Star className={cn("h-4 w-4", isFavorited(item) ? "text-yellow-400 fill-yellow-400" : "text-muted-foreground")} />
+                        </Button>
+                     )}
+                    {onEdit && (
+                        <Button variant="ghost" size="icon" onClick={() => onEdit(item)}>
+                          <Pencil className="h-4 w-4" />
+                        </Button>
+                    )}
+                    {onDelete && (
+                        <Button variant="ghost" size="icon" onClick={() => onDelete(item.id)} className="text-destructive hover:text-destructive">
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                    )}
                   </div>
                 </TableCell>
               )}
@@ -281,7 +288,3 @@ export default function ItemList({
     </div>
   );
 }
-
-    
-
-    
