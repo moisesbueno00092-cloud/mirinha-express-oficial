@@ -89,10 +89,11 @@ const ArchivedItemsTable = ({ reportDate }: { reportDate: string }) => {
                 const snapshot = await getDocs(q);
                 const fetchedItems = snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id } as Item));
                 
+                // Ordenação crescente (do mais antigo para o mais recente)
                 fetchedItems.sort((a, b) => {
                     const timeA = a.timestamp?.toDate ? a.timestamp.toDate().getTime() : new Date(a.timestamp).getTime();
                     const timeB = b.timestamp?.toDate ? b.timestamp.toDate().getTime() : new Date(b.timestamp).getTime();
-                    return timeB - timeA;
+                    return timeA - timeB;
                 });
                 
                 setItems(fetchedItems);
@@ -167,10 +168,11 @@ const CustomerReportsSection = ({ bomboniereItems }: { bomboniereItems: Bombonie
 
             const sortedStats = Object.values(stats)
                 .map((data) => {
+                    // Ordenação crescente por data/hora (do mais antigo para o mais recente)
                     data.orders.sort((a, b) => {
                         const dateA = a.timestamp?.toDate ? a.timestamp.toDate().getTime() : new Date(a.timestamp).getTime();
                         const dateB = b.timestamp?.toDate ? b.timestamp.toDate().getTime() : new Date(b.timestamp).getTime();
-                        return dateB - dateA;
+                        return dateA - dateB;
                     });
                     return data;
                 })
@@ -195,7 +197,7 @@ const CustomerReportsSection = ({ bomboniereItems }: { bomboniereItems: Bombonie
         message += `------------------------------------------\n\n`;
 
         customer.orders.forEach((order) => {
-            const date = format(order.timestamp?.toDate ? order.timestamp.toDate() : new Date(order.timestamp), 'dd/MM (EEE)', { locale: ptBR });
+            const date = format(order.timestamp?.toDate ? order.timestamp.toDate() : new Date(order.timestamp), 'dd/MM (EEE) HH:mm', { locale: ptBR });
             message += `• ${date}: *${formatCurrency(order.total)}*\n   _${order.name}_\n\n`;
         });
 
@@ -246,7 +248,7 @@ const CustomerReportsSection = ({ bomboniereItems }: { bomboniereItems: Bombonie
                             </Button>
                         </div>
                         <DialogDescription>
-                            Listagem de todos os pedidos realizados em {format(currentDate, 'MMMM yyyy', { locale: ptBR })}.
+                            Listagem cronológica dos pedidos realizados em {format(currentDate, 'MMMM yyyy', { locale: ptBR })}.
                         </DialogDescription>
                     </DialogHeader>
                     
