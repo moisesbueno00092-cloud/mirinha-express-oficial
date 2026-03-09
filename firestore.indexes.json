@@ -1,36 +1,11 @@
-
 {
   "indexes": [
     {
-      "collectionGroup": "order_items",
-      "queryScope": "COLLECTION_GROUP",
-      "fields": [
-        { "fieldPath": "reportDate", "order": "ASCENDING" },
-        { "fieldPath": "timestamp", "order": "ASCENDING" }
-      ]
-    },
-    {
-      "collectionGroup": "order_items",
-      "queryScope": "COLLECTION_GROUP",
-      "fields": [
-        { "fieldPath": "reportado", "order": "ASCENDING" },
-        { "fieldPath": "timestamp", "order": "DESCENDING" }
-      ]
-    },
-    {
       "collectionId": "order_items",
       "queryScope": "COLLECTION",
       "fields": [
         { "fieldPath": "reportDate", "order": "ASCENDING" },
         { "fieldPath": "timestamp", "order": "ASCENDING" }
-      ]
-    },
-    {
-      "collectionId": "order_items",
-      "queryScope": "COLLECTION",
-      "fields": [
-        { "fieldPath": "reportDate", "order": "ASCENDING" },
-        { "fieldPath": "timestamp", "order": "DESCENDING" }
       ]
     },
     {

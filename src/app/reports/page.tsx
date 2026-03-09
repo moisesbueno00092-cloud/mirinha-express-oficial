@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useMemo, useEffect } from 'react';
@@ -61,8 +60,6 @@ import type { DailyReport, ItemCount, BomboniereItem, Item } from '@/types';
 import { cn } from '@/lib/utils';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { PieChart, Pie, Cell, ResponsiveContainer } from 'recharts';
-import ArchivedReportCharts from '@/components/archived-report-charts';
-import ItemList from '@/components/item-list';
 
 const formatCurrency = (value: number | undefined | null) => {
     return new Intl.NumberFormat("pt-BR", {
@@ -371,9 +368,6 @@ const DailyReportsSection = ({ reports, bomboniereItems, onDeleteRequest, onEdit
     onEditDateRequest: (report: DailyReport) => void 
 }) => {
     const [currentDate, setCurrentDate] = useState<Date>(new Date());
-    const [openReportId, setOpenReportId] = useState('');
-    const [reportItems, setReportItems] = useState<Item[] | null>(null);
-    const [isLoadingItems, setIsLoadingItems] = useState(false);
     const firestore = useFirestore();
     
     const monthlyReports = useMemo(() => {
@@ -383,42 +377,6 @@ const DailyReportsSection = ({ reports, bomboniereItems, onDeleteRequest, onEdit
             return reportDate.getFullYear() === currentDate.getFullYear() && reportDate.getMonth() === currentDate.getMonth();
         }).sort((a, b) => parseISO(b.reportDate).getTime() - parseISO(a.reportDate).getTime());
     }, [reports, currentDate]);
-
-    useEffect(() => {
-        if (!openReportId || !firestore) {
-            setReportItems(null);
-            return;
-        }
-
-        const fetchItems = async () => {
-            setIsLoadingItems(true);
-            const report = reports.find(r => r.id === openReportId);
-            if (!report) {
-                setIsLoadingItems(false);
-                setReportItems(null);
-                return;
-            }
-
-            try {
-                // Fetch archived items for this report date
-                const itemsQuery = query(
-                    collection(firestore, 'order_items'),
-                    where('reportDate', '==', report.reportDate),
-                    orderBy('timestamp', 'asc')
-                );
-                const snapshot = await getDocs(itemsQuery);
-                const items = snapshot.docs.map(doc => ({...doc.data(), id: doc.id })) as Item[];
-                setReportItems(items);
-            } catch (e) {
-                console.error("Failed to fetch report items:", e);
-                setReportItems(null);
-            } finally {
-                setIsLoadingItems(false);
-            }
-        };
-
-        fetchItems();
-    }, [openReportId, firestore, reports]);
 
     const generateYearOptions = () => {
         const currentYear = new Date().getFullYear();
@@ -467,9 +425,9 @@ const DailyReportsSection = ({ reports, bomboniereItems, onDeleteRequest, onEdit
                 </div>
             </div>
             {monthlyReports.length > 0 ? (
-                <Accordion type="single" collapsible className="w-full space-y-4" onValueChange={setOpenReportId}>
+                <Accordion type="single" collapsible className="w-full space-y-4">
                     {monthlyReports.map((report) => (
-                        <AccordionItem key={report.id} value={report.id}>
+                        <AccordionItem key={report.id} value={report.id || ''}>
                             <Card>
                                  <AccordionTrigger className="p-4 w-full text-left hover:no-underline">
                                       <div className="flex justify-between items-center w-full">
@@ -515,35 +473,6 @@ const DailyReportsSection = ({ reports, bomboniereItems, onDeleteRequest, onEdit
                                   </AccordionTrigger>
                                 <AccordionContent className="p-4 pt-0">
                                     <ReportDetail report={report} bomboniereItems={bomboniereItems} />
-                                    
-                                    {openReportId === report.id && (
-                                        <div className="mt-8 space-y-8">
-                                            {isLoadingItems ? (
-                                                <div className="flex justify-center items-center h-40">
-                                                    <Loader2 className="h-8 w-8 animate-spin text-primary" />
-                                                </div>
-                                            ) : reportItems && (
-                                                <>
-                                                    <ArchivedReportCharts items={reportItems} />
-                                                    
-                                                    <Separator />
-                                                    
-                                                    <div className="space-y-4">
-                                                        <div className="flex items-center gap-2 mb-2">
-                                                            <ListOrdered className="h-5 w-5 text-primary" />
-                                                            <h3 className="text-lg font-semibold">Listagem de Pedidos Detalhada</h3>
-                                                        </div>
-                                                        <div className="rounded-md border bg-muted/10 p-2 overflow-hidden">
-                                                            <ItemList 
-                                                                items={reportItems}
-                                                                isLoading={false}
-                                                            />
-                                                        </div>
-                                                    </div>
-                                                </>
-                                            )}
-                                        </div>
-                                    )}
                                 </AccordionContent>
                             </Card>
                         </AccordionItem>
@@ -843,10 +772,6 @@ function ReportsPageContent() {
         );
         const orderItemsSnapshot = await getDocs(orderItemsQuery);
 
-        if (orderItemsSnapshot.empty) {
-            console.warn("No archived items found for this report date. Deleting report only.");
-        }
-
         orderItemsSnapshot.forEach(orderDoc => {
             const item = orderDoc.data();
             const liveItemRef = doc(collection(firestore, 'live_items'), orderDoc.id);
@@ -901,10 +826,6 @@ function ReportsPageContent() {
           where('reportDate', '==', oldDateStr)
         );
         const orderItemsSnapshot = await getDocs(orderItemsQuery);
-
-        if (orderItemsSnapshot.empty) {
-            console.warn(`No archived items found for the old report date ${oldDateStr}. Only updating the report document.`);
-        }
 
         orderItemsSnapshot.forEach(orderDoc => {
             batch.update(orderDoc.ref, { reportDate: newDateStr });
