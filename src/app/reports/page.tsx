@@ -16,7 +16,9 @@ import {
     getYear,
     getMonth,
     setYear,
-    setMonth
+    setMonth,
+    setHours,
+    setMinutes
 } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 
@@ -24,7 +26,7 @@ import { Button, buttonVariants } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
 import { Badge } from '@/components/ui/badge';
-import { Loader2, Trash2, Info, CalendarDays, BarChart4, AreaChart, LineChart, GanttChart, ListOrdered, User, Eye, Calendar as CalendarIcon, Copy, Share2, Pencil, Plus, Star } from 'lucide-react';
+import { Loader2, Trash2, Info, CalendarDays, BarChart4, AreaChart, LineChart, GanttChart, ListOrdered, User, Eye, Calendar as CalendarIcon, Copy, Share2, Pencil, Plus, Star, Clock } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import {
   AlertDialog,
@@ -65,10 +67,12 @@ import ItemList from '@/components/item-list';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { WhatsAppIcon } from '@/components/ui/icons/whatsapp-icon';
 import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import usePersistentState from '@/hooks/use-persistent-state';
 import { PREDEFINED_PRICES, DELIVERY_FEE } from '@/lib/constants';
 import FavoritesMenu from '@/components/favorites-menu';
 import BomboniereModal from '@/components/bomboniere-modal';
+import { DatePicker } from '@/components/ui/date-picker';
 
 const formatCurrency = (value: number | undefined | null) => {
     return new Intl.NumberFormat("pt-BR", {
@@ -279,7 +283,7 @@ const CustomerReportsSection = ({
                             </Button>
                         </div>
                         <DialogDescription>
-                            Listagem cronológica dos pedidos em {format(currentDate, 'MMMM yyyy', { locale: ptBR })}. Pode editar ou excluir lançamentos diretamente aqui.
+                            Listagem cronológica dos pedidos em {format(currentDate, 'MMMM yyyy', { locale: ptBR })}.
                         </DialogDescription>
                     </DialogHeader>
                     
@@ -510,7 +514,8 @@ const ReportDetail = ({
         const contagemRua = report.contagemRua || {};
 
         const { lanches: lanchesSalao, bomboniere: bomboniereSalao } = separateItemsByCategory(contagemSalao);
-        const { lanches: lanchesRua, bomboniere: bomboniereRua } = separateItemsByCategory(contagemRua);
+        const { lanches: lanchesRua, bomboniere: lanchesRua_ } = separateItemsByCategory(contagemRua);
+        const { bomboniere: bomboniereRua } = separateItemsByCategory(contagemRua);
         
         return { lanchesSalao, bomboniereSalao, lanchesRua, bomboniereRua };
     }, [report.contagemTotal, report.contagemRua, separateItemsByCategory]);
@@ -1137,6 +1142,9 @@ function ReportsPageContent() {
   const [archivedItemToDelete, setArchivedItemToDelete] = useState<Item | null>(null);
   const [archivedItemToEdit, setArchivedItemToEdit] = useState<Item | null>(null);
   const [editArchivedInput, setEditArchivedInput] = useState('');
+  const [editArchivedDate, setEditArchivedDate] = useState<Date | undefined>(new Date());
+  const [editArchivedTime, setEditArchivedTime] = useState('12:00');
+  
   const [isProcessingEdit, setIsProcessingEdit] = useState(false);
   const [activeReportDateForAdd, setActiveReportDateForAdd] = useState<string | null>(null);
   
@@ -1169,6 +1177,15 @@ function ReportsPageContent() {
 
   const isLoading = isLoadingReports || isUserLoading;
 
+  useEffect(() => {
+    if (archivedItemToEdit) {
+        setEditArchivedInput(archivedItemToEdit.originalCommand || '');
+        const itemDate = archivedItemToEdit.timestamp?.toDate ? archivedItemToEdit.timestamp.toDate() : new Date(archivedItemToEdit.timestamp);
+        setEditArchivedDate(itemDate);
+        setEditArchivedTime(format(itemDate, 'HH:mm'));
+    }
+  }, [archivedItemToEdit]);
+
   const recalculateReport = async (reportDate: string) => {
     if (!firestore || !user?.uid) return;
 
@@ -1179,6 +1196,25 @@ function ReportsPageContent() {
         );
         const snapshot = await getDocs(orderItemsQuery);
         const items = snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id } as Item));
+
+        if (items.length === 0) {
+            // Se não houver mais itens, talvez queiramos excluir o relatório? 
+            // Para segurança, vamos apenas zerar.
+            const reportSnapshot = await getDocs(query(collection(firestore, 'daily_reports'), where('reportDate', '==', reportDate)));
+            if (!reportSnapshot.empty) {
+                const reportRef = reportSnapshot.docs[0].ref;
+                await setDoc(reportRef, {
+                    totalGeral: 0, totalAVista: 0, totalFiado: 0, totalVendasSalao: 0, totalVendasRua: 0,
+                    totalFiadoSalao: 0, totalFiadoRua: 0, totalKg: 0, totalTaxas: 0, totalBomboniereSalao: 0,
+                    totalBomboniereRua: 0, totalItens: 0, totalPedidos: 0, totalEntregas: 0, totalItensRua: 0,
+                    contagemTotal: {}, contagemRua: {},
+                    reportDate,
+                    userId: user.uid,
+                    updatedAt: new Date().toISOString()
+                }, { merge: true });
+            }
+            return;
+        }
 
         const totals = items.reduce(
             (acc, item) => {
@@ -1252,18 +1288,20 @@ function ReportsPageContent() {
   };
 
   const handleUpsertArchivedItem = async (rawInput: string, currentItem?: Item | null, specificDate?: string, favoriteName?: string) => {
-    if (!firestore || !user?.uid) return;
+    if (!firestore || !user?.uid || !editArchivedDate) return;
     setIsProcessingEdit(true);
 
-    const reportDateStr = currentItem?.reportDate || specificDate;
-    if (!reportDateStr) {
-        setIsProcessingEdit(false);
-        return;
-    }
+    const oldReportDate = currentItem?.reportDate;
+    
+    // Calcular o novo Timestamp e a nova reportDate baseada nos inputs manuais
+    const [hours, minutes] = editArchivedTime.split(':').map(Number);
+    const finalDate = setMinutes(setHours(editArchivedDate, hours), minutes);
+    const newReportDateStr = format(finalDate, 'yyyy-MM-dd');
 
     try {
         const batch = writeBatch(firestore);
 
+        // Devolver estoque se estiver editando um item existente
         if (currentItem && currentItem.bomboniereItems && currentItem.bomboniereItems.length > 0 && bomboniereItems) {
             for (const oldSoldItem of currentItem.bomboniereItems) {
                 const itemDef = bomboniereItems.find((i) => i.id === oldSoldItem.id);
@@ -1368,18 +1406,19 @@ function ReportsPageContent() {
             quantity: totalQty,
             price: totalPrice,
             group,
-            timestamp: currentItem?.timestamp || serverTimestamp() as Timestamp,
+            timestamp: Timestamp.fromDate(finalDate), // Usar a nova data/hora
             deliveryFee: finalFee,
             total,
             originalCommand: rawInput,
             reportado: true,
-            reportDate: reportDateStr,
+            reportDate: newReportDateStr, // Usar a nova reportDate
             ...(customerName && { customerName }),
             ...(individualPrices.length > 0 ? { individualPrices } : {}),
             ...(predefinedItems.length > 0 ? { predefinedItems } : {}),
             ...(procBomboniere.length > 0 ? { bomboniereItems: procBomboniere } : {}),
         };
 
+        // Reduzir estoque novamente para os novos itens
         if (bomboniereItems) {
             for (const soldItem of procBomboniere) {
                 const itemDef = bomboniereItems.find((i) => i.id === soldItem.id);
@@ -1396,9 +1435,14 @@ function ReportsPageContent() {
         }
 
         await batch.commit();
-        await recalculateReport(reportDateStr);
+        
+        // Recalcular os dias afetados
+        await recalculateReport(newReportDateStr);
+        if (oldReportDate && oldReportDate !== newReportDateStr) {
+            await recalculateReport(oldReportDate);
+        }
 
-        toast({ title: 'Sucesso', description: 'O lançamento foi atualizado e o relatório recalculado.' });
+        toast({ title: 'Sucesso', description: 'O lançamento foi atualizado e o(s) relatório(s) recalculado(s).' });
         setArchivedItemToEdit(null);
         setActiveReportDateForAdd(null);
         setEditArchivedInput('');
@@ -1570,40 +1614,59 @@ function ReportsPageContent() {
             <DialogHeader>
                 <DialogTitle>{archivedItemToEdit ? 'Editar Lançamento Histórico' : 'Novo Lançamento Histórico'}</DialogTitle>
                 <DialogDescription>
-                    {archivedItemToEdit ? 'Corrija o comando original deste pedido.' : 'Insira o comando para adicionar um novo item a este relatório diário.'}
+                    {archivedItemToEdit ? 'Corrija os dados deste pedido.' : 'Insira os dados para adicionar um novo item a este relatório.'}
                 </DialogDescription>
             </DialogHeader>
-            <div className="py-4 space-y-4">
-                <div className="flex gap-2">
-                    <Input 
-                        value={editArchivedInput} 
-                        onChange={(e) => setEditArchivedInput(e.target.value)}
-                        placeholder="Ex: M P coca-lata"
-                        className="h-12"
-                        autoFocus
-                    />
-                    <FavoritesMenu 
-                        savedFavorites={savedFavorites} 
-                        onSelect={(fav) => {
-                            setEditArchivedInput(fav.command);
-                        }} 
-                        onDelete={(id) => setSavedFavorites(prev => prev.filter(f => f.id !== id))} 
-                    />
-                    <Button 
-                        variant="outline" 
-                        className="h-12 px-4" 
-                        onClick={() => setIsBomboniereModalOpen(true)}
-                    >
-                        <Plus className="h-5 w-5" />
-                        <span className="hidden sm:inline ml-2">Outros</span>
-                    </Button>
+            <div className="py-4 space-y-6">
+                <div className="space-y-2">
+                    <Label>Comando do Pedido</Label>
+                    <div className="flex gap-2">
+                        <Input 
+                            value={editArchivedInput} 
+                            onChange={(e) => setEditArchivedInput(e.target.value)}
+                            placeholder="Ex: M P coca-lata"
+                            className="h-12"
+                            autoFocus
+                        />
+                        <FavoritesMenu 
+                            savedFavorites={savedFavorites} 
+                            onSelect={(fav) => {
+                                setEditArchivedInput(fav.command);
+                            }} 
+                            onDelete={(id) => setSavedFavorites(prev => prev.filter(f => f.id !== id))} 
+                        />
+                        <Button 
+                            variant="outline" 
+                            className="h-12 px-4" 
+                            onClick={() => setIsBomboniereModalOpen(true)}
+                        >
+                            <Plus className="h-5 w-5" />
+                            <span className="hidden sm:inline ml-2">Outros</span>
+                        </Button>
+                    </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                        <Label className="flex items-center gap-2"><CalendarIcon className="h-4 w-4" /> Data</Label>
+                        <DatePicker date={editArchivedDate} setDate={setEditArchivedDate} />
+                    </div>
+                    <div className="space-y-2">
+                        <Label className="flex items-center gap-2"><Clock className="h-4 w-4" /> Hora</Label>
+                        <Input 
+                            type="time" 
+                            value={editArchivedTime} 
+                            onChange={(e) => setEditArchivedTime(e.target.value)}
+                            className="h-10"
+                        />
+                    </div>
                 </div>
             </div>
             <DialogFooter>
                 <Button variant="outline" onClick={() => { setArchivedItemToEdit(null); setActiveReportDateForAdd(null); }}>Cancelar</Button>
                 <Button 
                     onClick={() => handleUpsertArchivedItem(editArchivedInput, archivedItemToEdit, activeReportDateForAdd || undefined)}
-                    disabled={isProcessingEdit || !editArchivedInput.trim()}
+                    disabled={isProcessingEdit || !editArchivedInput.trim() || !editArchivedDate}
                 >
                     {isProcessingEdit ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Pencil className="h-4 w-4 mr-2" />}
                     {archivedItemToEdit ? 'Salvar Alteração' : 'Adicionar ao Relatório'}
@@ -1651,12 +1714,13 @@ function ReportsPageContent() {
                             onEditDateRequest={handleEditDateRequest} 
                             onEditItem={(item) => {
                                 setArchivedItemToEdit(item);
-                                setEditArchivedInput(item.originalCommand || '');
                             }}
                             onDeleteItem={setArchivedItemToDelete}
                             onAddItem={(date) => {
                                 setActiveReportDateForAdd(date);
                                 setEditArchivedInput('');
+                                setEditArchivedDate(parseISO(date));
+                                setEditArchivedTime('12:00');
                             }}
                        />
                     </AccordionContent>
@@ -1732,7 +1796,6 @@ function ReportsPageContent() {
                             bomboniereItems={bomboniereItems || []} 
                             onEditItem={(item) => {
                                 setArchivedItemToEdit(item);
-                                setEditArchivedInput(item.originalCommand || '');
                             }}
                             onDeleteItem={setArchivedItemToDelete}
                         />
