@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useMemo, useState, useRef, useEffect } from 'react';
@@ -311,7 +312,7 @@ function LancheTrackerPageContent() {
 
             let priceToUse = bestMatch.price;
             if (bestMatchEndIndex < parts.length && !consumedParts[bestMatchEndIndex] && isNumeric(parts[bestMatchEndIndex])) {
-                priceToUse = parseFloat(parts[bestMatchEndIndex].replace(',', '.'));
+                priceToUse = parseFloat(bestMatchEndIndex < parts.length ? parts[bestMatchEndIndex].replace(',', '.') : '0');
                 consumedParts[bestMatchEndIndex] = true;
             }
             
@@ -453,7 +454,7 @@ function LancheTrackerPageContent() {
         quantity: totalQuantity,
         price: totalPrice,
         group,
-        // Crucial change: Maintain original timestamp if editing
+        // Preserve original timestamp if editing
         timestamp: currentItem ? currentItem.timestamp : (serverTimestamp() as Timestamp),
         deliveryFee: finalDeliveryFee,
         total,
@@ -551,7 +552,7 @@ function LancheTrackerPageContent() {
       toast({ title: 'Item removido com sucesso.', variant: 'destructive' });
     } catch (error: any) {
       console.error('Error deleting item:', error);
-      toast({ variant: 'destructive', title: 'Erro ao remover', description: error.message || 'Não foi possível remover o item.' });
+      toast({ variant: 'destructive', title: 'Erro ao remover', description: error.message || 'Não foi possível remover the item.' });
     } finally {
       setItemToDelete(null);
     }

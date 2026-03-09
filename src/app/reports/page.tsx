@@ -1,9 +1,9 @@
 
 'use client';
 
-import { useState, useMemo, useEffect, useRef } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { useFirestore, useCollection, useUser } from '@/firebase';
-import { collection, query, orderBy, doc, where, getDocs, deleteDoc, writeBatch, setDoc, addDoc, serverTimestamp, Timestamp } from 'firebase/firestore';
+import { collection, query, orderBy, doc, where, getDocs, deleteDoc, writeBatch, setDoc, addDoc, Timestamp } from 'firebase/firestore';
 import { 
     format, 
     parseISO, 
