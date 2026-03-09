@@ -147,29 +147,33 @@ const CustomerReportsSection = ({ bomboniereItems }: { bomboniereItems: Bombonie
             const snapshot = await getDocs(q);
             const items = snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id } as Item));
 
-            const stats: Record<string, { total: number, count: number, orders: Item[] }> = {};
+            // Logic to unify names ignoring case
+            const stats: Record<string, { name: string, total: number, count: number, orders: Item[] }> = {};
 
             items.forEach(item => {
                 if (item.customerName) {
-                    const name = item.customerName.trim();
-                    if (!stats[name]) {
-                        stats[name] = { total: 0, count: 0, orders: [] };
+                    const rawName = item.customerName.trim();
+                    const key = rawName.toLowerCase();
+                    
+                    if (!stats[key]) {
+                        // Initialize with the first version of the name encountered
+                        stats[key] = { name: rawName, total: 0, count: 0, orders: [] };
                     }
-                    stats[name].total += item.total;
-                    stats[name].count += 1;
-                    stats[name].orders.push(item);
+                    stats[key].total += item.total;
+                    stats[key].count += 1;
+                    stats[key].orders.push(item);
                 }
             });
 
-            const sortedStats = Object.entries(stats)
-                .map(([name, data]) => {
+            const sortedStats = Object.values(stats)
+                .map((data) => {
                     // Sort individual customer orders by date desc
                     data.orders.sort((a, b) => {
                         const dateA = a.timestamp?.toDate ? a.timestamp.toDate().getTime() : new Date(a.timestamp).getTime();
                         const dateB = b.timestamp?.toDate ? b.timestamp.toDate().getTime() : new Date(b.timestamp).getTime();
                         return dateB - dateA;
                     });
-                    return { name, ...data };
+                    return data;
                 })
                 .sort((a, b) => b.total - a.total);
 
