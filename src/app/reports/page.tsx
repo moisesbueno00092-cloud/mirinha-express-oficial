@@ -96,20 +96,12 @@ const ArchivedItemsTable = ({
         if (!firestore || !reportDate) return null;
         return query(
             collection(firestore, 'order_items'),
-            where('reportDate', '==', reportDate)
+            where('reportDate', '==', reportDate),
+            orderBy('timestamp', 'asc')
         );
     }, [firestore, reportDate]);
 
-    const { data: rawItems, isLoading } = useCollection<Item>(archivedItemsQuery);
-
-    const items = useMemo(() => {
-        if (!rawItems) return null;
-        return [...rawItems].sort((a, b) => {
-            const timeA = a.timestamp?.toDate ? a.timestamp.toDate().getTime() : new Date(a.timestamp).getTime();
-            const timeB = b.timestamp?.toDate ? b.timestamp.toDate().getTime() : new Date(b.timestamp).getTime();
-            return timeA - timeB;
-        });
-    }, [rawItems]);
+    const { data: items, isLoading } = useCollection<Item>(archivedItemsQuery);
 
     if (isLoading) return <div className="flex justify-center p-8"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>;
     
@@ -138,14 +130,25 @@ const ArchivedItemsTable = ({
                     items={items} 
                     isLoading={false} 
                     onEdit={onEdit}
-                    onDelete={onDelete}
+                    onDelete={(id) => {
+                        const item = items.find(it => it.id === id);
+                        if (item) onDelete(item);
+                    }}
                 />
             </div>
         </div>
     );
 };
 
-const CustomerReportsSection = ({ bomboniereItems }: { bomboniereItems: BomboniereItem[] }) => {
+const CustomerReportsSection = ({ 
+    bomboniereItems,
+    onEditItem,
+    onDeleteItem
+}: { 
+    bomboniereItems: BomboniereItem[],
+    onEditItem: (item: Item) => void,
+    onDeleteItem: (item: Item) => void
+}) => {
     const firestore = useFirestore();
     const { toast } = useToast();
     const [currentDate, setCurrentDate] = useState<Date>(new Date());
@@ -188,15 +191,24 @@ const CustomerReportsSection = ({ bomboniereItems }: { bomboniereItems: Bombonie
             const sortedStats = Object.values(stats)
                 .map((data) => {
                     data.orders.sort((a, b) => {
-                        const dateA = a.timestamp?.toDate ? a.timestamp.toDate().getTime() : new Date(a.timestamp).getTime();
-                        const dateB = b.timestamp?.toDate ? b.timestamp.toDate().getTime() : new Date(b.timestamp).getTime();
-                        return dateA - dateB;
+                        const timeA = a.timestamp?.toDate ? a.timestamp.toDate().getTime() : new Date(a.timestamp).getTime();
+                        const timeB = b.timestamp?.toDate ? b.timestamp.toDate().getTime() : new Date(b.timestamp).getTime();
+                        return timeA - timeB;
                     });
                     return data;
                 })
                 .sort((a, b) => b.total - a.total);
 
             setCustomerData(sortedStats);
+            
+            if (selectedCustomer) {
+                const updatedSelected = sortedStats.find(c => c.name.toLowerCase() === selectedCustomer.name.toLowerCase());
+                if (updatedSelected) {
+                    setSelectedCustomer({ name: updatedSelected.name, orders: updatedSelected.orders });
+                } else {
+                    setSelectedCustomer(null);
+                }
+            }
         } catch (error) {
             console.error("Error fetching customer stats:", error);
         } finally {
@@ -248,7 +260,7 @@ const CustomerReportsSection = ({ bomboniereItems }: { bomboniereItems: Bombonie
     return (
         <div className="space-y-6">
             <Dialog open={!!selectedCustomer} onOpenChange={(open) => !open && setSelectedCustomer(null)}>
-                <DialogContent className="max-w-md sm:max-w-lg">
+                <DialogContent className="max-w-md sm:max-w-2xl">
                     <DialogHeader>
                         <div className="flex items-center justify-between pr-6">
                             <div className="flex items-center gap-2">
@@ -262,22 +274,22 @@ const CustomerReportsSection = ({ bomboniereItems }: { bomboniereItems: Bombonie
                                 onClick={() => selectedCustomer && handleCopyIndividualToWhatsApp(selectedCustomer)}
                             >
                                 <WhatsAppIcon className="h-4 w-4" />
-                                <span className="hidden sm:inline">Copiar Extrato</span>
-                                <span className="sm:hidden">Copiar</span>
+                                <span className="hidden sm:inline">Copiar Extrato WhatsApp</span>
+                                <span className="sm:hidden">Copiar WhatsApp</span>
                             </Button>
                         </div>
                         <DialogDescription>
-                            Listagem cronológica dos pedidos em {format(currentDate, 'MMMM yyyy', { locale: ptBR })}.
+                            Listagem cronológica dos pedidos em {format(currentDate, 'MMMM yyyy', { locale: ptBR })}. Pode editar ou excluir lançamentos diretamente aqui.
                         </DialogDescription>
                     </DialogHeader>
                     
                     <ScrollArea className="max-h-[60vh] pr-4 mt-4">
                         <div className="space-y-3">
                             {selectedCustomer?.orders.map((order, idx) => (
-                                <div key={order.id || idx} className="flex justify-between items-center p-3 rounded-lg border bg-muted/30">
+                                <div key={order.id || idx} className="flex justify-between items-center p-3 rounded-lg border bg-muted/30 group">
                                     <div className="flex items-center gap-3">
                                         <div className="bg-background p-2 rounded-md border text-center min-w-[50px]">
-                                            <p className="text-xs font-bold uppercase text-muted-foreground leading-none">
+                                            <p className="text-[0.6rem] font-bold uppercase text-muted-foreground leading-none">
                                                 {format(order.timestamp?.toDate ? order.timestamp.toDate() : new Date(order.timestamp), 'MMM', { locale: ptBR })}
                                             </p>
                                             <p className="text-lg font-bold leading-tight">
@@ -285,15 +297,35 @@ const CustomerReportsSection = ({ bomboniereItems }: { bomboniereItems: Bombonie
                                             </p>
                                         </div>
                                         <div>
-                                            <p className="text-xs font-medium text-muted-foreground">
+                                            <p className="text-[0.65rem] font-medium text-muted-foreground">
                                                 {format(order.timestamp?.toDate ? order.timestamp.toDate() : new Date(order.timestamp), 'EEEE, HH:mm', { locale: ptBR })}
                                             </p>
-                                            <p className="text-sm font-semibold truncate max-w-[150px] sm:max-w-[200px]">{order.name}</p>
+                                            <p className="text-sm font-semibold truncate max-w-[150px] sm:max-w-[300px]">{order.name}</p>
+                                            <Badge variant="outline" className="text-[0.6rem] h-4 mt-1">{order.group}</Badge>
                                         </div>
                                     </div>
-                                    <div className="text-right">
-                                        <p className="text-sm font-mono font-bold text-primary">{formatCurrency(order.total)}</p>
-                                        <Badge variant="outline" className="text-[0.6rem] h-4">{order.group}</Badge>
+                                    <div className="flex items-center gap-4">
+                                        <div className="text-right">
+                                            <p className="text-sm font-mono font-bold text-primary">{formatCurrency(order.total)}</p>
+                                        </div>
+                                        <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                            <Button 
+                                                variant="ghost" 
+                                                size="icon" 
+                                                className="h-8 w-8 text-blue-500 hover:text-blue-600 hover:bg-blue-500/10"
+                                                onClick={() => onEditItem(order)}
+                                            >
+                                                <Pencil className="h-4 w-4" />
+                                            </Button>
+                                            <Button 
+                                                variant="ghost" 
+                                                size="icon" 
+                                                className="h-8 w-8 text-destructive hover:text-destructive hover:bg-destructive/10"
+                                                onClick={() => onDeleteItem(order)}
+                                            >
+                                                <Trash2 className="h-4 w-4" />
+                                            </Button>
+                                        </div>
                                     </div>
                                 </div>
                             ))}
@@ -304,7 +336,7 @@ const CustomerReportsSection = ({ bomboniereItems }: { bomboniereItems: Bombonie
                         <div className="flex justify-between items-center w-full">
                             <div className="text-sm">
                                 <span className="text-muted-foreground">Total Acumulado:</span>
-                                <span className="ml-2 font-bold text-primary">
+                                <span className="ml-2 font-bold text-primary text-lg">
                                     {formatCurrency(selectedCustomer?.orders.reduce((acc, o) => acc + o.total, 0))}
                                 </span>
                             </div>
@@ -776,7 +808,7 @@ const DailyReportsSection = ({
                                           <div className="flex items-center gap-4">
                                               <div className="text-center">
                                                   <p className="text-2xl font-bold">{format(parseISO(report.reportDate), 'dd')}</p>
-                                                  <p className="text-xs uppercase text-muted-foreground">{format(parseISO(report.reportDate), 'MMM', { locale: ptBR })}</p>
+                                                  <p className="text-[0.6rem] uppercase text-muted-foreground">{format(parseISO(report.reportDate), 'MMM', { locale: ptBR })}</p>
                                               </div>
                                               <div>
                                                   <p className="font-semibold text-base">{format(parseISO(report.reportDate), "EEEE", { locale: ptBR })}</p>
@@ -1279,7 +1311,7 @@ function ReportsPageContent() {
                 let bomboniereQty = 1;
                 if (i > 0 && !consumed[i - 1] && isNumeric(parts[i - 1])) { bomboniereQty = parseInt(parts[i - 1], 10); consumed[i - 1] = true; }
                 let priceToUse = bestMatch.price;
-                if (bestEnd < parts.length && !consumed[bestEnd] && isNumeric(parts[bestEnd])) { priceToUse = parseFloat(parts[bestEnd].replace(',', '.')); consumed[bestEnd] = true; }
+                if (bestEnd < parts.length && !consumed[bestEnd] && isNumeric(parts[bestEnd])) { priceToUse = parseFloat(bestEnd < parts.length ? parts[bestEnd].replace(',', '.') : '0'); consumed[bestEnd] = true; }
                 procBomboniere.push({ id: bestMatch.id, name: bestMatch.name, quantity: bomboniereQty, price: priceToUse });
                 totalPrice += priceToUse * bomboniereQty; totalQty += bomboniereQty;
                 for (let k = i; k < bestEnd; k++) consumed[k] = true;
@@ -1552,7 +1584,9 @@ function ReportsPageContent() {
                     />
                     <FavoritesMenu 
                         savedFavorites={savedFavorites} 
-                        onSelect={(fav) => handleUpsertArchivedItem(fav.command, archivedItemToEdit, activeReportDateForAdd || undefined, fav.name)} 
+                        onSelect={(fav) => {
+                            setEditArchivedInput(fav.command);
+                        }} 
                         onDelete={(id) => setSavedFavorites(prev => prev.filter(f => f.id !== id))} 
                     />
                     <Button 
@@ -1694,7 +1728,14 @@ function ReportsPageContent() {
                         </div>
                     </AccordionTrigger>
                     <AccordionContent className="p-6 pt-0">
-                        <CustomerReportsSection bomboniereItems={bomboniereItems || []} />
+                        <CustomerReportsSection 
+                            bomboniereItems={bomboniereItems || []} 
+                            onEditItem={(item) => {
+                                setArchivedItemToEdit(item);
+                                setEditArchivedInput(item.originalCommand || '');
+                            }}
+                            onDeleteItem={setArchivedItemToDelete}
+                        />
                     </AccordionContent>
                 </Card>
             </AccordionItem>
