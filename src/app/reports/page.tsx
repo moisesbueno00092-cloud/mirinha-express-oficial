@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useMemo, useEffect, useRef } from 'react';
@@ -17,8 +18,6 @@ import {
     getMonth,
     setYear,
     setMonth,
-    setHours,
-    setMinutes,
     isValid
 } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -1198,22 +1197,6 @@ function ReportsPageContent() {
 
         const reportSnapshot = await getDocs(query(collection(firestore, 'daily_reports'), where('reportDate', '==', reportDate)));
         
-        if (items.length === 0) {
-            if (!reportSnapshot.empty) {
-                const reportRef = reportSnapshot.docs[0].ref;
-                await setDoc(reportRef, {
-                    totalGeral: 0, totalAVista: 0, totalFiado: 0, totalVendasSalao: 0, totalVendasRua: 0,
-                    totalFiadoSalao: 0, totalFiadoRua: 0, totalKg: 0, totalTaxas: 0, totalBomboniereSalao: 0,
-                    totalBomboniereRua: 0, totalItens: 0, totalPedidos: 0, totalEntregas: 0, totalItensRua: 0,
-                    contagemTotal: {}, contagemRua: {},
-                    reportDate,
-                    userId: user.uid,
-                    updatedAt: new Date().toISOString()
-                }, { merge: true });
-            }
-            return;
-        }
-
         const totals = items.reduce(
             (acc, item) => {
                 acc.totalGeral += item.total;
@@ -1268,6 +1251,13 @@ function ReportsPageContent() {
                 contagemTotal: {} as ItemCount, contagemRua: {} as ItemCount,
             }
         );
+
+        if (items.length === 0) {
+            if (!reportSnapshot.empty) {
+                await deleteDoc(reportSnapshot.docs[0].ref);
+            }
+            return;
+        }
 
         if (!reportSnapshot.empty) {
             const reportRef = reportSnapshot.docs[0].ref;
@@ -1411,13 +1401,30 @@ function ReportsPageContent() {
         if (procBomboniere.length > 0) nameParts.push(procBomboniere.map(it => `${it.quantity > 1 ? it.quantity : ''}${it.name}`).join(' '));
         const consolidatedName = nameParts.join(' + ') || 'Lançamento';
 
+        // Lógica de preservação do timestamp original
+        let finalTimestamp: Timestamp;
+        if (currentItem) {
+            const itemDate = currentItem.timestamp?.toDate ? currentItem.timestamp.toDate() : new Date(currentItem.timestamp);
+            const originalDateStr = format(itemDate, 'yyyy-MM-dd');
+            const originalTimeStr = format(itemDate, 'HH:mm');
+            
+            // Se o usuário não mexeu na data nem na hora, mantemos o objeto original exato
+            if (editArchivedDateStr === originalDateStr && editArchivedTime === originalTimeStr) {
+                finalTimestamp = currentItem.timestamp;
+            } else {
+                finalTimestamp = Timestamp.fromDate(finalDate);
+            }
+        } else {
+            finalTimestamp = Timestamp.fromDate(finalDate);
+        }
+
         const finalItem: Omit<Item, 'id'> = {
             userId: user.uid,
             name: consolidatedName,
             quantity: totalQty,
             price: totalPrice,
             group,
-            timestamp: Timestamp.fromDate(finalDate),
+            timestamp: finalTimestamp,
             deliveryFee: finalFee,
             total,
             originalCommand: rawInput,
