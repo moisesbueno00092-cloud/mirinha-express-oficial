@@ -18,7 +18,8 @@ import {
     setYear,
     setMonth,
     setHours,
-    setMinutes
+    setMinutes,
+    isValid
 } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 
@@ -72,7 +73,6 @@ import usePersistentState from '@/hooks/use-persistent-state';
 import { PREDEFINED_PRICES, DELIVERY_FEE } from '@/lib/constants';
 import FavoritesMenu from '@/components/favorites-menu';
 import BomboniereModal from '@/components/bomboniere-modal';
-import { DatePicker } from '@/components/ui/date-picker';
 
 const formatCurrency = (value: number | undefined | null) => {
     return new Intl.NumberFormat("pt-BR", {
@@ -1141,7 +1141,7 @@ function ReportsPageContent() {
   const [archivedItemToDelete, setArchivedItemToDelete] = useState<Item | null>(null);
   const [archivedItemToEdit, setArchivedItemToEdit] = useState<Item | null>(null);
   const [editArchivedInput, setEditArchivedInput] = useState('');
-  const [editArchivedDate, setEditArchivedDate] = useState<Date | undefined>(new Date());
+  const [editArchivedDateStr, setEditArchivedDateStr] = useState(''); // YYYY-MM-DD
   const [editArchivedTime, setEditArchivedTime] = useState('12:00');
   
   const [isProcessingEdit, setIsProcessingEdit] = useState(false);
@@ -1180,7 +1180,7 @@ function ReportsPageContent() {
     if (archivedItemToEdit) {
         setEditArchivedInput(archivedItemToEdit.originalCommand || '');
         const itemDate = archivedItemToEdit.timestamp?.toDate ? archivedItemToEdit.timestamp.toDate() : new Date(archivedItemToEdit.timestamp);
-        setEditArchivedDate(itemDate);
+        setEditArchivedDateStr(format(itemDate, 'yyyy-MM-dd'));
         setEditArchivedTime(format(itemDate, 'HH:mm'));
     }
   }, [archivedItemToEdit]);
@@ -1196,8 +1196,9 @@ function ReportsPageContent() {
         const snapshot = await getDocs(orderItemsQuery);
         const items = snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id } as Item));
 
+        const reportSnapshot = await getDocs(query(collection(firestore, 'daily_reports'), where('reportDate', '==', reportDate)));
+        
         if (items.length === 0) {
-            const reportSnapshot = await getDocs(query(collection(firestore, 'daily_reports'), where('reportDate', '==', reportDate)));
             if (!reportSnapshot.empty) {
                 const reportRef = reportSnapshot.docs[0].ref;
                 await setDoc(reportRef, {
@@ -1268,7 +1269,6 @@ function ReportsPageContent() {
             }
         );
 
-        const reportSnapshot = await getDocs(query(collection(firestore, 'daily_reports'), where('reportDate', '==', reportDate)));
         if (!reportSnapshot.empty) {
             const reportRef = reportSnapshot.docs[0].ref;
             await setDoc(reportRef, {
@@ -1278,6 +1278,15 @@ function ReportsPageContent() {
                 userId: user.uid,
                 updatedAt: new Date().toISOString()
             }, { merge: true });
+        } else {
+            // Create report if it doesn't exist (edge case)
+            await addDoc(collection(firestore, 'daily_reports'), {
+                ...totals,
+                totalPedidos: items.length,
+                reportDate,
+                userId: user.uid,
+                createdAt: new Date().toISOString(),
+            });
         }
     } catch (error) {
         console.error("Error recalculating report:", error);
@@ -1285,13 +1294,22 @@ function ReportsPageContent() {
   };
 
   const handleUpsertArchivedItem = async (rawInput: string, currentItem?: Item | null, specificDate?: string, favoriteName?: string) => {
-    if (!firestore || !user?.uid || !editArchivedDate) return;
+    if (!firestore || !user?.uid || !editArchivedDateStr) return;
     setIsProcessingEdit(true);
 
     const oldReportDate = currentItem?.reportDate;
     
+    // Parse manual date and time
+    const [year, month, day] = editArchivedDateStr.split('-').map(Number);
     const [hours, minutes] = editArchivedTime.split(':').map(Number);
-    const finalDate = setMinutes(setHours(editArchivedDate, hours), minutes);
+    const finalDate = new Date(year, month - 1, day, hours, minutes);
+    
+    if (!isValid(finalDate)) {
+        toast({ variant: 'destructive', title: 'Data Inválida', description: 'Por favor, insira uma data e hora válidas.' });
+        setIsProcessingEdit(false);
+        return;
+    }
+
     const newReportDateStr = format(finalDate, 'yyyy-MM-dd');
 
     try {
@@ -1461,16 +1479,16 @@ function ReportsPageContent() {
     setEditArchivedInput((prev) => `${prev} ${itemsString}`.trim());
   };
 
-  const confirmDeleteArchivedItem = async () => {
-    if (!firestore || !archivedItemToDelete) return;
+  const confirmDeleteArchivedItem = async (itemToDelete: Item) => {
+    if (!firestore) return;
     setIsProcessingEdit(true);
 
     try {
         const batch = writeBatch(firestore);
-        const reportDate = archivedItemToDelete.reportDate;
+        const reportDate = itemToDelete.reportDate;
 
-        if (archivedItemToDelete.bomboniereItems && archivedItemToDelete.bomboniereItems.length > 0 && bomboniereItems) {
-            for (const soldItem of archivedItemToDelete.bomboniereItems) {
+        if (itemToDelete.bomboniereItems && itemToDelete.bomboniereItems.length > 0 && bomboniereItems) {
+            for (const soldItem of itemToDelete.bomboniereItems) {
                 const itemDef = bomboniereItems.find((i) => i.id === soldItem.id);
                 if (itemDef) {
                     batch.update(doc(firestore, 'bomboniere_items', itemDef.id), { estoque: itemDef.estoque + soldItem.quantity });
@@ -1478,7 +1496,7 @@ function ReportsPageContent() {
             }
         }
 
-        batch.delete(doc(firestore, 'order_items', archivedItemToDelete.id));
+        batch.delete(doc(firestore, 'order_items', itemToDelete.id));
         await batch.commit();
         
         if (reportDate) await recalculateReport(reportDate);
@@ -1548,7 +1566,7 @@ function ReportsPageContent() {
         const orderItemsQuery = query(collection(firestore, 'order_items'), where('reportDate', '==', oldDateStr));
         const orderItemsSnapshot = await getDocs(orderItemsQuery);
         orderItemsSnapshot.forEach(orderDoc => {
-            batch.update(orderDoc.ref, { reportDate: newDateStr });
+            batch.update(orderDoc.ref, { reportDate: newReportDateStr });
         });
 
         await batch.commit();
@@ -1595,7 +1613,7 @@ function ReportsPageContent() {
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancelar</AlertDialogCancel>
-            <AlertDialogAction onClick={confirmDeleteArchivedItem} className="bg-destructive text-destructive-foreground">Excluir</AlertDialogAction>
+            <AlertDialogAction onClick={() => archivedItemToDelete && confirmDeleteArchivedItem(archivedItemToDelete)} className="bg-destructive text-destructive-foreground">Excluir</AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
@@ -1642,7 +1660,12 @@ function ReportsPageContent() {
                 <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-2">
                         <Label className="flex items-center gap-2"><CalendarIcon className="h-4 w-4" /> Data</Label>
-                        <DatePicker date={editArchivedDate} setDate={setEditArchivedDate} />
+                        <Input 
+                            type="date" 
+                            value={editArchivedDateStr} 
+                            onChange={(e) => setEditArchivedDateStr(e.target.value)}
+                            className="h-10"
+                        />
                     </div>
                     <div className="space-y-2">
                         <Label className="flex items-center gap-2"><Clock className="h-4 w-4" /> Hora</Label>
@@ -1659,7 +1682,7 @@ function ReportsPageContent() {
                 <Button variant="outline" onClick={() => { setArchivedItemToEdit(null); setActiveReportDateForAdd(null); }}>Cancelar</Button>
                 <Button 
                     onClick={() => handleUpsertArchivedItem(editArchivedInput, archivedItemToEdit, activeReportDateForAdd || undefined)}
-                    disabled={isProcessingEdit || !editArchivedInput.trim() || !editArchivedDate}
+                    disabled={isProcessingEdit || !editArchivedInput.trim() || !editArchivedDateStr}
                 >
                     {isProcessingEdit ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Pencil className="h-4 w-4 mr-2" />}
                     {archivedItemToEdit ? 'Salvar Alteração' : 'Adicionar ao Relatório'}
@@ -1712,7 +1735,7 @@ function ReportsPageContent() {
                             onAddItem={(date) => {
                                 setActiveReportDateForAdd(date);
                                 setEditArchivedInput('');
-                                setEditArchivedDate(parseISO(date));
+                                setEditArchivedDateStr(date);
                                 setEditArchivedTime('12:00');
                             }}
                        />
