@@ -23,7 +23,7 @@ import { ptBR } from 'date-fns/locale';
 import { Button, buttonVariants } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
-import { Loader2, Trash2, Info, CalendarDays, BarChart4, AreaChart, LineChart, GanttChart, ListOrdered, FileSpreadsheet } from 'lucide-react';
+import { Loader2, Trash2, Info, CalendarDays, BarChart4, AreaChart, LineChart, GanttChart, ListOrdered } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import {
   AlertDialog,
@@ -60,12 +60,68 @@ import type { DailyReport, ItemCount, BomboniereItem, Item } from '@/types';
 import { cn } from '@/lib/utils';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { PieChart, Pie, Cell, ResponsiveContainer } from 'recharts';
+import ItemList from '@/components/item-list';
 
 const formatCurrency = (value: number | undefined | null) => {
     return new Intl.NumberFormat("pt-BR", {
       style: "currency",
       currency: "BRL",
     }).format(value || 0);
+};
+
+const ArchivedItemsTable = ({ reportDate }: { reportDate: string }) => {
+    const firestore = useFirestore();
+    const [items, setItems] = useState<Item[] | null>(null);
+    const [loading, setLoading] = useState(false);
+
+    useEffect(() => {
+        const fetchItems = async () => {
+            if (!firestore || !reportDate) return;
+            setLoading(true);
+            try {
+                // Using a simple query on reportDate to avoid composite index requirements
+                const q = query(
+                    collection(firestore, 'order_items'),
+                    where('reportDate', '==', reportDate)
+                );
+                const snapshot = await getDocs(q);
+                const fetchedItems = snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id } as Item));
+                
+                // Sort in memory by timestamp descending (most recent first)
+                fetchedItems.sort((a, b) => {
+                    const timeA = a.timestamp?.toDate ? a.timestamp.toDate().getTime() : new Date(a.timestamp).getTime();
+                    const timeB = b.timestamp?.toDate ? b.timestamp.toDate().getTime() : new Date(b.timestamp).getTime();
+                    return timeB - timeA;
+                });
+                
+                setItems(fetchedItems);
+            } catch (error) {
+                console.error("Error fetching archived items:", error);
+            } finally {
+                setLoading(false);
+            }
+        };
+
+        fetchItems();
+    }, [firestore, reportDate]);
+
+    if (loading) return <div className="flex justify-center p-8"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>;
+    if (!items || items.length === 0) return <p className="text-center text-muted-foreground text-sm py-8 border-t mt-6">Nenhum detalhe de pedido encontrado para esta data.</p>;
+
+    return (
+        <div className="mt-8 border-t pt-6">
+            <h4 className="font-semibold mb-4 flex items-center gap-2">
+                <ListOrdered className="h-5 w-5 text-primary" />
+                Listagem de Pedidos Detalhada
+            </h4>
+            <div className="rounded-md border">
+                <ItemList 
+                    items={items} 
+                    isLoading={false} 
+                />
+            </div>
+        </div>
+    );
 };
 
 const ReportDetail = ({ report, bomboniereItems }: { report: DailyReport | null, bomboniereItems: BomboniereItem[] }) => {
@@ -317,6 +373,7 @@ const ReportDetail = ({ report, bomboniereItems }: { report: DailyReport | null,
           </div>
         </div>
       </div>
+      <ArchivedItemsTable reportDate={report.reportDate} />
     </div>
   )
 };
