@@ -596,10 +596,18 @@ export default function MercadoriasPanel() {
             const valorParcela = totalCompra / parcelas;
             const batch = writeBatch(firestore);
 
+            // Geração de descrição baseada nos produtos (Ex: "Arroz, Feijão")
+            const nomesProdutos = produtosLancados.map(p => {
+                const qtyPrefix = p.quantidade > 1 ? `${p.quantidade}x ` : '';
+                return `${qtyPrefix}${p.produtoNome}`;
+            }).join(', ');
+            
+            const displayDescription = nomesProdutos.length > 100 ? nomesProdutos.substring(0, 97) + '...' : nomesProdutos;
+
             for (let i = 0; i < parcelas; i++) {
                 const vencimentoParcela = estaPaga ? vencimentoBase : addDays(vencimentoBase, i * 7);
                 const novaConta: Omit<ContaAPagar, 'id'> = {
-                    descricao: `Compra de mercadorias - ${fornecedorNome} ${parcelas > 1 ? `(${i + 1}/${parcelas})` : ''}`.trim(),
+                    descricao: `${displayDescription} ${parcelas > 1 ? `(${i + 1}/${parcelas})` : ''}`.trim(),
                     fornecedorId: finalFornecedorId,
                     valor: valorParcela,
                     dataVencimento: formatDateFn(vencimentoParcela, 'yyyy-MM-dd'),
