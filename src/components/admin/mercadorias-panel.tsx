@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useMemo, useRef, useEffect, useCallback } from 'react';
@@ -586,19 +587,19 @@ export default function MercadoriasPanel() {
 
         try {
             const fornecedorNome = fornecedores?.find(f => f.id === finalFornecedorId)?.nome || 'Fornecedor desconhecido';
-            const parcelas = parseInt(numParcelas, 10);
             
+            // Lógica a pedido: se não houver data, é à vista hoje
             const vencimentoBase = dataVencimento || new Date();
             const estaPaga = !dataVencimento;
+            const parcelas = estaPaga ? 1 : parseInt(numParcelas, 10);
 
             const valorParcela = totalCompra / parcelas;
-            
             const batch = writeBatch(firestore);
 
             for (let i = 0; i < parcelas; i++) {
-                const vencimentoParcela = addDays(vencimentoBase, i * 7);
+                const vencimentoParcela = estaPaga ? vencimentoBase : addDays(vencimentoBase, i * 7);
                 const novaConta: Omit<ContaAPagar, 'id'> = {
-                    descricao: `Compra de mercadorias - ${fornecedorNome} (${i + 1}/${parcelas})`,
+                    descricao: `Compra de mercadorias - ${fornecedorNome} ${parcelas > 1 ? `(${i + 1}/${parcelas})` : ''}`.trim(),
                     fornecedorId: finalFornecedorId,
                     valor: valorParcela,
                     dataVencimento: formatDateFn(vencimentoParcela, 'yyyy-MM-dd'),
@@ -627,7 +628,6 @@ export default function MercadoriasPanel() {
                 const matchedBomboniereItem = findBestBomboniereMatch(produto.produtoNome, bomboniereItems || []);
                 if (matchedBomboniereItem) {
                     const bomboniereDocRef = doc(firestore, 'bomboniere_items', matchedBomboniereItem.id);
-                    // Get the most recent stock value to avoid race conditions if items are re-fetched
                     const currentStock = bomboniereItems?.find(bi => bi.id === matchedBomboniereItem.id)?.estoque ?? 0;
                     const newStock = currentStock + produto.quantidade;
                     batch.update(bomboniereDocRef, { estoque: newStock });
@@ -636,7 +636,12 @@ export default function MercadoriasPanel() {
             
             await batch.commit();
 
-            toast({ title: 'Sucesso!', description: 'Entrada de mercadoria, conta(s) a pagar e estoque atualizados com sucesso.' });
+            toast({ 
+                title: estaPaga ? 'Lançamento à Vista Realizado!' : 'Compra Parcelada Registada!', 
+                description: estaPaga 
+                    ? `A compra de ${formatCurrency(totalCompra)} foi registada como paga hoje.` 
+                    : `Entrada de mercadoria e ${parcelas} conta(s) a pagar criadas.` 
+            });
             resetForm();
         } catch (error) {
             console.error("Erro ao registar entrada:", error);
@@ -715,7 +720,7 @@ export default function MercadoriasPanel() {
                        <div className="space-y-2">
                             <Label htmlFor="vencimento">Vencimento da 1ª Parcela</Label>
                             <DatePicker date={dataVencimento} setDate={setDataVencimento} />
-                            <p className="text-xs text-muted-foreground">Deixe em branco para pagamento à vista.</p>
+                            <p className="text-xs text-muted-foreground">Deixe em branco para pagamento à vista (hoje).</p>
                         </div>
                          <div className="space-y-2 self-start pt-7">
                             <Label htmlFor="parcelas">Nº de Parcelas</Label>
