@@ -224,18 +224,15 @@ const CustomerReportsSection = ({
     }, [firestore, currentDate]);
 
     const handleCopyIndividualToWhatsApp = (customer: { name: string, orders: Item[] }) => {
-        const monthName = format(currentDate, 'MMMM/yyyy', { locale: ptBR });
-        let message = `*📊 EXTRATO ${monthName.toUpperCase()}*\n`;
-        message += `*Cliente:* ${customer.name}\n`;
-        message += `----------------------------\n`;
+        const monthName = format(currentDate, 'MMM/yy', { locale: ptBR }).toUpperCase();
+        let message = `*📊 EXTRATO ${monthName} - ${customer.name.toUpperCase()}*\n`;
 
         customer.orders.forEach((order) => {
-            const date = format(order.timestamp?.toDate ? order.timestamp.toDate() : new Date(order.timestamp), 'dd/MM HH:mm', { locale: ptBR });
+            const date = format(order.timestamp?.toDate ? order.timestamp.toDate() : new Date(order.timestamp), 'dd/MM HH:mm');
             message += `• ${date}: *${formatCurrency(order.total)}* (${order.name})\n`;
         });
 
         const total = customer.orders.reduce((acc, o) => acc + o.total, 0);
-        message += `----------------------------\n`;
         message += `*TOTAL: ${formatCurrency(total)}*`;
 
         navigator.clipboard.writeText(message).then(() => {
