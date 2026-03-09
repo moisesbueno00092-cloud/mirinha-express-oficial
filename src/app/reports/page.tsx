@@ -106,7 +106,7 @@ const ArchivedItemsTable = ({
                 const snapshot = await getDocs(q);
                 const fetchedItems = snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id } as Item));
                 
-                // Sort ascending by timestamp locally
+                // Ordem crescente de horário (do mais antigo para o mais recente)
                 fetchedItems.sort((a, b) => {
                     const timeA = a.timestamp?.toDate ? a.timestamp.toDate().getTime() : new Date(a.timestamp).getTime();
                     const timeB = b.timestamp?.toDate ? b.timestamp.toDate().getTime() : new Date(b.timestamp).getTime();
@@ -197,9 +197,9 @@ const CustomerReportsSection = ({ bomboniereItems }: { bomboniereItems: Bombonie
                 }
             });
 
-            // For each customer, sort their orders by timestamp ASC
             const sortedStats = Object.values(stats)
                 .map((data) => {
+                    // Ordem crescente de data dentro do histórico do cliente
                     data.orders.sort((a, b) => {
                         const dateA = a.timestamp?.toDate ? a.timestamp.toDate().getTime() : new Date(a.timestamp).getTime();
                         const dateB = b.timestamp?.toDate ? b.timestamp.toDate().getTime() : new Date(b.timestamp).getTime();
@@ -1256,7 +1256,7 @@ function ReportsPageContent() {
             }
         }
 
-        // Parse logic (simplified version of Home's logic)
+        // Logic para parsing robusto (similar à Home)
         let mainInput = rawInput.trim();
         let group: Group = 'Vendas salão';
         let deliveryFeeApplicable = false;
