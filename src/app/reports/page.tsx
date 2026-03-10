@@ -71,6 +71,7 @@ import usePersistentState from '@/hooks/use-persistent-state';
 import { PREDEFINED_PRICES, DELIVERY_FEE } from '@/lib/constants';
 import FavoritesMenu from '@/components/favorites-menu';
 import BomboniereModal from '@/components/bomboniere-modal';
+import { DatePicker } from '@/components/ui/date-picker';
 
 const formatCurrency = (value: number | undefined | null) => {
     return new Intl.NumberFormat("pt-BR", {
@@ -94,7 +95,6 @@ const ArchivedItemsTable = ({
 }) => {
     const firestore = useFirestore();
     
-    // Simplificamos a query para NÃO precisar de índice composto
     const archivedItemsQuery = useMemo(() => {
         if (!firestore || !reportDate) return null;
         return query(
@@ -105,7 +105,6 @@ const ArchivedItemsTable = ({
 
     const { data: rawItems, isLoading } = useCollection<Item>(archivedItemsQuery);
 
-    // Ordenação manual em memória para evitar erro de índice do Firestore
     const sortedItems = useMemo(() => {
         if (!rawItems) return [];
         return [...rawItems].sort((a, b) => {
@@ -234,12 +233,10 @@ const CustomerReportsSection = ({
 
     const handleCopyIndividualToWhatsApp = (customer: { name: string, orders: Item[] }) => {
         const monthName = format(currentDate, 'MMM/yy', { locale: ptBR }).toUpperCase();
-        // Extrato ultracompacto
         let message = `*📊 EXTRATO ${monthName} - ${customer.name.toUpperCase()}*\n`;
 
         customer.orders.forEach((order) => {
             const date = format(order.timestamp?.toDate ? order.timestamp.toDate() : new Date(order.timestamp), 'dd/MM HH:mm');
-            // Formato: • dd/MM HH:mm: *R$0,00*(Item)
             message += `•${date}:*${formatCurrency(order.total).replace(/\s/g, '')}*(${order.name.substring(0, 20)})\n`;
         });
 
@@ -285,7 +282,7 @@ const CustomerReportsSection = ({
                                 onClick={() => selectedCustomer && handleCopyIndividualToWhatsApp(selectedCustomer)}
                             >
                                 <WhatsAppIcon className="h-4 w-4" />
-                                <span>Copiar Compacto</span>
+                                <span>WhatsApp</span>
                             </Button>
                         </div>
                         <DialogDescription>
@@ -1409,14 +1406,12 @@ function ReportsPageContent() {
         if (procBomboniere.length > 0) nameParts.push(procBomboniere.map(it => `${it.quantity > 1 ? it.quantity : ''}${it.name}`).join(' '));
         const consolidatedName = nameParts.join(' + ') || 'Lançamento';
 
-        // Lógica de preservação do timestamp original
         let finalTimestamp: Timestamp;
         if (currentItem) {
             const itemDate = currentItem.timestamp?.toDate ? currentItem.timestamp.toDate() : new Date(currentItem.timestamp);
             const originalDateStr = format(itemDate, 'yyyy-MM-dd');
             const originalTimeStr = format(itemDate, 'HH:mm');
             
-            // Se o usuário não mexeu na data nem na hora, mantemos o objeto original exato
             if (editArchivedDateStr === originalDateStr && editArchivedTime === originalTimeStr) {
                 finalTimestamp = currentItem.timestamp;
             } else {
@@ -1673,11 +1668,11 @@ function ReportsPageContent() {
                 <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-2">
                         <Label className="flex items-center gap-2"><CalendarIcon className="h-4 w-4" /> Data</Label>
-                        <Input 
-                            type="date" 
-                            value={editArchivedDateStr} 
-                            onChange={(e) => setEditArchivedDateStr(e.target.value)}
-                            className="h-10"
+                        <DatePicker 
+                            date={editArchivedDateStr ? parseISO(editArchivedDateStr) : undefined} 
+                            setDate={(date) => {
+                                if (date) setEditArchivedDateStr(format(date, 'yyyy-MM-dd'));
+                            }} 
                         />
                     </div>
                     <div className="space-y-2">
@@ -1713,15 +1708,7 @@ function ReportsPageContent() {
                 </DialogDescription>
             </DialogHeader>
             <div className="py-4 flex flex-col items-center">
-                <Input 
-                    type="date" 
-                    className="max-w-[200px]"
-                    value={newReportDate ? format(newReportDate, 'yyyy-MM-dd') : ''}
-                    onChange={(e) => {
-                        const [y, m, d] = e.target.value.split('-').map(Number);
-                        setNewReportDate(new Date(y, m - 1, d));
-                    }}
-                />
+                <DatePicker date={newReportDate} setDate={setNewReportDate} />
             </div>
             <DialogFooter>
                 <Button variant="outline" onClick={() => setReportToEditDate(null)}>Cancelar</Button>
