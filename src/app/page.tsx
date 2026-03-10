@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useMemo, useState, useRef, useEffect } from 'react';
@@ -107,7 +106,8 @@ function LancheTrackerPageContent() {
 
   const liveItemsQuery = useMemo(() => {
     if (!firestore) return null;
-    const q = query(collection(firestore, 'live_items'), orderBy('timestamp', 'desc'));
+    // Removed direct orderBy to avoid Firestore Index Errors
+    const q = query(collection(firestore, 'live_items'));
     return q;
   }, [firestore]);
   
@@ -115,7 +115,13 @@ function LancheTrackerPageContent() {
 
   const items = useMemo(() => {
     if (!allItems) return [];
-    return allItems.filter(item => !item.reportado);
+    // Filter and Sort in memory to avoid index requirement and errors
+    return [...allItems]
+      .filter(item => !item.reportado)
+      .sort((a, b) => {
+        const getT = (ts: any) => (ts?.toMillis ? ts.toMillis() : new Date(ts).getTime() || 0);
+        return getT(b.timestamp) - getT(a.timestamp); // Newer first
+      });
   }, [allItems]);
 
 
@@ -124,7 +130,7 @@ function LancheTrackerPageContent() {
       toast({
         variant: 'destructive',
         title: 'Erro ao carregar itens',
-        description: `Não foi possível carregar os lançamentos. Verifique a sua conexão ou as permissões da base de dados.`,
+        description: `Não foi possível carregar os lançamentos. Verifique a sua conexão.`,
         duration: 8000,
       });
     }
@@ -161,7 +167,7 @@ function LancheTrackerPageContent() {
   const [isStockEditModalOpen, setIsStockEditModalOpen] = useState(false);
   const [rawInput, setRawInput] = useState('');
   const inputRef = useRef<HTMLInputElement>(null);
-  const prevIsProcessing = useRef<boolean>();
+  const prevIsProcessing = useRef<boolean>(undefined);
 
 
   const [itemToDelete, setItemToDelete] = useState<string | null>(null);
@@ -171,7 +177,6 @@ function LancheTrackerPageContent() {
 
   const [passwordPrompt, setPasswordPrompt] = useState<{ open: boolean; onSuccess: () => void; onCancel?: () => void; } | null>(null);
 
-  // States for multi-delete
   const [isSelectionModeActive, setIsSelectionModeActive] = useState(false);
   const [selectedItems, setSelectedItems] = useState<string[]>([]);
   const [isDeleteSelectedAlertOpen, setIsDeleteSelectedAlertOpen] = useState(false);
@@ -217,9 +222,8 @@ function LancheTrackerPageContent() {
   async function handleUpsertItem(rawInputToProcess: string, currentItem?: Item | null, favoriteName?: string) {
     setIsProcessing(true);
     if (!firestore || !user?.uid) {
-      toast({ variant: 'destructive', title: 'Erro', description: 'Base de dados indisponível. A página será recarregada.' });
+      toast({ variant: 'destructive', title: 'Erro', description: 'Base de dados indisponível.' });
       setIsProcessing(false);
-      setTimeout(() => window.location.reload(), 2000);
       return;
     }
     const liveItemsCollectionRef = collection(firestore, 'live_items');
@@ -453,7 +457,7 @@ function LancheTrackerPageContent() {
         quantity: totalQuantity,
         price: totalPrice,
         group,
-        // PRESERVAÇÃO DE HORÁRIO: Se estiver a editar, mantém o timestamp original
+        // PRESERVAÇÃO DE HORÁRIO: Se estiver a editar, mantém o timestamp original do primeiro registo
         timestamp: currentItem ? currentItem.timestamp : (serverTimestamp() as Timestamp),
         deliveryFee: finalDeliveryFee,
         total,
@@ -525,17 +529,17 @@ function LancheTrackerPageContent() {
   };
 
   const confirmDeleteItem = async () => {
-    if (!itemToDelete || !firestore || !items) return;
+    if (!itemToDelete || !firestore || !allItems) return;
 
     const liveItemsCollectionRef = collection(firestore, 'live_items');
-    const itemBeingDeleted = items.find((it) => it.id === itemToDelete);
+    const itemBeingDeleted = allItems.find((it) => it.id === itemToDelete);
 
     try {
       if (itemBeingDeleted && itemBeingDeleted.bomboniereItems && bomboniereItems) {
         const bomboniereCollectionRef = collection(firestore, 'bomboniere_items');
         const batch = writeBatch(firestore);
-        for (const soldItem of itemBeingDeleted.bomboniereItems) {
-          const itemDef = bomboniereItems.find((i) => i.id === soldItem.id);
+        for (const oldSoldItem of itemBeingDeleted.bomboniereItems) {
+          const itemDef = bomboniereItems.find((i) => i.id === oldSoldItem.id);
           if (itemDef) {
             const newStock = itemDef.estoque + oldSoldItem.quantity;
             const docRef = doc(bomboniereCollectionRef, itemDef.id);
@@ -868,7 +872,7 @@ function LancheTrackerPageContent() {
           <AlertDialogHeader>
             <AlertDialogTitle>Excluir Lançamento?</AlertDialogTitle>
             <AlertDialogDescription>
-              Esta ação não pode ser desfeita. O item será excluído permanentemente da base de dados. Se contiver itens de bomboniere, o estoque será devolvido.
+              Esta ação não pode ser desfeita. O item será excluído permanentemente da base de dados.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -883,7 +887,7 @@ function LancheTrackerPageContent() {
           <AlertDialogHeader>
             <AlertDialogTitle>Excluir {selectedItems.length} Lançamentos?</AlertDialogTitle>
             <AlertDialogDescription>
-              Esta ação não pode ser desfeita. Os itens serão excluídos permanentemente. Estoque de bomboniere será devolvido.
+              Esta ação não pode ser desfeita. Os itens serão excluídos permanentemente.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

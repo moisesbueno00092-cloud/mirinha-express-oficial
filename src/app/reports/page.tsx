@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useMemo, useEffect } from 'react';
@@ -45,7 +44,7 @@ import {
     DialogFooter,
     DialogHeader,
     DialogTitle,
-} from "@/components/ui/dialog";
+} from "@/Dialog";
 import {
   Accordion,
   AccordionContent,
@@ -82,7 +81,6 @@ const formatCurrency = (value: number | undefined | null) => {
 
 const isNumeric = (str: string) => !isNaN(parseFloat(str.replace(',', '.'))) && /^[0-9,.]+$/.test(str);
 
-// Helper to safely parse and format dates
 const safeFormat = (dateInput: any, formatStr: string, options?: any) => {
     if (!dateInput) return '-';
     let d: Date;
@@ -113,7 +111,7 @@ const ArchivedItemsTable = ({
     
     const archivedItemsQuery = useMemo(() => {
         if (!firestore || !reportDate) return null;
-        // Removed orderBy to prevent index errors, sorting in memory below
+        // Removed orderBy to prevent Firestore index errors
         return query(
             collection(firestore, 'order_items'),
             where('reportDate', '==', reportDate)
@@ -127,7 +125,7 @@ const ArchivedItemsTable = ({
         return [...rawItems].sort((a, b) => {
             const getT = (ts: any) => {
                 if (!ts) return 0;
-                if (ts.toDate) return ts.toDate().getTime();
+                if (ts.toMillis) return ts.toMillis();
                 const d = new Date(ts);
                 return isNaN(d.getTime()) ? 0 : d.getTime();
             };
@@ -225,7 +223,7 @@ const CustomerReportsSection = ({
                     data.orders.sort((a, b) => {
                         const getT = (ts: any) => {
                             if (!ts) return 0;
-                            if (ts.toDate) return ts.toDate().getTime();
+                            if (ts.toMillis) return ts.toMillis();
                             const d = new Date(ts);
                             return isNaN(d.getTime()) ? 0 : d.getTime();
                         };
@@ -780,6 +778,7 @@ const DailyReportsSection = ({
     const monthlyReports = useMemo(() => {
         if(!reports) return [];
         return reports.filter(r => {
+            if (!r.reportDate) return false;
             const reportDate = parseISO(r.reportDate);
             return reportDate.getFullYear() === currentDate.getFullYear() && reportDate.getMonth() === currentDate.getMonth();
         }).sort((a, b) => parseISO(a.reportDate).getTime() - parseISO(b.reportDate).getTime());
@@ -916,7 +915,7 @@ const WeeklyReportsSection = ({ reports, bomboniereItems }: { reports: DailyRepo
     }
 
     const weeklyData = useMemo(() => {
-        const yearReports = reports.filter(r => getYear(parseISO(r.reportDate)) === year);
+        const yearReports = reports.filter(r => r.reportDate && getYear(parseISO(r.reportDate)) === year);
         const weeks: Record<number, DailyReport[]> = {};
         for(const report of yearReports) {
             const weekNumber = getWeek(parseISO(report.reportDate), { weekStartsOn: 1 });
@@ -999,7 +998,7 @@ const MonthlyReportsSection = ({ reports, bomboniereItems }: { reports: DailyRep
     }
 
     const monthlyData = useMemo(() => {
-        const yearReports = reports.filter(r => getYear(parseISO(r.reportDate)) === year);
+        const yearReports = reports.filter(r => r.reportDate && getYear(parseISO(r.reportDate)) === year);
         const months: Record<number, DailyReport[]> = {};
         for(const report of yearReports) {
             const monthNumber = getMonth(parseISO(report.reportDate));
@@ -1065,6 +1064,7 @@ const YearlyReportsSection = ({ reports, bomboniereItems }: { reports: DailyRepo
     const yearlyData = useMemo(() => {
         const years: Record<number, DailyReport[]> = {};
         for(const report of reports) {
+            if (!report.reportDate) continue;
             const yearNumber = getYear(parseISO(report.reportDate));
             if(!years[yearNumber]) years[yearNumber] = [];
             years[yearNumber].push(report);
@@ -1171,7 +1171,6 @@ function ReportsPageContent() {
   const [archivedItemToEdit, setArchivedItemToEdit] = useState<Item | null>(null);
   const [editArchivedInput, setEditArchivedInput] = useState('');
   
-  // States for manual date/time override in the archived item edit dialog
   const [editArchivedDate, setEditArchivedDate] = useState<Date | undefined>();
   const [editArchivedTime, setEditArchivedTime] = useState('12:00');
   
@@ -1193,7 +1192,9 @@ function ReportsPageContent() {
 
   const allReports = useMemo(() => {
     if (!allReportsRaw) return [];
-    return [...allReportsRaw].sort((a, b) => parseISO(a.reportDate).getTime() - parseISO(b.reportDate).getTime());
+    return [...allReportsRaw]
+      .filter(r => r.reportDate) // Seguranca contra dados corrompidos
+      .sort((a, b) => parseISO(a.reportDate).getTime() - parseISO(b.reportDate).getTime());
   }, [allReportsRaw]);
 
   const bomboniereQuery = useMemo(
@@ -1336,7 +1337,6 @@ function ReportsPageContent() {
 
     const oldReportDate = currentItem?.reportDate;
     
-    // Construct the full date/time object from inputs
     const [hours, minutes] = editArchivedTime.split(':').map(Number);
     const finalDate = new Date(editArchivedDate);
     finalDate.setHours(hours, minutes, 0, 0);
@@ -1450,7 +1450,6 @@ function ReportsPageContent() {
         if (procBomboniere.length > 0) nameParts.push(procBomboniere.map(it => `${it.quantity > 1 ? it.quantity : ''}${it.name}`).join(' '));
         const consolidatedName = nameParts.join(' + ') || 'Lançamento';
 
-        // PRESERVAÇÃO DE HORÁRIO: Se a data/hora coincidir com o formato original, mantém o Timestamp original
         let finalTimestamp: Timestamp;
         if (currentItem) {
             let itemDate: Date;
