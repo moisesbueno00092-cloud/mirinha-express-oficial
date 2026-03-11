@@ -1562,7 +1562,7 @@ function ReportsPageContent() {
 
         if (itemToDelete.bomboniereItems && itemToDelete.bomboniereItems.length > 0 && bomboniereItems) {
             for (const soldItem of itemToDelete.bomboniereItems) {
-                const itemDef = bomboniereItems.find((i) => i.id === soldItem.id);
+                const itemDef = bomboniereItems.find((i) => i.id === oldSoldItem.id);
                 if (itemDef) {
                     batch.update(doc(firestore, 'bomboniere_items', itemDef.id), { estoque: itemDef.estoque + soldItem.quantity });
                 }
