@@ -115,7 +115,6 @@ const ArchivedItemsTable = ({
     
     const archivedItemsQuery = useMemo(() => {
         if (!firestore || !reportDate) return null;
-        // Consulta simples para evitar erros de índice composto
         return query(
             collection(firestore, 'order_items'),
             where('reportDate', '==', reportDate)
@@ -124,7 +123,6 @@ const ArchivedItemsTable = ({
 
     const { data: rawItems, isLoading } = useCollection<Item>(archivedItemsQuery);
 
-    // Ordenação em memória para eliminar a necessidade de índices complexos no Firestore
     const sortedItems = useMemo(() => {
         if (!rawItems) return [];
         return [...rawItems].sort((a, b) => {
@@ -225,7 +223,6 @@ const CustomerReportsSection = ({
 
             const sortedStats = Object.values(stats)
                 .map((data) => {
-                    // Sort orders by timestamp in memory
                     data.orders.sort((a, b) => {
                         const getT = (ts: any) => {
                             if (!ts) return 0;

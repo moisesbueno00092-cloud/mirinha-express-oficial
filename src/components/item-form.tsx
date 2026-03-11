@@ -18,6 +18,9 @@ interface ItemFormProps {
   children?: React.ReactNode;
 }
 
+/**
+ * Formulário simples e direto para evitar loops de renderização.
+ */
 export default function ItemForm({ 
     rawInput, 
     setRawInput, 

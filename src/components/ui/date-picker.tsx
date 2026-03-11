@@ -27,6 +27,7 @@ export function DatePicker({ date, setDate }: DatePickerProps) {
   const [open, setOpen] = React.useState(false);
 
   const handleSelect = (selectedDate: Date | undefined) => {
+    // Se a data for válida, atualiza o estado e fecha o popover imediatamente
     if (selectedDate && isValid(selectedDate)) {
       setDate(selectedDate);
       setOpen(false);
