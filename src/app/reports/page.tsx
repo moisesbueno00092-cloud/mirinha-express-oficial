@@ -219,77 +219,70 @@ const CustomerReportsSection = ({
     const firestore = useFirestore();
     const { toast } = useToast();
     const [currentDate, setCurrentDate] = useState<Date>(new Date());
-    const [loading, setLoading] = useState(false);
-    const [customerData, setCustomerData] = useState<{ name: string, total: number, count: number, orders: Item[] }[]>([]);
     const [selectedCustomer, setSelectedCustomer] = useState<{ name: string, orders: Item[] } | null>(null);
 
-    const fetchCustomerStats = async () => {
-        if (!firestore) return;
-        setLoading(true);
-        try {
-            const start = format(startOfMonth(currentDate), 'yyyy-MM-dd');
-            const end = format(endOfMonth(currentDate), 'yyyy-MM-dd');
-
-            const q = query(
-                collection(firestore, 'order_items'),
-                where('reportDate', '>=', start),
-                where('reportDate', '<=', end)
-            );
-            
-            const snapshot = await getDocs(q);
-            const items = snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id } as Item));
-
-            const stats: Record<string, { name: string, total: number, count: number, orders: Item[] }> = {};
-
-            items.forEach(item => {
-                if (item.customerName) {
-                    const rawName = item.customerName.trim();
-                    const key = rawName.toLowerCase();
-                    
-                    if (!stats[key]) {
-                        stats[key] = { name: rawName, total: 0, count: 0, orders: [] };
-                    }
-                    stats[key].total += item.total;
-                    stats[key].count += 1;
-                    stats[key].orders.push(item);
-                }
-            });
-
-            const sortedStats = Object.values(stats)
-                .map((data) => {
-                    data.orders.sort((a, b) => {
-                        const getT = (ts: any) => {
-                            if (!ts) return 0;
-                            if (ts.toMillis) return ts.toMillis();
-                            const d = new Date(ts);
-                            return isNaN(d.getTime()) ? 0 : d.getTime();
-                        };
-                        return getT(a.timestamp) - getT(b.timestamp);
-                    });
-                    return data;
-                })
-                .sort((a, b) => b.total - a.total);
-
-            setCustomerData(sortedStats);
-            
-            if (selectedCustomer) {
-                const updatedSelected = sortedStats.find(c => c.name.toLowerCase() === selectedCustomer.name.toLowerCase());
-                if (updatedSelected) {
-                    setSelectedCustomer({ name: updatedSelected.name, orders: updatedSelected.orders });
-                } else {
-                    setSelectedCustomer(null);
-                }
-            }
-        } catch (error) {
-            console.error("Error fetching customer stats:", error);
-        } finally {
-            setLoading(false);
-        }
-    };
-
-    useEffect(() => {
-        fetchCustomerStats();
+    // Agora usamos useCollection para ter sincronização em tempo real com order_items
+    const orderItemsQuery = useMemo(() => {
+        if (!firestore) return null;
+        const start = format(startOfMonth(currentDate), 'yyyy-MM-dd');
+        const end = format(endOfMonth(currentDate), 'yyyy-MM-dd');
+        return query(
+            collection(firestore, 'order_items'),
+            where('reportDate', '>=', start),
+            where('reportDate', '<=', end)
+        );
     }, [firestore, currentDate]);
+
+    const { data: items, isLoading } = useCollection<Item>(orderItemsQuery);
+
+    const customerData = useMemo(() => {
+        if (!items) return [];
+        
+        const stats: Record<string, { name: string, total: number, count: number, orders: Item[] }> = {};
+
+        items.forEach(item => {
+            if (item.customerName) {
+                const rawName = item.customerName.trim();
+                const key = rawName.toLowerCase();
+                
+                if (!stats[key]) {
+                    stats[key] = { name: rawName, total: 0, count: 0, orders: [] };
+                }
+                stats[key].total += item.total;
+                stats[key].count += 1;
+                stats[key].orders.push(item);
+            }
+        });
+
+        const sortedStats = Object.values(stats)
+            .map((data) => {
+                data.orders.sort((a, b) => {
+                    const getT = (ts: any) => {
+                        if (!ts) return 0;
+                        if (ts.toMillis) return ts.toMillis();
+                        const d = new Date(ts);
+                        return isNaN(d.getTime()) ? 0 : d.getTime();
+                    };
+                    return getT(a.timestamp) - getT(b.timestamp);
+                });
+                return data;
+            })
+            .sort((a, b) => b.total - a.total);
+
+        return sortedStats;
+    }, [items]);
+
+    // Atualiza o cliente selecionado se os dados dele mudarem
+    useEffect(() => {
+        if (selectedCustomer && customerData.length > 0) {
+            const updated = customerData.find(c => c.name.toLowerCase() === selectedCustomer.name.toLowerCase());
+            if (updated) {
+                setSelectedCustomer({ name: updated.name, orders: updated.orders });
+            } else {
+                setSelectedCustomer(null);
+            }
+        }
+    }, [customerData, selectedCustomer]);
 
     const handleCopyIndividualToWhatsApp = (customer: { name: string, orders: Item[] }) => {
         const monthName = safeFormat(currentDate, 'MMM/yy', { locale: ptBR }).toUpperCase();
@@ -446,7 +439,7 @@ const CustomerReportsSection = ({
                 </div>
             </div>
 
-            {loading ? (
+            {isLoading ? (
                 <div className="flex justify-center p-12"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>
             ) : customerData.length > 0 ? (
                 <div className="rounded-md border overflow-hidden">
