@@ -22,12 +22,12 @@ interface DatePickerProps {
 
 /**
  * Componente DatePicker robusto que garante a propagação imediata da data selecionada.
+ * Utiliza proteção contra propagação de eventos para evitar fechar diálogos pais.
  */
 export function DatePicker({ date, setDate }: DatePickerProps) {
   const [open, setOpen] = React.useState(false);
 
   const handleSelect = (selectedDate: Date | undefined) => {
-    // Se a data for válida, atualiza o estado e fecha o popover imediatamente
     if (selectedDate && isValid(selectedDate)) {
       setDate(selectedDate);
       setOpen(false);
@@ -40,7 +40,7 @@ export function DatePicker({ date, setDate }: DatePickerProps) {
         <Button
           variant={"outline"}
           className={cn(
-            "w-full justify-start text-left font-normal h-10 bg-background",
+            "w-full justify-start text-left font-normal h-10 bg-background border-input",
             !date && "text-muted-foreground"
           )}
         >
@@ -48,7 +48,11 @@ export function DatePicker({ date, setDate }: DatePickerProps) {
           {date && isValid(date) ? format(date, "PPP", { locale: ptBR }) : <span>Selecione uma data</span>}
         </Button>
       </PopoverTrigger>
-      <PopoverContent className="w-auto p-0 z-[120]" align="start">
+      <PopoverContent 
+        className="w-auto p-0 z-[150]" 
+        align="start"
+        onInteractOutside={(e) => e.preventDefault()}
+      >
         <Calendar
           mode="single"
           selected={date}

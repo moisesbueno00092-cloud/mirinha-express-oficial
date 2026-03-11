@@ -1,9 +1,20 @@
 
 'use client';
 
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect, useCallback } from 'react';
 import { useFirestore, useCollection, useUser } from '@/firebase';
-import { collection, query, doc, where, getDocs, deleteDoc, writeBatch, setDoc, addDoc, Timestamp } from 'firebase/firestore';
+import { 
+    collection, 
+    query, 
+    doc, 
+    where, 
+    getDocs, 
+    deleteDoc, 
+    writeBatch, 
+    setDoc, 
+    addDoc, 
+    Timestamp 
+} from 'firebase/firestore';
 import { 
     format, 
     parseISO, 
@@ -26,7 +37,23 @@ import { Button, buttonVariants } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
 import { Badge } from '@/components/ui/badge';
-import { Loader2, Trash2, Info, CalendarDays, BarChart4, AreaChart, LineChart, GanttChart, ListOrdered, User, Eye, Calendar as CalendarIcon, Clock, Pencil, Plus } from 'lucide-react';
+import { 
+    Loader2, 
+    Trash2, 
+    Info, 
+    CalendarDays, 
+    BarChart4, 
+    AreaChart, 
+    LineChart, 
+    GanttChart, 
+    ListOrdered, 
+    User, 
+    Eye, 
+    Calendar as CalendarIcon, 
+    Clock, 
+    Pencil, 
+    Plus 
+} from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import {
   AlertDialog,
@@ -58,7 +85,16 @@ import {
   ChartTooltipContent,
   type ChartConfig,
 } from "@/components/ui/chart"
-import type { DailyReport, ItemCount, BomboniereItem, Item, Group, PredefinedItem, SelectedBomboniereItem, SavedFavorite } from '@/types';
+import type { 
+    DailyReport, 
+    ItemCount, 
+    BomboniereItem, 
+    Item, 
+    Group, 
+    PredefinedItem, 
+    SelectedBomboniereItem, 
+    SavedFavorite 
+} from '@/types';
 import { cn } from '@/lib/utils';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { PieChart, Pie, Cell } from 'recharts';
@@ -72,6 +108,7 @@ import { PREDEFINED_PRICES, DELIVERY_FEE } from '@/lib/constants';
 import FavoritesMenu from '@/components/favorites-menu';
 import BomboniereModal from '@/components/bomboniere-modal';
 import { DatePicker } from '@/components/ui/date-picker';
+import { Calendar } from '@/components/ui/calendar';
 
 const formatCurrency = (value: number | undefined | null) => {
     return new Intl.NumberFormat("pt-BR", {
@@ -82,9 +119,6 @@ const formatCurrency = (value: number | undefined | null) => {
 
 const isNumeric = (str: string) => !isNaN(parseFloat(str.replace(',', '.'))) && /^[0-9,.]+$/.test(str);
 
-/**
- * Função segura para formatar datas, evitando o erro RangeError: Invalid time value
- */
 const safeFormat = (dateInput: any, formatStr: string, options?: any) => {
     if (!dateInput) return '-';
     let d: Date;
@@ -1236,9 +1270,6 @@ function ReportsPageContent() {
     }
   }, [archivedItemToEdit]);
 
-  /**
-   * Recalcula todos os totais de um relatório diário específico.
-   */
   const recalculateReport = async (reportDate: string) => {
     if (!firestore || !user?.uid) return;
 
@@ -1337,16 +1368,12 @@ function ReportsPageContent() {
     }
   };
 
-  /**
-   * Lógica para salvar ou atualizar um item arquivado, preservando o horário original.
-   */
   const handleUpsertArchivedItem = async (rawInput: string, currentItem?: Item | null, specificDate?: string, favoriteName?: string) => {
     if (!firestore || !user?.uid || !editArchivedDate) return;
     setIsProcessingEdit(true);
 
     const oldReportDate = currentItem?.reportDate;
     
-    // Combina a data selecionada no calendário com a hora selecionada no input
     const [hours, minutes] = editArchivedTime.split(':').map(Number);
     const finalDate = new Date(editArchivedDate);
     finalDate.setHours(hours, minutes, 0, 0);
@@ -1362,7 +1389,6 @@ function ReportsPageContent() {
     try {
         const batch = writeBatch(firestore);
 
-        // Reverte o estoque se estivermos editando um item existente
         if (currentItem && currentItem.bomboniereItems && currentItem.bomboniereItems.length > 0 && bomboniereItems) {
             for (const oldSoldItem of currentItem.bomboniereItems) {
                 const itemDef = bomboniereItems.find((i) => i.id === oldSoldItem.id);
@@ -1457,7 +1483,6 @@ function ReportsPageContent() {
         if (procBomboniere.length > 0) nameParts.push(procBomboniere.map(it => `${it.quantity > 1 ? it.quantity : ''}${it.name}`).join(' '));
         const consolidatedName = nameParts.join(' + ') || 'Lançamento';
 
-        // PRESERVAÇÃO DE HORÁRIO: Mantém o timestamp original se a hora e o dia forem os mesmos.
         let finalTimestamp: Timestamp;
         if (currentItem) {
             let itemDate: Date;
@@ -1502,7 +1527,6 @@ function ReportsPageContent() {
             ...(procBomboniere.length > 0 ? { bomboniereItems: procBomboniere } : {}),
         };
 
-        // Atualiza estoque
         if (bomboniereItems) {
             for (const soldItem of procBomboniere) {
                 const itemDef = bomboniereItems.find((i) => i.id === soldItem.id);
@@ -1520,7 +1544,6 @@ function ReportsPageContent() {
 
         await batch.commit();
         
-        // Recalcula relatórios diários afetados
         await recalculateReport(newReportDateStr);
         if (oldReportDate && oldReportDate !== newReportDateStr) {
             await recalculateReport(oldReportDate);
@@ -1562,7 +1585,7 @@ function ReportsPageContent() {
 
         if (itemToDelete.bomboniereItems && itemToDelete.bomboniereItems.length > 0 && bomboniereItems) {
             for (const soldItem of itemToDelete.bomboniereItems) {
-                const itemDef = bomboniereItems.find((i) => i.id === oldSoldItem.id);
+                const itemDef = bomboniereItems.find((i) => i.id === soldItem.id);
                 if (itemDef) {
                     batch.update(doc(firestore, 'bomboniere_items', itemDef.id), { estoque: itemDef.estoque + soldItem.quantity });
                 }
@@ -1592,7 +1615,6 @@ function ReportsPageContent() {
   const handleEditDateRequest = (report: DailyReport) => {
     setReportToEditDate(report);
     if (report.reportDate) {
-        // Usa meio-dia para evitar shifts de timezone
         setNewReportDate(new Date(report.reportDate + 'T12:00:00'));
     }
   };
@@ -1625,9 +1647,6 @@ function ReportsPageContent() {
     }
   };
   
-  /**
-   * Atualiza a data de um DailyReport e SINCRONIZA todos os seus order_items para a nova data.
-   */
   const confirmEditDate = async () => {
     if (!firestore || !reportToEditDate || !newReportDate || !user?.uid) return;
     setIsUpdatingDate(true);
@@ -1643,13 +1662,11 @@ function ReportsPageContent() {
     try {
         const batch = writeBatch(firestore);
         
-        // 1. Atualiza a data no documento do relatório
         batch.update(doc(firestore, "daily_reports", reportToEditDate.id!), { 
             reportDate: newDateStr,
             updatedAt: new Date().toISOString()
         });
 
-        // 2. SINCRONIZAÇÃO: Move todos os order_items associados para a nova reportDate
         const orderItemsQuery = query(
             collection(firestore, 'order_items'), 
             where('reportDate', '==', oldDateStr)
@@ -1791,11 +1808,22 @@ function ReportsPageContent() {
             <DialogHeader>
                 <DialogTitle>Alterar Data do Relatório</DialogTitle>
                 <DialogDescription>
-                    Selecione a nova data para o relatório. Todos os pedidos deste dia serão movidos automaticamente.
+                    Selecione a nova data para o relatório. Todos os pedidos deste dia serão movidos automaticamente para garantir o histórico correto do cliente.
                 </DialogDescription>
             </DialogHeader>
-            <div className="py-4 flex flex-col items-center">
-                <DatePicker date={newReportDate} setDate={setNewReportDate} />
+            <div className="py-4 flex flex-col items-center bg-muted/30 rounded-md">
+                <Calendar
+                    mode="single"
+                    selected={newReportDate}
+                    onSelect={setNewReportDate}
+                    locale={ptBR}
+                    className="border rounded-md bg-background"
+                />
+                {newReportDate && (
+                    <p className="mt-4 text-sm font-medium text-primary">
+                        Nova data: {safeFormat(newReportDate, "dd/MM/yyyy", { locale: ptBR })}
+                    </p>
+                )}
             </div>
             <DialogFooter>
                 <Button variant="outline" onClick={() => setReportToEditDate(null)}>Cancelar</Button>

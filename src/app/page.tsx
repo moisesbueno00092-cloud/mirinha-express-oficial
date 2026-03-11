@@ -46,7 +46,6 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
-import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
 import {
   Save,
@@ -284,7 +283,6 @@ function LancheTrackerPageContent() {
       let addFeeToTotal = true;
       
 
-      // --- Pass 1: Bomboniere Items ---
       for (let i = 0; i < parts.length; i++) {
         if (consumedParts[i]) continue;
 
@@ -324,7 +322,6 @@ function LancheTrackerPageContent() {
         }
       }
 
-      // --- Pass 2: KG, TX, Predefined Items ---
       for (let i = 0; i < parts.length; i++) {
         if (consumedParts[i]) continue;
       
@@ -451,7 +448,6 @@ function LancheTrackerPageContent() {
         quantity: totalQuantity,
         price: totalPrice,
         group,
-        // PRESERVAÇÃO DE HORÁRIO: Mantém o timestamp original se estiver a editar
         timestamp: currentItem ? currentItem.timestamp : (serverTimestamp() as Timestamp),
         deliveryFee: finalDeliveryFee,
         total,
@@ -894,8 +890,6 @@ function LancheTrackerPageContent() {
 
       <div className="container mx-auto max-w-4xl p-2 sm:p-4 lg:p-8 pb-36">
         <header className="relative mb-6 flex h-20 items-center justify-center">
-          <div className="absolute left-0 flex items-center gap-2">
-          </div>
           <div className="flex flex-col items-center">
             <MirinhaLogo className="w-64 sm:w-80 h-auto text-primary" />
             <p className="text-muted-foreground -mt-2 text-sm sm:text-base">Controle de Pedidos</p>

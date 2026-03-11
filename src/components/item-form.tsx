@@ -1,8 +1,8 @@
 
 "use client";
 
-import { useRef } from "react";
-import { Plus, Loader2, Star } from "lucide-react";
+import { memo } from "react";
+import { Plus, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -19,9 +19,9 @@ interface ItemFormProps {
 }
 
 /**
- * Formulário simples e direto para evitar loops de renderização.
+ * Formulário otimizado para evitar loops de renderização.
  */
-export default function ItemForm({ 
+function ItemForm({ 
     rawInput, 
     setRawInput, 
     onItemSubmit, 
@@ -47,6 +47,7 @@ export default function ItemForm({
               onChange={(e) => setRawInput(e.target.value)}
               className="h-10 flex-1 sm:h-12 text-base"
               disabled={isProcessing}
+              autoComplete="off"
             />
             {children}
             <Button 
@@ -73,3 +74,5 @@ export default function ItemForm({
     </Card>
   );
 }
+
+export default memo(ItemForm);
