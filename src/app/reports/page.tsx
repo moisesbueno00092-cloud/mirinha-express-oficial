@@ -204,11 +204,9 @@ const ArchivedItemsTable = ({
 };
 
 const CustomerReportsSection = ({ 
-    bomboniereItems,
     onEditItem,
     onDeleteItem
 }: { 
-    bomboniereItems: BomboniereItem[],
     onEditItem: (item: Item) => void,
     onDeleteItem: (item: Item) => void
 }) => {
@@ -1911,7 +1909,6 @@ function ReportsPageContent() {
                     </AccordionTrigger>
                     <AccordionContent className="p-6 pt-0">
                         <CustomerReportsSection 
-                            bomboniereItems={bomboniereItems || []} 
                             onEditItem={(item) => {
                                 setArchivedItemToEdit(item);
                             }}
