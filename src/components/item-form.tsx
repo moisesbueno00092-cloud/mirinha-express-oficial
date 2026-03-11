@@ -14,7 +14,7 @@ interface ItemFormProps {
   onItemSubmit: (e: React.FormEvent) => void;
   onOpenBomboniere: () => void;
   isProcessing: boolean;
-  inputRef: React.RefObject<HTMLInputElement>;
+  inputRef: React.RefObject<HTMLInputElement | null>;
   children?: React.ReactNode;
 }
 
@@ -70,5 +70,3 @@ export default function ItemForm({
     </Card>
   );
 }
-
-    
