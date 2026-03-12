@@ -49,7 +49,8 @@ import {
     TrendingUp,
     CalendarCheck,
     BarChart3,
-    History
+    History,
+    ChevronRight
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import {
@@ -118,6 +119,28 @@ const safeFormat = (dateInput: any, formatStr: string, options?: any) => {
 };
 
 // --- COMPONENTES AUXILIARES ---
+
+/**
+ * Exibe os dados consolidados no formato padronizado (Financeiro | Operacional)
+ */
+const SummaryDisplay = ({ data }: { data: any }) => (
+    <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-4">
+        <div className="space-y-2 text-sm">
+            <h3 className="font-bold border-b pb-1">Financeiro</h3>
+            <div className="flex justify-between"><span>Vendas Salão:</span> <span>{formatCurrency(data.totalVendasSalao)}</span></div>
+            <div className="flex justify-between"><span>Vendas Rua:</span> <span>{formatCurrency(data.totalVendasRua)}</span></div>
+            <div className="flex justify-between text-destructive font-semibold"><span>Fiado Total:</span> <span>{formatCurrency(data.totalFiado)}</span></div>
+            <Separator className="my-1"/>
+            <div className="flex justify-between font-bold text-primary"><span>Total Geral:</span> <span>{formatCurrency(data.totalGeral)}</span></div>
+        </div>
+        <div className="space-y-2 text-sm">
+            <h3 className="font-bold border-b pb-1">Operacional</h3>
+            <div className="flex justify-between"><span>Entregas (Taxas):</span> <span>{data.totalEntregas} ({formatCurrency(data.totalTaxas)})</span></div>
+            <div className="flex justify-between"><span>Total de Itens:</span> <span>{data.totalItens}</span></div>
+            <div className="flex justify-between"><span>Total de Pedidos:</span> <span>{data.totalPedidos}</span></div>
+        </div>
+    </div>
+);
 
 const CustomerReportsSection = ({ 
     globalDate,
@@ -260,23 +283,8 @@ const ReportDetail = ({ report, bomboniereItems, onEditItem, onDeleteItem, onAdd
     if (!report) return null;
 
     return (
-        <div className="space-y-6 pt-4">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div className="space-y-2 text-sm">
-                    <h3 className="font-bold border-b pb-1">Financeiro</h3>
-                    <div className="flex justify-between"><span>Vendas Salão:</span> <span>{formatCurrency(report.totalVendasSalao)}</span></div>
-                    <div className="flex justify-between"><span>Vendas Rua:</span> <span>{formatCurrency(report.totalVendasRua)}</span></div>
-                    <div className="flex justify-between text-destructive font-semibold"><span>Fiado Total:</span> <span>{formatCurrency(report.totalFiado)}</span></div>
-                    <Separator className="my-1"/>
-                    <div className="flex justify-between font-bold text-primary"><span>Total Geral:</span> <span>{formatCurrency(report.totalGeral)}</span></div>
-                </div>
-                <div className="space-y-2 text-sm">
-                    <h3 className="font-bold border-b pb-1">Operacional</h3>
-                    <div className="flex justify-between"><span>Entregas (Taxas):</span> <span>{report.totalEntregas} ({formatCurrency(report.totalTaxas)})</span></div>
-                    <div className="flex justify-between"><span>Total de Itens:</span> <span>{report.totalItens}</span></div>
-                    <div className="flex justify-between"><span>Total de Pedidos:</span> <span>{report.totalPedidos}</span></div>
-                </div>
-            </div>
+        <div className="space-y-6">
+            <SummaryDisplay data={report} />
             <div className="border-t pt-4">
                 <div className="flex justify-between items-center mb-4"><h4 className="font-bold flex items-center gap-2"><ListOrdered className="h-4 w-4"/>Pedidos do Dia</h4><Button variant="outline" size="sm" onClick={() => onAddItem(report.reportDate)}><Plus className="h-4 w-4 mr-1"/>Novo</Button></div>
                 {isLoading ? <Loader2 className="h-8 w-8 animate-spin mx-auto" /> : <div className="rounded-md border"><ItemList items={sortedItems} isLoading={false} onEdit={onEditItem} onDelete={(id) => { const it = sortedItems.find(i => i.id === id); if(it) onDeleteItem(it); }} /></div>}
@@ -349,40 +357,12 @@ export default function ReportsPage() {
     }, { today: 0, week: 0, month: 0, year: 0 });
   }, [allReports]);
 
-  // Helper para agregação de dados financeiros e operacionais
-  const aggregateData = (reports: DailyReport[]) => {
-      return reports.reduce((acc, r) => {
-          acc.totalGeral += r.totalGeral || 0;
-          acc.totalAVista += r.totalAVista || 0;
-          acc.totalFiado += r.totalFiado || 0;
-          acc.totalVendasSalao += r.totalVendasSalao || 0;
-          acc.totalVendasRua += r.totalVendasRua || 0;
-          acc.totalTaxas += r.totalTaxas || 0;
-          acc.totalItens += r.totalItens || 0;
-          acc.totalPedidos += r.totalPedidos || 0;
-          acc.totalEntregas += r.totalEntregas || 0;
-          return acc;
-      }, {
-          totalGeral: 0,
-          totalAVista: 0,
-          totalFiado: 0,
-          totalVendasSalao: 0,
-          totalVendasRua: 0,
-          totalTaxas: 0,
-          totalItens: 0,
-          totalPedidos: 0,
-          totalEntregas: 0
-      });
-  };
-
   // Resumo por Semana (Ano selecionado)
   const weeklySummaries = useMemo(() => {
       const year = globalDate.getFullYear();
       const stats: Record<string, { week: number, count: number, start: Date, end: Date, data: any }> = {};
       
-      const filteredByYear = allReports.filter(r => parseISO(r.reportDate).getFullYear() === year);
-      
-      filteredByYear.forEach(r => {
+      allReports.filter(r => parseISO(r.reportDate).getFullYear() === year).forEach(r => {
           const d = parseISO(r.reportDate);
           const weekNum = getWeek(d, { locale: ptBR });
           const key = `W${weekNum}`;
@@ -393,7 +373,7 @@ export default function ReportsPage() {
                   count: 0, 
                   start: startOfWeek(d, { locale: ptBR }), 
                   end: endOfWeek(d, { locale: ptBR }),
-                  data: { totalGeral: 0, totalVendasSalao: 0, totalVendasRua: 0, totalFiado: 0, totalTaxas: 0, totalEntregas: 0 }
+                  data: { totalGeral: 0, totalVendasSalao: 0, totalVendasRua: 0, totalFiado: 0, totalTaxas: 0, totalEntregas: 0, totalItens: 0, totalPedidos: 0 }
               };
           }
           
@@ -404,6 +384,8 @@ export default function ReportsPage() {
           stats[key].data.totalFiado += r.totalFiado || 0;
           stats[key].data.totalTaxas += r.totalTaxas || 0;
           stats[key].data.totalEntregas += r.totalEntregas || 0;
+          stats[key].data.totalItens += r.totalItens || 0;
+          stats[key].data.totalPedidos += r.totalPedidos || 0;
       });
       
       return Object.values(stats).sort((a,b) => b.week - a.week);
@@ -414,9 +396,7 @@ export default function ReportsPage() {
       const year = globalDate.getFullYear();
       const stats: Record<number, { month: number, count: number, data: any }> = {};
       
-      const filteredByYear = allReports.filter(r => parseISO(r.reportDate).getFullYear() === year);
-      
-      filteredByYear.forEach(r => {
+      allReports.filter(r => parseISO(r.reportDate).getFullYear() === year).forEach(r => {
           const d = parseISO(r.reportDate);
           const m = d.getMonth();
           
@@ -424,7 +404,7 @@ export default function ReportsPage() {
               stats[m] = { 
                   month: m, 
                   count: 0,
-                  data: { totalGeral: 0, totalVendasSalao: 0, totalVendasRua: 0, totalFiado: 0, totalTaxas: 0, totalEntregas: 0 }
+                  data: { totalGeral: 0, totalVendasSalao: 0, totalVendasRua: 0, totalFiado: 0, totalTaxas: 0, totalEntregas: 0, totalItens: 0, totalPedidos: 0 }
               };
           }
           
@@ -435,6 +415,8 @@ export default function ReportsPage() {
           stats[m].data.totalFiado += r.totalFiado || 0;
           stats[m].data.totalTaxas += r.totalTaxas || 0;
           stats[m].data.totalEntregas += r.totalEntregas || 0;
+          stats[m].data.totalItens += r.totalItens || 0;
+          stats[m].data.totalPedidos += r.totalPedidos || 0;
       });
       
       return Object.values(stats).sort((a,b) => b.month - a.month);
@@ -452,7 +434,7 @@ export default function ReportsPage() {
               stats[y] = { 
                   year: y, 
                   count: 0,
-                  data: { totalGeral: 0, totalVendasSalao: 0, totalVendasRua: 0, totalFiado: 0, totalTaxas: 0, totalEntregas: 0 }
+                  data: { totalGeral: 0, totalVendasSalao: 0, totalVendasRua: 0, totalFiado: 0, totalTaxas: 0, totalEntregas: 0, totalItens: 0, totalPedidos: 0 }
               };
           }
           
@@ -463,6 +445,8 @@ export default function ReportsPage() {
           stats[y].data.totalFiado += r.totalFiado || 0;
           stats[y].data.totalTaxas += r.totalTaxas || 0;
           stats[y].data.totalEntregas += r.totalEntregas || 0;
+          stats[y].data.totalItens += r.totalItens || 0;
+          stats[y].data.totalPedidos += r.totalPedidos || 0;
       });
       
       return Object.values(stats).sort((a,b) => b.year - a.year);
@@ -694,8 +678,7 @@ export default function ReportsPage() {
           <Card>
               <CardHeader className="p-4 pb-2"><CardTitle className="text-xs uppercase text-muted-foreground flex items-center gap-2"><TrendingUp className="h-3 w-3"/>Ano</CardTitle></CardHeader>
               <CardContent className="p-4 pt-0"><p className="text-2xl font-bold">{formatCurrency(dashboardStats.year)}</p></CardContent>
-          </Card>
-      </div>
+          </div>
 
       <Card className="mb-8">
           <CardHeader className="pb-4"><CardTitle className="text-lg flex items-center gap-2"><CalendarIcon className="h-5 w-5 text-primary"/>Período de Referência</CardTitle></CardHeader>
@@ -775,34 +758,26 @@ export default function ReportsPage() {
                     <AccordionTrigger className="text-lg p-6 hover:no-underline"><div className="flex items-center gap-3"><BarChart3 className="h-6 w-6 text-primary"/><span>Resumo Semanal</span></div></AccordionTrigger>
                     <AccordionContent className="p-6 pt-0">
                         {weeklySummaries.length > 0 ? (
-                            <div className="rounded-md border overflow-hidden">
-                                <table className="w-full text-xs sm:text-sm">
-                                    <thead className="bg-muted/50 border-b">
-                                        <tr>
-                                            <th className="text-left p-2 font-medium">Semana</th>
-                                            <th className="text-right p-2 font-medium">Salão</th>
-                                            <th className="text-right p-2 font-medium">Rua</th>
-                                            <th className="text-right p-2 font-medium">Fiado</th>
-                                            <th className="text-right p-2 font-medium">Taxas</th>
-                                            <th className="text-right p-2 font-medium">Total</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody className="divide-y">
-                                        {weeklySummaries.map((s) => (
-                                            <tr key={s.week} className="hover:bg-muted/30">
-                                                <td className="p-2">
-                                                    <p className="font-semibold text-xs">Sem. {s.week}</p>
-                                                    <p className="text-[0.65rem] text-muted-foreground">{format(s.start, 'dd/MM')} a {format(s.end, 'dd/MM')}</p>
-                                                </td>
-                                                <td className="p-2 text-right text-purple-500 font-mono">{formatCurrency(s.data.totalVendasSalao)}</td>
-                                                <td className="p-2 text-right text-blue-500 font-mono">{formatCurrency(s.data.totalVendasRua)}</td>
-                                                <td className="p-2 text-right text-destructive font-mono">{formatCurrency(s.data.totalFiado)}</td>
-                                                <td className="p-2 text-right text-muted-foreground font-mono">{formatCurrency(s.data.totalTaxas)}</td>
-                                                <td className="p-2 text-right font-mono font-bold text-primary">{formatCurrency(s.data.totalGeral)}</td>
-                                            </tr>
-                                        ))}
-                                    </tbody>
-                                </table>
+                            <div className="space-y-4">
+                                {weeklySummaries.map((s) => (
+                                    <Card key={s.week} className="overflow-hidden">
+                                        <div className="p-4 bg-muted/20 flex items-center justify-between">
+                                            <div className="flex items-center gap-3">
+                                                <div className="bg-primary/10 text-primary p-2 rounded-md">
+                                                    <BarChart3 className="h-5 w-5" />
+                                                </div>
+                                                <div>
+                                                    <p className="font-bold">Semana {s.week}</p>
+                                                    <p className="text-xs text-muted-foreground">{format(s.start, 'dd/MM')} a {format(s.end, 'dd/MM')}</p>
+                                                </div>
+                                            </div>
+                                            <Badge variant="outline">{s.count} dias registados</Badge>
+                                        </div>
+                                        <div className="p-4 pt-0">
+                                            <SummaryDisplay data={s.data} />
+                                        </div>
+                                    </Card>
+                                ))}
                             </div>
                         ) : <p className="text-center py-10 text-muted-foreground">Sem dados para este período.</p>}
                     </AccordionContent>
@@ -814,31 +789,23 @@ export default function ReportsPage() {
                     <AccordionTrigger className="text-lg p-6 hover:no-underline"><div className="flex items-center gap-3"><TrendingUp className="h-6 w-6 text-primary"/><span>Resumo Mensal</span></div></AccordionTrigger>
                     <AccordionContent className="p-6 pt-0">
                         {monthlySummaries.length > 0 ? (
-                            <div className="rounded-md border overflow-hidden">
-                                <table className="w-full text-xs sm:text-sm">
-                                    <thead className="bg-muted/50 border-b">
-                                        <tr>
-                                            <th className="text-left p-2 font-medium">Mês</th>
-                                            <th className="text-right p-2 font-medium">Salão</th>
-                                            <th className="text-right p-2 font-medium">Rua</th>
-                                            <th className="text-right p-2 font-medium">Fiado</th>
-                                            <th className="text-right p-2 font-medium">Taxas</th>
-                                            <th className="text-right p-2 font-medium">Total</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody className="divide-y">
-                                        {monthlySummaries.map((s) => (
-                                            <tr key={s.month} className="hover:bg-muted/30">
-                                                <td className="p-2 font-semibold capitalize">{format(new Date(2000, s.month), 'MMMM', { locale: ptBR })}</td>
-                                                <td className="p-2 text-right text-purple-500 font-mono">{formatCurrency(s.data.totalVendasSalao)}</td>
-                                                <td className="p-2 text-right text-blue-500 font-mono">{formatCurrency(s.data.totalVendasRua)}</td>
-                                                <td className="p-2 text-right text-destructive font-mono">{formatCurrency(s.data.totalFiado)}</td>
-                                                <td className="p-2 text-right text-muted-foreground font-mono">{formatCurrency(s.data.totalTaxas)}</td>
-                                                <td className="p-2 text-right font-mono font-bold text-primary">{formatCurrency(s.data.totalGeral)}</td>
-                                            </tr>
-                                        ))}
-                                    </tbody>
-                                </table>
+                            <div className="space-y-4">
+                                {monthlySummaries.map((s) => (
+                                    <Card key={s.month} className="overflow-hidden">
+                                        <div className="p-4 bg-muted/20 flex items-center justify-between">
+                                            <div className="flex items-center gap-3">
+                                                <div className="bg-primary/10 text-primary p-2 rounded-md">
+                                                    <CalendarIcon className="h-5 w-5" />
+                                                </div>
+                                                <p className="font-bold capitalize">{format(new Date(2000, s.month), 'MMMM', { locale: ptBR })}</p>
+                                            </div>
+                                            <Badge variant="outline">{s.count} dias registados</Badge>
+                                        </div>
+                                        <div className="p-4 pt-0">
+                                            <SummaryDisplay data={s.data} />
+                                        </div>
+                                    </Card>
+                                ))}
                             </div>
                         ) : <p className="text-center py-10 text-muted-foreground">Sem dados para este ano.</p>}
                     </AccordionContent>
@@ -850,31 +817,23 @@ export default function ReportsPage() {
                     <AccordionTrigger className="text-lg p-6 hover:no-underline"><div className="flex items-center gap-3"><History className="h-6 w-6 text-primary"/><span>Resumo Anual</span></div></AccordionTrigger>
                     <AccordionContent className="p-6 pt-0">
                         {annualSummaries.length > 0 ? (
-                            <div className="rounded-md border overflow-hidden">
-                                <table className="w-full text-xs sm:text-sm">
-                                    <thead className="bg-muted/50 border-b">
-                                        <tr>
-                                            <th className="text-left p-2 font-medium">Ano</th>
-                                            <th className="text-right p-2 font-medium">Salão</th>
-                                            <th className="text-right p-2 font-medium">Rua</th>
-                                            <th className="text-right p-2 font-medium">Fiado</th>
-                                            <th className="text-right p-2 font-medium">Taxas</th>
-                                            <th className="text-right p-2 font-medium">Total</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody className="divide-y">
-                                        {annualSummaries.map((s) => (
-                                            <tr key={s.year} className="hover:bg-muted/30">
-                                                <td className="p-2 font-bold">{s.year}</td>
-                                                <td className="p-2 text-right text-purple-500 font-mono">{formatCurrency(s.data.totalVendasSalao)}</td>
-                                                <td className="p-2 text-right text-blue-500 font-mono">{formatCurrency(s.data.totalVendasRua)}</td>
-                                                <td className="p-2 text-right text-destructive font-mono">{formatCurrency(s.data.totalFiado)}</td>
-                                                <td className="p-2 text-right text-muted-foreground font-mono">{formatCurrency(s.data.totalTaxas)}</td>
-                                                <td className="p-2 text-right font-mono font-bold text-primary">{formatCurrency(s.data.totalGeral)}</td>
-                                            </tr>
-                                        ))}
-                                    </tbody>
-                                </table>
+                            <div className="space-y-4">
+                                {annualSummaries.map((s) => (
+                                    <Card key={s.year} className="overflow-hidden">
+                                        <div className="p-4 bg-muted/20 flex items-center justify-between">
+                                            <div className="flex items-center gap-3">
+                                                <div className="bg-primary/10 text-primary p-2 rounded-md">
+                                                    <TrendingUp className="h-5 w-5" />
+                                                </div>
+                                                <p className="font-bold">{s.year}</p>
+                                            </div>
+                                            <Badge variant="outline">{s.count} relatórios registados</Badge>
+                                        </div>
+                                        <div className="p-4 pt-0">
+                                            <SummaryDisplay data={s.data} />
+                                        </div>
+                                    </Card>
+                                ))}
                             </div>
                         ) : <p className="text-center py-10 text-muted-foreground">Sem dados registados.</p>}
                     </AccordionContent>
