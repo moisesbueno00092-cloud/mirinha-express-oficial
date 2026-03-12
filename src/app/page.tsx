@@ -484,6 +484,10 @@ function LancheTrackerPageContent() {
       setIsProcessing(false);
       setRawInput('');
       setItemToEdit(null);
+      // Automatically return focus to the input field
+      setTimeout(() => {
+        inputRef.current?.focus();
+      }, 50);
     }
   }
 
