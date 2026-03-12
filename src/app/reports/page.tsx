@@ -349,59 +349,122 @@ export default function ReportsPage() {
     }, { today: 0, week: 0, month: 0, year: 0 });
   }, [allReports]);
 
+  // Helper para agregação de dados financeiros e operacionais
+  const aggregateData = (reports: DailyReport[]) => {
+      return reports.reduce((acc, r) => {
+          acc.totalGeral += r.totalGeral || 0;
+          acc.totalAVista += r.totalAVista || 0;
+          acc.totalFiado += r.totalFiado || 0;
+          acc.totalVendasSalao += r.totalVendasSalao || 0;
+          acc.totalVendasRua += r.totalVendasRua || 0;
+          acc.totalTaxas += r.totalTaxas || 0;
+          acc.totalItens += r.totalItens || 0;
+          acc.totalPedidos += r.totalPedidos || 0;
+          acc.totalEntregas += r.totalEntregas || 0;
+          return acc;
+      }, {
+          totalGeral: 0,
+          totalAVista: 0,
+          totalFiado: 0,
+          totalVendasSalao: 0,
+          totalVendasRua: 0,
+          totalTaxas: 0,
+          totalItens: 0,
+          totalPedidos: 0,
+          totalEntregas: 0
+      });
+  };
+
   // Resumo por Semana (Ano selecionado)
   const weeklySummaries = useMemo(() => {
       const year = globalDate.getFullYear();
-      const stats: Record<string, { week: number, total: number, count: number, start: Date, end: Date }> = {};
+      const stats: Record<string, { week: number, count: number, start: Date, end: Date, data: any }> = {};
       
-      allReports.forEach(r => {
+      const filteredByYear = allReports.filter(r => parseISO(r.reportDate).getFullYear() === year);
+      
+      filteredByYear.forEach(r => {
           const d = parseISO(r.reportDate);
-          if (d.getFullYear() === year) {
-              const weekNum = getWeek(d, { locale: ptBR });
-              const key = `W${weekNum}`;
-              if (!stats[key]) {
-                  stats[key] = { 
-                      week: weekNum, 
-                      total: 0, 
-                      count: 0, 
-                      start: startOfWeek(d, { locale: ptBR }), 
-                      end: endOfWeek(d, { locale: ptBR }) 
-                  };
-              }
-              stats[key].total += r.totalGeral;
-              stats[key].count++;
+          const weekNum = getWeek(d, { locale: ptBR });
+          const key = `W${weekNum}`;
+          
+          if (!stats[key]) {
+              stats[key] = { 
+                  week: weekNum, 
+                  count: 0, 
+                  start: startOfWeek(d, { locale: ptBR }), 
+                  end: endOfWeek(d, { locale: ptBR }),
+                  data: { totalGeral: 0, totalVendasSalao: 0, totalVendasRua: 0, totalFiado: 0, totalTaxas: 0, totalEntregas: 0 }
+              };
           }
+          
+          stats[key].count++;
+          stats[key].data.totalGeral += r.totalGeral || 0;
+          stats[key].data.totalVendasSalao += r.totalVendasSalao || 0;
+          stats[key].data.totalVendasRua += r.totalVendasRua || 0;
+          stats[key].data.totalFiado += r.totalFiado || 0;
+          stats[key].data.totalTaxas += r.totalTaxas || 0;
+          stats[key].data.totalEntregas += r.totalEntregas || 0;
       });
+      
       return Object.values(stats).sort((a,b) => b.week - a.week);
   }, [allReports, globalDate]);
 
   // Resumo por Mês (Ano selecionado)
   const monthlySummaries = useMemo(() => {
       const year = globalDate.getFullYear();
-      const stats: Record<number, { month: number, total: number, count: number }> = {};
+      const stats: Record<number, { month: number, count: number, data: any }> = {};
       
-      allReports.forEach(r => {
+      const filteredByYear = allReports.filter(r => parseISO(r.reportDate).getFullYear() === year);
+      
+      filteredByYear.forEach(r => {
           const d = parseISO(r.reportDate);
-          if (d.getFullYear() === year) {
-              const m = d.getMonth();
-              if (!stats[m]) stats[m] = { month: m, total: 0, count: 0 };
-              stats[m].total += r.totalGeral;
-              stats[m].count++;
+          const m = d.getMonth();
+          
+          if (!stats[m]) {
+              stats[m] = { 
+                  month: m, 
+                  count: 0,
+                  data: { totalGeral: 0, totalVendasSalao: 0, totalVendasRua: 0, totalFiado: 0, totalTaxas: 0, totalEntregas: 0 }
+              };
           }
+          
+          stats[m].count++;
+          stats[m].data.totalGeral += r.totalGeral || 0;
+          stats[m].data.totalVendasSalao += r.totalVendasSalao || 0;
+          stats[m].data.totalVendasRua += r.totalVendasRua || 0;
+          stats[m].data.totalFiado += r.totalFiado || 0;
+          stats[m].data.totalTaxas += r.totalTaxas || 0;
+          stats[m].data.totalEntregas += r.totalEntregas || 0;
       });
+      
       return Object.values(stats).sort((a,b) => b.month - a.month);
   }, [allReports, globalDate]);
 
   // Resumo por Ano
   const annualSummaries = useMemo(() => {
-      const stats: Record<number, { year: number, total: number, count: number }> = {};
+      const stats: Record<number, { year: number, count: number, data: any }> = {};
+      
       allReports.forEach(r => {
           const d = parseISO(r.reportDate);
           const y = d.getFullYear();
-          if (!stats[y]) stats[y] = { year: y, total: 0, count: 0 };
-          stats[y].total += r.totalGeral;
+          
+          if (!stats[y]) {
+              stats[y] = { 
+                  year: y, 
+                  count: 0,
+                  data: { totalGeral: 0, totalVendasSalao: 0, totalVendasRua: 0, totalFiado: 0, totalTaxas: 0, totalEntregas: 0 }
+              };
+          }
+          
           stats[y].count++;
+          stats[y].data.totalGeral += r.totalGeral || 0;
+          stats[y].data.totalVendasSalao += r.totalVendasSalao || 0;
+          stats[y].data.totalVendasRua += r.totalVendasRua || 0;
+          stats[y].data.totalFiado += r.totalFiado || 0;
+          stats[y].data.totalTaxas += r.totalTaxas || 0;
+          stats[y].data.totalEntregas += r.totalEntregas || 0;
       });
+      
       return Object.values(stats).sort((a,b) => b.year - a.year);
   }, [allReports]);
 
@@ -713,17 +776,29 @@ export default function ReportsPage() {
                     <AccordionContent className="p-6 pt-0">
                         {weeklySummaries.length > 0 ? (
                             <div className="rounded-md border overflow-hidden">
-                                <table className="w-full text-sm">
-                                    <thead className="bg-muted/50 border-b"><tr><th className="text-left p-4 font-medium">Semana</th><th className="text-center p-4 font-medium">Dias Ativos</th><th className="text-right p-4 font-medium">Total</th></tr></thead>
+                                <table className="w-full text-xs sm:text-sm">
+                                    <thead className="bg-muted/50 border-b">
+                                        <tr>
+                                            <th className="text-left p-2 font-medium">Semana</th>
+                                            <th className="text-right p-2 font-medium">Salão</th>
+                                            <th className="text-right p-2 font-medium">Rua</th>
+                                            <th className="text-right p-2 font-medium">Fiado</th>
+                                            <th className="text-right p-2 font-medium">Taxas</th>
+                                            <th className="text-right p-2 font-medium">Total</th>
+                                        </tr>
+                                    </thead>
                                     <tbody className="divide-y">
                                         {weeklySummaries.map((s) => (
                                             <tr key={s.week} className="hover:bg-muted/30">
-                                                <td className="p-4">
-                                                    <p className="font-semibold">Semana {s.week}</p>
-                                                    <p className="text-xs text-muted-foreground">{format(s.start, 'dd/MM')} a {format(s.end, 'dd/MM')}</p>
+                                                <td className="p-2">
+                                                    <p className="font-semibold text-xs">Sem. {s.week}</p>
+                                                    <p className="text-[0.65rem] text-muted-foreground">{format(s.start, 'dd/MM')} a {format(s.end, 'dd/MM')}</p>
                                                 </td>
-                                                <td className="p-4 text-center">{s.count} dias</td>
-                                                <td className="p-4 text-right font-mono font-bold text-primary">{formatCurrency(s.total)}</td>
+                                                <td className="p-2 text-right text-purple-500 font-mono">{formatCurrency(s.data.totalVendasSalao)}</td>
+                                                <td className="p-2 text-right text-blue-500 font-mono">{formatCurrency(s.data.totalVendasRua)}</td>
+                                                <td className="p-2 text-right text-destructive font-mono">{formatCurrency(s.data.totalFiado)}</td>
+                                                <td className="p-2 text-right text-muted-foreground font-mono">{formatCurrency(s.data.totalTaxas)}</td>
+                                                <td className="p-2 text-right font-mono font-bold text-primary">{formatCurrency(s.data.totalGeral)}</td>
                                             </tr>
                                         ))}
                                     </tbody>
@@ -740,14 +815,26 @@ export default function ReportsPage() {
                     <AccordionContent className="p-6 pt-0">
                         {monthlySummaries.length > 0 ? (
                             <div className="rounded-md border overflow-hidden">
-                                <table className="w-full text-sm">
-                                    <thead className="bg-muted/50 border-b"><tr><th className="text-left p-4 font-medium">Mês</th><th className="text-center p-4 font-medium">Fechamentos</th><th className="text-right p-4 font-medium">Total</th></tr></thead>
+                                <table className="w-full text-xs sm:text-sm">
+                                    <thead className="bg-muted/50 border-b">
+                                        <tr>
+                                            <th className="text-left p-2 font-medium">Mês</th>
+                                            <th className="text-right p-2 font-medium">Salão</th>
+                                            <th className="text-right p-2 font-medium">Rua</th>
+                                            <th className="text-right p-2 font-medium">Fiado</th>
+                                            <th className="text-right p-2 font-medium">Taxas</th>
+                                            <th className="text-right p-2 font-medium">Total</th>
+                                        </tr>
+                                    </thead>
                                     <tbody className="divide-y">
                                         {monthlySummaries.map((s) => (
                                             <tr key={s.month} className="hover:bg-muted/30">
-                                                <td className="p-4 font-semibold capitalize">{format(new Date(2000, s.month), 'MMMM', { locale: ptBR })}</td>
-                                                <td className="p-4 text-center">{s.count} dias</td>
-                                                <td className="p-4 text-right font-mono font-bold text-primary">{formatCurrency(s.total)}</td>
+                                                <td className="p-2 font-semibold capitalize">{format(new Date(2000, s.month), 'MMMM', { locale: ptBR })}</td>
+                                                <td className="p-2 text-right text-purple-500 font-mono">{formatCurrency(s.data.totalVendasSalao)}</td>
+                                                <td className="p-2 text-right text-blue-500 font-mono">{formatCurrency(s.data.totalVendasRua)}</td>
+                                                <td className="p-2 text-right text-destructive font-mono">{formatCurrency(s.data.totalFiado)}</td>
+                                                <td className="p-2 text-right text-muted-foreground font-mono">{formatCurrency(s.data.totalTaxas)}</td>
+                                                <td className="p-2 text-right font-mono font-bold text-primary">{formatCurrency(s.data.totalGeral)}</td>
                                             </tr>
                                         ))}
                                     </tbody>
@@ -764,14 +851,26 @@ export default function ReportsPage() {
                     <AccordionContent className="p-6 pt-0">
                         {annualSummaries.length > 0 ? (
                             <div className="rounded-md border overflow-hidden">
-                                <table className="w-full text-sm">
-                                    <thead className="bg-muted/50 border-b"><tr><th className="text-left p-4 font-medium">Ano</th><th className="text-center p-4 font-medium">Total Dias</th><th className="text-right p-4 font-medium">Total Geral</th></tr></thead>
+                                <table className="w-full text-xs sm:text-sm">
+                                    <thead className="bg-muted/50 border-b">
+                                        <tr>
+                                            <th className="text-left p-2 font-medium">Ano</th>
+                                            <th className="text-right p-2 font-medium">Salão</th>
+                                            <th className="text-right p-2 font-medium">Rua</th>
+                                            <th className="text-right p-2 font-medium">Fiado</th>
+                                            <th className="text-right p-2 font-medium">Taxas</th>
+                                            <th className="text-right p-2 font-medium">Total</th>
+                                        </tr>
+                                    </thead>
                                     <tbody className="divide-y">
                                         {annualSummaries.map((s) => (
                                             <tr key={s.year} className="hover:bg-muted/30">
-                                                <td className="p-4 font-bold">{s.year}</td>
-                                                <td className="p-4 text-center">{s.count} dias</td>
-                                                <td className="p-4 text-right font-mono font-bold text-primary">{formatCurrency(s.total)}</td>
+                                                <td className="p-2 font-bold">{s.year}</td>
+                                                <td className="p-2 text-right text-purple-500 font-mono">{formatCurrency(s.data.totalVendasSalao)}</td>
+                                                <td className="p-2 text-right text-blue-500 font-mono">{formatCurrency(s.data.totalVendasRua)}</td>
+                                                <td className="p-2 text-right text-destructive font-mono">{formatCurrency(s.data.totalFiado)}</td>
+                                                <td className="p-2 text-right text-muted-foreground font-mono">{formatCurrency(s.data.totalTaxas)}</td>
+                                                <td className="p-2 text-right font-mono font-bold text-primary">{formatCurrency(s.data.totalGeral)}</td>
                                             </tr>
                                         ))}
                                     </tbody>
