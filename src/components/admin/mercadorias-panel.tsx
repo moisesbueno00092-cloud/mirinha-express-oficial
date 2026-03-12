@@ -174,7 +174,8 @@ export default function MercadoriasPanel() {
         
         if (bestMatchId && fornecedores.some(f => f.id === bestMatchId)) {
             setFornecedorId(bestMatchId);
-            const fornecedorNome = fornecedores.find(f => f.id === bestMatchId)?.nome;
+            const foundF = fornecedores.find(f => f.id === bestMatchId);
+            const fornecedorNome = foundF ? foundF.nome : 'Desconhecido';
             toast({
                 title: "Fornecedor Sugerido",
                 description: `Com base nos produtos, selecionámos "${fornecedorNome}".`,

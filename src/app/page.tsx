@@ -53,7 +53,6 @@ import {
   History,
   Wrench,
   Star,
-  Settings,
   Trash2,
 } from 'lucide-react';
 
@@ -906,9 +905,6 @@ function LancheTrackerPageContent() {
             <Button variant="outline" onClick={() => router.push('/admin')}>
               <Wrench className="mr-2 h-4 w-4" />
               Admin
-            </Button>
-            <Button variant="ghost" size="icon" className="h-10 w-10 text-muted-foreground" onClick={handleToggleSelectionMode}>
-                <Settings className="h-5 w-5" />
             </Button>
           </div>
         </header>
