@@ -51,14 +51,11 @@ const findBestBomboniereMatch = (productName: string, bomboniereItems: Bombonier
     let longestMatchLength = 0;
 
     for (const bomboniereItem of bomboniereItems) {
-        // Normalize bomboniere name by removing content in parentheses
         const baseBomboniereName = bomboniereItem.name.toLowerCase().replace(/\s*\(.*\)\s*/, '').trim();
 
         if (!baseBomboniereName) continue;
         
-        // Check if the invoice product name starts with the base bomboniere name
         if (lowerProductName.startsWith(baseBomboniereName)) {
-            // We want the longest possible match to avoid "bala" matching "bala de goma" incorrectly.
             if (baseBomboniereName.length > longestMatchLength) {
                 bestMatch = bomboniereItem;
                 longestMatchLength = baseBomboniereName.length;
@@ -152,7 +149,6 @@ export default function MercadoriasPanel() {
     
         const supplierScores: Record<string, number> = {};
     
-        // For each product in the current launch, find its most common historical supplier
         for (const produto of currentProdutos) {
             const productHistory: Record<string, number> = {};
             allEntradas.forEach(entry => {
@@ -170,7 +166,7 @@ export default function MercadoriasPanel() {
         }
         
         if (Object.keys(supplierScores).length === 0) {
-            return; // No historical data found for any of the products
+            return;
         }
     
         const bestMatchId = Object.entries(supplierScores).reduce((a, b) => a[1] > b[1] ? a : b)[0];
@@ -222,14 +218,12 @@ export default function MercadoriasPanel() {
             const fornecedoresToUpdate = fornecedores.filter(f => !f.color);
 
             if (fornecedoresToUpdate.length > 0) {
-                console.log(`Found ${fornecedoresToUpdate.length} suppliers without colors. Updating them...`);
                 const batch = writeBatch(firestore);
                 fornecedoresToUpdate.forEach(f => {
                     const docRef = doc(firestore, 'fornecedores', f.id);
                     batch.update(docRef, { color: generateStrongColor() });
                 });
                 await batch.commit();
-                console.log("Suppliers updated with new colors.");
             }
         };
 
@@ -240,7 +234,6 @@ export default function MercadoriasPanel() {
         if (!allEntradas) return [];
         const latestEntries = new Map<string, EntradaMercadoria>();
         
-        // As entradas já vêm ordenadas pela data descendente
         for (const entry of allEntradas) {
             const normalizedName = entry.produtoNome.toLowerCase();
             if (!latestEntries.has(normalizedName)) {
@@ -294,7 +287,7 @@ export default function MercadoriasPanel() {
     
     const handleScroll = (direction: 'up' | 'down') => {
         if (scrollViewportRef.current) {
-            const scrollAmount = 100; // a reasonable amount to scroll
+            const scrollAmount = 100;
             scrollViewportRef.current.scrollBy({
                 top: direction === 'up' ? -scrollAmount : scrollAmount,
                 behavior: 'smooth',
@@ -312,7 +305,7 @@ export default function MercadoriasPanel() {
                 nome: newFornecedorName.trim(),
                 color: newColor
             };
-            const docRef = await addDoc(collection(firestore, 'fornecedores'), newFornecedor);
+            await addDoc(collection(firestore, 'fornecedores'), newFornecedor);
             toast({ title: 'Sucesso', description: 'Fornecedor adicionado.' });
             setNewFornecedorName('');
         } catch (error) {
@@ -323,13 +316,98 @@ export default function MercadoriasPanel() {
         }
     };
     
+    const handleRegisterEntry = async () => {
+        if (!firestore || produtosLancados.length === 0 || isLoadingBomboniere) {
+            if (produtosLancados.length === 0) {
+                toast({ variant: 'destructive', title: 'Lista vazia', description: 'Adicione pelo menos um produto antes de registar.' });
+            }
+            return;
+        }
+        setIsSubmitting(true);
+        
+        const romaneioId = doc(collection(firestore, '_')).id;
+        const finalFornecedorId = fornecedorId || 'extra_expenses_provider';
+
+        try {
+            const vencimentoBase = dataVencimento || new Date();
+            const estaPaga = !dataVencimento;
+            const parcelas = estaPaga ? 1 : parseInt(numParcelas, 10);
+
+            const valorParcela = totalCompra / parcelas;
+            const batch = writeBatch(firestore);
+
+            const nomesProdutos = produtosLancados.map(p => {
+                const qtyPrefix = p.quantidade > 1 ? `${p.quantidade}x ` : '';
+                return `${qtyPrefix}${p.produtoNome}`;
+            }).join(', ');
+            
+            const displayDescription = nomesProdutos.length > 100 ? nomesProdutos.substring(0, 97) + '...' : nomesProdutos;
+
+            for (let i = 0; i < parcelas; i++) {
+                const vencimentoParcela = estaPaga ? vencimentoBase : addDays(vencimentoBase, i * 7);
+                const novaConta: Omit<ContaAPagar, 'id'> = {
+                    descricao: `${displayDescription} ${parcelas > 1 ? `(${i + 1}/${parcelas})` : ''}`.trim(),
+                    fornecedorId: finalFornecedorId,
+                    valor: valorParcela,
+                    dataVencimento: formatDateFn(vencimentoParcela, 'yyyy-MM-dd'),
+                    estaPaga: estaPaga,
+                    romaneioId: romaneioId,
+                };
+                const contaDocRef = doc(collection(firestore, 'contas_a_pagar'));
+                batch.set(contaDocRef, novaConta);
+            }
+
+            for (const produto of produtosLancados) {
+                const novaEntrada: Omit<EntradaMercadoria, 'id'> = {
+                    produtoNome: produto.produtoNome,
+                    fornecedorId: finalFornecedorId,
+                    data: new Date().toISOString(),
+                    quantidade: produto.quantidade,
+                    precoUnitario: produto.precoUnitario,
+                    valorTotal: produto.preco,
+                    estaPaga: estaPaga,
+                    romaneioId: romaneioId,
+                };
+                const entradaDocRef = doc(collection(firestore, 'entradas_mercadorias'));
+                batch.set(entradaDocRef, novaEntrada);
+                
+                const matchedBomboniereItem = findBestBomboniereMatch(produto.produtoNome, bomboniereItems || []);
+                if (matchedBomboniereItem) {
+                    const bomboniereDocRef = doc(firestore, 'bomboniere_items', matchedBomboniereItem.id);
+                    const currentStock = bomboniereItems?.find(bi => bi.id === matchedBomboniereItem.id)?.estoque ?? 0;
+                    const newStock = currentStock + produto.quantidade;
+                    batch.update(bomboniereDocRef, { estoque: newStock });
+                }
+            }
+            
+            await batch.commit();
+
+            toast({ 
+                title: estaPaga ? 'Lançamento à Vista Realizado!' : 'Compra Parcelada Registada!', 
+                description: estaPaga 
+                    ? `A compra de ${formatCurrency(totalCompra)} foi registada como paga hoje.` 
+                    : `Entrada de mercadoria e ${parcelas} conta(s) a pagar criadas.` 
+            });
+            resetForm();
+        } catch (error) {
+            console.error("Erro ao registar entrada:", error);
+            toast({ variant: 'destructive', title: 'Erro', description: 'Não foi possível registar a entrada.' });
+        } finally {
+            setIsSubmitting(false);
+        }
+    }
+
     const handleAddProduto = (e?: React.FormEvent) => {
         e?.preventDefault();
         
         const input = lancamentoInput.trim();
-        if (!input) return;
+        if (!input) {
+            if (produtosLancados.length > 0 && !isSubmitting) {
+                handleRegisterEntry();
+            }
+            return;
+        }
 
-        let nomeParte = input;
         let precoUnitario = 0;
         let quantidade = 1;
         let precoTotal = 0;
@@ -337,7 +415,6 @@ export default function MercadoriasPanel() {
         
         const isNumeric = (str: string) => !isNaN(parseFloat(str.replace(',', '.'))) && /^[0-9,.]+$/.test(str);
 
-        // Nova lógica: [desc] un/kg [qtd] [preco_unit]
         const unitRegex = /^(.*?)\s*(un|kg)\s+([\d,.]+)\s+([\d,.]+)$/i;
         const unitMatch = input.match(unitRegex);
 
@@ -355,18 +432,17 @@ export default function MercadoriasPanel() {
             produtoNomeFinal = `${desc} ${unit}`.trim();
 
         } else {
-            // Lógica antiga (fallback)
             const lastSpaceIndex = input.lastIndexOf(' ');
             if (lastSpaceIndex > -1 && lastSpaceIndex < input.length - 1) {
                 const potentialPrice = input.substring(lastSpaceIndex + 1);
                 if (isNumeric(potentialPrice)) {
-                    nomeParte = input.substring(0, lastSpaceIndex).trim();
+                    const nomeParte = input.substring(0, lastSpaceIndex).trim();
                     precoUnitario = parseFloat(potentialPrice.replace(',', '.'));
                     
                     const qtyRegex = /^(.*)\s+(\d+)(un|kg)$/i;
                     const qtyMatch = nomeParte.match(qtyRegex);
 
-                    if (qtyMatch && !/\s/.test(qtyMatch[2]+qtyMatch[3])) { // Check no space for old logic
+                    if (qtyMatch && !/\s/.test(qtyMatch[2]+qtyMatch[3])) {
                         produtoNomeFinal = qtyMatch[1].trim();
                         quantidade = parseInt(qtyMatch[2], 10);
                     } else {
@@ -395,7 +471,7 @@ export default function MercadoriasPanel() {
         }
         
         setProdutosLancados(prev => [...prev, {
-            id: number = Date.now(),
+            id: Date.now(),
             produtoNome: produtoNomeFinal, 
             preco: precoTotal,
             quantidade,
@@ -411,7 +487,6 @@ export default function MercadoriasPanel() {
         setIsSuggestionsOpen(false);
         setTimeout(() => {
             lancamentoInputRef.current?.focus();
-            // Move cursor to the end
             const valLength = lancamentoInputRef.current?.value.length;
             if (valLength) {
                 lancamentoInputRef.current?.setSelectionRange(valLength, valLength);
@@ -442,7 +517,7 @@ export default function MercadoriasPanel() {
     const processFlowOutput = useCallback((output: any) => {
         const { items, fornecedorNome, dataVencimento: aiDueDate } = output;
 
-        if (items.length > 0) {
+        if (items && items.length > 0) {
             const newProdutos: LancamentoProduto[] = items.map((item: any) => {
                 const valorTotal = item.valorTotal;
                 const quantidade = item.quantidade > 0 ? item.quantidade : 1;
@@ -456,7 +531,6 @@ export default function MercadoriasPanel() {
             
             setProdutosLancados(prev => {
                 const newList = [...prev, ...newProdutos];
-                // Only predict supplier based on products if no supplier name was explicitly detected
                 if (!fornecedorNome) {
                     predictAndSetSupplier(newList);
                 }
@@ -464,7 +538,6 @@ export default function MercadoriasPanel() {
             });
         }
 
-        // Automatic Supplier Filling
         if (fornecedorNome) {
             const matchedSupplier = matchSupplierByName(fornecedorNome);
             if (matchedSupplier) {
@@ -476,7 +549,6 @@ export default function MercadoriasPanel() {
             }
         }
 
-        // Automatic Due Date Filling
         if (aiDueDate) {
             const parsedDate = parseISO(aiDueDate);
             if (isValid(parsedDate)) {
@@ -594,87 +666,6 @@ export default function MercadoriasPanel() {
         }
         setIsParsingRomaneio(false);
     };
-
-    const handleRegisterEntry = async () => {
-        if (!firestore || produtosLancados.length === 0 || isLoadingBomboniere) {
-            toast({ variant: 'destructive', title: 'Faltam dados', description: 'Por favor, adicione pelo menos um produto e espere os itens da bomboniere carregarem.' });
-            return;
-        }
-        setIsSubmitting(true);
-        
-        const romaneioId = doc(collection(firestore, '_')).id;
-        const finalFornecedorId = fornecedorId || 'extra_expenses_provider';
-
-        try {
-            const fornecedorNome = fornecedores?.find(f => f.id === finalFornecedorId)?.nome || 'Fornecedor desconhecido';
-            
-            const vencimentoBase = dataVencimento || new Date();
-            const estaPaga = !dataVencimento;
-            const parcelas = estaPaga ? 1 : parseInt(numParcelas, 10);
-
-            const valorParcela = totalCompra / parcelas;
-            const batch = writeBatch(firestore);
-
-            const nomesProdutos = produtosLancados.map(p => {
-                const qtyPrefix = p.quantidade > 1 ? `${p.quantidade}x ` : '';
-                return `${qtyPrefix}${p.produtoNome}`;
-            }).join(', ');
-            
-            const displayDescription = nomesProdutos.length > 100 ? nomesProdutos.substring(0, 97) + '...' : nomesProdutos;
-
-            for (let i = 0; i < parcelas; i++) {
-                const vencimentoParcela = estaPaga ? vencimentoBase : addDays(vencimentoBase, i * 7);
-                const novaConta: Omit<ContaAPagar, 'id'> = {
-                    descricao: `${displayDescription} ${parcelas > 1 ? `(${i + 1}/${parcelas})` : ''}`.trim(),
-                    fornecedorId: finalFornecedorId,
-                    valor: valorParcela,
-                    dataVencimento: formatDateFn(vencimentoParcela, 'yyyy-MM-dd'),
-                    estaPaga: estaPaga,
-                    romaneioId: romaneioId,
-                };
-                const contaDocRef = doc(collection(firestore, 'contas_a_pagar'));
-                batch.set(contaDocRef, novaConta);
-            }
-
-            for (const produto of produtosLancados) {
-                const novaEntrada: Omit<EntradaMercadoria, 'id'> = {
-                    produtoNome: produto.produtoNome,
-                    fornecedorId: finalFornecedorId,
-                    data: new Date().toISOString(),
-                    quantidade: produto.quantidade,
-                    precoUnitario: produto.precoUnitario,
-                    valorTotal: produto.preco,
-                    estaPaga: estaPaga,
-                    romaneioId: romaneioId,
-                };
-                const entradaDocRef = doc(collection(firestore, 'entradas_mercadorias'));
-                batch.set(entradaDocRef, novaEntrada);
-                
-                const matchedBomboniereItem = findBestBomboniereMatch(produto.produtoNome, bomboniereItems || []);
-                if (matchedBomboniereItem) {
-                    const bomboniereDocRef = doc(firestore, 'bomboniere_items', matchedBomboniereItem.id);
-                    const currentStock = bomboniereItems?.find(bi => bi.id === matchedBomboniereItem.id)?.estoque ?? 0;
-                    const newStock = currentStock + produto.quantidade;
-                    batch.update(bomboniereDocRef, { estoque: newStock });
-                }
-            }
-            
-            await batch.commit();
-
-            toast({ 
-                title: estaPaga ? 'Lançamento à Vista Realizado!' : 'Compra Parcelada Registada!', 
-                description: estaPaga 
-                    ? `A compra de ${formatCurrency(totalCompra)} foi registada como paga hoje.` 
-                    : `Entrada de mercadoria e ${parcelas} conta(s) a pagar criadas.` 
-            });
-            resetForm();
-        } catch (error) {
-            console.error("Erro ao registar entrada:", error);
-            toast({ variant: 'destructive', title: 'Erro', description: 'Não foi possível registar a entrada.' });
-        } finally {
-            setIsSubmitting(false);
-        }
-    }
 
     const totalCompra = useMemo(() => {
         return produtosLancados.reduce((acc, p) => acc + (p.preco || 0), 0);
@@ -873,7 +864,10 @@ export default function MercadoriasPanel() {
                 
                 {produtosLancados.length > 0 && (
                      <div className="space-y-2">
-                        <h3 className="text-sm font-medium text-muted-foreground">Produtos nesta Entrada</h3>
+                        <div className="flex items-center justify-between">
+                            <h3 className="text-sm font-medium text-muted-foreground">Produtos nesta Entrada</h3>
+                            <p className="text-xs text-muted-foreground italic">(Pressione Enter no campo vazio para finalizar)</p>
+                        </div>
                         <div className="flex items-stretch gap-2">
                             <ScrollArea className="rounded-md border h-48 flex-grow" viewportRef={scrollViewportRef}>
                                 <div className="p-1">
