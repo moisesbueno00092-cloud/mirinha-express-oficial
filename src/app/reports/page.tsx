@@ -50,7 +50,6 @@ import {
     CalendarCheck,
     BarChart3,
     History,
-    ChevronRight
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import {
@@ -357,7 +356,7 @@ export default function ReportsPage() {
     }, { today: 0, week: 0, month: 0, year: 0 });
   }, [allReports]);
 
-  // Resumo por Semana (Ano selecionado)
+  // Agregação por Semana
   const weeklySummaries = useMemo(() => {
       const year = globalDate.getFullYear();
       const stats: Record<string, { week: number, count: number, start: Date, end: Date, data: any }> = {};
@@ -391,7 +390,7 @@ export default function ReportsPage() {
       return Object.values(stats).sort((a,b) => b.week - a.week);
   }, [allReports, globalDate]);
 
-  // Resumo por Mês (Ano selecionado)
+  // Agregação por Mês
   const monthlySummaries = useMemo(() => {
       const year = globalDate.getFullYear();
       const stats: Record<number, { month: number, count: number, data: any }> = {};
@@ -422,7 +421,7 @@ export default function ReportsPage() {
       return Object.values(stats).sort((a,b) => b.month - a.month);
   }, [allReports, globalDate]);
 
-  // Resumo por Ano
+  // Agregação por Ano
   const annualSummaries = useMemo(() => {
       const stats: Record<number, { year: number, count: number, data: any }> = {};
       
@@ -547,29 +546,18 @@ export default function ReportsPage() {
     
     try {
         const batch = writeBatch(firestore);
-        
         batch.update(doc(firestore, "daily_reports", reportToEditDate.id!), { reportDate: newD });
-        
         const snapshot = await getDocs(query(collection(firestore, 'order_items'), where('reportDate', '==', oldD)));
         snapshot.forEach(d => {
             const data = d.data() as Item;
             const orig = data.timestamp?.toDate ? data.timestamp.toDate() : new Date(data.timestamp);
-            
             const upd = new Date(newReportDate);
             upd.setHours(orig.getHours(), orig.getMinutes(), orig.getSeconds(), orig.getMilliseconds());
-            
             batch.update(d.ref, { reportDate: newD, timestamp: Timestamp.fromDate(upd) });
         });
-        
         await batch.commit();
         toast({ title: "Data alterada e pedidos sincronizados." });
-    } catch (e) { 
-        console.error(e);
-        toast({ variant: 'destructive', title: "Erro ao sincronizar", description: "Não foi possível mover os pedidos para a nova data." });
-    } finally { 
-        setIsUpdatingDate(false); 
-        setReportToEditDate(null); 
-    }
+    } catch (e) { console.error(e); } finally { setIsUpdatingDate(false); setReportToEditDate(null); }
   };
 
   if (isUserLoading || isLoadingReports) return <div className="flex h-64 items-center justify-center"><Loader2 className="h-12 w-12 animate-spin text-primary" /></div>;
@@ -699,43 +687,40 @@ export default function ReportsPage() {
       </Card>
       
       <main className="space-y-6">
-        <Accordion type="single" collapsible defaultValue="diario" className="w-full space-y-4">
+        <Accordion type="multiple" className="w-full space-y-4">
             
             <AccordionItem value="diario">
                 <Card>
                     <AccordionTrigger className="text-lg p-6 hover:no-underline"><div className="flex items-center gap-3"><CalendarDays className="h-6 w-6 text-primary"/><span>Relatórios Diários</span></div></AccordionTrigger>
                     <AccordionContent className="p-6 pt-0">
                         {monthlyReports.length > 0 ? (
-                            <div className="space-y-4">
+                            <Accordion type="single" collapsible className="space-y-2">
                                 {monthlyReports.map(report => (
-                                    <Card key={report.id} className="overflow-hidden">
-                                        <div className="p-4 flex items-center justify-between hover:bg-muted/30 transition-colors">
-                                            <div className="flex items-center gap-4">
-                                                <div className="text-center bg-background border rounded-md p-2 min-w-[60px]">
-                                                    <p className="text-2xl font-bold leading-none">{safeFormat(parseISO(report.reportDate), 'dd')}</p>
-                                                    <p className="text-[0.6rem] uppercase font-bold text-muted-foreground mt-1">{safeFormat(parseISO(report.reportDate), 'MMM', { locale: ptBR })}</p>
+                                    <AccordionItem key={report.id} value={report.id!} className="border rounded-md px-4 hover:bg-muted/10">
+                                        <AccordionTrigger className="hover:no-underline py-4">
+                                            <div className="flex items-center justify-between w-full pr-4">
+                                                <div className="flex items-center gap-4">
+                                                    <div className="text-center bg-background border rounded-md p-1 min-w-[50px]">
+                                                        <p className="text-xl font-bold leading-none">{safeFormat(parseISO(report.reportDate), 'dd')}</p>
+                                                        <p className="text-[0.5rem] uppercase font-bold text-muted-foreground mt-1">{safeFormat(parseISO(report.reportDate), 'MMM', { locale: ptBR })}</p>
+                                                    </div>
+                                                    <div className="text-left">
+                                                        <p className="font-semibold capitalize text-sm">{safeFormat(parseISO(report.reportDate), "EEEE", { locale: ptBR })}</p>
+                                                        <p className="text-[0.65rem] text-muted-foreground">{report.totalPedidos} pedidos</p>
+                                                    </div>
                                                 </div>
-                                                <div>
-                                                    <p className="font-semibold capitalize">{safeFormat(parseISO(report.reportDate), "EEEE", { locale: ptBR })}</p>
-                                                    <p className="text-xs text-muted-foreground">{report.totalPedidos} pedidos registados</p>
-                                                </div>
+                                                <p className="text-base font-bold text-primary">{formatCurrency(report.totalGeral)}</p>
                                             </div>
-                                            <div className="flex items-center gap-4">
-                                                <div className="text-right">
-                                                    <p className="text-[0.65rem] uppercase font-bold text-muted-foreground leading-none">Total</p>
-                                                    <p className="text-lg font-bold text-primary">{formatCurrency(report.totalGeral)}</p>
-                                                </div>
-                                                <div className="flex gap-1">
-                                                    <Button variant="ghost" size="icon" onClick={() => { setReportToEditDate(report); setNewReportDate(parseISO(report.reportDate)); }}>
-                                                        <CalendarDays className="h-4 w-4" />
-                                                    </Button>
-                                                    <Button variant="ghost" size="icon" onClick={() => setReportToDelete(report)}>
-                                                        <Trash2 className="h-4 w-4 text-destructive" />
-                                                    </Button>
-                                                </div>
+                                        </AccordionTrigger>
+                                        <AccordionContent className="pt-2">
+                                            <div className="flex justify-end gap-2 mb-4">
+                                                <Button variant="outline" size="sm" onClick={() => { setReportToEditDate(report); setNewReportDate(parseISO(report.reportDate)); }}>
+                                                    <CalendarDays className="h-4 w-4 mr-2" /> Alterar Data
+                                                </Button>
+                                                <Button variant="outline" size="sm" className="text-destructive border-destructive/30" onClick={() => setReportToDelete(report)}>
+                                                    <Trash2 className="h-4 w-4 mr-2" /> Excluir
+                                                </Button>
                                             </div>
-                                        </div>
-                                        <div className="p-4 pt-0 border-t bg-muted/5">
                                             <ReportDetail 
                                                 report={report} 
                                                 bomboniereItems={bomboniereItems || []} 
@@ -743,10 +728,10 @@ export default function ReportsPage() {
                                                 onDeleteItem={setArchivedItemToDelete} 
                                                 onAddItem={(d) => { setActiveReportDateForAdd(d); setEditArchivedDate(parseISO(d)); }} 
                                             />
-                                        </div>
-                                    </Card>
+                                        </AccordionContent>
+                                    </AccordionItem>
                                 ))}
-                            </div>
+                            </Accordion>
                         ) : (
                             <p className="text-center py-10 text-muted-foreground">Sem relatórios este mês.</p>
                         )}
@@ -759,27 +744,27 @@ export default function ReportsPage() {
                     <AccordionTrigger className="text-lg p-6 hover:no-underline"><div className="flex items-center gap-3"><BarChart3 className="h-6 w-6 text-primary"/><span>Resumo Semanal</span></div></AccordionTrigger>
                     <AccordionContent className="p-6 pt-0">
                         {weeklySummaries.length > 0 ? (
-                            <div className="space-y-4">
+                            <Accordion type="single" collapsible className="space-y-2">
                                 {weeklySummaries.map((s) => (
-                                    <Card key={s.week} className="overflow-hidden">
-                                        <div className="p-4 bg-muted/20 flex items-center justify-between">
-                                            <div className="flex items-center gap-3">
-                                                <div className="bg-primary/10 text-primary p-2 rounded-md">
-                                                    <BarChart3 className="h-5 w-5" />
+                                    <AccordionItem key={s.week} value={String(s.week)} className="border rounded-md px-4 hover:bg-muted/10">
+                                        <AccordionTrigger className="hover:no-underline py-4">
+                                            <div className="flex items-center justify-between w-full pr-4">
+                                                <div className="flex items-center gap-3">
+                                                    <div className="bg-primary/10 text-primary p-2 rounded-md"><BarChart3 className="h-4 w-4" /></div>
+                                                    <div className="text-left">
+                                                        <p className="font-bold text-sm">Semana {s.week}</p>
+                                                        <p className="text-[0.65rem] text-muted-foreground">{format(s.start, 'dd/MM')} a {format(s.end, 'dd/MM')}</p>
+                                                    </div>
                                                 </div>
-                                                <div>
-                                                    <p className="font-bold">Semana {s.week}</p>
-                                                    <p className="text-xs text-muted-foreground">{format(s.start, 'dd/MM')} a {format(s.end, 'dd/MM')}</p>
-                                                </div>
+                                                <p className="text-base font-bold text-primary">{formatCurrency(s.data.totalGeral)}</p>
                                             </div>
-                                            <Badge variant="outline">{s.count} dias registados</Badge>
-                                        </div>
-                                        <div className="p-4 pt-0">
+                                        </AccordionTrigger>
+                                        <AccordionContent className="pt-2">
                                             <SummaryDisplay data={s.data} />
-                                        </div>
-                                    </Card>
+                                        </AccordionContent>
+                                    </AccordionItem>
                                 ))}
-                            </div>
+                            </Accordion>
                         ) : <p className="text-center py-10 text-muted-foreground">Sem dados para este período.</p>}
                     </AccordionContent>
                 </Card>
@@ -790,24 +775,24 @@ export default function ReportsPage() {
                     <AccordionTrigger className="text-lg p-6 hover:no-underline"><div className="flex items-center gap-3"><TrendingUp className="h-6 w-6 text-primary"/><span>Resumo Mensal</span></div></AccordionTrigger>
                     <AccordionContent className="p-6 pt-0">
                         {monthlySummaries.length > 0 ? (
-                            <div className="space-y-4">
+                            <Accordion type="single" collapsible className="space-y-2">
                                 {monthlySummaries.map((s) => (
-                                    <Card key={s.month} className="overflow-hidden">
-                                        <div className="p-4 bg-muted/20 flex items-center justify-between">
-                                            <div className="flex items-center gap-3">
-                                                <div className="bg-primary/10 text-primary p-2 rounded-md">
-                                                    <CalendarIcon className="h-5 w-5" />
+                                    <AccordionItem key={s.month} value={String(s.month)} className="border rounded-md px-4 hover:bg-muted/10">
+                                        <AccordionTrigger className="hover:no-underline py-4">
+                                            <div className="flex items-center justify-between w-full pr-4">
+                                                <div className="flex items-center gap-3">
+                                                    <div className="bg-primary/10 text-primary p-2 rounded-md"><TrendingUp className="h-4 w-4" /></div>
+                                                    <p className="font-bold text-sm capitalize">{format(new Date(2000, s.month), 'MMMM', { locale: ptBR })}</p>
                                                 </div>
-                                                <p className="font-bold capitalize">{format(new Date(2000, s.month), 'MMMM', { locale: ptBR })}</p>
+                                                <p className="text-base font-bold text-primary">{formatCurrency(s.data.totalGeral)}</p>
                                             </div>
-                                            <Badge variant="outline">{s.count} dias registados</Badge>
-                                        </div>
-                                        <div className="p-4 pt-0">
+                                        </AccordionTrigger>
+                                        <AccordionContent className="pt-2">
                                             <SummaryDisplay data={s.data} />
-                                        </div>
-                                    </Card>
+                                        </AccordionContent>
+                                    </AccordionItem>
                                 ))}
-                            </div>
+                            </Accordion>
                         ) : <p className="text-center py-10 text-muted-foreground">Sem dados para este ano.</p>}
                     </AccordionContent>
                 </Card>
@@ -818,24 +803,24 @@ export default function ReportsPage() {
                     <AccordionTrigger className="text-lg p-6 hover:no-underline"><div className="flex items-center gap-3"><History className="h-6 w-6 text-primary"/><span>Resumo Anual</span></div></AccordionTrigger>
                     <AccordionContent className="p-6 pt-0">
                         {annualSummaries.length > 0 ? (
-                            <div className="space-y-4">
+                            <Accordion type="single" collapsible className="space-y-2">
                                 {annualSummaries.map((s) => (
-                                    <Card key={s.year} className="overflow-hidden">
-                                        <div className="p-4 bg-muted/20 flex items-center justify-between">
-                                            <div className="flex items-center gap-3">
-                                                <div className="bg-primary/10 text-primary p-2 rounded-md">
-                                                    <TrendingUp className="h-5 w-5" />
+                                    <AccordionItem key={s.year} value={String(s.year)} className="border rounded-md px-4 hover:bg-muted/10">
+                                        <AccordionTrigger className="hover:no-underline py-4">
+                                            <div className="flex items-center justify-between w-full pr-4">
+                                                <div className="flex items-center gap-3">
+                                                    <div className="bg-primary/10 text-primary p-2 rounded-md"><History className="h-4 w-4" /></div>
+                                                    <p className="font-bold text-sm">{s.year}</p>
                                                 </div>
-                                                <p className="font-bold">{s.year}</p>
+                                                <p className="text-base font-bold text-primary">{formatCurrency(s.data.totalGeral)}</p>
                                             </div>
-                                            <Badge variant="outline">{s.count} relatórios registados</Badge>
-                                        </div>
-                                        <div className="p-4 pt-0">
+                                        </AccordionTrigger>
+                                        <AccordionContent className="pt-2">
                                             <SummaryDisplay data={s.data} />
-                                        </div>
-                                    </Card>
+                                        </AccordionContent>
+                                    </AccordionItem>
                                 ))}
-                            </div>
+                            </Accordion>
                         ) : <p className="text-center py-10 text-muted-foreground">Sem dados registados.</p>}
                     </AccordionContent>
                 </Card>
