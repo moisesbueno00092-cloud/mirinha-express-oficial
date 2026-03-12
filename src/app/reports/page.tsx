@@ -256,7 +256,6 @@ const CustomerReportsSection = ({
     const { toast } = useToast();
     const [selectedCustomerName, setSelectedCustomerName] = useState<string | null>(null);
     
-    // States for changing item date
     const [itemToChangeDate, setItemToChangeDate] = useState<Item | null>(null);
     const [newItemDate, setNewItemDate] = useState<Date | undefined>();
     const [isUpdatingItemDate, setIsUpdatingItemDate] = useState(false);
@@ -328,7 +327,6 @@ const CustomerReportsSection = ({
             const batch = writeBatch(firestore);
             const itemRef = doc(firestore, 'order_items', itemToChangeDate.id);
             
-            // Preserve original time
             const origTs = itemToChangeDate.timestamp?.toDate ? itemToChangeDate.timestamp.toDate() : new Date(itemToChangeDate.timestamp);
             const updatedTs = new Date(newItemDate);
             updatedTs.setHours(origTs.getHours(), origTs.getMinutes(), origTs.getSeconds(), origTs.getMilliseconds());
@@ -340,7 +338,6 @@ const CustomerReportsSection = ({
             
             await batch.commit();
             
-            // Recalculate both reports
             await recalculateFn(newDateStr);
             if (oldDateStr && oldDateStr !== newDateStr) {
                 await recalculateFn(oldDateStr);
@@ -526,7 +523,7 @@ export default function ReportsPage() {
     }, { today: 0, week: 0, month: 0, year: 0 });
   }, [allReports]);
 
-  // Agregações para Gavetas
+  // Agregações
   const weeklySummaries = useMemo(() => {
       const year = globalDate.getFullYear();
       const stats: Record<string, { week: number, count: number, start: Date, end: Date, data: any }> = {};

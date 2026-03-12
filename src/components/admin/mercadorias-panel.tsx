@@ -26,7 +26,7 @@ import CameraCaptureSheet from './camera-capture-sheet';
 interface LancamentoProduto {
     id: number;
     produtoNome: string;
-    preco: number; // This will be the total price (quantity * unit price)
+    preco: number;
     quantidade: number;
     precoUnitario: number;
 }
@@ -158,9 +158,9 @@ export default function MercadoriasPanel() {
             });
     
             if (Object.keys(productHistory).length > 0) {
-                const mostLikelySupplierForProduct = Object.entries(productHistory).reduce((a, b) => a[1] > b[1] ? a : b)[0];
-                if (mostLikelySupplierForProduct) {
-                    supplierScores[mostLikelySupplierForProduct] = (supplierScores[mostLikelySupplierForProduct] || 0) + 1;
+                const mostLikelySupplierId = Object.entries(productHistory).reduce((a, b) => a[1] > b[1] ? a : b)[0];
+                if (mostLikelySupplierId) {
+                    supplierScores[mostLikelySupplierId] = (supplierScores[mostLikelySupplierId] || 0) + 1;
                 }
             }
         }
@@ -317,7 +317,7 @@ export default function MercadoriasPanel() {
     };
     
     const handleRegisterEntry = async () => {
-        if (!firestore || produtosLancados.length === 0 || isLoadingBomboniere) {
+        if (!firestore || produtosLancados.length === 0 || isLoadingBomboniere || isSubmitting) {
             if (produtosLancados.length === 0) {
                 toast({ variant: 'destructive', title: 'Lista vazia', description: 'Adicione pelo menos um produto antes de registar.' });
             }
@@ -402,6 +402,7 @@ export default function MercadoriasPanel() {
         
         const input = lancamentoInput.trim();
         if (!input) {
+            // If empty and items exist, finalize
             if (produtosLancados.length > 0 && !isSubmitting) {
                 handleRegisterEntry();
             }
@@ -471,7 +472,7 @@ export default function MercadoriasPanel() {
         }
         
         setProdutosLancados(prev => [...prev, {
-            id: Date.now(),
+            id: Date.now() + Math.random(),
             produtoNome: produtoNomeFinal, 
             preco: precoTotal,
             quantidade,
@@ -611,11 +612,6 @@ export default function MercadoriasPanel() {
         let hasAnySuccess = false;
 
         for (const [index, file] of Array.from(files).entries()) {
-            toast({
-                title: `A processar imagem ${index + 1} de ${files.length}...`,
-                description: file.name,
-                duration: 120000
-            });
             try {
                 const dataUri = await new Promise<string>((resolve, reject) => {
                     const reader = new FileReader();
@@ -819,6 +815,7 @@ export default function MercadoriasPanel() {
                                 onSubmit={handleAddProduto} 
                                 className="flex items-start gap-2"
                                 onKeyDown={(e) => {
+                                    // Trigger registration if Enter is pressed on empty input and we have items
                                     if (e.key === 'Enter' && !lancamentoInput.trim() && produtosLancados.length > 0 && !isSubmitting) {
                                         e.preventDefault();
                                         handleRegisterEntry();
