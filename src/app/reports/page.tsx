@@ -28,6 +28,7 @@ import {
     setYear,
     setMonth,
     isValid,
+    getWeek,
 } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 
@@ -47,7 +48,8 @@ import {
     Plus,
     TrendingUp,
     CalendarCheck,
-    BarChart3
+    BarChart3,
+    History
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import {
@@ -116,7 +118,8 @@ const safeFormat = (dateInput: any, formatStr: string, options?: any) => {
     return format(d, formatStr, options);
 };
 
-// Seção de Consumo por Cliente (Mensal)
+// --- COMPONENTES AUXILIARES ---
+
 const CustomerReportsSection = ({ 
     globalDate,
     onEditItem,
@@ -283,6 +286,8 @@ const ReportDetail = ({ report, bomboniereItems, onEditItem, onDeleteItem, onAdd
     );
 };
 
+// --- PÁGINA PRINCIPAL ---
+
 export default function ReportsPage() {
   const firestore = useFirestore();
   const { toast } = useToast();
@@ -307,8 +312,14 @@ export default function ReportsPage() {
   
   const reportsQ = useMemo(() => firestore ? query(collection(firestore, 'daily_reports')) : null, [firestore]);
   const { data: allReportsRaw, isLoading: isLoadingReports } = useCollection<DailyReport>(reportsQ);
+  
   const allReports = useMemo(() => (allReportsRaw || []).filter(r => r.reportDate).sort((a, b) => b.reportDate.localeCompare(a.reportDate)), [allReportsRaw]);
-  const monthlyReports = useMemo(() => allReports.filter(r => { const d = parseISO(r.reportDate); return d.getFullYear() === globalDate.getFullYear() && d.getMonth() === globalDate.getMonth(); }), [allReports, globalDate]);
+  
+  const monthlyReports = useMemo(() => allReports.filter(r => { 
+      const d = parseISO(r.reportDate); 
+      return d.getFullYear() === globalDate.getFullYear() && d.getMonth() === globalDate.getMonth(); 
+  }), [allReports, globalDate]);
+
   const { data: bomboniereItems } = useCollection<BomboniereItem>(firestore ? collection(firestore, 'bomboniere_items') : null);
 
   useEffect(() => {
@@ -323,10 +334,10 @@ export default function ReportsPage() {
     const todayStr = format(new Date(), 'yyyy-MM-dd');
     const weekStart = startOfWeek(new Date(), { locale: ptBR });
     const weekEnd = endOfWeek(new Date(), { locale: ptBR });
-    const monthStart = startOfMonth(globalDate);
-    const monthEnd = endOfMonth(globalDate);
-    const yearStart = startOfYear(globalDate);
-    const yearEnd = endOfYear(globalDate);
+    const monthStart = startOfMonth(new Date());
+    const monthEnd = endOfMonth(new Date());
+    const yearStart = startOfYear(new Date());
+    const yearEnd = endOfYear(new Date());
 
     return allReports.reduce((acc, r) => {
         const d = parseISO(r.reportDate);
@@ -336,7 +347,63 @@ export default function ReportsPage() {
         if (isWithinInterval(d, { start: yearStart, end: yearEnd })) acc.year += r.totalGeral;
         return acc;
     }, { today: 0, week: 0, month: 0, year: 0 });
+  }, [allReports]);
+
+  // Resumo por Semana (Ano selecionado)
+  const weeklySummaries = useMemo(() => {
+      const year = globalDate.getFullYear();
+      const stats: Record<string, { week: number, total: number, count: number, start: Date, end: Date }> = {};
+      
+      allReports.forEach(r => {
+          const d = parseISO(r.reportDate);
+          if (d.getFullYear() === year) {
+              const weekNum = getWeek(d, { locale: ptBR });
+              const key = `W${weekNum}`;
+              if (!stats[key]) {
+                  stats[key] = { 
+                      week: weekNum, 
+                      total: 0, 
+                      count: 0, 
+                      start: startOfWeek(d, { locale: ptBR }), 
+                      end: endOfWeek(d, { locale: ptBR }) 
+                  };
+              }
+              stats[key].total += r.totalGeral;
+              stats[key].count++;
+          }
+      });
+      return Object.values(stats).sort((a,b) => b.week - a.week);
   }, [allReports, globalDate]);
+
+  // Resumo por Mês (Ano selecionado)
+  const monthlySummaries = useMemo(() => {
+      const year = globalDate.getFullYear();
+      const stats: Record<number, { month: number, total: number, count: number }> = {};
+      
+      allReports.forEach(r => {
+          const d = parseISO(r.reportDate);
+          if (d.getFullYear() === year) {
+              const m = d.getMonth();
+              if (!stats[m]) stats[m] = { month: m, total: 0, count: 0 };
+              stats[m].total += r.totalGeral;
+              stats[m].count++;
+          }
+      });
+      return Object.values(stats).sort((a,b) => b.month - a.month);
+  }, [allReports, globalDate]);
+
+  // Resumo por Ano
+  const annualSummaries = useMemo(() => {
+      const stats: Record<number, { year: number, total: number, count: number }> = {};
+      allReports.forEach(r => {
+          const d = parseISO(r.reportDate);
+          const y = d.getFullYear();
+          if (!stats[y]) stats[y] = { year: y, total: 0, count: 0 };
+          stats[y].total += r.totalGeral;
+          stats[y].count++;
+      });
+      return Object.values(stats).sort((a,b) => b.year - a.year);
+  }, [allReports]);
 
   const recalculateReport = async (reportDate: string) => {
     if (!firestore || !user?.uid) return;
@@ -344,7 +411,12 @@ export default function ReportsPage() {
         const snapshot = await getDocs(query(collection(firestore, 'order_items'), where('reportDate', '==', reportDate)));
         const items = snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id } as Item));
         const reportSnapshot = await getDocs(query(collection(firestore, 'daily_reports'), where('reportDate', '==', reportDate)));
-        if (items.length === 0) { if (!reportSnapshot.empty) await deleteDoc(reportSnapshot.docs[0].ref); return; }
+        
+        if (items.length === 0) { 
+            if (!reportSnapshot.empty) await deleteDoc(reportSnapshot.docs[0].ref); 
+            return; 
+        }
+
         const totals = items.reduce((acc, item) => {
             acc.totalGeral += item.total; acc.totalItens += item.quantity; acc.totalTaxas += item.deliveryFee;
             if (item.group.includes('rua')) { if (item.deliveryFee > 0) acc.totalEntregas++; acc.totalItensRua += item.quantity; }
@@ -357,6 +429,7 @@ export default function ReportsPage() {
             }
             return acc;
         }, { totalGeral: 0, totalAVista: 0, totalFiado: 0, totalVendasSalao: 0, totalVendasRua: 0, totalFiadoSalao: 0, totalFiadoRua: 0, totalTaxas: 0, totalItens: 0, totalEntregas: 0, totalItensRua: 0, contagemTotal: {} as ItemCount, contagemRua: {} as ItemCount });
+        
         if (!reportSnapshot.empty) await setDoc(reportSnapshot.docs[0].ref, { ...totals, totalPedidos: items.length, reportDate, userId: user.uid }, { merge: true });
         else await addDoc(collection(firestore, 'daily_reports'), { ...totals, totalPedidos: items.length, reportDate, userId: user.uid, createdAt: new Date().toISOString() });
     } catch (e) { console.error(e); }
@@ -367,10 +440,15 @@ export default function ReportsPage() {
     setIsProcessingEdit(true);
     const [h, m] = editArchivedTime.split(':').map(Number);
     const finalDate = new Date(editArchivedDate);
+    
+    // Manter segundos originais para integridade cronológica
     if (currentItem?.timestamp) {
         const orig = currentItem.timestamp.toDate ? currentItem.timestamp.toDate() : new Date(currentItem.timestamp);
         finalDate.setHours(h, m, orig.getSeconds(), orig.getMilliseconds());
-    } else finalDate.setHours(h, m, 0, 0);
+    } else {
+        finalDate.setHours(h, m, 0, 0);
+    }
+    
     const newDateStr = format(finalDate, 'yyyy-MM-dd');
     try {
         const batch = writeBatch(firestore);
@@ -379,19 +457,37 @@ export default function ReportsPage() {
         let feeApp = false;
         let taxE = main.toUpperCase().includes(' E ');
         if (taxE) main = main.replace(/ E /gi, ' ').trim();
+        
         if (main.toUpperCase().startsWith('R ')) { group = 'Vendas rua'; feeApp = true; main = main.substring(2).trim(); }
         else if (main.toUpperCase().startsWith('FR ')) { group = 'Fiados rua'; feeApp = true; main = main.substring(3).trim(); }
         else if (main.toUpperCase().startsWith('F ')) { group = 'Fiados salão'; main = main.substring(2).trim(); }
+        
         const parts = main.split(' ').filter(p => p);
         let pTotal = 0; let qTotal = 0;
         parts.forEach(p => { if (isNumeric(p)) pTotal += parseFloat(p.replace(',', '.')); else qTotal++; });
+        
         const finalFee = taxE ? 0 : feeApp ? deliveryFee : 0;
-        const finalItem: Omit<Item, 'id'> = { userId: user.uid, name: 'Lançamento Histórico', quantity: qTotal || 1, price: pTotal, group, timestamp: Timestamp.fromDate(finalDate), deliveryFee: finalFee, total: pTotal + finalFee, originalCommand: rawInput, reportado: true, reportDate: newDateStr };
+        const finalItem: Omit<Item, 'id'> = { 
+            userId: user.uid, 
+            name: 'Lançamento Histórico', 
+            quantity: qTotal || 1, 
+            price: pTotal, 
+            group, 
+            timestamp: Timestamp.fromDate(finalDate), 
+            deliveryFee: finalFee, 
+            total: pTotal + finalFee, 
+            originalCommand: rawInput, 
+            reportado: true, 
+            reportDate: newDateStr 
+        };
+        
         if (currentItem) batch.set(doc(firestore, 'order_items', currentItem.id), finalItem);
         else batch.set(doc(collection(firestore, 'order_items')), finalItem);
+        
         await batch.commit();
         await recalculateReport(newDateStr);
         if (currentItem?.reportDate && currentItem.reportDate !== newDateStr) await recalculateReport(currentItem.reportDate);
+        
         toast({ title: 'Atualizado com sucesso' });
         setArchivedItemToEdit(null); setActiveReportDateForAdd(null);
     } catch (e) { console.error(e); } finally { setIsProcessingEdit(false); }
@@ -402,115 +498,311 @@ export default function ReportsPage() {
     setIsUpdatingDate(true);
     const oldD = reportToEditDate.reportDate;
     const newD = format(newReportDate, 'yyyy-MM-dd');
+    
     try {
         const batch = writeBatch(firestore);
+        
+        // 1. Atualizar o relatório diário
         batch.update(doc(firestore, "daily_reports", reportToEditDate.id!), { reportDate: newD });
+        
+        // 2. Atualizar todos os pedidos individuais associados (SINCRONIZAÇÃO TOTAL)
         const snapshot = await getDocs(query(collection(firestore, 'order_items'), where('reportDate', '==', oldD)));
         snapshot.forEach(d => {
             const data = d.data() as Item;
             const orig = data.timestamp?.toDate ? data.timestamp.toDate() : new Date(data.timestamp);
+            
+            // Criar novo timestamp mantendo a hora original exata
             const upd = new Date(newReportDate);
             upd.setHours(orig.getHours(), orig.getMinutes(), orig.getSeconds(), orig.getMilliseconds());
+            
             batch.update(d.ref, { reportDate: newD, timestamp: Timestamp.fromDate(upd) });
         });
+        
         await batch.commit();
         toast({ title: "Data alterada e pedidos sincronizados." });
-    } catch (e) { console.error(e); } finally { setIsUpdatingDate(false); setReportToEditDate(null); }
+    } catch (e) { 
+        console.error(e);
+        toast({ variant: 'destructive', title: "Erro ao sincronizar", description: "Não foi possível mover os pedidos para a nova data." });
+    } finally { 
+        setIsUpdatingDate(false); 
+        setReportToEditDate(null); 
+    }
   };
 
   if (isUserLoading || isLoadingReports) return <div className="flex h-64 items-center justify-center"><Loader2 className="h-12 w-12 animate-spin text-primary" /></div>;
 
   return (
     <>
-      <BomboniereModal isOpen={isBomboniereModalOpen} onClose={() => setIsBomboniereModalOpen(false)} onAddItems={(items) => setEditArchivedInput(prev => `${prev} ${items.map(i => `${i.quantity} ${i.name}`).join(' ')}`)} bomboniereItems={bomboniereItems || []} />
+      <BomboniereModal 
+        isOpen={isBomboniereModalOpen} 
+        onClose={() => setIsBomboniereModalOpen(false)} 
+        onAddItems={(items) => setEditArchivedInput(prev => `${prev} ${items.map(i => `${i.quantity} ${i.name}`).join(' ')}`)} 
+        bomboniereItems={bomboniereItems || []} 
+      />
 
       <AlertDialog open={!!reportToDelete} onOpenChange={(open) => !open && setReportToDelete(null)}>
-        <AlertDialogContent><AlertDialogHeader><AlertDialogTitle>Excluir Relatório?</AlertDialogTitle><AlertDialogDescription>Os itens voltarão para o dia de hoje na tela inicial.</AlertDialogDescription></AlertDialogHeader>
-        <AlertDialogFooter><AlertDialogCancel>Cancelar</AlertDialogCancel><AlertDialogAction onClick={async () => {
-            if(!firestore || !reportToDelete) return;
-            const batch = writeBatch(firestore);
-            const snapshot = await getDocs(query(collection(firestore, 'order_items'), where('reportDate', '==', reportToDelete.reportDate)));
-            snapshot.forEach(d => { batch.set(doc(collection(firestore, 'live_items'), d.id), { ...d.data(), reportado: false }); batch.delete(d.ref); });
-            batch.delete(doc(firestore, "daily_reports", reportToDelete.id!));
-            await batch.commit(); setReportToDelete(null);
-        }}>Confirmar</AlertDialogAction></AlertDialogFooter></AlertDialogContent>
+        <AlertDialogContent>
+            <AlertDialogHeader>
+                <AlertDialogTitle>Excluir Relatório?</AlertDialogTitle>
+                <AlertDialogDescription>Os itens voltarão para o dia de hoje na tela inicial.</AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+                <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                <AlertDialogAction onClick={async () => {
+                    if(!firestore || !reportToDelete) return;
+                    const batch = writeBatch(firestore);
+                    const snapshot = await getDocs(query(collection(firestore, 'order_items'), where('reportDate', '==', reportToDelete.reportDate)));
+                    snapshot.forEach(d => { batch.set(doc(collection(firestore, 'live_items'), d.id), { ...d.data(), reportado: false }); batch.delete(d.ref); });
+                    batch.delete(doc(firestore, "daily_reports", reportToDelete.id!));
+                    await batch.commit(); setReportToDelete(null);
+                }}>Confirmar</AlertDialogAction>
+            </AlertDialogFooter>
+        </AlertDialogContent>
       </AlertDialog>
 
       <AlertDialog open={!!archivedItemToDelete} onOpenChange={(open) => !open && setArchivedItemToDelete(null)}>
-        <AlertDialogContent><AlertDialogHeader><AlertDialogTitle>Excluir do Histórico?</AlertDialogTitle></AlertDialogHeader>
-        <AlertDialogFooter><AlertDialogCancel>Cancelar</AlertDialogCancel><AlertDialogAction onClick={async () => {
-            if(!archivedItemToDelete) return;
-            await deleteDoc(doc(firestore!, 'order_items', archivedItemToDelete.id));
-            if(archivedItemToDelete.reportDate) await recalculateReport(archivedItemToDelete.reportDate);
-            setArchivedItemToDelete(null);
-        }} className="bg-destructive">Excluir</AlertDialogAction></AlertDialogFooter></AlertDialogContent>
+        <AlertDialogContent>
+            <AlertDialogHeader><AlertDialogTitle>Excluir do Histórico?</AlertDialogTitle></AlertDialogHeader>
+            <AlertDialogFooter>
+                <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                <AlertDialogAction onClick={async () => {
+                    if(!archivedItemToDelete) return;
+                    await deleteDoc(doc(firestore!, 'order_items', archivedItemToDelete.id));
+                    if(archivedItemToDelete.reportDate) await recalculateReport(archivedItemToDelete.reportDate);
+                    setArchivedItemToDelete(null);
+                }} className="bg-destructive">Excluir</AlertDialogAction>
+            </AlertDialogFooter>
+        </AlertDialogContent>
       </AlertDialog>
 
       <Dialog open={!!archivedItemToEdit || !!activeReportDateForAdd} onOpenChange={(open) => { if(!open) { setArchivedItemToEdit(null); setActiveReportDateForAdd(null); } }}>
         <DialogContent className="max-w-xl" onInteractOutside={(e) => e.preventDefault()}>
             <DialogHeader><DialogTitle>{archivedItemToEdit ? 'Editar' : 'Novo'} Lançamento</DialogTitle></DialogHeader>
             <div className="py-4 space-y-4">
-                <div className="space-y-2"><Label>Comando</Label><div className="flex gap-2"><Input value={editArchivedInput} onChange={(e) => setEditArchivedInput(e.target.value)} className="h-12" /><Button variant="outline" onClick={() => setIsBomboniereModalOpen(true)} className="h-12">Outros</Button></div></div>
+                <div className="space-y-2">
+                    <Label>Comando</Label>
+                    <div className="flex gap-2">
+                        <Input value={editArchivedInput} onChange={(e) => setEditArchivedInput(e.target.value)} className="h-12" />
+                        <Button variant="outline" onClick={() => setIsBomboniereModalOpen(true)} className="h-12">Outros</Button>
+                    </div>
+                </div>
                 <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-2"><Label>Data</Label><div className="border rounded-md p-2 bg-background flex justify-center"><Calendar mode="single" selected={editArchivedDate} onSelect={setEditArchivedDate} locale={ptBR} /></div></div>
-                    <div className="space-y-2"><Label>Hora</Label><Input type="time" value={editArchivedTime} onChange={(e) => setEditArchivedTime(e.target.value)} className="h-10" /></div>
+                    <div className="space-y-2">
+                        <Label>Data</Label>
+                        <div className="border rounded-md p-2 bg-background flex justify-center">
+                            <Calendar mode="single" selected={editArchivedDate} onSelect={setEditArchivedDate} locale={ptBR} />
+                        </div>
+                    </div>
+                    <div className="space-y-2">
+                        <Label>Hora</Label>
+                        <Input type="time" value={editArchivedTime} onChange={(e) => setEditArchivedTime(e.target.value)} className="h-10" />
+                    </div>
                 </div>
             </div>
-            <DialogFooter><Button variant="outline" onClick={() => { setArchivedItemToEdit(null); setActiveReportDateForAdd(null); }}>Cancelar</Button><Button onClick={() => handleUpsertArchivedItem(editArchivedInput, archivedItemToEdit)} disabled={isProcessingEdit}>{isProcessingEdit && <Loader2 className="animate-spin mr-2"/>}Salvar</Button></DialogFooter>
+            <DialogFooter>
+                <Button variant="outline" onClick={() => { setArchivedItemToEdit(null); setActiveReportDateForAdd(null); }}>Cancelar</Button>
+                <Button onClick={() => handleUpsertArchivedItem(editArchivedInput, archivedItemToEdit)} disabled={isProcessingEdit}>{isProcessingEdit && <Loader2 className="animate-spin mr-2"/>}Salvar</Button>
+            </DialogFooter>
         </DialogContent>
       </Dialog>
 
       <Dialog open={!!reportToEditDate} onOpenChange={(open) => !open && setReportToEditDate(null)}>
         <DialogContent onInteractOutside={(e) => e.preventDefault()}>
             <DialogHeader><DialogTitle>Alterar Data do Relatório</DialogTitle></DialogHeader>
-            <div className="py-4 flex flex-col items-center bg-muted/30 rounded-md"><Calendar mode="single" selected={newReportDate} onSelect={setNewReportDate} locale={ptBR} className="border rounded-md bg-background" /></div>
-            <DialogFooter><Button variant="outline" onClick={() => setReportToEditDate(null)}>Cancelar</Button><Button onClick={confirmEditDate} disabled={isUpdatingDate}>{isUpdatingDate && <Loader2 className="animate-spin mr-2"/>}Confirmar</Button></DialogFooter>
+            <div className="py-4 flex flex-col items-center bg-muted/30 rounded-md">
+                <Calendar mode="single" selected={newReportDate} onSelect={setNewReportDate} locale={ptBR} className="border rounded-md bg-background" />
+            </div>
+            <DialogFooter>
+                <Button variant="outline" onClick={() => setReportToEditDate(null)}>Cancelar</Button>
+                <Button onClick={confirmEditDate} disabled={isUpdatingDate}>{isUpdatingDate && <Loader2 className="animate-spin mr-2"/>}Confirmar</Button>
+            </DialogFooter>
         </DialogContent>
       </Dialog>
 
+      {/* PAINEL DE RESUMO (DASHBOARD) */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
-          <Card className="bg-primary/10 border-primary/20"><CardHeader className="p-4 pb-2"><CardTitle className="text-xs uppercase text-muted-foreground flex items-center gap-2"><CalendarCheck className="h-3 w-3"/>Hoje</CardTitle></CardHeader><CardContent className="p-4 pt-0"><p className="text-2xl font-bold">{formatCurrency(dashboardStats.today)}</p></CardContent></Card>
-          <Card><CardHeader className="p-4 pb-2"><CardTitle className="text-xs uppercase text-muted-foreground flex items-center gap-2"><BarChart3 className="h-3 w-3"/>Semana</CardTitle></CardHeader><CardContent className="p-4 pt-0"><p className="text-2xl font-bold">{formatCurrency(dashboardStats.week)}</p></CardContent></Card>
-          <Card><CardHeader className="p-4 pb-2"><CardTitle className="text-xs uppercase text-muted-foreground flex items-center gap-2"><TrendingUp className="h-3 w-3"/>Mês</CardTitle></CardHeader><CardContent className="p-4 pt-0"><p className="text-2xl font-bold text-primary">{formatCurrency(dashboardStats.month)}</p></CardContent></Card>
-          <Card><CardHeader className="p-4 pb-2"><CardTitle className="text-xs uppercase text-muted-foreground flex items-center gap-2"><TrendingUp className="h-3 w-3"/>Ano</CardTitle></CardHeader><CardContent className="p-4 pt-0"><p className="text-2xl font-bold">{formatCurrency(dashboardStats.year)}</p></CardContent></Card>
+          <Card className="bg-primary/10 border-primary/20">
+              <CardHeader className="p-4 pb-2"><CardTitle className="text-xs uppercase text-muted-foreground flex items-center gap-2"><CalendarCheck className="h-3 w-3"/>Hoje</CardTitle></CardHeader>
+              <CardContent className="p-4 pt-0"><p className="text-2xl font-bold">{formatCurrency(dashboardStats.today)}</p></CardContent>
+          </Card>
+          <Card>
+              <CardHeader className="p-4 pb-2"><CardTitle className="text-xs uppercase text-muted-foreground flex items-center gap-2"><BarChart3 className="h-3 w-3"/>Semana</CardTitle></CardHeader>
+              <CardContent className="p-4 pt-0"><p className="text-2xl font-bold">{formatCurrency(dashboardStats.week)}</p></CardContent>
+          </Card>
+          <Card>
+              <CardHeader className="p-4 pb-2"><CardTitle className="text-xs uppercase text-muted-foreground flex items-center gap-2"><TrendingUp className="h-3 w-3"/>Mês</CardTitle></CardHeader>
+              <CardContent className="p-4 pt-0"><p className="text-2xl font-bold text-primary">{formatCurrency(dashboardStats.month)}</p></CardContent>
+          </Card>
+          <Card>
+              <CardHeader className="p-4 pb-2"><CardTitle className="text-xs uppercase text-muted-foreground flex items-center gap-2"><TrendingUp className="h-3 w-3"/>Ano</CardTitle></CardHeader>
+              <CardContent className="p-4 pt-0"><p className="text-2xl font-bold">{formatCurrency(dashboardStats.year)}</p></CardContent>
+          </Card>
       </div>
 
+      {/* SELEÇÃO DE PERÍODO */}
       <Card className="mb-8">
-          <CardHeader className="pb-4"><CardTitle className="text-lg flex items-center gap-2"><CalendarIcon className="h-5 w-5 text-primary"/>Período do Relatório</CardTitle></CardHeader>
+          <CardHeader className="pb-4"><CardTitle className="text-lg flex items-center gap-2"><CalendarIcon className="h-5 w-5 text-primary"/>Período de Referência</CardTitle></CardHeader>
           <CardContent className="flex flex-wrap items-center gap-4">
               <div className="flex items-center gap-2">
-                  <Select value={String(globalDate.getMonth())} onValueChange={(v) => setGlobalDate(setMonth(new Date(globalDate), parseInt(v)))}><SelectTrigger className="w-[140px]"><SelectValue /></SelectTrigger><SelectContent>{Array.from({length: 12}, (_, i) => <SelectItem key={i} value={String(i)}>{format(new Date(2000, i), 'MMMM', { locale: ptBR })}</SelectItem>)}</SelectContent></Select>
-                  <Select value={String(globalDate.getFullYear())} onValueChange={(v) => setGlobalDate(setYear(new Date(globalDate), parseInt(v)))}><SelectTrigger className="w-[100px]"><SelectValue /></SelectTrigger><SelectContent>{[2024, 2025].map(y => <SelectItem key={y} value={String(y)}>{y}</SelectItem>)}</SelectContent></Select>
+                  <Select value={String(globalDate.getMonth())} onValueChange={(v) => setGlobalDate(setMonth(new Date(globalDate), parseInt(v)))}>
+                      <SelectTrigger className="w-[140px]"><SelectValue /></SelectTrigger>
+                      <SelectContent>{Array.from({length: 12}, (_, i) => <SelectItem key={i} value={String(i)}>{format(new Date(2000, i), 'MMMM', { locale: ptBR })}</SelectItem>)}</SelectContent>
+                  </Select>
+                  <Select value={String(globalDate.getFullYear())} onValueChange={(v) => setGlobalDate(setYear(new Date(globalDate), parseInt(v)))}>
+                      <SelectTrigger className="w-[100px]"><SelectValue /></SelectTrigger>
+                      <SelectContent>{[2024, 2025].map(y => <SelectItem key={y} value={String(y)}>{y}</SelectItem>)}</SelectContent>
+                  </Select>
               </div>
               <p className="text-sm text-muted-foreground capitalize">{safeFormat(globalDate, 'MMMM yyyy', { locale: ptBR })}</p>
           </CardContent>
       </Card>
       
+      {/* GAVETAS DE RELATÓRIOS */}
       <main className="space-y-6">
         <Accordion type="single" collapsible defaultValue="diario" className="w-full space-y-4">
+            
+            {/* GAVETA: DIÁRIO */}
             <AccordionItem value="diario">
                 <Card>
                     <AccordionTrigger className="text-lg p-6 hover:no-underline"><div className="flex items-center gap-3"><CalendarDays className="h-6 w-6 text-primary"/><span>Relatórios Diários</span></div></AccordionTrigger>
                     <AccordionContent className="p-6 pt-0">
-                        {monthlyReports.length > 0 ? <div className="space-y-4">{monthlyReports.map(report => (
-                            <Card key={report.id} className="overflow-hidden">
-                                <div className="p-4 flex items-center justify-between hover:bg-muted/30 transition-colors">
-                                    <div className="flex items-center gap-4">
-                                        <div className="text-center bg-background border rounded-md p-2 min-w-[60px]"><p className="text-2xl font-bold leading-none">{safeFormat(parseISO(report.reportDate), 'dd')}</p><p className="text-[0.6rem] uppercase font-bold text-muted-foreground mt-1">{safeFormat(parseISO(report.reportDate), 'MMM', { locale: ptBR })}</p></div>
-                                        <div><p className="font-semibold capitalize">{safeFormat(parseISO(report.reportDate), "EEEE", { locale: ptBR })}</p><p className="text-xs text-muted-foreground">{report.totalPedidos} pedidos registados</p></div>
-                                    </div>
-                                    <div className="flex items-center gap-4">
-                                        <div className="text-right"><p className="text-[0.65rem] uppercase font-bold text-muted-foreground leading-none">Total</p><p className="text-lg font-bold text-primary">{formatCurrency(report.totalGeral)}</p></div>
-                                        <div className="flex gap-1"><Button variant="ghost" size="icon" onClick={() => { setReportToEditDate(report); setNewReportDate(parseISO(report.reportDate)); }}><CalendarDays className="h-4 w-4" /></Button><Button variant="ghost" size="icon" onClick={() => setReportToDelete(report)}><Trash2 className="h-4 w-4 text-destructive" /></Button></div>
-                                    </div>
-                                </div>
-                                <div className="p-4 pt-0 border-t bg-muted/5"><ReportDetail report={report} bomboniereItems={bomboniereItems || []} onEditItem={setArchivedItemToEdit} onDeleteItem={setArchivedItemToDelete} onAddItem={(d) => { setActiveReportDateForAdd(d); setEditArchivedDate(parseISO(d)); }} /></div>
-                            </Card>
-                        ))}</div> : <p className="text-center py-10 text-muted-foreground">Sem relatórios este mês.</p>}
+                        {monthlyReports.length > 0 ? (
+                            <div className="space-y-4">
+                                {monthlyReports.map(report => (
+                                    <Card key={report.id} className="overflow-hidden">
+                                        <div className="p-4 flex items-center justify-between hover:bg-muted/30 transition-colors">
+                                            <div className="flex items-center gap-4">
+                                                <div className="text-center bg-background border rounded-md p-2 min-w-[60px]">
+                                                    <p className="text-2xl font-bold leading-none">{safeFormat(parseISO(report.reportDate), 'dd')}</p>
+                                                    <p className="text-[0.6rem] uppercase font-bold text-muted-foreground mt-1">{safeFormat(parseISO(report.reportDate), 'MMM', { locale: ptBR })}</p>
+                                                </div>
+                                                <div>
+                                                    <p className="font-semibold capitalize">{safeFormat(parseISO(report.reportDate), "EEEE", { locale: ptBR })}</p>
+                                                    <p className="text-xs text-muted-foreground">{report.totalPedidos} pedidos registados</p>
+                                                </div>
+                                            </div>
+                                            <div className="flex items-center gap-4">
+                                                <div className="text-right">
+                                                    <p className="text-[0.65rem] uppercase font-bold text-muted-foreground leading-none">Total</p>
+                                                    <p className="text-lg font-bold text-primary">{formatCurrency(report.totalGeral)}</p>
+                                                </div>
+                                                <div className="flex gap-1">
+                                                    <Button variant="ghost" size="icon" onClick={() => { setReportToEditDate(report); setNewReportDate(parseISO(report.reportDate)); }}>
+                                                        <CalendarDays className="h-4 w-4" />
+                                                    </Button>
+                                                    <Button variant="ghost" size="icon" onClick={() => setReportToDelete(report)}>
+                                                        <Trash2 className="h-4 w-4 text-destructive" />
+                                                    </Button>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div className="p-4 pt-0 border-t bg-muted/5">
+                                            <ReportDetail 
+                                                report={report} 
+                                                bomboniereItems={bomboniereItems || []} 
+                                                onEditItem={setArchivedItemToEdit} 
+                                                onDeleteItem={setArchivedItemToDelete} 
+                                                onAddItem={(d) => { setActiveReportDateForAdd(d); setEditArchivedDate(parseISO(d)); }} 
+                                            />
+                                        </div>
+                                    </Card>
+                                ))}
+                            </div>
+                        ) : (
+                            <p className="text-center py-10 text-muted-foreground">Sem relatórios este mês.</p>
+                        )}
                     </AccordionContent>
                 </Card>
             </AccordionItem>
-            <AccordionItem value="clientes"><Card><AccordionTrigger className="text-lg p-6 hover:no-underline"><div className="flex items-center gap-3"><User className="h-6 w-6 text-primary"/><span>Consumo por Cliente (Mensal)</span></div></AccordionTrigger><AccordionContent className="p-6 pt-0"><CustomerReportsSection globalDate={globalDate} onEditItem={setArchivedItemToEdit} onDeleteItem={setArchivedItemToDelete} /></AccordionContent></Card></AccordionItem>
+
+            {/* GAVETA: SEMANAL */}
+            <AccordionItem value="semanal">
+                <Card>
+                    <AccordionTrigger className="text-lg p-6 hover:no-underline"><div className="flex items-center gap-3"><BarChart3 className="h-6 w-6 text-primary"/><span>Resumo Semanal</span></div></AccordionTrigger>
+                    <AccordionContent className="p-6 pt-0">
+                        {weeklySummaries.length > 0 ? (
+                            <div className="rounded-md border overflow-hidden">
+                                <table className="w-full text-sm">
+                                    <thead className="bg-muted/50 border-b"><tr><th className="text-left p-4 font-medium">Semana</th><th className="text-center p-4 font-medium">Dias Ativos</th><th className="text-right p-4 font-medium">Total</th></tr></thead>
+                                    <tbody className="divide-y">
+                                        {weeklySummaries.map((s) => (
+                                            <tr key={s.week} className="hover:bg-muted/30">
+                                                <td className="p-4">
+                                                    <p className="font-semibold">Semana {s.week}</p>
+                                                    <p className="text-xs text-muted-foreground">{format(s.start, 'dd/MM')} a {format(s.end, 'dd/MM')}</p>
+                                                </td>
+                                                <td className="p-4 text-center">{s.count} dias</td>
+                                                <td className="p-4 text-right font-mono font-bold text-primary">{formatCurrency(s.total)}</td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            </div>
+                        ) : <p className="text-center py-10 text-muted-foreground">Sem dados para este período.</p>}
+                    </AccordionContent>
+                </Card>
+            </AccordionItem>
+
+            {/* GAVETA: MENSAL */}
+            <AccordionItem value="mensal">
+                <Card>
+                    <AccordionTrigger className="text-lg p-6 hover:no-underline"><div className="flex items-center gap-3"><TrendingUp className="h-6 w-6 text-primary"/><span>Resumo Mensal</span></div></AccordionTrigger>
+                    <AccordionContent className="p-6 pt-0">
+                        {monthlySummaries.length > 0 ? (
+                            <div className="rounded-md border overflow-hidden">
+                                <table className="w-full text-sm">
+                                    <thead className="bg-muted/50 border-b"><tr><th className="text-left p-4 font-medium">Mês</th><th className="text-center p-4 font-medium">Fechamentos</th><th className="text-right p-4 font-medium">Total</th></tr></thead>
+                                    <tbody className="divide-y">
+                                        {monthlySummaries.map((s) => (
+                                            <tr key={s.month} className="hover:bg-muted/30">
+                                                <td className="p-4 font-semibold capitalize">{format(new Date(2000, s.month), 'MMMM', { locale: ptBR })}</td>
+                                                <td className="p-4 text-center">{s.count} dias</td>
+                                                <td className="p-4 text-right font-mono font-bold text-primary">{formatCurrency(s.total)}</td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            </div>
+                        ) : <p className="text-center py-10 text-muted-foreground">Sem dados para este ano.</p>}
+                    </AccordionContent>
+                </Card>
+            </AccordionItem>
+
+            {/* GAVETA: ANUAL */}
+            <AccordionItem value="anual">
+                <Card>
+                    <AccordionTrigger className="text-lg p-6 hover:no-underline"><div className="flex items-center gap-3"><History className="h-6 w-6 text-primary"/><span>Resumo Anual</span></div></AccordionTrigger>
+                    <AccordionContent className="p-6 pt-0">
+                        {annualSummaries.length > 0 ? (
+                            <div className="rounded-md border overflow-hidden">
+                                <table className="w-full text-sm">
+                                    <thead className="bg-muted/50 border-b"><tr><th className="text-left p-4 font-medium">Ano</th><th className="text-center p-4 font-medium">Total Dias</th><th className="text-right p-4 font-medium">Total Geral</th></tr></thead>
+                                    <tbody className="divide-y">
+                                        {annualSummaries.map((s) => (
+                                            <tr key={s.year} className="hover:bg-muted/30">
+                                                <td className="p-4 font-bold">{s.year}</td>
+                                                <td className="p-4 text-center">{s.count} dias</td>
+                                                <td className="p-4 text-right font-mono font-bold text-primary">{formatCurrency(s.total)}</td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            </div>
+                        ) : <p className="text-center py-10 text-muted-foreground">Sem dados registados.</p>}
+                    </AccordionContent>
+                </Card>
+            </AccordionItem>
+
+            {/* GAVETA: CLIENTES */}
+            <AccordionItem value="clientes">
+                <Card>
+                    <AccordionTrigger className="text-lg p-6 hover:no-underline"><div className="flex items-center gap-3"><User className="h-6 w-6 text-primary"/><span>Consumo por Cliente (Mensal)</span></div></AccordionTrigger>
+                    <AccordionContent className="p-6 pt-0">
+                        <CustomerReportsSection globalDate={globalDate} onEditItem={setArchivedItemToEdit} onDeleteItem={setArchivedItemToDelete} />
+                    </AccordionContent>
+                </Card>
+            </AccordionItem>
+
         </Accordion>
       </main>
     </>
