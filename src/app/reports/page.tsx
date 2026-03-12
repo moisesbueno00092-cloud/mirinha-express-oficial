@@ -245,15 +245,23 @@ const SummaryDisplay = ({ data, title = "Resumo do Dia - FATURAMENTO" }: { data:
 const CustomerReportsSection = ({ 
     globalDate,
     onEditItem,
-    onDeleteItem
+    onDeleteItem,
+    recalculateFn
 }: { 
     globalDate: Date,
     onEditItem: (item: Item) => void,
-    onDeleteItem: (item: Item) => void
+    onDeleteItem: (item: Item) => void,
+    recalculateFn: (d: string) => Promise<void>
 }) => {
     const firestore = useFirestore();
     const { toast } = useToast();
+    const { user } = useUser();
     const [selectedCustomerName, setSelectedCustomerName] = useState<string | null>(null);
+    
+    // States for changing item date
+    const [itemToChangeDate, setItemToChangeDate] = useState<Item | null>(null);
+    const [newItemDate, setNewItemDate] = useState<Date | undefined>();
+    const [isUpdatingItemDate, setIsUpdatingItemDate] = useState(false);
 
     const orderItemsQuery = useMemo(() => {
         if (!firestore) return null;
@@ -311,6 +319,45 @@ const CustomerReportsSection = ({
         });
     };
 
+    const confirmChangeItemDate = async () => {
+        if (!firestore || !itemToChangeDate || !newItemDate) return;
+        setIsUpdatingItemDate(true);
+        
+        const oldDateStr = itemToChangeDate.reportDate;
+        const newDateStr = format(newItemDate, 'yyyy-MM-dd');
+        
+        try {
+            const batch = writeBatch(firestore);
+            const itemRef = doc(firestore, 'order_items', itemToChangeDate.id);
+            
+            // Preserve original time
+            const origTs = itemToChangeDate.timestamp?.toDate ? itemToChangeDate.timestamp.toDate() : new Date(itemToChangeDate.timestamp);
+            const updatedTs = new Date(newItemDate);
+            updatedTs.setHours(origTs.getHours(), origTs.getMinutes(), origTs.getSeconds(), origTs.getMilliseconds());
+            
+            batch.update(itemRef, {
+                reportDate: newDateStr,
+                timestamp: Timestamp.fromDate(updatedTs)
+            });
+            
+            await batch.commit();
+            
+            // Recalculate both reports
+            await recalculateFn(newDateStr);
+            if (oldDateStr && oldDateStr !== newDateStr) {
+                await recalculateFn(oldDateStr);
+            }
+            
+            toast({ title: "Data do pedido alterada." });
+            setItemToChangeDate(null);
+        } catch (error) {
+            console.error(error);
+            toast({ variant: 'destructive', title: "Erro ao alterar data" });
+        } finally {
+            setIsUpdatingItemDate(false);
+        }
+    };
+
     return (
         <div className="space-y-6">
             <Dialog open={!!selectedCustomerName} onOpenChange={(open) => !open && setSelectedCustomerName(null)}>
@@ -338,6 +385,17 @@ const CustomerReportsSection = ({
                                     <div className="flex items-center gap-4">
                                         <p className="text-sm font-mono font-bold text-primary">{formatCurrency(order.total)}</p>
                                         <div className="flex gap-1">
+                                            <Button 
+                                                variant="ghost" 
+                                                size="icon" 
+                                                className="h-8 w-8 text-amber-500" 
+                                                onClick={() => { 
+                                                    setItemToChangeDate(order); 
+                                                    setNewItemDate(order.timestamp?.toDate ? order.timestamp.toDate() : new Date(order.timestamp)); 
+                                                }}
+                                            >
+                                                <CalendarDays className="h-4 w-4" />
+                                            </Button>
                                             <Button variant="ghost" size="icon" className="h-8 w-8 text-blue-500" onClick={() => onEditItem(order)}><Pencil className="h-4 w-4" /></Button>
                                             <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => onDeleteItem(order)}><Trash2 className="h-4 w-4" /></Button>
                                         </div>
@@ -347,6 +405,20 @@ const CustomerReportsSection = ({
                         </div>
                     </ScrollArea>
                     <DialogFooter><div className="flex justify-between w-full items-center"><p className="text-lg font-bold">Total: <span className="text-primary">{formatCurrency(selectedCustomer?.total)}</span></p><Button variant="outline" onClick={() => setSelectedCustomerName(null)}>Fechar</Button></div></DialogFooter>
+                </DialogContent>
+            </Dialog>
+
+            {/* Dialog for changing individual item date */}
+            <Dialog open={!!itemToChangeDate} onOpenChange={(open) => !open && setItemToChangeDate(null)}>
+                <DialogContent onInteractOutside={(e) => e.preventDefault()}>
+                    <DialogHeader><DialogTitle>Alterar Data do Pedido</DialogTitle></DialogHeader>
+                    <div className="py-4 flex flex-col items-center bg-muted/30 rounded-md">
+                        <Calendar mode="single" selected={newItemDate} onSelect={setNewItemDate} locale={ptBR} className="border rounded-md bg-background" />
+                    </div>
+                    <DialogFooter>
+                        <Button variant="outline" onClick={() => setItemToChangeDate(null)}>Cancelar</Button>
+                        <Button onClick={confirmChangeItemDate} disabled={isUpdatingItemDate}>{isUpdatingItemDate && <Loader2 className="animate-spin mr-2"/>}Confirmar</Button>
+                    </DialogFooter>
                 </DialogContent>
             </Dialog>
 
@@ -1027,7 +1099,12 @@ export default function ReportsPage() {
                 <Card>
                     <AccordionTrigger className="text-lg p-6 hover:no-underline"><div className="flex items-center gap-3"><User className="h-6 w-6 text-primary"/><span>Consumo por Cliente (Mensal)</span></div></AccordionTrigger>
                     <AccordionContent className="p-6 pt-0">
-                        <CustomerReportsSection globalDate={globalDate} onEditItem={setArchivedItemToEdit} onDeleteItem={setArchivedItemToDelete} />
+                        <CustomerReportsSection 
+                            globalDate={globalDate} 
+                            onEditItem={setArchivedItemToEdit} 
+                            onDeleteItem={setArchivedItemToDelete} 
+                            recalculateFn={recalculateReport}
+                        />
                     </AccordionContent>
                 </Card>
             </AccordionItem>
