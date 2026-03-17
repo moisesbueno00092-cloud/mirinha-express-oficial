@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useMemo, useEffect } from 'react';
@@ -53,7 +54,8 @@ import {
     Trophy,
     AlertCircle,
     TrendingDown,
-    Zap
+    Zap,
+    Save
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import {
@@ -79,14 +81,16 @@ import {
   AccordionContent,
   AccordionItem,
   AccordionTrigger,
-} from "@/components/ui/accordion";
+} from "@/Accordion";
 import type { 
     DailyReport, 
     ItemCount, 
     BomboniereItem, 
     Item, 
     Group,
-    EntradaMercadoria
+    EntradaMercadoria,
+    PredefinedItem,
+    SelectedBomboniereItem
 } from '@/types';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import ItemList from '@/components/item-list';
@@ -462,7 +466,7 @@ const ReportDetail = ({ report, onEditItem, onDeleteItem, onAddItem }: { report:
             <SummaryDisplay data={report} />
             <div className="border-t pt-4">
                 <div className="flex justify-between items-center mb-4"><h4 className="font-bold flex items-center gap-2 text-xs uppercase text-muted-foreground tracking-widest"><ListOrdered className="h-4 w-4"/>Pedidos do Dia</h4><Button variant="outline" size="sm" onClick={() => onAddItem(report.reportDate)}><Plus className="h-4 w-4 mr-1"/>Novo</Button></div>
-                {isLoading ? <Loader2 className="h-8 w-8 animate-spin mx-auto" /> : <div className="rounded-md border"><ItemList items={sortedItems} isLoading={false} onEdit={onEditItem} onDelete={(id) => { const it = sortedItems.find(i => i.id === id); if(it) onDeleteItem(it); }} /></div>}
+                {isLoading ? <Loader2 className="h-8 w-8 animate-spin mx-auto" /> : <div className="rounded-md border"><ItemList items={sortedItems} isLoading={false} onEdit={onEditItem} onDelete={(id) => { const it = sortedItems.find(i => id === i.id); if(it) onDeleteItem(it); }} /></div>}
             </div>
         </div>
     );
@@ -491,6 +495,7 @@ export default function ReportsPage() {
   
   const [isBomboniereModalOpen, setIsBomboniereModalOpen] = useState(false);
   const [deliveryFee] = usePersistentState('deliveryFee', 6.00);
+  const [predefinedPrices] = usePersistentState('predefinedPrices', PREDEFINED_PRICES);
 
   // IA Insight State
   const [isGeneratingAI, setIsGeneratingAI] = useState(false);
@@ -510,6 +515,14 @@ export default function ReportsPage() {
   const bomboniereItemsQuery = useMemo(() => firestore ? query(collection(firestore, 'bomboniere_items')) : null, [firestore]);
   const { data: bomboniereItems } = useCollection<BomboniereItem>(bomboniereItemsQuery);
 
+  const bomboniereItemsByName = useMemo(() => {
+    if (!bomboniereItems) return {};
+    return bomboniereItems.reduce((acc, item) => {
+        acc[item.name.toLowerCase()] = item;
+        return acc;
+    }, {} as Record<string, BomboniereItem>);
+  }, [bomboniereItems]);
+
   const entradasQuery = useMemo(() => {
       if (!firestore) return null;
       const start = format(startOfMonth(globalDate), 'yyyy-MM-dd');
@@ -526,7 +539,10 @@ export default function ReportsPage() {
     if (archivedItemToEdit) {
         setEditArchivedInput(archivedItemToEdit.originalCommand || '');
         const d = archivedItemToEdit.timestamp?.toDate ? archivedItemToEdit.timestamp.toDate() : new Date(archivedItemToEdit.timestamp);
-        if (isValid(d)) { setEditArchivedDate(d); setEditArchivedTime(format(d, 'HH:mm')); }
+        if (isValid(d)) { 
+            setEditArchivedDate(d); 
+            setEditArchivedTime(format(d, 'HH:mm')); 
+        }
     }
   }, [archivedItemToEdit]);
 
@@ -692,7 +708,8 @@ export default function ReportsPage() {
 
         const totals = items.reduce((acc, item) => {
             acc.totalGeral += item.total; acc.totalItens += item.quantity; acc.totalTaxas += item.deliveryFee;
-            if (item.group.includes('rua')) { if (item.deliveryFee > 0) acc.totalEntregas++; acc.totalItensRua += item.quantity; }
+            const itemIsRua = item.group.includes('rua');
+            if (itemIsRua) { if (item.deliveryFee > 0) acc.totalEntregas++; acc.totalItensRua += item.quantity; }
             if (item.group.includes('Fiados')) acc.totalFiado += item.total; else acc.totalAVista += item.total;
             switch (item.group) {
                 case 'Vendas salão': acc.totalVendasSalao += item.total; break;
@@ -707,10 +724,10 @@ export default function ReportsPage() {
             ];
             itemsToCount.forEach(({ name, count }) => {
                 acc.contagemTotal[name] = (acc.contagemTotal[name] || 0) + count;
-                if (item.group.includes('rua')) acc.contagemRua[name] = (acc.contagemRua[name] || 0) + count;
+                if (itemIsRua) acc.contagemRua[name] = (acc.contagemRua[name] || 0) + count;
             });
             const bomboniereTotal = item.bomboniereItems?.reduce((sum, bi) => sum + bi.price * bi.quantity, 0) || 0;
-            if (item.group.includes('rua')) acc.totalBomboniereRua += bomboniereTotal; else acc.totalBomboniereSalao += bomboniereTotal;
+            if (itemIsRua) acc.totalBomboniereRua += bomboniereTotal; else acc.totalBomboniereSalao += bomboniereTotal;
             return acc;
         }, { totalGeral: 0, totalAVista: 0, totalFiado: 0, totalVendasSalao: 0, totalVendasRua: 0, totalFiadoSalao: 0, totalFiadoRua: 0, totalTaxas: 0, totalItens: 0, totalEntregas: 0, totalItensRua: 0, totalBomboniereSalao: 0, totalBomboniereRua: 0, contagemTotal: {} as ItemCount, contagemRua: {} as ItemCount });
         
@@ -722,30 +739,194 @@ export default function ReportsPage() {
   const handleUpsertArchivedItem = async (rawInput: string, currentItem?: Item | null) => {
     if (!firestore || !user?.uid || !editArchivedDate) return;
     setIsProcessingEdit(true);
+    
     const [h, m] = editArchivedTime.split(':').map(Number);
     const finalDate = new Date(editArchivedDate);
-    if (currentItem?.timestamp) { const orig = currentItem.timestamp.toDate ? currentItem.timestamp.toDate() : new Date(currentItem.timestamp); finalDate.setHours(h, m, orig.getSeconds(), orig.getMilliseconds()); }
-    else finalDate.setHours(h, m, 0, 0);
+    if (currentItem?.timestamp) { 
+        const orig = currentItem.timestamp.toDate ? currentItem.timestamp.toDate() : new Date(currentItem.timestamp); 
+        finalDate.setHours(h, m, orig.getSeconds(), orig.getMilliseconds()); 
+    } else {
+        finalDate.setHours(h, m, 0, 0);
+    }
     const newDateStr = format(finalDate, 'yyyy-MM-dd');
+
     try {
+        let mainInput = rawInput.trim();
+        if (!mainInput) {
+            setIsProcessingEdit(false);
+            return;
+        }
+
+        let group: Group = 'Vendas salão';
+        let deliveryFeeApplicable = false;
+        let isTaxExempt = false;
+        let originalGroup: Group | null = null;
+        let customerName: string | undefined = undefined;
+
+        const partsWithExemption = mainInput.split(' ').filter((part) => part.trim() !== '');
+        if (partsWithExemption.map((p) => p.toUpperCase()).includes('E')) {
+            isTaxExempt = true;
+            mainInput = partsWithExemption.filter((p) => p.toUpperCase() !== 'E').join(' ');
+        }
+
+        const upperCaseProcessedInput = mainInput.toUpperCase();
+        if (upperCaseProcessedInput.startsWith('R ')) {
+            group = 'Vendas rua';
+            originalGroup = group;
+            deliveryFeeApplicable = true;
+            mainInput = mainInput.substring(2).trim();
+        } else if (upperCaseProcessedInput.startsWith('FR ')) {
+            group = 'Fiados rua';
+            originalGroup = group;
+            deliveryFeeApplicable = true;
+            mainInput = mainInput.substring(3).trim();
+        } else if (upperCaseProcessedInput.startsWith('F ')) {
+            group = 'Fiados salão';
+            originalGroup = group;
+            mainInput = mainInput.substring(2).trim();
+        }
+
+        let parts = mainInput.split(' ').filter((part) => part.trim() !== '');
+        let consumedParts = new Array(parts.length).fill(false);
+        
+        let totalQuantity = 0;
+        let totalPrice = 0;
+        let individualPrices: number[] = [];
+        let predefinedItems: PredefinedItem[] = [];
+        let processedBomboniereItems: SelectedBomboniereItem[] = [];
+        let customDeliveryFee: number | null = null;
+        let addFeeToTotal = true;
+
+        // Bomboniere match logic
+        for (let i = 0; i < parts.length; i++) {
+            if (consumedParts[i]) continue;
+            let bestMatch = null;
+            let bestMatchEndIndex = -1;
+            for (let j = parts.length; j > i; j--) {
+                const potentialName = parts.slice(i, j).join(' ').toLowerCase();
+                if (bomboniereItemsByName[potentialName]) {
+                    bestMatch = bomboniereItemsByName[potentialName];
+                    bestMatchEndIndex = j;
+                    break;
+                }
+            }
+            if (bestMatch) {
+                let bomboniereQty = 1;
+                if (i > 0 && !consumedParts[i - 1] && isNumeric(parts[i - 1])) {
+                    bomboniereQty = parseInt(parts[i - 1], 10);
+                    consumedParts[i - 1] = true;
+                }
+                let priceToUse = bestMatch.price;
+                if (bestMatchEndIndex < parts.length && !consumedParts[bestMatchEndIndex] && isNumeric(parts[bestMatchEndIndex])) {
+                    priceToUse = parseFloat(parts[bestMatchEndIndex].replace(',', '.'));
+                    consumedParts[bestMatchEndIndex] = true;
+                }
+                processedBomboniereItems.push({ id: bestMatch.id, name: bestMatch.name, quantity: bomboniereQty, price: priceToUse });
+                totalPrice += priceToUse * bomboniereQty;
+                totalQuantity += bomboniereQty;
+                for (let k = i; k < bestMatchEndIndex; k++) consumedParts[k] = true;
+                i = bestMatchEndIndex - 1;
+            }
+        }
+
+        // Siglas & KG logic
+        for (let i = 0; i < parts.length; i++) {
+            if (consumedParts[i]) continue;
+            const part = parts[i];
+            if (part.toUpperCase() === 'KG') {
+                consumedParts[i] = true;
+                let nextIndex = i + 1;
+                while(nextIndex < parts.length && !consumedParts[nextIndex] && isNumeric(parts[nextIndex])) {
+                    const price = parseFloat(parts[nextIndex].replace(',', '.'));
+                    individualPrices.push(price);
+                    totalPrice += price;
+                    totalQuantity++;
+                    consumedParts[nextIndex] = true;
+                    nextIndex++;
+                }
+                i = nextIndex - 1; continue;
+            }
+            if (part.toUpperCase() === 'TX') {
+                if (i + 1 < parts.length && !consumedParts[i+1]) {
+                    let feePart = parts[i + 1];
+                    if (feePart.toLowerCase().startsWith('d')) { addFeeToTotal = false; feePart = feePart.substring(1); }
+                    if (isNumeric(feePart)) {
+                        customDeliveryFee = parseFloat(feePart.replace(',', '.'));
+                        consumedParts[i] = true; consumedParts[i+1] = true; i++;
+                    }
+                }
+                continue;
+            }
+            let qty = 1; let itemNamePart = part;
+            const qtyMatch = part.match(/^(\d+)([a-zA-Z\s]+)/);
+            if (qtyMatch) { qty = parseInt(qtyMatch[1], 10); itemNamePart = qtyMatch[2]; }
+            const isPredefined = predefinedPrices[itemNamePart.toUpperCase()];
+            if (isPredefined) {
+                consumedParts[i] = true; let priceToUse = isPredefined;
+                if (i + 1 < parts.length && !consumedParts[i + 1] && isNumeric(parts[i + 1])) {
+                    priceToUse = parseFloat(parts[i + 1].replace(',', '.'));
+                    consumedParts[i + 1] = true; i++;
+                }
+                for (let j = 0; j < qty; j++) { predefinedItems.push({ name: itemNamePart.toUpperCase(), price: priceToUse }); totalPrice += priceToUse; }
+                totalQuantity += qty; continue;
+            }
+        }
+
+        const potentialCustomerNameParts = parts.filter((_, index) => !consumedParts[index]);
+        if (!customerName && potentialCustomerNameParts.length > 0) {
+            customerName = potentialCustomerNameParts.join(' ');
+        }
+
+        const finalDeliveryFee = isTaxExempt ? 0 : customDeliveryFee !== null ? customDeliveryFee : deliveryFeeApplicable ? deliveryFee : 0;
+        const total = addFeeToTotal ? (totalPrice + finalDeliveryFee) : totalPrice;
+
+        let consolidatedName: string;
+        const nameParts = [];
+        if (predefinedItems.length > 0) nameParts.push(predefinedItems.map((p) => p.name).join(' '));
+        if (individualPrices.length > 0) nameParts.push('KG');
+        if (processedBomboniereItems.length > 0) nameParts.push(processedBomboniereItems.map((item) => `${item.quantity > 1 ? item.quantity : ''}${item.name}`).join(' '));
+        consolidatedName = nameParts.join(' + ') || 'Lançamento';
+
+        const finalItem: Omit<Item, 'id'> = {
+            userId: user.uid,
+            name: consolidatedName,
+            quantity: totalQuantity || 1,
+            price: totalPrice,
+            group,
+            timestamp: Timestamp.fromDate(finalDate),
+            deliveryFee: finalDeliveryFee,
+            total,
+            originalCommand: rawInput,
+            reportado: true,
+            reportDate: newDateStr,
+            ...(customerName && { customerName }),
+            ...(individualPrices.length > 0 ? { individualPrices } : {}),
+            ...(predefinedItems.length > 0 ? { predefinedItems } : {}),
+            ...(processedBomboniereItems.length > 0 ? { bomboniereItems: processedBomboniereItems } : {}),
+        };
+
         const batch = writeBatch(firestore);
-        let main = rawInput.trim();
-        let group: Group = 'Vendas salão'; let feeApp = false; let taxE = main.toUpperCase().includes(' E ');
-        if (taxE) main = main.replace(/ E /gi, ' ').trim();
-        if (main.toUpperCase().startsWith('R ')) { group = 'Vendas rua'; feeApp = true; main = main.substring(2).trim(); }
-        else if (main.toUpperCase().startsWith('FR ')) { group = 'Fiados rua'; feeApp = true; main = main.substring(3).trim(); }
-        else if (main.toUpperCase().startsWith('F ')) { group = 'Fiados salão'; main = main.substring(2).trim(); }
-        const parts = main.split(' ').filter(p => p);
-        let pTotal = 0; let qTotal = 0;
-        parts.forEach(p => { if (isNumeric(p)) pTotal += parseFloat(p.replace(',', '.')); else qTotal++; });
-        const finalFee = taxE ? 0 : feeApp ? deliveryFee : 0;
-        const finalItem: Omit<Item, 'id'> = { userId: user.uid, name: 'Lançamento Histórico', quantity: qTotal || 1, price: pTotal, group, timestamp: Timestamp.fromDate(finalDate), deliveryFee: finalFee, total: pTotal + finalFee, originalCommand: rawInput, reportado: true, reportDate: newDateStr };
-        if (currentItem) batch.set(doc(firestore, 'order_items', currentItem.id), finalItem);
-        else batch.set(doc(collection(firestore, 'order_items')), finalItem);
+        if (currentItem) {
+            batch.set(doc(firestore, 'order_items', currentItem.id), finalItem);
+        } else {
+            batch.set(doc(collection(firestore, 'order_items')), finalItem);
+        }
         await batch.commit();
-        await recalculateReport(newDateStr); if (currentItem?.reportDate && currentItem.reportDate !== newDateStr) await recalculateReport(currentItem.reportDate);
-        toast({ title: 'Atualizado com sucesso' }); setArchivedItemToEdit(null); setActiveReportDateForAdd(null);
-    } catch (e) { console.error(e); } finally { setIsProcessingEdit(false); }
+        
+        await recalculateReport(newDateStr);
+        if (currentItem?.reportDate && currentItem.reportDate !== newDateStr) {
+            await recalculateReport(currentItem.reportDate);
+        }
+        
+        toast({ title: 'Atualizado com sucesso' });
+        setArchivedItemToEdit(null);
+        setActiveReportDateForAdd(null);
+    } catch (e) { 
+        console.error(e); 
+        toast({ variant: 'destructive', title: 'Erro ao salvar' });
+    } finally { 
+        setIsProcessingEdit(false); 
+    }
   };
 
   const confirmEditDate = async () => {
@@ -788,7 +969,7 @@ export default function ReportsPage() {
         <AlertDialogContent>
             <AlertDialogHeader><AlertDialogTitle>Excluir do Histórico?</AlertDialogTitle></AlertDialogHeader>
             <AlertDialogFooter><AlertDialogCancel>Cancelar</AlertDialogCancel><AlertDialogAction onClick={async () => {
-                if(!archivedItemToDelete) return; await deleteDoc(doc(firestore!, 'order_items', archivedItemToDelete.id));
+                if(!archivedItemToDelete || !firestore) return; await deleteDoc(doc(firestore, 'order_items', archivedItemToDelete.id));
                 if(archivedItemToDelete.reportDate) await recalculateReport(archivedItemToDelete.reportDate); setArchivedItemToDelete(null);
             }} className="bg-destructive">Excluir</AlertDialogAction></AlertDialogFooter>
         </AlertDialogContent>
@@ -798,10 +979,10 @@ export default function ReportsPage() {
         <DialogContent className="max-w-xl" onInteractOutside={(e) => e.preventDefault()}>
             <DialogHeader><DialogTitle>{archivedItemToEdit ? 'Editar' : 'Novo'} Lançamento</DialogTitle></DialogHeader>
             <div className="py-4 space-y-4">
-                <div className="space-y-2"><Label>Comando</Label><div className="flex gap-2"><Input value={editArchivedInput} onChange={(e) => setEditArchivedInput(e.target.value)} className="h-12" /><Button variant="outline" onClick={() => setIsBomboniereModalOpen(true)} className="h-12">Outros</Button></div></div>
-                <div className="grid grid-cols-2 gap-4"><div className="space-y-2"><Label>Data</Label><div className="border rounded-md p-2 bg-background flex justify-center"><Calendar mode="single" selected={editArchivedDate} onSelect={setEditArchivedDate} locale={ptBR} /></div></div><div className="space-y-2"><Label>Hora</Label><Input type="time" value={editArchivedTime} onChange={(e) => setEditArchivedTime(e.target.value)} className="h-10" /></div></div>
+                <div className="space-y-2"><Label>Comando</Label><div className="flex gap-2"><Input value={editArchivedInput} onChange={(e) => setEditArchivedInput(e.target.value)} className="h-12 text-lg" placeholder="Ex: M P coca-lata" /><Button variant="outline" onClick={() => setIsBomboniereModalOpen(true)} className="h-12"><Plus className="h-4 w-4 mr-2"/>Outros</Button></div></div>
+                <div className="grid grid-cols-2 gap-4"><div className="space-y-2"><Label>Data</Label><div className="border rounded-md p-2 bg-background flex justify-center"><Calendar mode="single" selected={editArchivedDate} onSelect={setEditArchivedDate} locale={ptBR} /></div></div><div className="space-y-2"><Label>Hora</Label><Input type="time" value={editArchivedTime} onChange={(e) => setEditArchivedTime(e.target.value)} className="h-10 text-lg" /></div></div>
             </div>
-            <DialogFooter><Button variant="outline" onClick={() => { setArchivedItemToEdit(null); setActiveReportDateForAdd(null); }}>Cancelar</Button><Button onClick={() => handleUpsertArchivedItem(editArchivedInput, archivedItemToEdit)} disabled={isProcessingEdit}>{isProcessingEdit && <Loader2 className="animate-spin mr-2"/>}Salvar</Button></DialogFooter>
+            <DialogFooter><Button variant="outline" onClick={() => { setArchivedItemToEdit(null); setActiveReportDateForAdd(null); }}>Cancelar</Button><Button onClick={() => handleUpsertArchivedItem(editArchivedInput, archivedItemToEdit)} disabled={isProcessingEdit || !editArchivedInput.trim()}>{isProcessingEdit ? <Loader2 className="animate-spin mr-2"/> : <Save className="h-4 w-4 mr-2"/>}Salvar Alterações</Button></DialogFooter>
         </DialogContent>
       </Dialog>
 
