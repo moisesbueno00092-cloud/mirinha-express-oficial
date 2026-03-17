@@ -495,6 +495,7 @@ export default function ReportsPage() {
   // IA Insight State
   const [isGeneratingAI, setIsGeneratingAI] = useState(false);
   const [aiReport, setAiReport] = useState<ManagementReportOutput | null>(null);
+  const [aiScope, setAiScope] = useState<'week' | 'month' | 'year'>('month');
   
   const reportsQ = useMemo(() => firestore ? query(collection(firestore, 'daily_reports')) : null, [firestore]);
   const { data: allReportsRaw, isLoading: isLoadingReports } = useCollection<DailyReport>(reportsQ);
@@ -552,10 +553,30 @@ export default function ReportsPage() {
   const handleGenerateAIReport = async () => {
       setIsGeneratingAI(true);
       try {
-          const periodLabel = safeFormat(globalDate, 'MMMM yyyy', { locale: ptBR });
+          let periodLabel = "";
+          let filteredReports: DailyReport[] = [];
           
+          if (aiScope === 'week') {
+              const weekStart = startOfWeek(globalDate, { locale: ptBR });
+              const weekEnd = endOfWeek(globalDate, { locale: ptBR });
+              periodLabel = `Semana de ${format(weekStart, 'dd/MM')} a ${format(weekEnd, 'dd/MM/yyyy')}`;
+              filteredReports = allReports.filter(r => isWithinInterval(parseISO(r.reportDate), { start: weekStart, end: weekEnd }));
+          } else if (aiScope === 'month') {
+              periodLabel = safeFormat(globalDate, 'MMMM yyyy', { locale: ptBR });
+              filteredReports = monthlyReports;
+          } else {
+              periodLabel = `Ano ${globalDate.getFullYear()}`;
+              filteredReports = allReports.filter(r => parseISO(r.reportDate).getFullYear() === globalDate.getFullYear());
+          }
+          
+          if (filteredReports.length === 0) {
+              toast({ variant: 'destructive', title: "Dados insuficientes", description: "Não há vendas registadas para este período." });
+              setIsGeneratingAI(false);
+              return;
+          }
+
           // Pre-summarize data for IA
-          const consolidatedSales = monthlyReports.reduce((acc, r) => {
+          const consolidatedSales = filteredReports.reduce((acc, r) => {
               acc.total += r.totalGeral;
               acc.rua += r.totalVendasRua + r.totalFiadoRua;
               acc.salao += r.totalVendasSalao + r.totalFiadoSalao;
@@ -565,7 +586,21 @@ export default function ReportsPage() {
               return acc;
           }, { total: 0, rua: 0, salao: 0, fiado: 0, taxas: 0, items: {} as Record<string, number> });
 
-          const consolidatedExpenses = (monthlyEntradas || []).reduce((acc, e) => {
+          // Filtrar compras também conforme o escopo
+          let relevantEntradas = monthlyEntradas || [];
+          if (aiScope === 'year') {
+              const start = format(startOfYear(globalDate), 'yyyy-MM-dd');
+              const end = format(endOfYear(globalDate), 'yyyy-MM-dd');
+              const q = query(collection(firestore!, 'entradas_mercadorias'), where('data', '>=', start), where('data', '<=', end));
+              const snap = await getDocs(q);
+              relevantEntradas = snap.docs.map(d => d.data() as EntradaMercadoria);
+          } else if (aiScope === 'week') {
+              const start = format(startOfWeek(globalDate, { locale: ptBR }), 'yyyy-MM-dd');
+              const end = format(endOfWeek(globalDate, { locale: ptBR }), 'yyyy-MM-dd');
+              relevantEntradas = (monthlyEntradas || []).filter(e => e.data >= start && e.data <= end);
+          }
+
+          const consolidatedExpenses = (relevantEntradas || []).reduce((acc, e) => {
               acc.total += e.valorTotal;
               acc.items[e.produtoNome] = (acc.items[e.produtoNome] || 0) + e.valorTotal;
               return acc;
@@ -575,11 +610,11 @@ export default function ReportsPage() {
               periodLabel,
               salesData: consolidatedSales,
               expenseData: consolidatedExpenses,
-              customerStats: { totalRelatorios: monthlyReports.length }
+              customerStats: { totalRelatorios: filteredReports.length }
           });
 
           setAiReport(report);
-          toast({ title: "Análise IA Concluída!", description: "O seu consultor virtual já revisou os dados." });
+          toast({ title: "Análise IA Concluída!", description: `O seu consultor virtual revisou os dados (${aiScope}).` });
       } catch (error) {
           console.error(error);
           toast({ variant: 'destructive', title: "Erro na IA", description: "Não foi possível gerar a análise neste momento." });
@@ -823,18 +858,34 @@ export default function ReportsPage() {
                     <AccordionContent className="p-6 pt-0">
                         <div className="space-y-6">
                             {!aiReport && !isGeneratingAI && (
-                                <div className="text-center py-10 space-y-4">
+                                <div className="text-center py-10 space-y-6">
                                     <div className="bg-primary/10 w-16 h-16 rounded-full flex items-center justify-center mx-auto">
                                         <Zap className="h-8 w-8 text-primary" />
                                     </div>
-                                    <div className="max-w-md mx-auto">
+                                    <div className="max-w-md mx-auto space-y-2">
                                         <h3 className="font-bold text-lg">Pronto para analisar o seu negócio?</h3>
-                                        <p className="text-sm text-muted-foreground">A nossa IA vai analisar as vendas, compras e taxas deste mês para lhe dar conselhos estratégicos.</p>
+                                        <p className="text-sm text-muted-foreground">A nossa IA unifica itens similares (ex: Filés e Marmitas) para lhe dar uma visão real das vendas e compras.</p>
                                     </div>
-                                    <Button onClick={handleGenerateAIReport} className="bg-primary hover:bg-primary/90">
-                                        <Sparkles className="mr-2 h-4 w-4" />
-                                        Gerar Relatório Estratégico
-                                    </Button>
+                                    
+                                    <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
+                                        <div className="flex flex-col items-start gap-1">
+                                            <Label className="text-xs text-muted-foreground ml-1">Tipo de Análise</Label>
+                                            <Select value={aiScope} onValueChange={(v: any) => setAiScope(v)}>
+                                                <SelectTrigger className="w-40 h-10">
+                                                    <SelectValue />
+                                                </SelectTrigger>
+                                                <SelectContent>
+                                                    <SelectItem value="week">Semanal</SelectItem>
+                                                    <SelectItem value="month">Mensal</SelectItem>
+                                                    <SelectItem value="year">Anual</SelectItem>
+                                                </SelectContent>
+                                            </Select>
+                                        </div>
+                                        <Button onClick={handleGenerateAIReport} className="bg-primary hover:bg-primary/90 h-10 mt-5 sm:mt-5">
+                                            <Sparkles className="mr-2 h-4 w-4" />
+                                            Gerar Relatório Estratégico
+                                        </Button>
+                                    </div>
                                 </div>
                             )}
 
@@ -842,8 +893,8 @@ export default function ReportsPage() {
                                 <div className="text-center py-20 space-y-6">
                                     <Loader2 className="h-12 w-12 animate-spin text-primary mx-auto" />
                                     <div className="space-y-2">
-                                        <p className="font-medium animate-pulse">A Mirinha AI está a ler os romaneios e pedidos...</p>
-                                        <p className="text-xs text-muted-foreground">Isso pode levar alguns segundos.</p>
+                                        <p className="font-medium animate-pulse">A Mirinha AI está a unificar os itens e ler os romaneios...</p>
+                                        <p className="text-xs text-muted-foreground">Analizando o período {aiScope === 'week' ? 'semanal' : aiScope === 'month' ? 'mensal' : 'anual'}.</p>
                                     </div>
                                 </div>
                             )}
@@ -870,7 +921,7 @@ export default function ReportsPage() {
 
                                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                         <div className="space-y-4">
-                                            <h4 className="font-bold flex items-center gap-2 text-sm uppercase text-muted-foreground border-b pb-2"><Trophy className="h-4 w-4 text-yellow-500"/> Top Vendidos</h4>
+                                            <h4 className="font-bold flex items-center gap-2 text-sm uppercase text-muted-foreground border-b pb-2"><Trophy className="h-4 w-4 text-yellow-500"/> Top Vendidos (Unificados)</h4>
                                             <div className="space-y-2">
                                                 {aiReport.topSellingItems.map((item, i) => (
                                                     <div key={i} className="flex justify-between items-center bg-muted/30 p-2 rounded-md border border-border/50">
@@ -903,9 +954,9 @@ export default function ReportsPage() {
                                         </p>
                                     </div>
 
-                                    <div className="flex justify-center">
-                                        <Button variant="ghost" size="sm" onClick={() => setAiReport(null)} className="text-muted-foreground">
-                                            Limpar e Gerar Nova Análise
+                                    <div className="flex justify-center gap-4">
+                                        <Button variant="outline" size="sm" onClick={() => setAiReport(null)} className="text-muted-foreground">
+                                            Mudar Período / Limpar
                                         </Button>
                                     </div>
                                 </div>
