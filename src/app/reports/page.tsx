@@ -81,7 +81,7 @@ import {
   AccordionContent,
   AccordionItem,
   AccordionTrigger,
-} from "@/Accordion";
+} from "@/components/ui/accordion";
 import type { 
     DailyReport, 
     ItemCount, 
