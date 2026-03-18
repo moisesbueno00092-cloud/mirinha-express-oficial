@@ -101,7 +101,6 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import usePersistentState from '@/hooks/use-persistent-state';
 import BomboniereModal from '@/components/bomboniere-modal';
-import { Calendar } from '@/components/ui/calendar';
 import { DatePicker } from '@/components/ui/date-picker';
 import { PREDEFINED_PRICES } from '@/lib/constants';
 import { generateManagementReport, type ManagementReportOutput } from '@/ai/flows/generate-management-report';
@@ -132,20 +131,32 @@ const safeFormat = (dateInput: any, formatStr: string, options?: any) => {
 };
 
 /**
- * Normalização inteligente e ultra-agressiva para unificação de nomes.
- * Remove acentos, pontuação, colapsa espaços e garante chaves únicas para o mesmo cliente.
+ * Algoritmo de Levenshtein para calcular a diferença entre duas strings.
  */
-const smartNormalizeName = (name: string) => {
+function getLevenshteinDistance(a: string, b: string): number {
+    const matrix = Array.from({ length: a.length + 1 }, () => Array(b.length + 1).fill(0));
+    for (let i = 0; i <= a.length; i++) matrix[i][0] = i;
+    for (let j = 0; j <= b.length; j++) matrix[0][j] = j;
+    for (let i = 1; i <= a.length; i++) {
+        for (let j = 1; j <= b.length; j++) {
+            const cost = a[i - 1] === b[j - 1] ? 0 : 1;
+            matrix[i][j] = Math.min(matrix[i - 1][j] + 1, matrix[i][j - 1] + 1, matrix[i - 1][j - 1] + cost);
+        }
+    }
+    return matrix[a.length][b.length];
+}
+
+/**
+ * Normalização ultra-agressiva para unificação de chaves.
+ */
+const normalizeKey = (name: string) => {
     if (!name) return "";
     return name
         .trim()
         .normalize("NFD")
-        .replace(/[\u0300-\u036f]/g, "") // Remove acentos
+        .replace(/[\u0300-\u036f]/g, "")
         .toLowerCase()
-        .replace(/[^a-z0-9\s]/g, ' ') // Substitui qualquer símbolo por espaço
-        .split(/\s+/) // Divide por espaços
-        .filter(word => word.length > 0) // Remove vazios
-        .join(' '); // Reune com espaço simples
+        .replace(/[^a-z0-9]/g, ''); // Remove TUDO que não for letra ou número
 };
 
 const PREDEFINED_KEYS = Object.keys(PREDEFINED_PRICES).concat(['KG']);
@@ -303,24 +314,55 @@ const CustomerReportsSection = ({
 
     const customerData = useMemo(() => {
         if (!items) return [];
-        const stats: Record<string, { name: string, total: number, count: number, orders: Item[] }> = {};
+        const rawStats: Record<string, { name: string, total: number, count: number, orders: Item[] }> = {};
         
+        // Passo 1: Agrupamento Inicial por Normalização Agressiva
         items.forEach(item => {
             if (item.customerName) {
                 const rawName = item.customerName.trim();
-                const key = smartNormalizeName(rawName); // Uso da IA de normalização inteligente agressiva
+                const key = normalizeKey(rawName);
                 
-                if (!stats[key]) {
-                    stats[key] = { name: rawName, total: 0, count: 0, orders: [] };
+                if (!rawStats[key]) {
+                    rawStats[key] = { name: rawName, total: 0, count: 0, orders: [] };
                 }
                 
-                stats[key].total += item.total;
-                stats[key].count += 1;
-                stats[key].orders.push(item);
+                rawStats[key].total += item.total;
+                rawStats[key].count += 1;
+                rawStats[key].orders.push(item);
             }
         });
+
+        // Passo 2: Unificação por Similaridade (Fuzzy Matching)
+        const finalStats: Record<string, { name: string, total: number, count: number, orders: Item[] }> = {};
+        const keys = Object.keys(rawStats).sort((a, b) => rawStats[b].count - rawStats[a].count);
+        const processedKeys = new Set<string>();
+
+        for (let i = 0; i < keys.length; i++) {
+            const currentKey = keys[i];
+            if (processedKeys.has(currentKey)) continue;
+
+            const group = { ...rawStats[currentKey] };
+            processedKeys.add(currentKey);
+
+            for (let j = i + 1; j < keys.length; j++) {
+                const nextKey = keys[j];
+                if (processedKeys.has(nextKey)) continue;
+
+                // Se a distância for muito pequena (1 ou 2 letras), unificamos
+                const distance = getLevenshteinDistance(currentKey, nextKey);
+                const isVerySimilar = distance <= (currentKey.length > 6 ? 2 : 1);
+
+                if (isVerySimilar) {
+                    group.total += rawStats[nextKey].total;
+                    group.count += rawStats[nextKey].count;
+                    group.orders = [...group.orders, ...rawStats[nextKey].orders];
+                    processedKeys.add(nextKey);
+                }
+            }
+            finalStats[currentKey] = group;
+        }
         
-        return Object.values(stats)
+        return Object.values(finalStats)
             .map(data => ({
                 ...data,
                 orders: data.orders.sort((a, b) => {
@@ -333,8 +375,12 @@ const CustomerReportsSection = ({
 
     const selectedCustomer = useMemo(() => {
         if (!selectedCustomerName) return null;
-        const key = smartNormalizeName(selectedCustomerName);
-        return customerData.find(c => smartNormalizeName(c.name) === key) || null;
+        const key = normalizeKey(selectedCustomerName);
+        // Procuramos o grupo que contém este cliente (levando em conta a similaridade)
+        return customerData.find(c => {
+            const groupKey = normalizeKey(c.name);
+            return groupKey === key || getLevenshteinDistance(groupKey, key) <= (groupKey.length > 6 ? 2 : 1);
+        }) || null;
     }, [customerData, selectedCustomerName]);
 
     const handleCopyIndividualToWhatsApp = (customer: { name: string, orders: Item[] }) => {
@@ -454,7 +500,7 @@ const CustomerReportsSection = ({
             {isLoading ? <div className="flex justify-center p-12"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div> : customerData.length > 0 ? (
                 <div className="rounded-md border overflow-hidden">
                     <table className="w-full text-sm">
-                        <thead className="bg-muted/50 border-b"><tr><th className="text-left p-4 font-medium">Cliente</th><th className="text-center p-4 font-medium">Pedidos</th><th className="text-right p-4 font-medium">Total Acumulado</th><th className="w-10"></th></tr></thead>
+                        <thead className="bg-muted/50 border-b"><tr><th className="text-left p-4 font-medium">Cliente (Unificados por IA)</th><th className="text-center p-4 font-medium">Pedidos</th><th className="text-right p-4 font-medium">Total Acumulado</th><th className="w-10"></th></tr></thead>
                         <tbody className="divide-y">
                             {customerData.map((cust) => (
                                 <tr key={cust.name} className="hover:bg-muted/30 cursor-pointer group" onClick={() => setSelectedCustomerName(cust.name)}>
@@ -783,7 +829,7 @@ export default function ReportsPage() {
         let customerName: string | undefined = undefined;
 
         const partsWithExemption = mainInput.split(' ').filter((part) => part.trim() !== '');
-        if (partsWithDealerExemption.map((p) => p.toUpperCase()).includes('E')) {
+        if (partsWithExemption.map((p) => p.toUpperCase()).includes('E')) {
             isTaxExempt = true;
             mainInput = partsWithExemption.filter((p) => p.toUpperCase() !== 'E').join(' ');
         }
@@ -1118,7 +1164,7 @@ export default function ReportsPage() {
                                 <div className="text-center py-20 space-y-6">
                                     <Loader2 className="h-12 w-12 animate-spin text-primary mx-auto" />
                                     <div className="space-y-2">
-                                        <p className="font-medium animate-pulse">A Mirinha AI está a unificar os itens e ler os romaneios...</p>
+                                        <p className="font-medium animate-pulse">A Mirinha IA está a unificar os itens e ler os romaneios...</p>
                                         <p className="text-xs text-muted-foreground">Analizando o período {aiScope === 'week' ? 'semanal' : aiScope === 'month' ? 'mensal' : 'anual'}.</p>
                                     </div>
                                 </div>
