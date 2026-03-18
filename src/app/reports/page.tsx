@@ -132,6 +132,7 @@ const safeFormat = (dateInput: any, formatStr: string, options?: any) => {
 
 /**
  * Algoritmo de Levenshtein para calcular a diferença entre duas strings.
+ * Ajuda a identificar nomes de clientes similares.
  */
 function getLevenshteinDistance(a: string, b: string): number {
     const matrix = Array.from({ length: a.length + 1 }, () => Array(b.length + 1).fill(0));
@@ -148,6 +149,7 @@ function getLevenshteinDistance(a: string, b: string): number {
 
 /**
  * Normalização ultra-agressiva para unificação de chaves.
+ * Remove acentos, pontuação, maiúsculas e espaços extras.
  */
 const normalizeKey = (name: string) => {
     if (!name) return "";
