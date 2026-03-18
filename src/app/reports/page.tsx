@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect, useCallback } from 'react';
 import { useFirestore, useCollection, useUser } from '@/firebase';
 import { 
     collection, 
@@ -139,6 +139,21 @@ const mergeCounts = (target: Record<string, number>, source: Record<string, numb
         target[name] = (target[name] || 0) + (qty || 0);
     });
     return target;
+};
+
+/**
+ * Normalização inteligente de nomes para agrupamento IA.
+ * Ignora maiúsculas/minúsculas, acentos, espaços extras e caracteres especiais.
+ */
+const smartNormalizeName = (name: string) => {
+    if (!name) return "";
+    return name
+        .trim()
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "") // Remove acentos
+        .toLowerCase()
+        .replace(/[^\w\s]/gi, '') // Remove pontuação
+        .replace(/\s+/g, ' '); // Colapsa espaços múltiplos
 };
 
 // --- COMPONENTES AUXILIARES ---
@@ -291,16 +306,22 @@ const CustomerReportsSection = ({
     const customerData = useMemo(() => {
         if (!items) return [];
         const stats: Record<string, { name: string, total: number, count: number, orders: Item[] }> = {};
+        
         items.forEach(item => {
             if (item.customerName) {
                 const rawName = item.customerName.trim();
-                const key = rawName.toLowerCase();
-                if (!stats[key]) stats[key] = { name: rawName, total: 0, count: 0, orders: [] };
+                const key = smartNormalizeName(rawName); // Uso da IA de normalização inteligente
+                
+                if (!stats[key]) {
+                    stats[key] = { name: rawName, total: 0, count: 0, orders: [] };
+                }
+                
                 stats[key].total += item.total;
                 stats[key].count += 1;
                 stats[key].orders.push(item);
             }
         });
+        
         return Object.values(stats)
             .map(data => ({
                 ...data,
@@ -314,7 +335,8 @@ const CustomerReportsSection = ({
 
     const selectedCustomer = useMemo(() => {
         if (!selectedCustomerName) return null;
-        return customerData.find(c => c.name.toLowerCase() === selectedCustomerName.toLowerCase()) || null;
+        const key = smartNormalizeName(selectedCustomerName);
+        return customerData.find(c => smartNormalizeName(c.name) === key) || null;
     }, [customerData, selectedCustomerName]);
 
     const handleCopyIndividualToWhatsApp = (customer: { name: string, orders: Item[] }) => {
@@ -1006,7 +1028,7 @@ export default function ReportsPage() {
             <DialogFooter className="flex gap-2 sm:gap-0">
                 <Button variant="outline" onClick={() => { setArchivedItemToEdit(null); setActiveReportDateForAdd(null); }}>Cancelar</Button>
                 <Button onClick={() => handleUpsertArchivedItem(editArchivedInput, archivedItemToEdit)} disabled={isProcessingEdit || !editArchivedInput.trim()} className="bg-primary hover:bg-primary/90">
-                    {isProcessingEdit ? <Loader2 className="animate-spin mr-2"/> : <Save className="h-4 w-4 mr-2"/>}
+                    {isProcessingEdit ? <Loader2 className="animate-spin mr-2"/> : <Save className="mr-2 h-4 w-4 mr-2"/>}
                     Salvar Alterações
                 </Button>
             </DialogFooter>
@@ -1089,10 +1111,10 @@ export default function ReportsPage() {
                                                 </SelectContent>
                                             </Select>
                                         </div>
-                                        <Button onClick={handleGenerateAIReport} className="bg-primary hover:bg-primary/90 h-10 mt-5 sm:mt-5">
+                                        <button onClick={handleGenerateAIReport} className="inline-flex items-center justify-center rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 bg-primary text-primary-foreground hover:bg-primary/90 h-10 px-4 py-2 mt-5 sm:mt-5">
                                             <Sparkles className="mr-2 h-4 w-4" />
                                             Gerar Relatório Estratégico
-                                        </Button>
+                                        </button>
                                     </div>
                                 </div>
                             )}
