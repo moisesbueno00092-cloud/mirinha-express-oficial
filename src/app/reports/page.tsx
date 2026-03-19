@@ -36,6 +36,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
 import { Badge } from '@/components/ui/badge';
+import { Progress } from '@/components/ui/progress';
 import { 
     Loader2, 
     Trash2, 
@@ -107,7 +108,6 @@ import BomboniereModal from '@/components/bomboniere-modal';
 import { DatePicker } from '@/components/ui/date-picker';
 import { PREDEFINED_PRICES } from '@/lib/constants';
 import { generateManagementReport, type ManagementReportOutput } from '@/ai/flows/generate-management-report';
-import { Progress } from '@/components/ui/progress';
 
 const formatCurrency = (value: number | undefined | null) => {
     return new Intl.NumberFormat("pt-BR", {
@@ -133,6 +133,9 @@ const safeFormat = (dateInput: any, formatStr: string, options?: any) => {
     return format(d, formatStr, options);
 };
 
+/**
+ * Calcula a distância de Levenshtein entre duas strings para unificação inteligente de nomes.
+ */
 function getLevenshteinDistance(a: string, b: string): number {
     const matrix = Array.from({ length: a.length + 1 }, () => Array(b.length + 1).fill(0));
     for (let i = 0; i <= a.length; i++) matrix[i][0] = i;
@@ -146,6 +149,9 @@ function getLevenshteinDistance(a: string, b: string): number {
     return matrix[a.length][b.length];
 }
 
+/**
+ * Normalização ultra-agressiva para chaves de agrupamento.
+ */
 const normalizeKey = (name: string) => {
     if (!name) return "";
     return name
@@ -324,6 +330,7 @@ const CustomerReportsSection = ({
             }
         });
 
+        // Unificação Inteligente por Similaridade
         const finalStats: Record<string, { name: string, total: number, count: number, orders: Item[] }> = {};
         const keys = Object.keys(rawStats).sort((a, b) => rawStats[b].count - rawStats[a].count);
         const processedKeys = new Set<string>();
@@ -339,6 +346,7 @@ const CustomerReportsSection = ({
                 const nextKey = keys[j];
                 if (processedKeys.has(nextKey)) continue;
 
+                // Se a distância for pequena (ex: 1 ou 2 letras), unifica
                 const distance = getLevenshteinDistance(currentKey, nextKey);
                 const isVerySimilar = distance <= (currentKey.length > 6 ? 2 : 1);
 
@@ -734,7 +742,7 @@ export default function ReportsPage() {
             for (let j = parts.length; j > i; j--) { const potentialName = parts.slice(i, j).join(' ').toLowerCase(); if (bomboniereItemsByName[potentialName]) { bestMatch = bomboniereItemsByName[potentialName]; bestMatchEndIndex = j; break; } }
             if (bestMatch) {
                 let bomboniereQty = 1; if (i > 0 && !consumedParts[i - 1] && isNumeric(parts[i - 1])) { bomboniereQty = parseInt(parts[i - 1], 10); consumedParts[i - 1] = true; }
-                let priceToUse = bestMatch.price; if (bestMatchEndIndex < parts.length && !consumedParts[bestMatchEndIndex] && isNumeric(parts[bestMatchEndIndex])) { priceToUse = parseFloat(bestMatchEndIndex < parts.length ? parts[bestMatchEndIndex].replace(',', '.')); consumedParts[bestMatchEndIndex] = true; }
+                let priceToUse = bestMatch.price; if (bestMatchEndIndex < parts.length && !consumedParts[bestMatchEndIndex] && isNumeric(parts[bestMatchEndIndex])) { priceToUse = parseFloat(bestMatchEndIndex < parts.length ? parts[bestMatchEndIndex].replace(',', '.') : '0'); consumedParts[bestMatchEndIndex] = true; }
                 processedBomboniereItems.push({ id: bestMatch.id, name: bestMatch.name, quantity: bomboniereQty, price: priceToUse }); totalPrice += priceToUse * bomboniereQty; totalQuantity += bomboniereQty;
                 for (let k = i; k < bestMatchEndIndex; k++) consumedParts[k] = true; i = bestMatchEndIndex - 1;
             }
