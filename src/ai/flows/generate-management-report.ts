@@ -1,36 +1,40 @@
 'use server';
 
 /**
- * @fileOverview Gerador de Relatórios Estratégicos de Gestão com IA.
+ * @fileOverview Gerador de Relatórios Estratégicos de Gestão "Maxi Mode" com IA.
  * 
- * Analisa dados de vendas, compras e tendências para fornecer insights ao gestor.
- * Inclui lógica de agrupamento inteligente para unificar itens similares.
+ * Analisa vendas, compras, custos de pessoal e contas a pagar para fornecer 
+ * uma visão 360º do Restaurante da Mirinha.
+ * Inclui lógica de agrupamento inteligente e análise de rentabilidade.
  */
 
 import { ai } from '@/ai/genkit';
 import { z } from 'genkit';
 
 const ManagementReportInputSchema = z.object({
-  periodLabel: z.string().describe('O nome do período (ex: Semana 12, Janeiro 2024 ou Ano 2024).'),
+  periodLabel: z.string().describe('O nome do período (ex: Semana 12, Janeiro 2024).'),
   salesData: z.any().describe('Dados consolidados de vendas do período.'),
-  expenseData: z.any().describe('Dados consolidados de compras de mercadorias do período.'),
-  customerStats: z.any().describe('Resumo do comportamento dos clientes.'),
+  expenseData: z.any().describe('Dados consolidados de compras de mercadorias.'),
+  staffData: z.any().optional().describe('Resumo de custos com funcionários (vales, extras, etc).'),
+  financialStats: z.any().optional().describe('Resumo de contas pagas vs pendentes.'),
 });
 export type ManagementReportInput = z.infer<typeof ManagementReportInputSchema>;
 
 const ManagementReportOutputSchema = z.object({
-  summary: z.string().describe('Um resumo executivo da saúde financeira do período.'),
+  summary: z.string().describe('Resumo executivo da saúde financeira.'),
   topSellingItems: z.array(z.object({
     name: z.string(),
     count: z.number(),
     category: z.enum(['Refeição', 'Bomboniere']),
-  })).describe('Ranking dos produtos mais vendidos, com nomes unificados.'),
+  })).describe('Ranking unificado por similaridade.'),
   mainExpenses: z.array(z.object({
     name: z.string(),
     totalValue: z.number(),
-  })).describe('Principais custos com mercadorias, agrupados por similaridade.'),
-  strategicAdvice: z.string().describe('Conselhos práticos para o gestor melhorar o negócio.'),
-  efficiencyScore: z.number().min(0).max(100).describe('Uma nota de 0 a 100 para a eficiência do período.'),
+  })).describe('Maiores custos agrupados.'),
+  staffAnalysis: z.string().describe('Análise sobre o peso da folha e extras.'),
+  profitabilityInsight: z.string().describe('Análise sobre a margem de lucro real.'),
+  strategicAdvice: z.string().describe('3 conselhos práticos e diretos para o gestor.'),
+  efficiencyScore: z.number().min(0).max(100).describe('Nota de 0 a 100 para a performance do período.'),
 });
 export type ManagementReportOutput = z.infer<typeof ManagementReportOutputSchema>;
 
@@ -42,31 +46,30 @@ const managementPrompt = ai.definePrompt({
   name: 'managementPrompt',
   input: { schema: ManagementReportInputSchema },
   output: { schema: ManagementReportOutputSchema },
-  prompt: `Você é um consultor especializado em gestão de restaurantes brasileiros. 
-Analise os dados reais do "Restaurante da Mirinha" referentes ao período de {{{periodLabel}}}.
+  prompt: `Você é o Diretor de Estratégia do "Restaurante da Mirinha". Sua missão é fornecer uma análise "Maxi Mode" para o período de {{{periodLabel}}}.
 
-DADOS DE VENDAS (CONTÉM NOME DO ITEM E QUANTIDADE):
-{{{json salesData}}}
+--- DADOS PARA ANÁLISE ---
+VENDAS: {{{json salesData}}}
+COMPRAS (MERCADORIAS): {{{json expenseData}}}
+PESSOAL (VALES/EXTRAS): {{{json staffData}}}
+FINANCEIRO (CONTAS): {{{json financialStats}}}
 
-DADOS DE COMPRAS (MERCADORIAS NOS ROMANEIOS):
-{{{json expenseData}}}
+--- INSTRUÇÕES DE UNIFICAÇÃO (MUITO IMPORTANTE) ---
+1. AGRUPE itens com nomes similares em uma única categoria no ranking de vendas e compras.
+   - Exemplo: "Filé Aurora", "Filé Atalaia", "Filé Bovino" unifique apenas como "FILÉ".
+   - Exemplo: "Marmita M", "Marmita G", "Marmita Especial" unifique como "MARMITA".
+   - Exemplo: "Coca Lata", "Coca 600", "Coca 2L" podem ser unificados como "COCA-COLA" se o objetivo for ver o volume da marca.
+2. EXCEÇÃO "GÁS": "Água com Gás" e "Água sem Gás" NÃO podem ser unificadas. Mantenha-as separadas.
+3. Se encontrar apenas "GÁS", trate como o insumo de cozinha (botijão).
 
-INSTRUÇÕES DE AGRUPAMENTO INTELIGENTE (CRÍTICO):
-1. UNIFIQUE itens similares nos rankings: ignore marcas, nomes de fazendas ou adjetivos secundários se o item principal for o mesmo.
-   - Exemplo: "Filé Aurora", "Filé Atalaia", "Filé Bovino" devem ser consolidados apenas como "FILÉ".
-   - Exemplo: Variações de "Marmita" (Marmita M, Marmita G, Marmita Especial) devem ser unificadas como "MARMITA".
-2. EXCEÇÃO "GÁS": "Água com gás" e "Água sem gás" devem ser mantidas como itens DISTINTOS e não unificadas.
-   - Se encontrar apenas a palavra "GÁS" isolada, trate como um item separado (ex: botijão de cozinha).
-3. Seja estratégico: ao unificar, some as quantidades e valores. Isso ajuda a ver o volume real de consumo de cada insumo.
+--- SUA TAREFA ---
+1. Identifique o produto mais lucrativo (Carro Chefe) e o de maior volume.
+2. Analise se os gastos com mercadorias estão compatíveis com as vendas (detecte desperdício se as compras forem muito maiores que as vendas de um item unificado).
+3. Avalie o impacto dos Vales e Horas Extras na operação.
+4. Verifique o equilíbrio entre Contas Pagas e Pendentes.
+5. Seja crítico e honesto: se o lucro parece baixo ou o fiado muito alto, dê o alerta.
 
-Sua tarefa é gerar um relatório de gestão de alto nível:
-1. Identifique o "Carro Chefe" e a "Estrela da Bomboniere" usando os nomes unificados.
-2. Analise se o volume de vendas na RUA compensa as taxas de entrega.
-3. Verifique o peso dos FIADOS e dê um alerta se estiverem muito altos.
-4. Analise as COMPRAS: quais categorias de mercadorias (ex: CARNES, BEBIDAS, VEGETAIS) estão custando mais?
-5. Seja prático e direto nos conselhos.
-
-Formate a saída rigorosamente conforme o esquema solicitado.`,
+Forneça a saída rigorosamente no formato JSON solicitado.`,
 });
 
 const generateManagementReportFlow = ai.defineFlow(

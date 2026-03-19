@@ -56,7 +56,9 @@ import {
     TrendingDown,
     Zap,
     Save,
-    Clock
+    Clock,
+    DollarSign,
+    Users as UsersIcon
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import {
@@ -91,7 +93,9 @@ import type {
     Group,
     EntradaMercadoria,
     PredefinedItem,
-    SelectedBomboniereItem
+    SelectedBomboniereItem,
+    ContaAPagar,
+    FuncionarioLancamentoFinanceiro
 } from '@/types';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import ItemList from '@/components/item-list';
@@ -130,10 +134,6 @@ const safeFormat = (dateInput: any, formatStr: string, options?: any) => {
     return format(d, formatStr, options);
 };
 
-/**
- * Algoritmo de Levenshtein para calcular a diferença entre duas strings.
- * Ajuda a identificar nomes de clientes similares.
- */
 function getLevenshteinDistance(a: string, b: string): number {
     const matrix = Array.from({ length: a.length + 1 }, () => Array(b.length + 1).fill(0));
     for (let i = 0; i <= a.length; i++) matrix[i][0] = i;
@@ -147,10 +147,6 @@ function getLevenshteinDistance(a: string, b: string): number {
     return matrix[a.length][b.length];
 }
 
-/**
- * Normalização ultra-agressiva para unificação de chaves.
- * Remove acentos, pontuação, maiúsculas e espaços extras.
- */
 const normalizeKey = (name: string) => {
     if (!name) return "";
     return name
@@ -158,7 +154,7 @@ const normalizeKey = (name: string) => {
         .normalize("NFD")
         .replace(/[\u0300-\u036f]/g, "")
         .toLowerCase()
-        .replace(/[^a-z0-9]/g, ''); // Remove TUDO que não for letra ou número
+        .replace(/[^a-z0-9]/g, '');
 };
 
 const PREDEFINED_KEYS = Object.keys(PREDEFINED_PRICES).concat(['KG']);
@@ -170,8 +166,6 @@ const mergeCounts = (target: Record<string, number>, source: Record<string, numb
     });
     return target;
 };
-
-// --- COMPONENTES AUXILIARES ---
 
 const SummaryDisplay = ({ data, title = "Resumo do Dia - FATURAMENTO" }: { data: any, title?: string }) => {
     const contagemTotal = data.contagemTotal || {};
@@ -318,23 +312,19 @@ const CustomerReportsSection = ({
         if (!items) return [];
         const rawStats: Record<string, { name: string, total: number, count: number, orders: Item[] }> = {};
         
-        // Passo 1: Agrupamento Inicial por Normalização Agressiva
         items.forEach(item => {
             if (item.customerName) {
                 const rawName = item.customerName.trim();
                 const key = normalizeKey(rawName);
-                
                 if (!rawStats[key]) {
                     rawStats[key] = { name: rawName, total: 0, count: 0, orders: [] };
                 }
-                
                 rawStats[key].total += item.total;
                 rawStats[key].count += 1;
                 rawStats[key].orders.push(item);
             }
         });
 
-        // Passo 2: Unificação por Similaridade (Fuzzy Matching)
         const finalStats: Record<string, { name: string, total: number, count: number, orders: Item[] }> = {};
         const keys = Object.keys(rawStats).sort((a, b) => rawStats[b].count - rawStats[a].count);
         const processedKeys = new Set<string>();
@@ -350,7 +340,6 @@ const CustomerReportsSection = ({
                 const nextKey = keys[j];
                 if (processedKeys.has(nextKey)) continue;
 
-                // Se a distância for muito pequena (1 ou 2 letras), unificamos
                 const distance = getLevenshteinDistance(currentKey, nextKey);
                 const isVerySimilar = distance <= (currentKey.length > 6 ? 2 : 1);
 
@@ -378,7 +367,6 @@ const CustomerReportsSection = ({
     const selectedCustomer = useMemo(() => {
         if (!selectedCustomerName) return null;
         const key = normalizeKey(selectedCustomerName);
-        // Procuramos o grupo que contém este cliente (levando em conta a similaridade)
         return customerData.find(c => {
             const groupKey = normalizeKey(c.name);
             return groupKey === key || getLevenshteinDistance(groupKey, key) <= (groupKey.length > 6 ? 2 : 1);
@@ -402,30 +390,18 @@ const CustomerReportsSection = ({
     const confirmChangeItemDate = async () => {
         if (!firestore || !itemToChangeDate || !newItemDate) return;
         setIsUpdatingItemDate(true);
-        
         const oldDateStr = itemToChangeDate.reportDate;
         const newDateStr = format(newItemDate, 'yyyy-MM-dd');
-        
         try {
             const batch = writeBatch(firestore);
             const itemRef = doc(firestore, 'order_items', itemToChangeDate.id);
-            
             const origTs = itemToChangeDate.timestamp?.toDate ? itemToChangeDate.timestamp.toDate() : new Date(itemToChangeDate.timestamp);
             const updatedTs = new Date(newItemDate);
             updatedTs.setHours(origTs.getHours(), origTs.getMinutes(), origTs.getSeconds(), origTs.getMilliseconds());
-            
-            batch.update(itemRef, {
-                reportDate: newDateStr,
-                timestamp: Timestamp.fromDate(updatedTs)
-            });
-            
+            batch.update(itemRef, { reportDate: newDateStr, timestamp: Timestamp.fromDate(updatedTs) });
             await batch.commit();
-            
             await recalculateFn(newDateStr);
-            if (oldDateStr && oldDateStr !== newDateStr) {
-                await recalculateFn(oldDateStr);
-            }
-            
+            if (oldDateStr && oldDateStr !== newDateStr) await recalculateFn(oldDateStr);
             toast({ title: "Data do pedido alterada." });
             setItemToChangeDate(null);
         } catch (error) {
@@ -463,17 +439,7 @@ const CustomerReportsSection = ({
                                     <div className="flex items-center gap-4">
                                         <p className="text-sm font-mono font-bold text-primary">{formatCurrency(order.total)}</p>
                                         <div className="flex gap-1">
-                                            <Button 
-                                                variant="ghost" 
-                                                size="icon" 
-                                                className="h-8 w-8 text-amber-500" 
-                                                onClick={() => { 
-                                                    setItemToChangeDate(order); 
-                                                    setNewItemDate(order.timestamp?.toDate ? order.timestamp.toDate() : new Date(order.timestamp)); 
-                                                }}
-                                            >
-                                                <CalendarDays className="h-4 w-4" />
-                                            </Button>
+                                            <Button variant="ghost" size="icon" className="h-8 w-8 text-amber-500" onClick={() => { setItemToChangeDate(order); setNewItemDate(order.timestamp?.toDate ? order.timestamp.toDate() : new Date(order.timestamp)); }}><CalendarDays className="h-4 w-4" /></Button>
                                             <Button variant="ghost" size="icon" className="h-8 w-8 text-blue-500" onClick={() => onEditItem(order)}><Pencil className="h-4 w-4" /></Button>
                                             <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => onDeleteItem(order)}><Trash2 className="h-4 w-4" /></Button>
                                         </div>
@@ -492,17 +458,14 @@ const CustomerReportsSection = ({
                     <div className="py-4 flex flex-col items-center bg-muted/30 rounded-md">
                         <DatePicker date={newItemDate} setDate={setNewItemDate} />
                     </div>
-                    <DialogFooter>
-                        <Button variant="outline" onClick={() => setItemToChangeDate(null)}>Cancelar</Button>
-                        <Button onClick={confirmChangeItemDate} disabled={isUpdatingItemDate}>{isUpdatingItemDate && <Loader2 className="animate-spin mr-2"/>}Confirmar</Button>
-                    </DialogFooter>
+                    <DialogFooter><Button variant="outline" onClick={() => setItemToChangeDate(null)}>Cancelar</Button><Button onClick={confirmChangeItemDate} disabled={isUpdatingItemDate}>{isUpdatingItemDate && <Loader2 className="animate-spin mr-2"/>}Confirmar</Button></DialogFooter>
                 </DialogContent>
             </Dialog>
 
             {isLoading ? <div className="flex justify-center p-12"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div> : customerData.length > 0 ? (
                 <div className="rounded-md border overflow-hidden">
                     <table className="w-full text-sm">
-                        <thead className="bg-muted/50 border-b"><tr><th className="text-left p-4 font-medium">Cliente (Unificados por IA)</th><th className="text-center p-4 font-medium">Pedidos</th><th className="text-right p-4 font-medium">Total Acumulado</th><th className="w-10"></th></tr></thead>
+                        <thead className="bg-muted/50 border-b"><tr><th className="text-left p-4 font-medium">Cliente (IA)</th><th className="text-center p-4 font-medium">Pedidos</th><th className="text-right p-4 font-medium">Total</th><th className="w-10"></th></tr></thead>
                         <tbody className="divide-y">
                             {customerData.map((cust) => (
                                 <tr key={cust.name} className="hover:bg-muted/30 cursor-pointer group" onClick={() => setSelectedCustomerName(cust.name)}>
@@ -542,8 +505,6 @@ const ReportDetail = ({ report, onEditItem, onDeleteItem, onAddItem }: { report:
     );
 };
 
-// --- PÁGINA PRINCIPAL ---
-
 export default function ReportsPage() {
   const firestore = useFirestore();
   const { toast } = useToast();
@@ -567,16 +528,13 @@ export default function ReportsPage() {
   const [deliveryFee] = usePersistentState('deliveryFee', 6.00);
   const [predefinedPrices] = usePersistentState('predefinedPrices', PREDEFINED_PRICES);
 
-  // IA Insight State
   const [isGeneratingAI, setIsGeneratingAI] = useState(false);
   const [aiReport, setAiReport] = useState<ManagementReportOutput | null>(null);
   const [aiScope, setAiScope] = useState<'week' | 'month' | 'year'>('month');
   
   const reportsQ = useMemo(() => firestore ? query(collection(firestore, 'daily_reports')) : null, [firestore]);
   const { data: allReportsRaw, isLoading: isLoadingReports } = useCollection<DailyReport>(reportsQ);
-  
   const allReports = useMemo(() => (allReportsRaw || []).filter(r => r.reportDate).sort((a, b) => b.reportDate.localeCompare(a.reportDate)), [allReportsRaw]);
-  
   const monthlyReports = useMemo(() => allReports.filter(r => { 
       const d = parseISO(r.reportDate); 
       return d.getFullYear() === globalDate.getFullYear() && d.getMonth() === globalDate.getMonth(); 
@@ -584,24 +542,16 @@ export default function ReportsPage() {
 
   const bomboniereItemsQuery = useMemo(() => firestore ? query(collection(firestore, 'bomboniere_items')) : null, [firestore]);
   const { data: bomboniereItems } = useCollection<BomboniereItem>(bomboniereItemsQuery);
-
   const bomboniereItemsByName = useMemo(() => {
     if (!bomboniereItems) return {};
-    return bomboniereItems.reduce((acc, item) => {
-        acc[item.name.toLowerCase()] = item;
-        return acc;
-    }, {} as Record<string, BomboniereItem>);
+    return bomboniereItems.reduce((acc, item) => { acc[item.name.toLowerCase()] = item; return acc; }, {} as Record<string, BomboniereItem>);
   }, [bomboniereItems]);
 
   const entradasQuery = useMemo(() => {
       if (!firestore) return null;
       const start = format(startOfMonth(globalDate), 'yyyy-MM-dd');
       const end = format(endOfMonth(globalDate), 'yyyy-MM-dd');
-      return query(
-          collection(firestore, 'entradas_mercadorias'),
-          where('data', '>=', start),
-          where('data', '<=', end)
-      );
+      return query(collection(firestore, 'entradas_mercadorias'), where('data', '>=', start), where('data', '<=', end));
   }, [firestore, globalDate]);
   const { data: monthlyEntradas } = useCollection<EntradaMercadoria>(entradasQuery);
 
@@ -609,10 +559,7 @@ export default function ReportsPage() {
     if (archivedItemToEdit) {
         setEditArchivedInput(archivedItemToEdit.originalCommand || '');
         const d = archivedItemToEdit.timestamp?.toDate ? archivedItemToEdit.timestamp.toDate() : new Date(archivedItemToEdit.timestamp);
-        if (isValid(d)) { 
-            setEditArchivedDate(d); 
-            setEditArchivedTime(format(d, 'HH:mm')); 
-        }
+        if (isValid(d)) { setEditArchivedDate(d); setEditArchivedTime(format(d, 'HH:mm')); }
     }
   }, [archivedItemToEdit]);
 
@@ -620,105 +567,96 @@ export default function ReportsPage() {
     const todayStr = format(new Date(), 'yyyy-MM-dd');
     const weekStart = startOfWeek(new Date(), { locale: ptBR });
     const weekEnd = endOfWeek(new Date(), { locale: ptBR });
-    const monthStart = startOfMonth(new Date());
-    const monthEnd = endOfMonth(new Date());
-    const yearStart = startOfYear(new Date());
-    const yearEnd = endOfYear(new Date());
-
     return allReports.reduce((acc, r) => {
         const d = parseISO(r.reportDate);
         if (r.reportDate === todayStr) acc.today += r.totalGeral;
         if (isWithinInterval(d, { start: weekStart, end: weekEnd })) acc.week += r.totalGeral;
-        if (isWithinInterval(d, { start: monthStart, end: monthEnd })) acc.month += r.totalGeral;
-        if (isWithinInterval(d, { start: yearStart, end: yearEnd })) acc.year += r.totalGeral;
+        if (d.getFullYear() === globalDate.getFullYear() && d.getMonth() === globalDate.getMonth()) acc.month += r.totalGeral;
+        if (d.getFullYear() === globalDate.getFullYear()) acc.year += r.totalGeral;
         return acc;
     }, { today: 0, week: 0, month: 0, year: 0 });
-  }, [allReports]);
+  }, [allReports, globalDate]);
 
-  // IA Generation Logic
   const handleGenerateAIReport = async () => {
       setIsGeneratingAI(true);
       try {
           let periodLabel = "";
           let filteredReports: DailyReport[] = [];
+          let startDate: Date, endDate: Date;
           
           if (aiScope === 'week') {
-              const weekStart = startOfWeek(globalDate, { locale: ptBR });
-              const weekEnd = endOfWeek(globalDate, { locale: ptBR });
-              periodLabel = `Semana de ${format(weekStart, 'dd/MM')} a ${format(weekEnd, 'dd/MM/yyyy')}`;
-              filteredReports = allReports.filter(r => isWithinInterval(parseISO(r.reportDate), { start: weekStart, end: weekEnd }));
+              startDate = startOfWeek(globalDate, { locale: ptBR });
+              endDate = endOfWeek(globalDate, { locale: ptBR });
+              periodLabel = `Semana de ${format(startDate, 'dd/MM')} a ${format(endDate, 'dd/MM/yyyy')}`;
+              filteredReports = allReports.filter(r => isWithinInterval(parseISO(r.reportDate), { start: startDate, end: endDate }));
           } else if (aiScope === 'month') {
+              startDate = startOfMonth(globalDate);
+              endDate = endOfMonth(globalDate);
               periodLabel = safeFormat(globalDate, 'MMMM yyyy', { locale: ptBR });
               filteredReports = monthlyReports;
           } else {
+              startDate = startOfYear(globalDate);
+              endDate = endOfYear(globalDate);
               periodLabel = `Ano ${globalDate.getFullYear()}`;
               filteredReports = allReports.filter(r => parseISO(r.reportDate).getFullYear() === globalDate.getFullYear());
           }
           
           if (filteredReports.length === 0) {
               toast({ variant: 'destructive', title: "Dados insuficientes", description: "Não há vendas registadas para este período." });
-              setIsGeneratingAI(false);
-              return;
+              setIsGeneratingAI(false); return;
           }
 
           const consolidatedSales = filteredReports.reduce((acc, r) => {
-              acc.total += r.totalGeral;
-              acc.rua += r.totalVendasRua + r.totalFiadoRua;
-              acc.salao += r.totalVendasSalao + r.totalFiadoSalao;
-              acc.fiado += r.totalFiado;
-              acc.taxas += r.totalTaxas;
-              mergeCounts(acc.items, r.contagemTotal);
-              return acc;
+              acc.total += r.totalGeral; acc.rua += r.totalVendasRua + r.totalFiadoRua; acc.salao += r.totalVendasSalao + r.totalFiadoSalao;
+              acc.fiado += r.totalFiado; acc.taxas += r.totalTaxas; mergeCounts(acc.items, r.contagemTotal); return acc;
           }, { total: 0, rua: 0, salao: 0, fiado: 0, taxas: 0, items: {} as Record<string, number> });
 
-          let relevantEntradas = monthlyEntradas || [];
-          if (aiScope === 'year') {
-              const start = format(startOfYear(globalDate), 'yyyy-MM-dd');
-              const end = format(endOfYear(globalDate), 'yyyy-MM-dd');
-              const q = query(collection(firestore!, 'entradas_mercadorias'), where('data', '>=', start), where('data', '<=', end));
-              const snap = await getDocs(q);
-              relevantEntradas = snap.docs.map(d => d.data() as EntradaMercadoria);
-          } else if (aiScope === 'week') {
-              const start = format(startOfWeek(globalDate, { locale: ptBR }), 'yyyy-MM-dd');
-              const end = format(endOfWeek(globalDate, { locale: ptBR }), 'yyyy-MM-dd');
-              relevantEntradas = (monthlyEntradas || []).filter(e => e.data >= start && e.data <= end);
-          }
+          const startISO = startDate.toISOString(); const endISO = endDate.toISOString();
+          const startStr = format(startDate, 'yyyy-MM-dd'); const endStr = format(endDate, 'yyyy-MM-dd');
 
-          const consolidatedExpenses = (relevantEntradas || []).reduce((acc, e) => {
-              acc.total += e.valorTotal;
-              acc.items[e.produtoNome] = (acc.items[e.produtoNome] || 0) + e.valorTotal;
-              return acc;
+          const entSnap = await getDocs(query(collection(firestore!, 'entradas_mercadorias'), where('data', '>=', startISO), where('data', '<=', endISO)));
+          const consolidatedExpenses = entSnap.docs.reduce((acc, d) => {
+              const e = d.data() as EntradaMercadoria; acc.total += e.valorTotal; acc.items[e.produtoNome] = (acc.items[e.produtoNome] || 0) + e.valorTotal; return acc;
           }, { total: 0, items: {} as Record<string, number> });
+
+          const contasSnap = await getDocs(query(collection(firestore!, 'contas_a_pagar'), where('dataVencimento', '>=', startStr), where('dataVencimento', '<=', endStr)));
+          const financialStats = contasSnap.docs.reduce((acc, d) => {
+              const c = d.data() as ContaAPagar; if (c.estaPaga) acc.pago += c.valor; else acc.pendente += c.valor; return acc;
+          }, { pago: 0, pendente: 0 });
+
+          let staffStats = { total: 0, vales: 0, extras: 0 };
+          const funcSnap = await getDocs(collection(firestore!, 'funcionarios'));
+          for (const fDoc of funcSnap.docs) {
+              const lSnap = await getDocs(query(collection(fDoc.ref, 'lancamentos'), where('data', '>=', startISO), where('data', '<=', endISO)));
+              lSnap.forEach(lDoc => {
+                  const l = lDoc.data() as FuncionarioLancamentoFinanceiro; staffStats.total += l.valor;
+                  if (l.tipo === 'vale') staffStats.vales += l.valor; if (l.tipo === 'hora_extra') staffStats.extras += l.valor;
+              });
+          }
 
           const report = await generateManagementReport({
               periodLabel,
               salesData: consolidatedSales,
               expenseData: consolidatedExpenses,
-              customerStats: { totalRelatorios: filteredReports.length }
+              staffData: staffStats,
+              financialStats: financialStats
           });
 
           setAiReport(report);
-          toast({ title: "Análise IA Concluída!", description: `O seu consultor virtual revisou os dados (${aiScope}).` });
+          toast({ title: "Análise IA Concluída!", description: "Dados unificados e analisados com sucesso." });
       } catch (error) {
           console.error(error);
-          toast({ variant: 'destructive', title: "Erro na IA", description: "Não foi possível gerar a análise neste momento." });
+          toast({ variant: 'destructive', title: "Erro na IA", description: "Não foi possível gerar a análise." });
       } finally {
           setIsGeneratingAI(false);
       }
   };
 
   const weeklySummaries = useMemo(() => {
-      const year = globalDate.getFullYear();
       const stats: Record<string, { week: number, count: number, start: Date, end: Date, data: any }> = {};
-      allReports.filter(r => parseISO(r.reportDate).getFullYear() === year).forEach(r => {
-          const d = parseISO(r.reportDate);
-          const weekNum = getWeek(d, { locale: ptBR });
-          const key = `W${weekNum}`;
-          if (!stats[key]) {
-              stats[key] = { week: weekNum, count: 0, start: startOfWeek(d, { locale: ptBR }), end: endOfWeek(d, { locale: ptBR }),
-                  data: { totalGeral: 0, totalAVista: 0, totalVendasSalao: 0, totalVendasRua: 0, totalFiado: 0, totalFiadoSalao: 0, totalFiadoRua: 0, totalTaxas: 0, totalEntregas: 0, totalItens: 0, totalPedidos: 0, totalBomboniereSalao: 0, totalBomboniereRua: 0, contagemTotal: {}, contagemRua: {} }
-              };
-          }
+      allReports.filter(r => parseISO(r.reportDate).getFullYear() === globalDate.getFullYear()).forEach(r => {
+          const d = parseISO(r.reportDate); const weekNum = getWeek(d, { locale: ptBR }); const key = `W${weekNum}`;
+          if (!stats[key]) stats[key] = { week: weekNum, count: 0, start: startOfWeek(d, { locale: ptBR }), end: endOfWeek(d, { locale: ptBR }), data: { totalGeral: 0, totalAVista: 0, totalVendasSalao: 0, totalVendasRua: 0, totalFiado: 0, totalFiadoSalao: 0, totalFiadoRua: 0, totalTaxas: 0, totalEntregas: 0, totalItens: 0, totalPedidos: 0, totalBomboniereSalao: 0, totalBomboniereRua: 0, contagemTotal: {}, contagemRua: {} } };
           stats[key].count++; const dRef = stats[key].data;
           dRef.totalGeral += r.totalGeral || 0; dRef.totalAVista += r.totalAVista || 0; dRef.totalVendasSalao += r.totalVendasSalao || 0; dRef.totalVendasRua += r.totalVendasRua || 0; dRef.totalFiado += r.totalFiado || 0; dRef.totalFiadoSalao += r.totalFiadoSalao || 0; dRef.totalFiadoRua += r.totalFiadoRua || 0; dRef.totalTaxas += r.totalTaxas || 0; dRef.totalEntregas += r.totalEntregas || 0; dRef.totalItens += r.totalItens || 0; dRef.totalPedidos += r.totalPedidos || 0; dRef.totalBomboniereSalao += r.totalBomboniereSalao || 0; dRef.totalBomboniereRua += r.totalBomboniereRua || 0;
           mergeCounts(dRef.contagemTotal, r.contagemTotal); mergeCounts(dRef.contagemRua, r.contagemRua);
@@ -727,16 +665,10 @@ export default function ReportsPage() {
   }, [allReports, globalDate]);
 
   const monthlySummaries = useMemo(() => {
-      const year = globalDate.getFullYear();
       const stats: Record<number, { month: number, count: number, data: any }> = {};
-      allReports.filter(r => parseISO(r.reportDate).getFullYear() === year).forEach(r => {
-          const d = parseISO(r.reportDate);
-          const m = d.getMonth();
-          if (!stats[m]) {
-              stats[m] = { month: m, count: 0,
-                  data: { totalGeral: 0, totalAVista: 0, totalVendasSalao: 0, totalVendasRua: 0, totalFiado: 0, totalFiadoSalao: 0, totalFiadoRua: 0, totalTaxas: 0, totalEntregas: 0, totalItens: 0, totalPedidos: 0, totalBomboniereSalao: 0, totalBomboniereRua: 0, contagemTotal: {}, contagemRua: {} }
-              };
-          }
+      allReports.filter(r => parseISO(r.reportDate).getFullYear() === globalDate.getFullYear()).forEach(r => {
+          const d = parseISO(r.reportDate); const m = d.getMonth();
+          if (!stats[m]) stats[m] = { month: m, count: 0, data: { totalGeral: 0, totalAVista: 0, totalVendasSalao: 0, totalVendasRua: 0, totalFiado: 0, totalFiadoSalao: 0, totalFiadoRua: 0, totalTaxas: 0, totalEntregas: 0, totalItens: 0, totalPedidos: 0, totalBomboniereSalao: 0, totalBomboniereRua: 0, contagemTotal: {}, contagemRua: {} } };
           stats[m].count++; const dRef = stats[m].data;
           dRef.totalGeral += r.totalGeral || 0; dRef.totalAVista += r.totalAVista || 0; dRef.totalVendasSalao += r.totalVendasSalao || 0; dRef.totalVendasRua += r.totalVendasRua || 0; dRef.totalFiado += r.totalFiado || 0; dRef.totalFiadoSalao += r.totalFiadoSalao || 0; dRef.totalFiadoRua += r.totalFiadoRua || 0; dRef.totalTaxas += r.totalTaxas || 0; dRef.totalEntregas += r.totalEntregas || 0; dRef.totalItens += r.totalItens || 0; dRef.totalPedidos += r.totalPedidos || 0; dRef.totalBomboniereSalao += r.totalBomboniereSalao || 0; dRef.totalBomboniereRua += r.totalBomboniereRua || 0;
           mergeCounts(dRef.contagemTotal, r.contagemTotal); mergeCounts(dRef.contagemRua, r.contagemRua);
@@ -747,13 +679,8 @@ export default function ReportsPage() {
   const annualSummaries = useMemo(() => {
       const stats: Record<number, { year: number, count: number, data: any }> = {};
       allReports.forEach(r => {
-          const d = parseISO(r.reportDate);
-          const y = d.getFullYear();
-          if (!stats[y]) {
-              stats[y] = { year: y, count: 0,
-                  data: { totalGeral: 0, totalAVista: 0, totalVendasSalao: 0, totalVendasRua: 0, totalFiado: 0, totalFiadoSalao: 0, totalFiadoRua: 0, totalTaxas: 0, totalEntregas: 0, totalItens: 0, totalPedidos: 0, totalBomboniereSalao: 0, totalBomboniereRua: 0, contagemTotal: {}, contagemRua: {} }
-              };
-          }
+          const d = parseISO(r.reportDate); const y = d.getFullYear();
+          if (!stats[y]) stats[y] = { year: y, count: 0, data: { totalGeral: 0, totalAVista: 0, totalVendasSalao: 0, totalVendasRua: 0, totalFiado: 0, totalFiadoSalao: 0, totalFiadoRua: 0, totalTaxas: 0, totalEntregas: 0, totalItens: 0, totalPedidos: 0, totalBomboniereSalao: 0, totalBomboniereRua: 0, contagemTotal: {}, contagemRua: {} } };
           stats[y].count++; const dRef = stats[y].data;
           dRef.totalGeral += r.totalGeral || 0; dRef.totalAVista += r.totalAVista || 0; dRef.totalVendasSalao += r.totalVendasSalao || 0; dRef.totalVendasRua += r.totalVendasRua || 0; dRef.totalFiado += r.totalFiado || 0; dRef.totalFiadoSalao += r.totalFiadoSalao || 0; dRef.totalFiadoRua += r.totalFiadoRua || 0; dRef.totalTaxas += r.totalTaxas || 0; dRef.totalEntregas += r.totalEntregas || 0; dRef.totalItens += r.totalItens || 0; dRef.totalPedidos += r.totalPedidos || 0; dRef.totalBomboniereSalao += r.totalBomboniereSalao || 0; dRef.totalBomboniereRua += r.totalBomboniereRua || 0;
           mergeCounts(dRef.contagemTotal, r.contagemTotal); mergeCounts(dRef.contagemRua, r.contagemRua);
@@ -767,37 +694,17 @@ export default function ReportsPage() {
         const snapshot = await getDocs(query(collection(firestore, 'order_items'), where('reportDate', '==', reportDate)));
         const items = snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id } as Item));
         const reportSnapshot = await getDocs(query(collection(firestore, 'daily_reports'), where('reportDate', '==', reportDate)));
-        
-        if (items.length === 0) { 
-            if (!reportSnapshot.empty) await deleteDoc(reportSnapshot.docs[0].ref); 
-            return; 
-        }
-
+        if (items.length === 0) { if (!reportSnapshot.empty) await deleteDoc(reportSnapshot.docs[0].ref); return; }
         const totals = items.reduce((acc, item) => {
             acc.totalGeral += item.total; acc.totalItens += item.quantity; acc.totalTaxas += item.deliveryFee;
-            const itemIsRua = item.group.includes('rua');
-            if (itemIsRua) { if (item.deliveryFee > 0) acc.totalEntregas++; acc.totalItensRua += item.quantity; }
+            const itemIsRua = item.group.includes('rua'); if (itemIsRua) { if (item.deliveryFee > 0) acc.totalEntregas++; acc.totalItensRua += item.quantity; }
             if (item.group.includes('Fiados')) acc.totalFiado += item.total; else acc.totalAVista += item.total;
-            switch (item.group) {
-                case 'Vendas salão': acc.totalVendasSalao += item.total; break;
-                case 'Vendas rua': acc.totalVendasRua += item.total; break;
-                case 'Fiados salão': acc.totalFiadoSalao += item.total; break;
-                case 'Fiados rua': acc.totalFiadoRua += item.total; break;
-            }
-            const itemsToCount = [
-                ...(item.predefinedItems?.map((i) => ({ ...i, count: 1 })) || []),
-                ...(item.bomboniereItems?.map((i) => ({ name: i.name, count: i.quantity })) || []),
-                ...(item.individualPrices?.map(() => ({ name: 'KG', count: 1 })) || []),
-            ];
-            itemsToCount.forEach(({ name, count }) => {
-                acc.contagemTotal[name] = (acc.contagemTotal[name] || 0) + count;
-                if (itemIsRua) acc.contagemRua[name] = (acc.contagemRua[name] || 0) + count;
-            });
-            const bomboniereTotal = item.bomboniereItems?.reduce((sum, bi) => sum + bi.price * bi.quantity, 0) || 0;
-            if (itemIsRua) acc.totalBomboniereRua += bomboniereTotal; else acc.totalBomboniereSalao += bomboniereTotal;
-            return acc;
+            switch (item.group) { case 'Vendas salão': acc.totalVendasSalao += item.total; break; case 'Vendas rua': acc.totalVendasRua += item.total; break; case 'Fiados salão': acc.totalFiadoSalao += item.total; break; case 'Fiados rua': acc.totalFiadoRua += item.total; break; }
+            const itemsToCount = [ ...(item.predefinedItems?.map((i) => ({ ...i, count: 1 })) || []), ...(item.bomboniereItems?.map((i) => ({ name: i.name, count: i.quantity })) || []), ...(item.individualPrices?.map(() => ({ name: 'KG', count: 1 })) || []) ];
+            itemsToCount.forEach(({ name, count }) => { acc.contagemTotal[name] = (acc.contagemTotal[name] || 0) + count; if (itemIsRua) acc.contagemRua[name] = (acc.contagemRua[name] || 0) + count; });
+            const bTotal = item.bomboniereItems?.reduce((sum, bi) => sum + bi.price * bi.quantity, 0) || 0;
+            if (itemIsRua) acc.totalBomboniereRua += bTotal; else acc.totalBomboniereSalao += bTotal; return acc;
         }, { totalGeral: 0, totalAVista: 0, totalFiado: 0, totalVendasSalao: 0, totalVendasRua: 0, totalFiadoSalao: 0, totalFiadoRua: 0, totalTaxas: 0, totalItens: 0, totalEntregas: 0, totalItensRua: 0, totalBomboniereSalao: 0, totalBomboniereRua: 0, contagemTotal: {} as ItemCount, contagemRua: {} as ItemCount });
-        
         if (!reportSnapshot.empty) await setDoc(reportSnapshot.docs[0].ref, { ...totals, totalPedidos: items.length, reportDate, userId: user.uid }, { merge: true });
         else await addDoc(collection(firestore, 'daily_reports'), { ...totals, totalPedidos: items.length, reportDate, userId: user.uid, createdAt: new Date().toISOString() });
     } catch (e) { console.error(e); }
@@ -806,209 +713,76 @@ export default function ReportsPage() {
   const handleUpsertArchivedItem = async (rawInput: string, currentItem?: Item | null) => {
     if (!firestore || !user?.uid || !editArchivedDate) return;
     setIsProcessingEdit(true);
-    
     const [h, m] = editArchivedTime.split(':').map(Number);
     const finalDate = new Date(editArchivedDate);
-    if (currentItem?.timestamp) { 
-        const orig = currentItem.timestamp.toDate ? currentItem.timestamp.toDate() : new Date(currentItem.timestamp); 
-        finalDate.setHours(h, m, orig.getSeconds(), orig.getMilliseconds()); 
-    } else {
-        finalDate.setHours(h, m, 0, 0);
-    }
+    if (currentItem?.timestamp) { const orig = currentItem.timestamp.toDate ? currentItem.timestamp.toDate() : new Date(currentItem.timestamp); finalDate.setHours(h, m, orig.getSeconds(), orig.getMilliseconds()); }
+    else { finalDate.setHours(h, m, 0, 0); }
     const newDateStr = format(finalDate, 'yyyy-MM-dd');
-
     try {
-        let mainInput = rawInput.trim();
-        if (!mainInput) {
-            setIsProcessingEdit(false);
-            return;
-        }
-
-        let group: Group = 'Vendas salão';
-        let deliveryFeeApplicable = false;
-        let isTaxExempt = false;
-        let originalGroup: Group | null = null;
-        let customerName: string | undefined = undefined;
-
+        let mainInput = rawInput.trim(); if (!mainInput) { setIsProcessingEdit(false); return; }
+        let group: Group = 'Vendas salão'; let deliveryFeeApplicable = false; let isTaxExempt = false; let customerName: string | undefined = undefined;
         const partsWithExemption = mainInput.split(' ').filter((part) => part.trim() !== '');
-        if (partsWithExemption.map((p) => p.toUpperCase()).includes('E')) {
-            isTaxExempt = true;
-            mainInput = partsWithExemption.filter((p) => p.toUpperCase() !== 'E').join(' ');
-        }
-
+        if (partsWithExemption.map((p) => p.toUpperCase()).includes('E')) { isTaxExempt = true; mainInput = partsWithExemption.filter((p) => p.toUpperCase() !== 'E').join(' '); }
         const upperCaseProcessedInput = mainInput.toUpperCase();
-        if (upperCaseProcessedInput.startsWith('R ')) {
-            group = 'Vendas rua';
-            originalGroup = group;
-            deliveryFeeApplicable = true;
-            mainInput = mainInput.substring(2).trim();
-        } else if (upperCaseProcessedInput.startsWith('FR ')) {
-            group = 'Fiados rua';
-            originalGroup = group;
-            deliveryFeeApplicable = true;
-            mainInput = mainInput.substring(3).trim();
-        } else if (upperCaseProcessedInput.startsWith('F ')) {
-            group = 'Fiados salão';
-            originalGroup = group;
-            mainInput = mainInput.substring(2).trim();
-        }
-
+        if (upperCaseProcessedInput.startsWith('R ')) { group = 'Vendas rua'; deliveryFeeApplicable = true; mainInput = mainInput.substring(2).trim(); }
+        else if (upperCaseProcessedInput.startsWith('FR ')) { group = 'Fiados rua'; deliveryFeeApplicable = true; mainInput = mainInput.substring(3).trim(); }
+        else if (upperCaseProcessedInput.startsWith('F ')) { group = 'Fiados salão'; mainInput = mainInput.substring(2).trim(); }
         let parts = mainInput.split(' ').filter((part) => part.trim() !== '');
         let consumedParts = new Array(parts.length).fill(false);
-        
-        let totalQuantity = 0;
-        let totalPrice = 0;
-        let individualPrices: number[] = [];
-        let predefinedItems: PredefinedItem[] = [];
-        let processedBomboniereItems: SelectedBomboniereItem[] = [];
-        let customDeliveryFee: number | null = null;
-        let addFeeToTotal = true;
-
+        let totalQuantity = 0; let totalPrice = 0; let individualPrices: number[] = []; let predefinedItems: PredefinedItem[] = []; let processedBomboniereItems: SelectedBomboniereItem[] = []; let customDeliveryFee: number | null = null; let addFeeToTotal = true;
         for (let i = 0; i < parts.length; i++) {
-            if (consumedParts[i]) continue;
-            let bestMatch = null;
-            let bestMatchEndIndex = -1;
-            for (let j = parts.length; j > i; j--) {
-                const potentialName = parts.slice(i, j).join(' ').toLowerCase();
-                if (bomboniereItemsByName[potentialName]) {
-                    bestMatch = bomboniereItemsByName[potentialName];
-                    bestMatchEndIndex = j;
-                    break;
-                }
-            }
+            if (consumedParts[i]) continue; let bestMatch = null; let bestMatchEndIndex = -1;
+            for (let j = parts.length; j > i; j--) { const potentialName = parts.slice(i, j).join(' ').toLowerCase(); if (bomboniereItemsByName[potentialName]) { bestMatch = bomboniereItemsByName[potentialName]; bestMatchEndIndex = j; break; } }
             if (bestMatch) {
-                let bomboniereQty = 1;
-                if (i > 0 && !consumedParts[i - 1] && isNumeric(parts[i - 1])) {
-                    bomboniereQty = parseInt(parts[i - 1], 10);
-                    consumedParts[i - 1] = true;
-                }
-                let priceToUse = bestMatch.price;
-                if (bestMatchEndIndex < parts.length && !consumedParts[bestMatchEndIndex] && isNumeric(parts[bestMatchEndIndex])) {
-                    priceToUse = parseFloat(parts[bestMatchEndIndex].replace(',', '.'));
-                    consumedParts[bestMatchEndIndex] = true;
-                }
-                processedBomboniereItems.push({ id: bestMatch.id, name: bestMatch.name, quantity: bomboniereQty, price: priceToUse });
-                totalPrice += priceToUse * bomboniereQty;
-                totalQuantity += bomboniereQty;
-                for (let k = i; k < bestMatchEndIndex; k++) consumedParts[k] = true;
-                i = bestMatchEndIndex - 1;
+                let bomboniereQty = 1; if (i > 0 && !consumedParts[i - 1] && isNumeric(parts[i - 1])) { bomboniereQty = parseInt(parts[i - 1], 10); consumedParts[i - 1] = true; }
+                let priceToUse = bestMatch.price; if (bestMatchEndIndex < parts.length && !consumedParts[bestMatchEndIndex] && isNumeric(parts[bestMatchEndIndex])) { priceToUse = parseFloat(parts[bestMatchEndIndex].replace(',', '.')); consumedParts[bestMatchEndIndex] = true; }
+                processedBomboniereItems.push({ id: bestMatch.id, name: bestMatch.name, quantity: bomboniereQty, price: priceToUse }); totalPrice += priceToUse * bomboniereQty; totalQuantity += bomboniereQty;
+                for (let k = i; k < bestMatchEndIndex; k++) consumedParts[k] = true; i = bestMatchEndIndex - 1;
             }
         }
-
         for (let i = 0; i < parts.length; i++) {
-            if (consumedParts[i]) continue;
-            const part = parts[i];
+            if (consumedParts[i]) continue; const part = parts[i];
             if (part.toUpperCase() === 'KG') {
-                consumedParts[i] = true;
-                let nextIndex = i + 1;
-                while(nextIndex < parts.length && !consumedParts[nextIndex] && isNumeric(parts[nextIndex])) {
-                    const price = parseFloat(parts[nextIndex].replace(',', '.'));
-                    individualPrices.push(price);
-                    totalPrice += price;
-                    totalQuantity++;
-                    consumedParts[nextIndex] = true;
-                    nextIndex++;
-                }
+                consumedParts[i] = true; let nextIndex = i + 1;
+                while(nextIndex < parts.length && !consumedParts[nextIndex] && isNumeric(parts[nextIndex])) { const price = parseFloat(parts[nextIndex].replace(',', '.')); individualPrices.push(price); totalPrice += price; totalQuantity++; consumedParts[nextIndex] = true; nextIndex++; }
                 i = nextIndex - 1; continue;
             }
             if (part.toUpperCase() === 'TX') {
-                if (i + 1 < parts.length && !consumedParts[i+1]) {
-                    let feePart = parts[i + 1];
-                    if (feePart.toLowerCase().startsWith('d')) { addFeeToTotal = false; feePart = feePart.substring(1); }
-                    if (isNumeric(feePart)) {
-                        customDeliveryFee = parseFloat(feePart.replace(',', '.'));
-                        consumedParts[i] = true; consumedParts[i+1] = true; i++;
-                    }
-                }
+                if (i + 1 < parts.length && !consumedParts[i+1]) { let feePart = parts[i + 1]; if (feePart.toLowerCase().startsWith('d')) { addFeeToTotal = false; feePart = feePart.substring(1); } if (isNumeric(feePart)) { customDeliveryFee = parseFloat(feePart.replace(',', '.')); consumedParts[i] = true; consumedParts[i+1] = true; i++; } }
                 continue;
             }
-            let qty = 1; let itemNamePart = part;
-            const qtyMatch = part.match(/^(\d+)([a-zA-Z\s]+)/);
+            let qty = 1; let itemNamePart = part; const qtyMatch = part.match(/^(\d+)([a-zA-Z\s]+)/);
             if (qtyMatch) { qty = parseInt(qtyMatch[1], 10); itemNamePart = qtyMatch[2]; }
             const isPredefined = predefinedPrices[itemNamePart.toUpperCase()];
             if (isPredefined) {
-                consumedParts[i] = true; let priceToUse = isPredefined;
-                if (i + 1 < parts.length && !consumedParts[i + 1] && isNumeric(parts[i + 1])) {
-                    priceToUse = parseFloat(parts[i + 1].replace(',', '.'));
-                    consumedParts[i + 1] = true; i++;
-                }
+                consumedParts[i] = true; let priceToUse = isPredefined; if (i + 1 < parts.length && !consumedParts[i + 1] && isNumeric(parts[i + 1])) { priceToUse = parseFloat(parts[i + 1].replace(',', '.')); consumedParts[i + 1] = true; i++; }
                 for (let j = 0; j < qty; j++) { predefinedItems.push({ name: itemNamePart.toUpperCase(), price: priceToUse }); totalPrice += priceToUse; }
                 totalQuantity += qty; continue;
             }
         }
-
         const potentialCustomerNameParts = parts.filter((_, index) => !consumedParts[index]);
-        if (!customerName && potentialCustomerNameParts.length > 0) {
-            customerName = potentialCustomerNameParts.join(' ');
-        }
-
+        if (!customerName && potentialCustomerNameParts.length > 0) customerName = potentialCustomerNameParts.join(' ');
         const finalDeliveryFee = isTaxExempt ? 0 : customDeliveryFee !== null ? customDeliveryFee : deliveryFeeApplicable ? deliveryFee : 0;
         const total = addFeeToTotal ? (totalPrice + finalDeliveryFee) : totalPrice;
-
-        let consolidatedName: string;
-        const nameParts = [];
-        if (predefinedItems.length > 0) nameParts.push(predefinedItems.map((p) => p.name).join(' '));
-        if (individualPrices.length > 0) nameParts.push('KG');
-        if (processedBomboniereItems.length > 0) nameParts.push(processedBomboniereItems.map((item) => `${item.quantity > 1 ? item.quantity : ''}${item.name}`).join(' '));
+        let consolidatedName: string; const nameParts = []; if (predefinedItems.length > 0) nameParts.push(predefinedItems.map((p) => p.name).join(' ')); if (individualPrices.length > 0) nameParts.push('KG'); if (processedBomboniereItems.length > 0) nameParts.push(processedBomboniereItems.map((item) => `${item.quantity > 1 ? item.quantity : ''}${item.name}`).join(' '));
         consolidatedName = nameParts.join(' + ') || 'Lançamento';
-
-        const finalItem: Omit<Item, 'id'> = {
-            userId: user.uid,
-            name: consolidatedName,
-            quantity: totalQuantity || 1,
-            price: totalPrice,
-            group,
-            timestamp: Timestamp.fromDate(finalDate),
-            deliveryFee: finalDeliveryFee,
-            total,
-            originalCommand: rawInput,
-            reportado: true,
-            reportDate: newDateStr,
-            ...(customerName && { customerName }),
-            ...(individualPrices.length > 0 ? { individualPrices } : {}),
-            ...(predefinedItems.length > 0 ? { predefinedItems } : {}),
-            ...(processedBomboniereItems.length > 0 ? { bomboniereItems: processedBomboniereItems } : {}),
-        };
-
+        const finalItem: Omit<Item, 'id'> = { userId: user.uid, name: consolidatedName, quantity: totalQuantity || 1, price: totalPrice, group, timestamp: Timestamp.fromDate(finalDate), deliveryFee: finalDeliveryFee, total, originalCommand: rawInput, reportado: true, reportDate: newDateStr, ...(customerName && { customerName }), ...(individualPrices.length > 0 ? { individualPrices } : {}), ...(predefinedItems.length > 0 ? { predefinedItems } : {}), ...(processedBomboniereItems.length > 0 ? { bomboniereItems: processedBomboniereItems } : {}), };
         const batch = writeBatch(firestore);
-        if (currentItem) {
-            batch.set(doc(firestore, 'order_items', currentItem.id), finalItem);
-        } else {
-            batch.set(doc(collection(firestore, 'order_items')), finalItem);
-        }
-        await batch.commit();
-        
-        await recalculateReport(newDateStr);
-        if (currentItem?.reportDate && currentItem.reportDate !== newDateStr) {
-            await recalculateReport(currentItem.reportDate);
-        }
-        
-        toast({ title: 'Atualizado com sucesso' });
-        setArchivedItemToEdit(null);
-        setActiveReportDateForAdd(null);
-    } catch (e) { 
-        console.error(e); 
-        toast({ variant: 'destructive', title: 'Erro ao salvar' });
-    } finally { 
-        setIsProcessingEdit(false); 
-    }
+        if (currentItem) batch.set(doc(firestore, 'order_items', currentItem.id), finalItem);
+        else batch.set(doc(collection(firestore, 'order_items')), finalItem);
+        await batch.commit(); await recalculateReport(newDateStr); if (currentItem?.reportDate && currentItem.reportDate !== newDateStr) await recalculateReport(currentItem.reportDate);
+        toast({ title: 'Atualizado com sucesso' }); setArchivedItemToEdit(null); setActiveReportDateForAdd(null);
+    } catch (e) { console.error(e); toast({ variant: 'destructive', title: 'Erro ao salvar' }); } finally { setIsProcessingEdit(false); }
   };
 
   const confirmEditDate = async () => {
     if (!firestore || !reportToEditDate || !newReportDate) return;
-    setIsUpdatingDate(true);
-    const oldD = reportToEditDate.reportDate; const newD = format(newReportDate, 'yyyy-MM-dd');
+    setIsUpdatingDate(true); const oldD = reportToEditDate.reportDate; const newD = format(newReportDate, 'yyyy-MM-dd');
     try {
-        const batch = writeBatch(firestore);
-        batch.update(doc(firestore, "daily_reports", reportToEditDate.id!), { reportDate: newD });
+        const batch = writeBatch(firestore); batch.update(doc(firestore, "daily_reports", reportToEditDate.id!), { reportDate: newD });
         const snapshot = await getDocs(query(collection(firestore, 'order_items'), where('reportDate', '==', oldD)));
-        snapshot.forEach(d => {
-            const data = d.data() as Item; const orig = data.timestamp?.toDate ? data.timestamp.toDate() : new Date(data.timestamp);
-            const upd = new Date(newReportDate); upd.setHours(orig.getHours(), orig.getMinutes(), orig.getSeconds(), orig.getMilliseconds());
-            batch.update(d.ref, { reportDate: newD, timestamp: Timestamp.fromDate(upd) });
-        });
-        await batch.commit();
-        toast({ title: "Data alterada e pedidos sincronizados." });
+        snapshot.forEach(d => { const data = d.data() as Item; const orig = data.timestamp?.toDate ? data.timestamp.toDate() : new Date(data.timestamp); const upd = new Date(newReportDate); upd.setHours(orig.getHours(), orig.getMinutes(), orig.getSeconds(), orig.getMilliseconds()); batch.update(d.ref, { reportDate: newD, timestamp: Timestamp.fromDate(upd) }); });
+        await batch.commit(); toast({ title: "Data alterada e pedidos sincronizados." });
     } catch (e) { console.error(e); } finally { setIsUpdatingDate(false); setReportToEditDate(null); }
   };
 
@@ -1022,8 +796,7 @@ export default function ReportsPage() {
         <AlertDialogContent>
             <AlertDialogHeader><AlertDialogTitle>Excluir Relatório?</AlertDialogTitle><AlertDialogDescription>Os itens voltarão para o dia de hoje na tela inicial.</AlertDialogDescription></AlertDialogHeader>
             <AlertDialogFooter><AlertDialogCancel>Cancelar</AlertDialogCancel><AlertDialogAction onClick={async () => {
-                if(!firestore || !reportToDelete) return;
-                const batch = writeBatch(firestore); const snapshot = await getDocs(query(collection(firestore, 'order_items'), where('reportDate', '==', reportToDelete.reportDate)));
+                if(!firestore || !reportToDelete) return; const batch = writeBatch(firestore); const snapshot = await getDocs(query(collection(firestore, 'order_items'), where('reportDate', '==', reportToDelete.reportDate)));
                 snapshot.forEach(d => { batch.set(doc(collection(firestore, 'live_items'), d.id), { ...d.data(), reportado: false }); batch.delete(d.ref); });
                 batch.delete(doc(firestore, "daily_reports", reportToDelete.id!)); await batch.commit(); setReportToDelete(null);
             }}>Confirmar</AlertDialogAction></AlertDialogFooter>
@@ -1044,79 +817,37 @@ export default function ReportsPage() {
         <DialogContent className="max-w-md" onInteractOutside={(e) => e.preventDefault()}>
             <DialogHeader><DialogTitle>{archivedItemToEdit ? 'Editar' : 'Novo'} Lançamento</DialogTitle></DialogHeader>
             <div className="py-4 space-y-6">
-                <div className="space-y-3">
-                    <Label className="flex items-center gap-2 text-primary"><ListOrdered className="h-4 w-4"/> Comando do Pedido</Label>
-                    <div className="flex gap-2">
-                        <Input value={editArchivedInput} onChange={(e) => setEditArchivedInput(e.target.value)} className="h-12 text-lg font-medium" placeholder="Ex: M P coca-lata" />
-                        <Button variant="outline" onClick={() => setIsBomboniereModalOpen(true)} className="h-12 shrink-0">
-                            <Plus className="h-4 w-4 mr-2"/>Outros
-                        </Button>
-                    </div>
-                    <p className="text-[0.65rem] text-muted-foreground italic">Use as siglas (M, P, G) e nomes da bomboniere.</p>
-                </div>
-                
+                <div className="space-y-3"><Label className="flex items-center gap-2 text-primary"><ListOrdered className="h-4 w-4"/> Comando do Pedido</Label><div className="flex gap-2"><Input value={editArchivedInput} onChange={(e) => setEditArchivedInput(e.target.value)} className="h-12 text-lg font-medium" placeholder="Ex: M P coca-lata" /><Button variant="outline" onClick={() => setIsBomboniereModalOpen(true)} className="h-12 shrink-0"><Plus className="h-4 w-4 mr-2"/>Outros</Button></div></div>
                 <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
-                    <div className="space-y-3">
-                        <Label className="flex items-center gap-2 text-primary"><CalendarIcon className="h-4 w-4"/> Data</Label>
-                        <DatePicker date={editArchivedDate} setDate={setEditArchivedDate} />
-                    </div>
-                    <div className="space-y-3">
-                        <Label className="flex items-center gap-2 text-primary"><Clock className="h-4 w-4"/> Hora do Pedido</Label>
-                        <Input type="time" value={editArchivedTime} onChange={(e) => setEditArchivedTime(e.target.value)} className="h-10 text-lg" />
-                    </div>
+                    <div className="space-y-3"><Label className="flex items-center gap-2 text-primary"><CalendarIcon className="h-4 w-4"/> Data</Label><DatePicker date={editArchivedDate} setDate={setEditArchivedDate} /></div>
+                    <div className="space-y-3"><Label className="flex items-center gap-2 text-primary"><Clock className="h-4 w-4"/> Hora</Label><Input type="time" value={editArchivedTime} onChange={(e) => setEditArchivedTime(e.target.value)} className="h-10 text-lg" /></div>
                 </div>
             </div>
-            <DialogFooter className="flex gap-2 sm:gap-0">
-                <Button variant="outline" onClick={() => { setArchivedItemToEdit(null); setActiveReportDateForAdd(null); }}>Cancelar</Button>
-                <Button onClick={() => handleUpsertArchivedItem(editArchivedInput, archivedItemToEdit)} disabled={isProcessingEdit || !editArchivedInput.trim()} className="bg-primary hover:bg-primary/90">
-                    {isProcessingEdit ? <Loader2 className="animate-spin mr-2"/> : <Save className="mr-2 h-4 w-4 mr-2"/>}
-                    Salvar Alterações
-                </Button>
-            </DialogFooter>
+            <DialogFooter className="flex gap-2 sm:gap-0"><Button variant="outline" onClick={() => { setArchivedItemToEdit(null); setActiveReportDateForAdd(null); }}>Cancelar</Button><Button onClick={() => handleUpsertArchivedItem(editArchivedInput, archivedItemToEdit)} disabled={isProcessingEdit || !editArchivedInput.trim()} className="bg-primary hover:bg-primary/90">{isProcessingEdit ? <Loader2 className="animate-spin mr-2"/> : <Save className="mr-2 h-4 w-4 mr-2"/>} Salvar</Button></DialogFooter>
         </DialogContent>
       </Dialog>
 
       <Dialog open={!!reportToEditDate} onOpenChange={(open) => !open && setReportToEditDate(null)}>
         <DialogContent onInteractOutside={(e) => e.preventDefault()}>
             <DialogHeader><DialogTitle>Alterar Data do Relatório</DialogTitle></DialogHeader>
-            <div className="py-4 flex flex-col items-center bg-muted/30 rounded-md">
-                <DatePicker date={newReportDate} setDate={setNewReportDate} />
-            </div>
+            <div className="py-4 flex flex-col items-center bg-muted/30 rounded-md"><DatePicker date={newReportDate} setDate={setNewReportDate} /></div>
             <DialogFooter><Button variant="outline" onClick={() => setReportToEditDate(null)}>Cancelar</Button><Button onClick={confirmEditDate} disabled={isUpdatingDate}>{isUpdatingDate && <Loader2 className="animate-spin mr-2"/>}Confirmar</Button></DialogFooter>
         </DialogContent>
       </Dialog>
 
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
-          <Card className="bg-primary/10 border-primary/20">
-              <CardHeader className="p-4 pb-2"><CardTitle className="text-xs uppercase text-muted-foreground flex items-center gap-2"><CalendarCheck className="h-3 w-3"/>Hoje</CardTitle></CardHeader>
-              <CardContent className="p-4 pt-0"><p className="text-2xl font-bold">{formatCurrency(dashboardStats.today)}</p></CardContent>
-          </Card>
-          <Card>
-              <CardHeader className="p-4 pb-2"><CardTitle className="text-xs uppercase text-muted-foreground flex items-center gap-2"><BarChart3 className="h-3 w-3"/>Semana</CardTitle></CardHeader>
-              <CardContent className="p-4 pt-0"><p className="text-2xl font-bold">{formatCurrency(dashboardStats.week)}</p></CardContent>
-          </Card>
-          <Card>
-              <CardHeader className="p-4 pb-2"><CardTitle className="text-xs uppercase text-muted-foreground flex items-center gap-2"><TrendingUp className="h-3 w-3"/>Mês</CardTitle></CardHeader>
-              <CardContent className="p-4 pt-0"><p className="text-2xl font-bold text-primary">{formatCurrency(dashboardStats.month)}</p></CardContent>
-          </Card>
-          <Card>
-              <CardHeader className="p-4 pb-2"><CardTitle className="text-xs uppercase text-muted-foreground flex items-center gap-2"><History className="h-3 w-3"/>Ano</CardTitle></CardHeader>
-              <CardContent className="p-4 pt-0"><p className="text-2xl font-bold">{formatCurrency(dashboardStats.year)}</p></CardContent>
-          </Card>
+          <Card className="bg-primary/10 border-primary/20"><CardHeader className="p-4 pb-2"><CardTitle className="text-xs uppercase text-muted-foreground flex items-center gap-2"><CalendarCheck className="h-3 w-3"/>Hoje</CardTitle></CardHeader><CardContent className="p-4 pt-0"><p className="text-2xl font-bold">{formatCurrency(dashboardStats.today)}</p></CardContent></Card>
+          <Card><CardHeader className="p-4 pb-2"><CardTitle className="text-xs uppercase text-muted-foreground flex items-center gap-2"><BarChart3 className="h-3 w-3"/>Semana</CardTitle></CardHeader><CardContent className="p-4 pt-0"><p className="text-2xl font-bold">{formatCurrency(dashboardStats.week)}</p></CardContent></Card>
+          <Card><CardHeader className="p-4 pb-2"><CardTitle className="text-xs uppercase text-muted-foreground flex items-center gap-2"><TrendingUp className="h-3 w-3"/>Mês</CardTitle></CardHeader><CardContent className="p-4 pt-0"><p className="text-2xl font-bold text-primary">{formatCurrency(dashboardStats.month)}</p></CardContent></Card>
+          <Card><CardHeader className="p-4 pb-2"><CardTitle className="text-xs uppercase text-muted-foreground flex items-center gap-2"><History className="h-3 w-3"/>Ano</CardTitle></CardHeader><CardContent className="p-4 pt-0"><p className="text-2xl font-bold">{formatCurrency(dashboardStats.year)}</p></CardContent></Card>
       </div>
 
       <Card className="mb-8">
           <CardHeader className="pb-4"><CardTitle className="text-lg flex items-center gap-2"><CalendarIcon className="h-5 w-5 text-primary"/>Período de Referência</CardTitle></CardHeader>
           <CardContent className="flex flex-wrap items-center gap-4">
               <div className="flex items-center gap-2">
-                  <Select value={String(globalDate.getMonth())} onValueChange={(v) => setGlobalDate(setMonth(new Date(globalDate), parseInt(v)))}>
-                      <SelectTrigger className="w-[140px]"><SelectValue /></SelectTrigger>
-                      <SelectContent>{Array.from({length: 12}, (_, i) => <SelectItem key={i} value={String(i)}>{format(new Date(2000, i), 'MMMM', { locale: ptBR })}</SelectItem>)}</SelectContent>
-                  </Select>
-                  <Select value={String(globalDate.getFullYear())} onValueChange={(v) => setGlobalDate(setYear(new Date(globalDate), parseInt(v)))}>
-                      <SelectTrigger className="w-[100px]"><SelectValue /></SelectTrigger>
-                      <SelectContent>{[2024, 2025].map(y => <SelectItem key={y} value={String(y)}>{y}</SelectItem>)}</SelectContent>
-                  </Select>
+                  <Select value={String(globalDate.getMonth())} onValueChange={(v) => setGlobalDate(setMonth(new Date(globalDate), parseInt(v)))}><SelectTrigger className="w-[140px]"><SelectValue /></SelectTrigger><SelectContent>{Array.from({length: 12}, (_, i) => <SelectItem key={i} value={String(i)}>{format(new Date(2000, i), 'MMMM', { locale: ptBR })}</SelectItem>)}</SelectContent></Select>
+                  <Select value={String(globalDate.getFullYear())} onValueChange={(v) => setGlobalDate(setYear(new Date(globalDate), parseInt(v)))}><SelectTrigger className="w-[100px]"><SelectValue /></SelectTrigger><SelectContent>{[2024, 2025].map(y => <SelectItem key={y} value={String(y)}>{y}</SelectItem>)}</SelectContent></Select>
               </div>
               <p className="text-sm text-muted-foreground capitalize">{safeFormat(globalDate, 'MMMM yyyy', { locale: ptBR })}</p>
           </CardContent>
@@ -1124,7 +855,6 @@ export default function ReportsPage() {
       
       <main className="space-y-6">
         <Accordion type="multiple" className="w-full space-y-4">
-            
             <AccordionItem value="ai-insight">
                 <Card className="border-primary/30 bg-primary/5">
                     <AccordionTrigger className="text-lg p-6 hover:no-underline"><div className="flex items-center gap-3"><Sparkles className="h-6 w-6 text-primary animate-pulse"/><span>Consultoria de Gestão (IA)</span></div></AccordionTrigger>
@@ -1132,218 +862,41 @@ export default function ReportsPage() {
                         <div className="space-y-6">
                             {!aiReport && !isGeneratingAI && (
                                 <div className="text-center py-10 space-y-6">
-                                    <div className="bg-primary/10 w-16 h-16 rounded-full flex items-center justify-center mx-auto">
-                                        <Zap className="h-8 w-8 text-primary" />
-                                    </div>
-                                    <div className="max-w-md mx-auto space-y-2">
-                                        <h3 className="font-bold text-lg">Pronto para analisar o seu negócio?</h3>
-                                        <p className="text-sm text-muted-foreground">A nossa IA unifica itens similares (ex: Filés e Marmitas) para lhe dar uma visão real das vendas e compras.</p>
-                                    </div>
-                                    
-                                    <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
-                                        <div className="flex flex-col items-start gap-1">
-                                            <Label className="text-xs text-muted-foreground ml-1">Tipo de Análise</Label>
-                                            <Select value={aiScope} onValueChange={(v: any) => setAiScope(v)}>
-                                                <SelectTrigger className="w-40 h-10">
-                                                    <SelectValue />
-                                                </SelectTrigger>
-                                                <SelectContent>
-                                                    <SelectItem value="week">Semanal</SelectItem>
-                                                    <SelectItem value="month">Mensal</SelectItem>
-                                                    <SelectItem value="year">Anual</SelectItem>
-                                                </SelectContent>
-                                            </Select>
-                                        </div>
-                                        <button onClick={handleGenerateAIReport} className="inline-flex items-center justify-center rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 bg-primary text-primary-foreground hover:bg-primary/90 h-10 px-4 py-2 mt-5 sm:mt-5">
-                                            <Sparkles className="mr-2 h-4 w-4" />
-                                            Gerar Relatório Estratégico
-                                        </button>
-                                    </div>
+                                    <div className="bg-primary/10 w-16 h-16 rounded-full flex items-center justify-center mx-auto"><Zap className="h-8 w-8 text-primary" /></div>
+                                    <div className="max-w-md mx-auto space-y-2"><h3 className="font-bold text-lg">Pronto para o "Maxi Mode"?</h3><p className="text-sm text-muted-foreground">Analise vendas, compras, funcionários e finanças com unificação inteligente de itens similares.</p></div>
+                                    <div className="flex flex-col sm:flex-row items-center justify-center gap-4"><div className="flex flex-col items-start gap-1"><Label className="text-xs text-muted-foreground ml-1">Análise</Label><Select value={aiScope} onValueChange={(v: any) => setAiScope(v)}><SelectTrigger className="w-40 h-10"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="week">Semanal</SelectItem><SelectItem value="month">Mensal</SelectItem><SelectItem value="year">Anual</SelectItem></SelectContent></Select></div><button onClick={handleGenerateAIReport} className="inline-flex items-center justify-center rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 bg-primary text-primary-foreground hover:bg-primary/90 h-10 px-4 py-2 mt-5 sm:mt-5"><Sparkles className="mr-2 h-4 w-4" />Gerar Relatório Estratégico</button></div>
                                 </div>
                             )}
-
                             {isGeneratingAI && (
-                                <div className="text-center py-20 space-y-6">
-                                    <Loader2 className="h-12 w-12 animate-spin text-primary mx-auto" />
-                                    <div className="space-y-2">
-                                        <p className="font-medium animate-pulse">A Mirinha IA está a unificar os itens e ler os romaneios...</p>
-                                        <p className="text-xs text-muted-foreground">Analizando o período {aiScope === 'week' ? 'semanal' : aiScope === 'month' ? 'mensal' : 'anual'}.</p>
-                                    </div>
-                                </div>
+                                <div className="text-center py-20 space-y-6"><Loader2 className="h-12 w-12 animate-spin text-primary mx-auto" /><div className="space-y-2"><p className="font-medium animate-pulse">A Mirinha IA está a cruzar todos os dados...</p><p className="text-xs text-muted-foreground">Consolidando vendas, romaneios e pessoal ({aiScope}).</p></div></div>
                             )}
-
                             {aiReport && (
                                 <div className="animate-in fade-in slide-in-from-bottom-4 duration-700 space-y-8">
                                     <div className="flex flex-col md:flex-row gap-6 items-start">
-                                        <div className="flex-1 space-y-4">
-                                            <div className="flex items-center gap-2 text-primary font-black uppercase text-xs tracking-widest">
-                                                <TrendingUp className="h-4 w-4" /> Resumo Estratégico
-                                            </div>
-                                            <p className="text-sm leading-relaxed text-foreground/90 italic border-l-4 border-primary/20 pl-4 py-1">
-                                                "{aiReport.summary}"
-                                            </p>
-                                        </div>
-                                        <Card className="w-full md:w-64 bg-background">
-                                            <CardHeader className="p-4 pb-2 text-center"><CardTitle className="text-xs uppercase text-muted-foreground">Eficiência do Período</CardTitle></CardHeader>
-                                            <CardContent className="p-4 pt-0 text-center">
-                                                <div className="text-4xl font-black text-primary mb-2">{aiReport.efficiencyScore}%</div>
-                                                <Progress value={aiReport.efficiencyScore} className="h-2" />
-                                            </CardContent>
-                                        </Card>
+                                        <div className="flex-1 space-y-4"><div className="flex items-center gap-2 text-primary font-black uppercase text-xs tracking-widest"><TrendingUp className="h-4 w-4" /> Resumo Estratégico</div><p className="text-sm leading-relaxed text-foreground/90 italic border-l-4 border-primary/20 pl-4 py-1">"{aiReport.summary}"</p></div>
+                                        <Card className="w-full md:w-64 bg-background"><CardHeader className="p-4 pb-2 text-center"><CardTitle className="text-xs uppercase text-muted-foreground">Eficiência</CardTitle></CardHeader><CardContent className="p-4 pt-0 text-center"><div className="text-4xl font-black text-primary mb-2">{aiReport.efficiencyScore}%</div><Progress value={aiReport.efficiencyScore} className="h-2" /></CardContent></Card>
                                     </div>
-
                                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                        <div className="space-y-4">
-                                            <h4 className="font-bold flex items-center gap-2 text-sm uppercase text-muted-foreground border-b pb-2"><Trophy className="h-4 w-4 text-yellow-500"/> Top Vendidos (Unificados)</h4>
-                                            <div className="space-y-2">
-                                                {aiReport.topSellingItems.map((item, i) => (
-                                                    <div key={i} className="flex justify-between items-center bg-muted/30 p-2 rounded-md border border-border/50">
-                                                        <div className="flex flex-col">
-                                                            <span className="text-sm font-bold uppercase">{item.name}</span>
-                                                            <span className="text-[0.6rem] text-muted-foreground uppercase font-medium">{item.category}</span>
-                                                        </div>
-                                                        <Badge variant="outline" className="bg-background">{item.count} un.</Badge>
-                                                    </div>
-                                                ))}
-                                            </div>
-                                        </div>
-                                        <div className="space-y-4">
-                                            <h4 className="font-bold flex items-center gap-2 text-sm uppercase text-muted-foreground border-b pb-2"><TrendingDown className="h-4 w-4 text-destructive"/> Maiores Custos</h4>
-                                            <div className="space-y-2">
-                                                {aiReport.mainExpenses.map((item, i) => (
-                                                    <div key={i} className="flex justify-between items-center bg-muted/30 p-2 rounded-md border border-border/50">
-                                                        <span className="text-sm font-bold uppercase truncate pr-4">{item.name}</span>
-                                                        <span className="text-sm font-mono font-black text-destructive">{formatCurrency(item.totalValue)}</span>
-                                                    </div>
-                                                ))}
-                                            </div>
-                                        </div>
+                                        <div className="space-y-4"><h4 className="font-bold flex items-center gap-2 text-sm uppercase text-muted-foreground border-b pb-2"><Trophy className="h-4 w-4 text-yellow-500"/> Ranking Unificado</h4><div className="space-y-2">{aiReport.topSellingItems.map((item, i) => (<div key={i} className="flex justify-between items-center bg-muted/30 p-2 rounded-md border border-border/50"><div className="flex flex-col"><span className="text-sm font-bold uppercase">{item.name}</span><span className="text-[0.6rem] text-muted-foreground uppercase font-medium">{item.category}</span></div><Badge variant="outline" className="bg-background">{item.count} un.</Badge></div>))}</div></div>
+                                        <div className="space-y-4"><h4 className="font-bold flex items-center gap-2 text-sm uppercase text-muted-foreground border-b pb-2"><TrendingDown className="h-4 w-4 text-destructive"/> Maiores Gastos</h4><div className="space-y-2">{aiReport.mainExpenses.map((item, i) => (<div key={i} className="flex justify-between items-center bg-muted/30 p-2 rounded-md border border-border/50"><span className="text-sm font-bold uppercase truncate pr-4">{item.name}</span><span className="text-sm font-mono font-black text-destructive">{formatCurrency(item.totalValue)}</span></div>))}</div></div>
                                     </div>
-
-                                    <div className="bg-primary/10 p-6 rounded-lg border border-primary/20 space-y-4">
-                                        <h4 className="font-black flex items-center gap-2 text-sm uppercase text-primary tracking-tighter"><AlertCircle className="h-5 w-5"/> Plano de Ação da Mirinha</h4>
-                                        <p className="text-sm whitespace-pre-wrap text-foreground/80 leading-relaxed font-medium">
-                                            {aiReport.strategicAdvice}
-                                        </p>
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                        <div className="bg-blue-500/5 p-4 rounded-lg border border-blue-500/20"><h4 className="font-bold flex items-center gap-2 text-xs uppercase text-blue-400 mb-2"><UsersIcon className="h-4 w-4"/> Análise de Pessoal</h4><p className="text-xs leading-relaxed">{aiReport.staffAnalysis}</p></div>
+                                        <div className="bg-green-500/5 p-4 rounded-lg border border-green-500/20"><h4 className="font-bold flex items-center gap-2 text-xs uppercase text-green-400 mb-2"><DollarSign className="h-4 w-4"/> Visão de Lucro</h4><p className="text-xs leading-relaxed">{aiReport.profitabilityInsight}</p></div>
                                     </div>
-
-                                    <div className="flex justify-center gap-4">
-                                        <Button variant="outline" size="sm" onClick={() => setAiReport(null)} className="text-muted-foreground">
-                                            Mudar Período / Limpar
-                                        </Button>
-                                    </div>
+                                    <div className="bg-primary/10 p-6 rounded-lg border border-primary/20 space-y-4"><h4 className="font-black flex items-center gap-2 text-sm uppercase text-primary tracking-tighter"><AlertCircle className="h-5 w-5"/> Plano de Ação</h4><p className="text-sm whitespace-pre-wrap text-foreground/80 leading-relaxed font-medium">{aiReport.strategicAdvice}</p></div>
+                                    <div className="flex justify-center gap-4"><Button variant="outline" size="sm" onClick={() => setAiReport(null)} className="text-muted-foreground">Limpar / Mudar Período</Button></div>
                                 </div>
                             )}
                         </div>
                     </AccordionContent>
                 </Card>
             </AccordionItem>
-
-            <AccordionItem value="diario">
-                <Card>
-                    <AccordionTrigger className="text-lg p-6 hover:no-underline"><div className="flex items-center gap-3"><CalendarDays className="h-6 w-6 text-primary"/><span>Relatórios Diários</span></div></AccordionTrigger>
-                    <AccordionContent className="p-6 pt-0">
-                        {monthlyReports.length > 0 ? (
-                            <Accordion type="single" collapsible className="space-y-2">
-                                {monthlyReports.map(report => (
-                                    <AccordionItem key={report.id} value={report.id!} className="border rounded-md px-4 hover:bg-muted/10">
-                                        <AccordionTrigger className="hover:no-underline py-4">
-                                            <div className="flex items-center justify-between w-full pr-4">
-                                                <div className="flex items-center gap-4">
-                                                    <div className="text-center bg-background border rounded-md p-1 min-w-[50px]"><p className="text-xl font-bold leading-none">{safeFormat(parseISO(report.reportDate), 'dd')}</p><p className="text-[0.5rem] uppercase font-bold text-muted-foreground mt-1">{safeFormat(parseISO(report.reportDate), 'MMM', { locale: ptBR })}</p></div>
-                                                    <div className="text-left"><p className="font-semibold capitalize text-sm">{safeFormat(parseISO(report.reportDate), "EEEE", { locale: ptBR })}</p><p className="text-[0.65rem] text-muted-foreground">{report.totalPedidos} pedidos</p></div>
-                                                </div>
-                                                <p className="text-base font-bold text-primary">{formatCurrency(report.totalGeral)}</p>
-                                            </div>
-                                        </AccordionTrigger>
-                                        <AccordionContent className="pt-2">
-                                            <div className="flex justify-end gap-2 mb-4 px-4"><Button variant="outline" size="sm" onClick={() => { setReportToEditDate(report); setNewReportDate(parseISO(report.reportDate)); }}><CalendarDays className="h-4 w-4 mr-2" /> Alterar Data</Button><Button variant="outline" size="sm" className="text-destructive border-destructive/30" onClick={() => setReportToDelete(report)}><Trash2 className="h-4 w-4 mr-2" /> Excluir</Button></div>
-                                            <ReportDetail report={report} onEditItem={setArchivedItemToEdit} onDeleteItem={setArchivedItemToDelete} onAddItem={(d) => { setActiveReportDateForAdd(d); setEditArchivedDate(parseISO(d)); }} />
-                                        </AccordionContent>
-                                    </AccordionItem>
-                                ))}
-                            </Accordion>
-                        ) : <p className="text-center py-10 text-muted-foreground">Sem relatórios este mês.</p>}
-                    </AccordionContent>
-                </Card>
-            </AccordionItem>
-
-            <AccordionItem value="semanal">
-                <Card>
-                    <AccordionTrigger className="text-lg p-6 hover:no-underline"><div className="flex items-center gap-3"><BarChart3 className="h-6 w-6 text-primary"/><span>Resumo Semanal</span></div></AccordionTrigger>
-                    <AccordionContent className="p-6 pt-0">
-                        {weeklySummaries.length > 0 ? (
-                            <Accordion type="single" collapsible className="space-y-2">
-                                {weeklySummaries.map((s) => (
-                                    <AccordionItem key={s.week} value={String(s.week)} className="border rounded-md px-4 hover:bg-muted/10">
-                                        <AccordionTrigger className="hover:no-underline py-4">
-                                            <div className="flex items-center justify-between w-full pr-4">
-                                                <div className="flex items-center gap-3"><div className="bg-primary/10 text-primary p-2 rounded-md"><BarChart3 className="h-4 w-4" /></div><div className="text-left"><p className="font-bold text-sm">Semana {s.week}</p><p className="text-[0.65rem] text-muted-foreground">{format(s.start, 'dd/MM')} a {format(s.end, 'dd/MM')}</p></div></div>
-                                                <p className="text-base font-bold text-primary">{formatCurrency(s.data.totalGeral)}</p>
-                                            </div>
-                                        </AccordionTrigger>
-                                        <AccordionContent className="pt-2"><SummaryDisplay data={s.data} title={`RESUMO SEMANA ${s.week}`} /></AccordionContent>
-                                    </AccordionItem>
-                                ))}
-                            </Accordion>
-                        ) : <p className="text-center py-10 text-muted-foreground">Sem dados para este período.</p>}
-                    </AccordionContent>
-                </Card>
-            </AccordionItem>
-
-            <AccordionItem value="mensal">
-                <Card>
-                    <AccordionTrigger className="text-lg p-6 hover:no-underline"><div className="flex items-center gap-3"><TrendingUp className="h-6 w-6 text-primary"/><span>Resumo Mensal</span></div></AccordionTrigger>
-                    <AccordionContent className="p-6 pt-0">
-                        {monthlySummaries.length > 0 ? (
-                            <Accordion type="single" collapsible className="space-y-2">
-                                {monthlySummaries.map((s) => (
-                                    <AccordionItem key={s.month} value={String(s.month)} className="border rounded-md px-4 hover:bg-muted/10">
-                                        <AccordionTrigger className="hover:no-underline py-4">
-                                            <div className="flex items-center justify-between w-full pr-4">
-                                                <div className="flex items-center gap-3"><div className="bg-primary/10 text-primary p-2 rounded-md"><TrendingUp className="h-4 w-4" /></div><p className="font-bold text-sm capitalize">{format(new Date(2000, s.month), 'MMMM', { locale: ptBR })}</p></div>
-                                                <p className="text-base font-bold text-primary">{formatCurrency(s.data.totalGeral)}</p>
-                                            </div>
-                                        </AccordionTrigger>
-                                        <AccordionContent className="pt-2"><SummaryDisplay data={s.data} title={`RESUMO MENSAL - ${format(new Date(2000, s.month), 'MMMM', { locale: ptBR })}`} /></AccordionContent>
-                                    </AccordionItem>
-                                ))}
-                            </Accordion>
-                        ) : <p className="text-center py-10 text-muted-foreground">Sem dados para este ano.</p>}
-                    </AccordionContent>
-                </Card>
-            </AccordionItem>
-
-            <AccordionItem value="anual">
-                <Card>
-                    <AccordionTrigger className="text-lg p-6 hover:no-underline"><div className="flex items-center gap-3"><History className="h-6 w-6 text-primary"/><span>Resumo Anual</span></div></AccordionTrigger>
-                    <AccordionContent className="p-6 pt-0">
-                        {annualSummaries.length > 0 ? (
-                            <Accordion type="single" collapsible className="space-y-2">
-                                {annualSummaries.map((s) => (
-                                    <AccordionItem key={s.year} value={String(s.year)} className="border rounded-md px-4 hover:bg-muted/10">
-                                        <AccordionTrigger className="hover:no-underline py-4">
-                                            <div className="flex items-center justify-between w-full pr-4">
-                                                <div className="flex items-center gap-3"><div className="bg-primary/10 text-primary p-2 rounded-md"><History className="h-4 w-4" /></div><p className="font-bold text-sm">{s.year}</p></div>
-                                                <p className="text-base font-bold text-primary">{formatCurrency(s.data.totalGeral)}</p>
-                                            </div>
-                                        </AccordionTrigger>
-                                        <AccordionContent className="pt-2"><SummaryDisplay data={s.data} title={`RESUMO ANUAL - ${s.year}`} /></AccordionContent>
-                                    </AccordionItem>
-                                ))}
-                            </Accordion>
-                        ) : <p className="text-center py-10 text-muted-foreground">Sem dados registados.</p>}
-                    </AccordionContent>
-                </Card>
-            </AccordionItem>
-
-            <AccordionItem value="clientes">
-                <Card>
-                    <AccordionTrigger className="text-lg p-6 hover:no-underline"><div className="flex items-center gap-3"><User className="h-6 w-6 text-primary"/><span>Consumo por Cliente (Mensal)</span></div></AccordionTrigger>
-                    <AccordionContent className="p-6 pt-0"><CustomerReportsSection globalDate={globalDate} onEditItem={setArchivedItemToEdit} onDeleteItem={setArchivedItemToDelete} recalculateFn={recalculateReport}/></AccordionContent>
-                </Card>
-            </AccordionItem>
-
+            <AccordionItem value="diario"><Card><AccordionTrigger className="text-lg p-6 hover:no-underline"><div className="flex items-center gap-3"><CalendarDays className="h-6 w-6 text-primary"/><span>Relatórios Diários</span></div></AccordionTrigger><AccordionContent className="p-6 pt-0">{monthlyReports.length > 0 ? (<Accordion type="single" collapsible className="space-y-2">{monthlyReports.map(report => (<AccordionItem key={report.id} value={report.id!} className="border rounded-md px-4 hover:bg-muted/10"><AccordionTrigger className="hover:no-underline py-4"><div className="flex items-center justify-between w-full pr-4"><div className="flex items-center gap-4"><div className="text-center bg-background border rounded-md p-1 min-w-[50px]"><p className="text-xl font-bold leading-none">{safeFormat(parseISO(report.reportDate), 'dd')}</p><p className="text-[0.5rem] uppercase font-bold text-muted-foreground mt-1">{safeFormat(parseISO(report.reportDate), 'MMM', { locale: ptBR })}</p></div><div className="text-left"><p className="font-semibold capitalize text-sm">{safeFormat(parseISO(report.reportDate), "EEEE", { locale: ptBR })}</p><p className="text-[0.65rem] text-muted-foreground">{report.totalPedidos} pedidos</p></div></div><p className="text-base font-bold text-primary">{formatCurrency(report.totalGeral)}</p></div></AccordionTrigger><AccordionContent className="pt-2"><div className="flex justify-end gap-2 mb-4 px-4"><Button variant="outline" size="sm" onClick={() => { setReportToEditDate(report); setNewReportDate(parseISO(report.reportDate)); }}><CalendarDays className="h-4 w-4 mr-2" /> Alterar Data</Button><Button variant="outline" size="sm" className="text-destructive border-destructive/30" onClick={() => setReportToDelete(report)}><Trash2 className="h-4 w-4 mr-2" /> Excluir</Button></div><ReportDetail report={report} onEditItem={setArchivedItemToEdit} onDeleteItem={setArchivedItemToDelete} onAddItem={(d) => { setActiveReportDateForAdd(d); setEditArchivedDate(parseISO(d)); }} /></AccordionContent></AccordionItem>))}</Accordion>) : <p className="text-center py-10 text-muted-foreground">Sem relatórios este mês.</p>}</AccordionContent></Card></AccordionItem>
+            <AccordionItem value="semanal"><Card><AccordionTrigger className="text-lg p-6 hover:no-underline"><div className="flex items-center gap-3"><BarChart3 className="h-6 w-6 text-primary"/><span>Resumo Semanal</span></div></AccordionTrigger><AccordionContent className="p-6 pt-0">{weeklySummaries.length > 0 ? (<Accordion type="single" collapsible className="space-y-2">{weeklySummaries.map((s) => (<AccordionItem key={s.week} value={String(s.week)} className="border rounded-md px-4 hover:bg-muted/10"><AccordionTrigger className="hover:no-underline py-4"><div className="flex items-center justify-between w-full pr-4"><div className="flex items-center gap-3"><div className="bg-primary/10 text-primary p-2 rounded-md"><BarChart3 className="h-4 w-4" /></div><div className="text-left"><p className="font-bold text-sm">Semana {s.week}</p><p className="text-[0.65rem] text-muted-foreground">{format(s.start, 'dd/MM')} a {format(s.end, 'dd/MM')}</p></div></div><p className="text-base font-bold text-primary">{formatCurrency(s.data.totalGeral)}</p></div></AccordionTrigger><AccordionContent className="pt-2"><SummaryDisplay data={s.data} title={`RESUMO SEMANA ${s.week}`} /></AccordionContent></AccordionItem>))}</Accordion>) : <p className="text-center py-10 text-muted-foreground">Sem dados para este período.</p>}</AccordionContent></Card></AccordionItem>
+            <AccordionItem value="mensal"><Card><AccordionTrigger className="text-lg p-6 hover:no-underline"><div className="flex items-center gap-3"><TrendingUp className="h-6 w-6 text-primary"/><span>Resumo Mensal</span></div></AccordionTrigger><AccordionContent className="p-6 pt-0">{monthlySummaries.length > 0 ? (<Accordion type="single" collapsible className="space-y-2">{monthlySummaries.map((s) => (<AccordionItem key={s.month} value={String(s.month)} className="border rounded-md px-4 hover:bg-muted/10"><AccordionTrigger className="hover:no-underline py-4"><div className="flex items-center justify-between w-full pr-4"><div className="flex items-center gap-3"><div className="bg-primary/10 text-primary p-2 rounded-md"><TrendingUp className="h-4 w-4" /></div><p className="font-bold text-sm capitalize">{format(new Date(2000, s.month), 'MMMM', { locale: ptBR })}</p></div><p className="text-base font-bold text-primary">{formatCurrency(s.data.totalGeral)}</p></div></AccordionTrigger><AccordionContent className="pt-2"><SummaryDisplay data={s.data} title={`RESUMO MENSAL - ${format(new Date(2000, s.month), 'MMMM', { locale: ptBR })}`} /></AccordionContent></AccordionItem>))}</Accordion>) : <p className="text-center py-10 text-muted-foreground">Sem dados para este ano.</p>}</AccordionContent></Card></AccordionItem>
+            <AccordionItem value="anual"><Card><AccordionTrigger className="text-lg p-6 hover:no-underline"><div className="flex items-center gap-3"><History className="h-6 w-6 text-primary"/><span>Resumo Anual</span></div></AccordionTrigger><AccordionContent className="p-6 pt-0">{annualSummaries.length > 0 ? (<Accordion type="single" collapsible className="space-y-2">{annualSummaries.map((s) => (<AccordionItem key={s.year} value={String(s.year)} className="border rounded-md px-4 hover:bg-muted/10"><AccordionTrigger className="hover:no-underline py-4"><div className="flex items-center justify-between w-full pr-4"><div className="flex items-center gap-3"><div className="bg-primary/10 text-primary p-2 rounded-md"><History className="h-4 w-4" /></div><p className="font-bold text-sm">{s.year}</p></div><p className="text-base font-bold text-primary">{formatCurrency(s.data.totalGeral)}</p></div></AccordionTrigger><AccordionContent className="pt-2"><SummaryDisplay data={s.data} title={`RESUMO ANUAL - ${s.year}`} /></AccordionContent></AccordionItem>))}</Accordion>) : <p className="text-center py-10 text-muted-foreground">Sem dados registados.</p>}</AccordionContent></Card></AccordionItem>
+            <AccordionItem value="clientes"><Card><AccordionTrigger className="text-lg p-6 hover:no-underline"><div className="flex items-center gap-3"><User className="h-6 w-6 text-primary"/><span>Consumo por Cliente (IA)</span></div></AccordionTrigger><AccordionContent className="p-6 pt-0"><CustomerReportsSection globalDate={globalDate} onEditItem={setArchivedItemToEdit} onDeleteItem={setArchivedItemToDelete} recalculateFn={recalculateReport}/></AccordionContent></Card></AccordionItem>
         </Accordion>
       </main>
     </>
