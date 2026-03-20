@@ -330,7 +330,7 @@ const CustomerReportsSection = ({
             }
         });
 
-        // Unificação Inteligente por Similaridade
+        // Unificação Inteligente por Similaridade (IA de Agrupamento)
         const finalStats: Record<string, { name: string, total: number, count: number, orders: Item[] }> = {};
         const keys = Object.keys(rawStats).sort((a, b) => rawStats[b].count - rawStats[a].count);
         const processedKeys = new Set<string>();
@@ -346,7 +346,7 @@ const CustomerReportsSection = ({
                 const nextKey = keys[j];
                 if (processedKeys.has(nextKey)) continue;
 
-                // Se a distância for pequena (ex: 1 ou 2 letras), unifica
+                // Se a distância for pequena (ex: 1 ou 2 letras), unifica como o mesmo cliente
                 const distance = getLevenshteinDistance(currentKey, nextKey);
                 const isVerySimilar = distance <= (currentKey.length > 6 ? 2 : 1);
 

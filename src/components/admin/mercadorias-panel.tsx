@@ -66,6 +66,9 @@ const findBestBomboniereMatch = (productName: string, bomboniereItems: Bombonier
     return bestMatch;
 };
 
+/**
+ * Utilitário de compressão de imagem no cliente para evitar erros de limite de payload (1MB).
+ */
 const compressImage = (dataUri: string, quality: number, maxWidth: number = 1920): Promise<string> => {
     return new Promise((resolve, reject) => {
         const img = new Image();
@@ -552,6 +555,7 @@ export default function MercadoriasPanel() {
         toast({ title: 'A processar imagem...', description: 'A extrair itens e fornecedor.' });
 
         try {
+            // Compressão da foto da câmara antes do envio
             const compressedUri = await compressImage(dataUri, 0.85);
             const output = await parseRomaneio({ romaneioPhoto: compressedUri });
 
@@ -594,6 +598,7 @@ export default function MercadoriasPanel() {
                     reader.onerror = error => reject(error);
                 });
 
+                // Compressão do ficheiro carregado antes do envio
                 const compressedUri = await compressImage(dataUri, 0.85);
                 const output = await parseRomaneio({ romaneioPhoto: compressedUri });
 
