@@ -66,29 +66,24 @@ const findBestBomboniereMatch = (productName: string, bomboniereItems: Bombonier
     return bestMatch;
 };
 
-/**
- * Utilitário de compressão de imagem agressiva no cliente (Estratégia Anti-Erro 1MB).
- */
-const compressImage = (dataUri: string, quality: number = 0.7, maxWidth: number = 1600): Promise<string> => {
-    return new Promise((resolve, reject) => {
+const compressImage = (dataUri: string): Promise<string> => {
+    return new Promise((resolve) => {
         const img = new Image();
         img.onload = () => {
             const canvas = document.createElement('canvas');
-            let { width, height } = img;
-
-            if (width > maxWidth) {
-                height = (height * maxWidth) / width;
-                width = maxWidth;
+            const MAX_WIDTH = 1200;
+            let width = img.width;
+            let height = img.height;
+            if (width > MAX_WIDTH) {
+                height *= MAX_WIDTH / width;
+                width = MAX_WIDTH;
             }
-
             canvas.width = width;
             canvas.height = height;
             const ctx = canvas.getContext('2d');
-            if (!ctx) return reject(new Error('Failed to get canvas context'));
-            ctx.drawImage(img, 0, 0, width, height);
-            resolve(canvas.toDataURL('image/jpeg', quality));
+            ctx?.drawImage(img, 0, 0, width, height);
+            resolve(canvas.toDataURL('image/jpeg', 0.7));
         };
-        img.onerror = (err) => reject(err);
         img.src = dataUri;
     });
 };
@@ -142,29 +137,6 @@ export default function MercadoriasPanel() {
             searchName.includes(f.nome.toLowerCase())
         );
     }, [fornecedores]);
-
-    const predictAndSetSupplier = useCallback((currentProdutos: LancamentoProduto[]) => {
-        if (!currentProdutos.length || !allEntradas?.length || !fornecedores?.length) return;
-    
-        const supplierScores: Record<string, number> = {};
-        for (const produto of currentProdutos) {
-            allEntradas.forEach(entry => {
-                if (entry.produtoNome.toLowerCase() === produto.produtoNome.toLowerCase()) {
-                    supplierScores[entry.fornecedorId] = (supplierScores[entry.fornecedorId] || 0) + 1;
-                }
-            });
-        }
-        
-        if (Object.keys(supplierScores).length === 0) return;
-        const bestMatchId = Object.entries(supplierScores).reduce((a, b) => (a[1] > b[1] ? a : b))[0];
-        
-        if (bestMatchId && fornecedores.some(f => f.id === bestMatchId)) {
-            setFornecedorId(bestMatchId);
-            const foundF = fornecedores.find(f => f.id === bestMatchId);
-            toast({ title: "Fornecedor Sugerido", description: `Selecionámos "${foundF?.nome}".` });
-        }
-    }, [allEntradas, fornecedores, toast]);
-
 
     useEffect(() => {
         const ensureProviders = async () => {

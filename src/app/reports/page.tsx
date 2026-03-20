@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useState, useMemo, useEffect, useCallback } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { useFirestore, useCollection, useUser } from '@/firebase';
 import { 
     collection, 
@@ -131,9 +131,6 @@ const safeFormat = (dateInput: any, formatStr: string, options?: any) => {
     return format(d, formatStr, options);
 };
 
-/**
- * Calcula a distância de Levenshtein entre duas strings para unificação inteligente de nomes.
- */
 function getLevenshteinDistance(a: string, b: string): number {
     const matrix = Array.from({ length: a.length + 1 }, () => Array(b.length + 1).fill(0));
     for (let i = 0; i <= a.length; i++) matrix[i][0] = i;
@@ -147,9 +144,6 @@ function getLevenshteinDistance(a: string, b: string): number {
     return matrix[a.length][b.length];
 }
 
-/**
- * Normalização ultra-agressiva para chaves de agrupamento de clientes.
- */
 const normalizeKey = (name: string) => {
     if (!name) return "";
     return name
@@ -328,7 +322,6 @@ const CustomerReportsSection = ({
             }
         });
 
-        // Unificação Inteligente por Similaridade (IA de Agrupamento Definitivo)
         const finalStats: Record<string, { name: string, total: number, count: number, orders: Item[] }> = {};
         const keys = Object.keys(rawStats).sort((a, b) => rawStats[b].count - rawStats[a].count);
         const processedKeys = new Set<string>();
@@ -344,7 +337,6 @@ const CustomerReportsSection = ({
                 const nextKey = keys[j];
                 if (processedKeys.has(nextKey)) continue;
 
-                // IA de unificação: distância de 1 ou 2 letras dependendo do tamanho, ou se uma contém a outra
                 const distance = getLevenshteinDistance(currentKey, nextKey);
                 const isVerySimilar = distance <= (currentKey.length > 6 ? 2 : 1);
                 const isSubstring = currentKey.includes(nextKey) || nextKey.includes(currentKey);
@@ -373,10 +365,7 @@ const CustomerReportsSection = ({
     const selectedCustomer = useMemo(() => {
         if (!selectedCustomerName) return null;
         const key = normalizeKey(selectedCustomerName);
-        return customerData.find(c => {
-            const groupKey = normalizeKey(c.name);
-            return groupKey === key || getLevenshteinDistance(groupKey, key) <= (groupKey.length > 6 ? 2 : 1) || groupKey.includes(key) || key.includes(groupKey);
-        }) || null;
+        return customerData.find(c => normalizeKey(c.name) === key) || null;
     }, [customerData, selectedCustomerName]);
 
     const handleCopyIndividualToWhatsApp = (customer: { name: string, orders: Item[] }) => {
@@ -553,22 +542,6 @@ export default function ReportsPage() {
     return bomboniereItems.reduce((acc, item) => { acc[item.name.toLowerCase()] = item; return acc; }, {} as Record<string, BomboniereItem>);
   }, [bomboniereItems]);
 
-  const entradasQuery = useMemo(() => {
-      if (!firestore) return null;
-      const start = format(startOfMonth(globalDate), 'yyyy-MM-dd');
-      const end = format(endOfMonth(globalDate), 'yyyy-MM-dd');
-      return query(collection(firestore, 'entradas_mercadorias'), where('data', '>=', start), where('data', '<=', end));
-  }, [firestore, globalDate]);
-  const { data: monthlyEntradas } = useCollection<EntradaMercadoria>(entradasQuery);
-
-  useEffect(() => {
-    if (archivedItemToEdit) {
-        setEditArchivedInput(archivedItemToEdit.originalCommand || '');
-        const d = archivedItemToEdit.timestamp?.toDate ? archivedItemToEdit.timestamp.toDate() : new Date(archivedItemToEdit.timestamp);
-        if (isValid(d)) { setEditArchivedDate(d); setEditArchivedTime(format(d, 'HH:mm')); }
-    }
-  }, [archivedItemToEdit]);
-
   const dashboardStats = useMemo(() => {
     const todayStr = format(new Date(), 'yyyy-MM-dd');
     const weekStart = startOfWeek(new Date(), { locale: ptBR });
@@ -582,6 +555,14 @@ export default function ReportsPage() {
         return acc;
     }, { today: 0, week: 0, month: 0, year: 0 });
   }, [allReports, globalDate]);
+
+  useEffect(() => {
+    if (archivedItemToEdit) {
+        setEditArchivedInput(archivedItemToEdit.originalCommand || '');
+        const d = archivedItemToEdit.timestamp?.toDate ? archivedItemToEdit.timestamp.toDate() : new Date(archivedItemToEdit.timestamp);
+        if (isValid(d)) { setEditArchivedDate(d); setEditArchivedTime(format(d, 'HH:mm')); }
+    }
+  }, [archivedItemToEdit]);
 
   const handleGenerateAIReport = async () => {
       setIsGeneratingAI(true);
@@ -740,8 +721,8 @@ export default function ReportsPage() {
             if (consumedParts[i]) continue; let bestMatch = null; let bestMatchEndIndex = -1;
             for (let j = parts.length; j > i; j--) { const potentialName = parts.slice(i, j).join(' ').toLowerCase(); if (bomboniereItemsByName[potentialName]) { bestMatch = bomboniereItemsByName[potentialName]; bestMatchEndIndex = j; break; } }
             if (bestMatch) {
-                let bomboniereQty = 1; if (i > 0 && !consumedParts[i - 1] && isNumeric(parts[i - 1])) { bomboniereQty = parseInt(parts[i - 1], 10); consumedParts[i - 1] = true; }
-                let priceToUse = bestMatch.price; if (bestMatchEndIndex < parts.length && !consumedParts[bestMatchEndIndex] && isNumeric(parts[bestMatchEndIndex])) { priceToUse = parseFloat(bestMatchEndIndex < parts.length ? parts[bestMatchEndIndex].replace(',', '.') : '0'); consumedParts[bestMatchEndIndex] = true; }
+                let bomboniereQty = 1; if (i > 0 && !consumedParts[i - 1] && isNumericStr(parts[i - 1])) { bomboniereQty = parseInt(parts[i - 1], 10); consumedParts[i - 1] = true; }
+                let priceToUse = bestMatch.price; if (bestMatchEndIndex < parts.length && !consumedParts[bestMatchEndIndex] && isNumericStr(parts[bestMatchEndIndex])) { priceToUse = parseFloat(bestMatchEndIndex < parts.length ? parts[bestMatchEndIndex].replace(',', '.') : '0'); consumedParts[bestMatchEndIndex] = true; }
                 processedBomboniereItems.push({ id: bestMatch.id, name: bestMatch.name, quantity: bomboniereQty, price: priceToUse }); totalPrice += priceToUse * bomboniereQty; totalQuantity += bomboniereQty;
                 for (let k = i; k < bestMatchEndIndex; k++) consumedParts[k] = true; i = bestMatchEndIndex - 1;
             }
@@ -750,18 +731,18 @@ export default function ReportsPage() {
             if (consumedParts[i]) continue; const part = parts[i];
             if (part.toUpperCase() === 'KG') {
                 consumedParts[i] = true; let nextIndex = i + 1;
-                while(nextIndex < parts.length && !consumedParts[nextIndex] && isNumeric(parts[nextIndex])) { const price = parseFloat(parts[nextIndex].replace(',', '.')); individualPrices.push(price); totalPrice += price; totalQuantity++; consumedParts[nextIndex] = true; nextIndex++; }
+                while(nextIndex < parts.length && !consumedParts[nextIndex] && isNumericStr(parts[nextIndex])) { const price = parseFloat(parts[nextIndex].replace(',', '.')); individualPrices.push(price); totalPrice += price; totalQuantity++; consumedParts[nextIndex] = true; nextIndex++; }
                 i = nextIndex - 1; continue;
             }
             if (part.toUpperCase() === 'TX') {
-                if (i + 1 < parts.length && !consumedParts[i+1]) { let feePart = parts[i + 1]; if (feePart.toLowerCase().startsWith('d')) { addFeeToTotal = false; feePart = feePart.substring(1); } if (isNumeric(feePart)) { customDeliveryFee = parseFloat(feePart.replace(',', '.')); consumedParts[i] = true; consumedParts[i+1] = true; i++; } }
+                if (i + 1 < parts.length && !consumedParts[i+1]) { let feePart = parts[i + 1]; if (feePart.toLowerCase().startsWith('d')) { addFeeToTotal = false; feePart = feePart.substring(1); } if (isNumericStr(feePart)) { customDeliveryFee = parseFloat(feePart.replace(',', '.')); consumedParts[i] = true; consumedParts[i+1] = true; i++; } }
                 continue;
             }
             let qty = 1; let itemNamePart = part; const qtyMatch = part.match(/^(\d+)([a-zA-Z\s]+)/);
             if (qtyMatch) { qty = parseInt(qtyMatch[1], 10); itemNamePart = qtyMatch[2]; }
             const isPredefined = predefinedPrices[itemNamePart.toUpperCase()];
             if (isPredefined) {
-                consumedParts[i] = true; let priceToUse = isPredefined; if (i + 1 < parts.length && !consumedParts[i + 1] && isNumeric(parts[i + 1])) { priceToUse = parseFloat(parts[i + 1].replace(',', '.')); consumedParts[i + 1] = true; i++; }
+                consumedParts[i] = true; let priceToUse = isPredefined; if (i + 1 < parts.length && !consumedParts[i + 1] && isNumericStr(parts[i + 1])) { priceToUse = parseFloat(parts[i + 1].replace(',', '.')); consumedParts[i + 1] = true; i++; }
                 for (let j = 0; j < qty; j++) { predefinedItems.push({ name: itemNamePart.toUpperCase(), price: priceToUse }); totalPrice += priceToUse; }
                 totalQuantity += qty; continue;
             }
@@ -780,6 +761,8 @@ export default function ReportsPage() {
         toast({ title: 'Atualizado com sucesso' }); setArchivedItemToEdit(null); setActiveReportDateForAdd(null);
     } catch (e) { console.error(e); toast({ variant: 'destructive', title: 'Erro ao salvar' }); } finally { setIsProcessingEdit(false); }
   };
+
+  const isNumericStr = (str: string) => !isNaN(parseFloat(str.replace(',', '.'))) && /^[0-9,.]+$/.test(str);
 
   const confirmEditDate = async () => {
     if (!firestore || !reportToEditDate || !newReportDate) return;

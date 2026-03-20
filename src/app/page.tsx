@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useMemo, useState, useRef, useEffect, useCallback } from 'react';
+import { useMemo, useState, useRef, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import type {
   Item,
@@ -30,8 +30,6 @@ import {
   setDoc,
   serverTimestamp,
   Timestamp,
-  where,
-  getDocs,
 } from 'firebase/firestore';
 
 import { Button } from '@/components/ui/button';
@@ -450,7 +448,6 @@ function LancheTrackerPageContent() {
       setIsProcessing(false);
       setRawInput('');
       setItemToEdit(null);
-      // Automatically return focus to the input field
       setTimeout(() => {
         inputRef.current?.focus();
       }, 50);
