@@ -116,8 +116,6 @@ const formatCurrency = (value: number | undefined | null) => {
     }).format(value || 0);
 };
 
-const isNumeric = (str: string) => !isNaN(parseFloat(str.replace(',', '.'))) && /^[0-9,.]+$/.test(str);
-
 const safeFormat = (dateInput: any, formatStr: string, options?: any) => {
     if (!dateInput) return '-';
     let d: Date;
@@ -150,7 +148,7 @@ function getLevenshteinDistance(a: string, b: string): number {
 }
 
 /**
- * Normalização ultra-agressiva para chaves de agrupamento.
+ * Normalização ultra-agressiva para chaves de agrupamento de clientes.
  */
 const normalizeKey = (name: string) => {
     if (!name) return "";
@@ -330,7 +328,7 @@ const CustomerReportsSection = ({
             }
         });
 
-        // Unificação Inteligente por Similaridade (IA de Agrupamento)
+        // Unificação Inteligente por Similaridade (IA de Agrupamento Definitivo)
         const finalStats: Record<string, { name: string, total: number, count: number, orders: Item[] }> = {};
         const keys = Object.keys(rawStats).sort((a, b) => rawStats[b].count - rawStats[a].count);
         const processedKeys = new Set<string>();
@@ -346,11 +344,12 @@ const CustomerReportsSection = ({
                 const nextKey = keys[j];
                 if (processedKeys.has(nextKey)) continue;
 
-                // Se a distância for pequena (ex: 1 ou 2 letras), unifica como o mesmo cliente
+                // IA de unificação: distância de 1 ou 2 letras dependendo do tamanho, ou se uma contém a outra
                 const distance = getLevenshteinDistance(currentKey, nextKey);
                 const isVerySimilar = distance <= (currentKey.length > 6 ? 2 : 1);
+                const isSubstring = currentKey.includes(nextKey) || nextKey.includes(currentKey);
 
-                if (isVerySimilar) {
+                if (isVerySimilar || isSubstring) {
                     group.total += rawStats[nextKey].total;
                     group.count += rawStats[nextKey].count;
                     group.orders = [...group.orders, ...rawStats[nextKey].orders];
@@ -376,7 +375,7 @@ const CustomerReportsSection = ({
         const key = normalizeKey(selectedCustomerName);
         return customerData.find(c => {
             const groupKey = normalizeKey(c.name);
-            return groupKey === key || getLevenshteinDistance(groupKey, key) <= (groupKey.length > 6 ? 2 : 1);
+            return groupKey === key || getLevenshteinDistance(groupKey, key) <= (groupKey.length > 6 ? 2 : 1) || groupKey.includes(key) || key.includes(groupKey);
         }) || null;
     }, [customerData, selectedCustomerName]);
 
@@ -472,7 +471,7 @@ const CustomerReportsSection = ({
             {isLoading ? <div className="flex justify-center p-12"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div> : customerData.length > 0 ? (
                 <div className="rounded-md border overflow-hidden">
                     <table className="w-full text-sm">
-                        <thead className="bg-muted/50 border-b"><tr><th className="text-left p-4 font-medium">Cliente (IA)</th><th className="text-center p-4 font-medium">Pedidos</th><th className="text-right p-4 font-medium">Total</th><th className="w-10"></th></tr></thead>
+                        <thead className="bg-muted/50 border-b"><tr><th className="text-left p-4 font-medium">Cliente (IA de Unificação)</th><th className="text-center p-4 font-medium">Pedidos</th><th className="text-right p-4 font-medium">Total</th><th className="w-10"></th></tr></thead>
                         <tbody className="divide-y">
                             {customerData.map((cust) => (
                                 <tr key={cust.name} className="hover:bg-muted/30 cursor-pointer group" onClick={() => setSelectedCustomerName(cust.name)}>
@@ -871,7 +870,7 @@ export default function ReportsPage() {
                                 <div className="text-center py-10 space-y-6">
                                     <div className="bg-primary/10 w-16 h-16 rounded-full flex items-center justify-center mx-auto"><Zap className="h-8 w-8 text-primary" /></div>
                                     <div className="max-w-md mx-auto space-y-2"><h3 className="font-bold text-lg">Pronto para o "Maxi Mode"?</h3><p className="text-sm text-muted-foreground">Analise vendas, compras, funcionários e finanças com unificação inteligente de itens similares.</p></div>
-                                    <div className="flex flex-col sm:flex-row items-center justify-center gap-4"><div className="flex flex-col items-start gap-1"><Label className="text-xs text-muted-foreground ml-1">Análise</Label><Select value={aiScope} onValueChange={(v: any) => setAiScope(v)}><SelectTrigger className="w-40 h-10"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="week">Semanal</SelectItem><SelectItem value="month">Mensal</SelectItem><SelectItem value="year">Anual</SelectItem></SelectContent></Select></div><button onClick={handleGenerateAIReport} className="inline-flex items-center justify-center rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 bg-primary text-primary-foreground hover:bg-primary/90 h-10 px-4 py-2 mt-5 sm:mt-5"><Sparkles className="mr-2 h-4 w-4" />Gerar Relatório Estratégico</button></div>
+                                    <div className="flex flex-col sm:flex-row items-center justify-center gap-4"><div className="flex flex-col items-start gap-1"><Label className="text-xs text-muted-foreground ml-1">Análise</Label><Select value={aiScope} onValueChange={(v: any) => setAiScope(v)}><SelectTrigger className="w-40 h-10"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="week">Semanal</SelectItem><SelectItem value="month">Mensal</SelectItem><SelectItem value="year">Anual</SelectItem></SelectContent></Select></div><Button onClick={handleGenerateAIReport} className="mt-5 sm:mt-5"><Sparkles className="mr-2 h-4 w-4" />Gerar Relatório Estratégico</Button></div>
                                 </div>
                             )}
                             {isGeneratingAI && (
