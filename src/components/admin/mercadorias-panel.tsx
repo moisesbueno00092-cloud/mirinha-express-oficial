@@ -66,6 +66,10 @@ const findBestBomboniereMatch = (productName: string, bomboniereItems: Bombonier
     return bestMatch;
 };
 
+/**
+ * Função de Compressão de Imagem no Cliente
+ * Reduz o peso da imagem para evitar o erro de 1MB e acelerar a IA.
+ */
 const compressImage = (dataUri: string): Promise<string> => {
     return new Promise((resolve) => {
         const img = new Image();
@@ -82,6 +86,7 @@ const compressImage = (dataUri: string): Promise<string> => {
             canvas.height = height;
             const ctx = canvas.getContext('2d');
             ctx?.drawImage(img, 0, 0, width, height);
+            // Reduz qualidade para 70% para garantir ficheiro leve
             resolve(canvas.toDataURL('image/jpeg', 0.7));
         };
         img.src = dataUri;
@@ -251,7 +256,13 @@ export default function MercadoriasPanel() {
     const handleAddProduto = (e?: React.FormEvent) => {
         e?.preventDefault();
         const input = lancamentoInput.trim();
-        if (!input) { if (produtosLancados.length > 0 && !isSubmitting) handleRegisterEntry(); return; }
+        // Se Enter for pressionado com campo vazio e já houver itens, finaliza o registo
+        if (!input) { 
+            if (produtosLancados.length > 0 && !isSubmitting) {
+                handleRegisterEntry();
+            }
+            return; 
+        }
         let precoUnitario = 0, quantidade = 1, precoTotal = 0, produtoNomeFinal = "";
         const isNumericStr = (str: string) => !isNaN(parseFloat(str.replace(',', '.'))) && /^[0-9,.]+$/.test(str);
         const unitRegex = /^(.*?)\s*(un|kg)\s+([\d,.]+)\s+([\d,.]+)$/i;
@@ -291,10 +302,13 @@ export default function MercadoriasPanel() {
 
     const resetForm = () => { setFornecedorId(undefined); setDataVencimento(undefined); setProdutosLancados([]); setLancamentoInput(''); setNumParcelas('1'); }
     
+    /**
+     * Aplica compressão antes de enviar para a IA
+     */
     const handleCameraCapture = async (dataUri: string | null) => {
         if (!dataUri) { setIsCameraSheetOpen(false); return; }
         setIsParsingRomaneio(true); setIsCameraSheetOpen(false);
-        toast({ title: 'A processar imagem...', description: 'Extraindo itens com compressão local.' });
+        toast({ title: 'A processar imagem...', description: 'Comprimindo para envio rápido.' });
         try {
             const compressedUri = await compressImage(dataUri);
             const output = await parseRomaneio({ romaneioPhoto: compressedUri });
@@ -313,6 +327,9 @@ export default function MercadoriasPanel() {
         } catch (error) { toast({ variant: 'destructive', title: 'Erro na análise' }); } finally { setIsParsingRomaneio(false); }
     };
 
+    /**
+     * Aplica compressão em ficheiros carregados
+     */
     const handleRomaneioUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
         const files = event.target.files;
         if (!files || files.length === 0) return;

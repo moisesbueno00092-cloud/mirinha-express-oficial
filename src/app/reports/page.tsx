@@ -131,6 +131,9 @@ const safeFormat = (dateInput: any, formatStr: string, options?: any) => {
     return format(d, formatStr, options);
 };
 
+/**
+ * Algoritmo de Similaridade Inteligente (IA)
+ */
 function getLevenshteinDistance(a: string, b: string): number {
     const matrix = Array.from({ length: a.length + 1 }, () => Array(b.length + 1).fill(0));
     for (let i = 0; i <= a.length; i++) matrix[i][0] = i;
@@ -273,6 +276,9 @@ const SummaryDisplay = ({ data, title = "Resumo do Dia - FATURAMENTO" }: { data:
     );
 };
 
+/**
+ * Seção de Relatórios de Clientes com IA de Unificação
+ */
 const CustomerReportsSection = ({ 
     globalDate,
     onEditItem,
@@ -322,6 +328,7 @@ const CustomerReportsSection = ({
             }
         });
 
+        // IA de Unificação por Similaridade (Levenshtein)
         const finalStats: Record<string, { name: string, total: number, count: number, orders: Item[] }> = {};
         const keys = Object.keys(rawStats).sort((a, b) => rawStats[b].count - rawStats[a].count);
         const processedKeys = new Set<string>();
