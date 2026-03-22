@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useMemo, useEffect } from 'react';
@@ -711,8 +710,12 @@ export default function ReportsPage() {
     setIsProcessingEdit(true);
     const [h, m] = editArchivedTime.split(':').map(Number);
     const finalDate = new Date(editArchivedDate);
-    if (currentItem?.timestamp) { const orig = currentItem.timestamp.toDate ? currentItem.timestamp.toDate() : new Date(currentItem.timestamp); finalDate.setHours(h, m, orig.getSeconds(), orig.getMilliseconds()); }
-    else { finalDate.setHours(h, m, 0, 0); }
+    if (currentItem?.timestamp) { 
+        const orig = currentItem.timestamp.toDate ? currentItem.timestamp.toDate() : new Date(currentItem.timestamp); 
+        finalDate.setHours(h, m, orig.getSeconds(), orig.getMilliseconds()); 
+    } else { 
+        finalDate.setHours(h, m, 0, 0); 
+    }
     const newDateStr = format(finalDate, 'yyyy-MM-dd');
     try {
         let mainInput = rawInput.trim(); if (!mainInput) { setIsProcessingEdit(false); return; }

@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useMemo, useRef, useEffect, useCallback } from 'react';
@@ -256,21 +255,28 @@ export default function MercadoriasPanel() {
     const handleAddProduto = (e?: React.FormEvent) => {
         e?.preventDefault();
         const input = lancamentoInput.trim();
-        // Se Enter for pressionado com campo vazio e já houver itens, finaliza o registo instantaneamente
+        
+        // Finalização com Enter no campo vazio se já houver itens
         if (!input) { 
             if (produtosLancados.length > 0 && !isSubmitting) {
                 handleRegisterEntry();
             }
             return; 
         }
+
         let precoUnitario = 0, quantidade = 1, precoTotal = 0, produtoNomeFinal = "";
         const isNumericStr = (str: string) => !isNaN(parseFloat(str.replace(',', '.'))) && /^[0-9,.]+$/.test(str);
+        
+        // Regex para detetar formato "Produto un qtd preco"
         const unitRegex = /^(.*?)\s*(un|kg)\s+([\d,.]+)\s+([\d,.]+)$/i;
         const unitMatch = input.match(unitRegex);
+        
         if (unitMatch) {
             const [, desc, unit, qtyStr, priceStr] = unitMatch;
-            quantidade = parseFloat(qtyStr.replace(',', '.')); precoUnitario = parseFloat(priceStr.replace(',', '.'));
-            precoTotal = quantidade * precoUnitario; produtoNomeFinal = `${desc} ${unit}`.trim();
+            quantidade = parseFloat(qtyStr.replace(',', '.')); 
+            precoUnitario = parseFloat(priceStr.replace(',', '.'));
+            precoTotal = quantidade * precoUnitario; 
+            produtoNomeFinal = `${desc} ${unit}`.trim();
         } else {
             const lastSpaceIndex = input.lastIndexOf(' ');
             if (lastSpaceIndex > -1) {
@@ -279,15 +285,21 @@ export default function MercadoriasPanel() {
                     const nomeParte = input.substring(0, lastSpaceIndex).trim();
                     precoUnitario = parseFloat(potentialPrice.replace(',', '.'));
                     const qtyMatch = nomeParte.match(/^(.*)\s+(\d+)(un|kg)$/i);
-                    if (qtyMatch) { produtoNomeFinal = qtyMatch[1].trim(); quantidade = parseInt(qtyMatch[2], 10); } 
-                    else { produtoNomeFinal = nomeParte; quantidade = 1; }
+                    if (qtyMatch) { 
+                        produtoNomeFinal = qtyMatch[1].trim(); 
+                        quantidade = parseInt(qtyMatch[2], 10); 
+                    } else { 
+                        produtoNomeFinal = nomeParte; 
+                        quantidade = 1; 
+                    }
                     precoTotal = quantidade * precoUnitario;
                 } else return;
             } else return;
         }
         if (isNaN(precoTotal) || precoTotal <= 0 || !produtoNomeFinal.trim()) return;
         setProdutosLancados(prev => [...prev, { id: Date.now() + Math.random(), produtoNome: produtoNomeFinal, preco: precoTotal, quantidade, precoUnitario }]);
-        setLancamentoInput(''); setIsSuggestionsOpen(false);
+        setLancamentoInput(''); 
+        setIsSuggestionsOpen(false);
     }
 
     const handleSelectSuggestion = (suggestion: ProductSuggestion) => {
@@ -300,20 +312,29 @@ export default function MercadoriasPanel() {
         }, 0);
     }
 
-    const resetForm = () => { setFornecedorId(undefined); setDataVencimento(undefined); setProdutosLancados([]); setLancamentoInput(''); setNumParcelas('1'); }
+    const resetForm = () => { 
+        setFornecedorId(undefined); 
+        setDataVencimento(undefined); 
+        setProdutosLancados([]); 
+        setLancamentoInput(''); 
+        setNumParcelas('1'); 
+    }
     
     const handleCameraCapture = async (dataUri: string | null) => {
         if (!dataUri) { setIsCameraSheetOpen(false); return; }
-        setIsParsingRomaneio(true); setIsCameraSheetOpen(false);
-        toast({ title: 'A processar imagem...', description: 'Comprimindo para leitura rápida pela IA.' });
+        setIsParsingRomaneio(true); 
+        setIsCameraSheetOpen(false);
+        toast({ title: 'A processar imagem...', description: 'Otimizando para leitura rápida.' });
         try {
-            // Nova estratégia de compressão antes do envio
             const compressedUri = await compressImage(dataUri);
             const output = await parseRomaneio({ romaneioPhoto: compressedUri });
             if (output.items && output.items.length > 0) {
                 const newProdutos = output.items.map((item: any) => ({
-                    id: Date.now() + Math.random(), produtoNome: item.produtoNome,
-                    quantidade: item.quantidade || 1, precoUnitario: item.valorTotal / (item.quantidade || 1), preco: item.valorTotal,
+                    id: Date.now() + Math.random(), 
+                    produtoNome: item.produtoNome,
+                    quantidade: item.quantidade || 1, 
+                    precoUnitario: item.valorTotal / (item.quantidade || 1), 
+                    preco: item.valorTotal,
                 }));
                 setProdutosLancados(prev => [...prev, ...newProdutos]);
                 if (output.fornecedorNome) {
@@ -324,7 +345,7 @@ export default function MercadoriasPanel() {
             }
         } catch (error) { 
             console.error(error);
-            toast({ variant: 'destructive', title: 'Erro na análise', description: 'Ocorreu um erro ao processar a imagem.' }); 
+            toast({ variant: 'destructive', title: 'Erro na análise', description: 'Não foi possível ler o romaneio.' }); 
         } finally { setIsParsingRomaneio(false); }
     };
 
@@ -332,7 +353,7 @@ export default function MercadoriasPanel() {
         const files = event.target.files;
         if (!files || files.length === 0) return;
         setIsParsingRomaneio(true);
-        toast({ title: "Processando...", description: `Comprimindo e lendo ${files.length} imagem(ns).` });
+        toast({ title: "Processando...", description: `Comprimindo e lendo imagem(ns).` });
         for (const file of Array.from(files)) {
             try {
                 const dataUri = await new Promise<string>((res, rej) => {
