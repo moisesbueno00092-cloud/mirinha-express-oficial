@@ -838,9 +838,9 @@ export default function ReportsPage() {
 
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
           <Card className="bg-primary/10 border-primary/20"><CardHeader className="p-4 pb-2"><CardTitle className="text-xs uppercase text-muted-foreground flex items-center gap-2"><CalendarCheck className="h-3 w-3"/>Hoje</CardTitle></CardHeader><CardContent className="p-4 pt-0"><p className="text-2xl font-bold">{formatCurrency(dashboardStats.today)}</p></CardContent></Card>
-          <Card><CardHeader className="p-4 pb-2"><CardTitle className="text-xs uppercase text-muted-foreground flex items-center gap-2"><BarChart3 className="h-3 w-3"/>Semana</CardTitle></CardHeader><CardContent className="p-4 pt-0"><p className="text-2xl font-bold">{formatCurrency(dashboardStats.week)}</p></CardContent></Card>
-          <Card><CardHeader className="p-4 pb-2"><CardTitle className="text-xs uppercase text-muted-foreground flex items-center gap-2"><TrendingUp className="h-3 w-3"/>Mês</CardTitle></CardHeader><CardContent className="p-4 pt-0"><p className="text-2xl font-bold text-primary">{formatCurrency(dashboardStats.month)}</p></CardContent></Card>
-          <Card><CardHeader className="p-4 pb-2"><CardTitle className="text-xs uppercase text-muted-foreground flex items-center gap-2"><History className="h-3 w-3"/>Ano</CardTitle></CardHeader><CardContent className="p-4 pt-0"><p className="text-2xl font-bold">{formatCurrency(dashboardStats.year)}</p></CardContent></Card>
+          <Card><CardHeader className="p-4 pb-2"><CardTitle className="text-xs uppercase text-muted-foreground flex items-center gap-2"><BarChart3 className="h-3 w-3"/>Semana</CardTitle></CardHeader><CardContent className="p-4 pt-0"><p className="text-2xl font-bold">{formatCurrency(dashboardStats.week)}</p></CardContent>
+          <Card><CardHeader className="p-4 pb-2"><CardTitle className="text-xs uppercase text-muted-foreground flex items-center gap-2"><TrendingUp className="h-3 w-3"/>Mês</CardTitle></CardHeader><CardContent className="p-4 pt-0"><p className="text-2xl font-bold text-primary">{formatCurrency(dashboardStats.month)}</p></CardContent>
+          <Card><CardHeader className="p-4 pb-2"><CardTitle className="text-xs uppercase text-muted-foreground flex items-center gap-2"><History className="h-3 w-3"/>Ano</CardTitle></CardHeader><CardContent className="p-4 pt-0"><p className="text-2xl font-bold">{formatCurrency(dashboardStats.year)}</p></CardContent>
       </div>
 
       <Card className="mb-8">

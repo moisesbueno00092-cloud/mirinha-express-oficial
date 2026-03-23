@@ -302,7 +302,7 @@ export default function StockEditModal({ isOpen, onClose, bomboniereItems: initi
             <div className="px-6 mt-2">
                 <Button variant="outline" className="w-full" onClick={handleAddNewItem}>
                     <Plus className="mr-2 h-4 w-4" />
-                    Adicionar Novo Item
+                    
                 </Button>
             </div>
 

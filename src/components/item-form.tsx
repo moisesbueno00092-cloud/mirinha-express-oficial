@@ -34,7 +34,7 @@ function ItemForm({
   return (
     <Card>
       <CardHeader className="flex-row items-center justify-between p-4 sm:p-6">
-        <CardTitle className="text-xl sm:text-2xl">Adicionar Novo Item</CardTitle>
+        <CardTitle className="text-xl sm:text-2xl"></CardTitle>
         <LaunchGuideSheet />
       </CardHeader>
       <CardContent className="p-4 sm:p-6 pt-0">
