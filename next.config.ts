@@ -1,7 +1,8 @@
+
 import type {NextConfig} from 'next';
 
 const nextConfig: NextConfig = {
-  /* Configuração para permitir payloads grandes (fotos e relatórios densos) */
+  /* Configuração para permitir payloads grandes e tempo de execução para IA */
   serverActions: {
     bodySizeLimit: '50mb',
   },

@@ -21,16 +21,16 @@ interface ItemFormProps {
 /**
  * Formulário otimizado para evitar loops de renderização.
  */
-function ItemForm({ 
-    rawInput, 
-    setRawInput, 
-    onItemSubmit, 
-    onOpenBomboniere,
-    isProcessing,
-    inputRef,
-    children
+function ItemForm({
+  rawInput,
+  setRawInput,
+  onItemSubmit,
+  onOpenBomboniere,
+  isProcessing,
+  inputRef,
+  children
 }: ItemFormProps) {
-  
+
   return (
     <Card>
       <CardHeader className="flex-row items-center justify-between p-4 sm:p-6">
@@ -39,36 +39,36 @@ function ItemForm({
       </CardHeader>
       <CardContent className="p-4 sm:p-6 pt-0">
         <form onSubmit={onItemSubmit} className="flex gap-2">
-            <Input
-              ref={inputRef}
-              type="text"
-              placeholder=""
-              value={rawInput}
-              onChange={(e) => setRawInput(e.target.value)}
-              className="h-10 flex-1 sm:h-12 text-base"
-              disabled={isProcessing}
-              autoComplete="off"
-            />
-            {children}
-            <Button 
-                type="button" 
-                variant="outline"
-                className="h-10 sm:h-12 px-4" 
-                onClick={onOpenBomboniere}
-                disabled={isProcessing}
-            >
-              <span className="sm:hidden"><Plus /></span>
-              <span className="hidden sm:inline">Outros</span>
-            </Button>
-            <Button 
-                type="submit" 
-                className="h-10 sm:h-12 px-4"
-                disabled={isProcessing || !rawInput.trim()}
-            >
-              {isProcessing ? (
-                <Loader2 className="animate-spin" />
-              ) : "Adicionar"}
-            </Button>
+          <Input
+            ref={inputRef}
+            type="text"
+            placeholder=""
+            value={rawInput}
+            onChange={(e) => setRawInput(e.target.value)}
+            className="h-10 flex-1 sm:h-12 text-base"
+            disabled={isProcessing}
+            autoComplete="off"
+          />
+          {children}
+          <Button
+            type="button"
+            variant="outline"
+            className="h-10 sm:h-12 px-4"
+            onClick={onOpenBomboniere}
+            disabled={isProcessing}
+          >
+            <span className="sm:hidden"><Plus /></span>
+            <span className="hidden sm:inline">Outros</span>
+          </Button>
+          <Button
+            type="submit"
+            className="h-10 sm:h-12 px-4"
+            disabled={isProcessing || !rawInput.trim()}
+          >
+            {isProcessing ? (
+              <Loader2 className="animate-spin" />
+            ) : "Adicionar"}
+          </Button>
         </form>
       </CardContent>
     </Card>

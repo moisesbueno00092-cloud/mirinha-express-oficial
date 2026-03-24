@@ -22,7 +22,7 @@ interface DatePickerProps {
 
 /**
  * Componente DatePicker robusto que garante a propagação imediata da data selecionada.
- * Utiliza proteção contra propagação de eventos para evitar fechar diálogos pais.
+ * Utiliza popover para não quebrar o layout de diálogos.
  */
 export function DatePicker({ date, setDate }: DatePickerProps) {
   const [open, setOpen] = React.useState(false);

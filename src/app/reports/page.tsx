@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useMemo, useEffect } from 'react';
@@ -132,7 +133,7 @@ const safeFormat = (dateInput: any, formatStr: string, options?: any) => {
 
 /**
  * Algoritmo de Similaridade Inteligente (IA)
- * Permite fundir nomes como "Lucinea" e "Lucineia" automaticamente.
+ * Permite fundir nomes como "Lucinea" e "Lucineia" automaticamente no relatório mensal.
  */
 function getLevenshteinDistance(a: string, b: string): number {
     const matrix = Array.from({ length: a.length + 1 }, () => Array(b.length + 1).fill(0));
@@ -276,9 +277,6 @@ const SummaryDisplay = ({ data, title = "Resumo do Dia - FATURAMENTO" }: { data:
     );
 };
 
-/**
- * Seção de Relatórios de Clientes com IA de Unificação
- */
 const CustomerReportsSection = ({ 
     globalDate,
     onEditItem,
@@ -294,10 +292,6 @@ const CustomerReportsSection = ({
     const { toast } = useToast();
     const [selectedCustomerName, setSelectedCustomerName] = useState<string | null>(null);
     
-    const [itemToChangeDate, setItemToChangeDate] = useState<Item | null>(null);
-    const [newItemDate, setNewItemDate] = useState<Date | undefined>();
-    const [isUpdatingItemDate, setIsUpdatingItemDate] = useState(false);
-
     const orderItemsQuery = useMemo(() => {
         if (!firestore) return null;
         const start = format(startOfMonth(globalDate), 'yyyy-MM-dd');
@@ -328,7 +322,7 @@ const CustomerReportsSection = ({
             }
         });
 
-        // IA de Unificação por Similaridade (Levenshtein)
+        // Algoritmo de Unificação Inteligente (Levenshtein + Normalização)
         const finalStats: Record<string, { name: string, total: number, count: number, orders: Item[] }> = {};
         const keys = Object.keys(rawStats).sort((a, b) => rawStats[b].count - rawStats[a].count);
         const processedKeys = new Set<string>();
@@ -345,7 +339,6 @@ const CustomerReportsSection = ({
                 if (processedKeys.has(nextKey)) continue;
 
                 const distance = getLevenshteinDistance(currentKey, nextKey);
-                // Define um limite de 2 letras de diferença para nomes médios
                 const isVerySimilar = distance <= (currentKey.length > 6 ? 2 : 1);
                 const isSubstring = currentKey.includes(nextKey) || nextKey.includes(currentKey);
 
@@ -376,73 +369,24 @@ const CustomerReportsSection = ({
         return customerData.find(c => normalizeKey(c.name) === key) || null;
     }, [customerData, selectedCustomerName]);
 
-    const handleCopyIndividualToWhatsApp = (customer: { name: string, orders: Item[] }) => {
-        const monthName = safeFormat(globalDate, 'MMM/yy', { locale: ptBR }).toUpperCase();
-        let message = `*📊 EXTRATO ${monthName} - ${customer.name.toUpperCase()}*\n`;
-        customer.orders.forEach((order) => {
-            const time = safeFormat(order.timestamp, 'dd/MM HH:mm');
-            message += `•${time}:*${formatCurrency(order.total).replace(/\s/g, '')}*(${order.name.substring(0, 20)})\n`;
-        });
-        const total = customer.orders.reduce((acc, o) => acc + o.total, 0);
-        message += `*TOTAL:${formatCurrency(total).replace(/\s/g, '')}*`;
-        navigator.clipboard.writeText(message).then(() => {
-            toast({ title: "Extrato Copiado!", description: `O extrato de ${customer.name} foi copiado.` });
-        });
-    };
-
-    const confirmChangeItemDate = async () => {
-        if (!firestore || !itemToChangeDate || !newItemDate) return;
-        setIsUpdatingItemDate(true);
-        const oldDateStr = itemToChangeDate.reportDate;
-        const newDateStr = format(newItemDate, 'yyyy-MM-dd');
-        try {
-            const batch = writeBatch(firestore);
-            const itemRef = doc(firestore, 'order_items', itemToChangeDate.id);
-            const origTs = itemToChangeDate.timestamp?.toDate ? itemToChangeDate.timestamp.toDate() : new Date(itemToChangeDate.timestamp);
-            const updatedTs = new Date(newItemDate);
-            updatedTs.setHours(origTs.getHours(), origTs.getMinutes(), origTs.getSeconds(), origTs.getMilliseconds());
-            batch.update(itemRef, { reportDate: newDateStr, timestamp: Timestamp.fromDate(updatedTs) });
-            await batch.commit();
-            await recalculateFn(newDateStr);
-            if (oldDateStr && oldDateStr !== newDateStr) await recalculateFn(oldDateStr);
-            toast({ title: "Data do pedido alterada." });
-            setItemToChangeDate(null);
-        } catch (error) {
-            console.error(error);
-            toast({ variant: 'destructive', title: "Erro ao alterar data" });
-        } finally {
-            setIsUpdatingItemDate(false);
-        }
-    };
-
     return (
         <div className="space-y-6">
             <Dialog open={!!selectedCustomerName} onOpenChange={(open) => !open && setSelectedCustomerName(null)}>
-                <DialogContent className="max-w-2xl" onInteractOutside={(e) => e.preventDefault()}>
+                <DialogContent className="max-w-2xl">
                     <DialogHeader>
-                        <div className="flex items-center justify-between pr-6">
-                            <DialogTitle className="flex items-center gap-2"><User className="h-5 w-5 text-primary" /> Histórico de {selectedCustomer?.name}</DialogTitle>
-                            <Button variant="outline" size="sm" className="text-green-500 border-green-500/50" onClick={() => selectedCustomer && handleCopyIndividualToWhatsApp(selectedCustomer)}><WhatsAppIcon className="h-4 w-4 mr-2" />WhatsApp</Button>
-                        </div>
+                        <DialogTitle className="flex items-center gap-2"><User className="h-5 w-5 text-primary" /> Histórico de {selectedCustomer?.name}</DialogTitle>
                     </DialogHeader>
                     <ScrollArea className="max-h-[60vh] pr-4 mt-4">
                         <div className="space-y-3">
                             {selectedCustomer?.orders.map((order, idx) => (
                                 <div key={order.id || idx} className="flex justify-between items-center p-3 rounded-lg border bg-muted/30">
-                                    <div className="flex items-center gap-3">
-                                        <div className="text-center min-w-[50px] bg-background border rounded-md p-1">
-                                            <p className="text-[0.6rem] font-bold uppercase text-muted-foreground">{safeFormat(order.timestamp, 'MMM', { locale: ptBR })}</p>
-                                            <p className="text-lg font-bold leading-none">{safeFormat(order.timestamp, 'dd')}</p>
-                                        </div>
-                                        <div>
-                                            <p className="text-[0.65rem] text-muted-foreground">{safeFormat(order.timestamp, 'EEEE, HH:mm', { locale: ptBR })}</p>
-                                            <p className="text-sm font-semibold truncate max-w-[200px]">{order.name}</p>
-                                        </div>
+                                    <div>
+                                        <p className="text-[0.65rem] text-muted-foreground">{safeFormat(order.timestamp, 'dd/MM/yy HH:mm')}</p>
+                                        <p className="text-sm font-semibold">{order.name}</p>
                                     </div>
                                     <div className="flex items-center gap-4">
                                         <p className="text-sm font-mono font-bold text-primary">{formatCurrency(order.total)}</p>
                                         <div className="flex gap-1">
-                                            <Button variant="ghost" size="icon" className="h-8 w-8 text-amber-500" onClick={() => { setItemToChangeDate(order); setNewItemDate(order.timestamp?.toDate ? order.timestamp.toDate() : new Date(order.timestamp)); }}><CalendarDays className="h-4 w-4" /></Button>
                                             <Button variant="ghost" size="icon" className="h-8 w-8 text-blue-500" onClick={() => onEditItem(order)}><Pencil className="h-4 w-4" /></Button>
                                             <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => onDeleteItem(order)}><Trash2 className="h-4 w-4" /></Button>
                                         </div>
@@ -451,24 +395,14 @@ const CustomerReportsSection = ({
                             ))}
                         </div>
                     </ScrollArea>
-                    <DialogFooter><div className="flex justify-between w-full items-center"><p className="text-lg font-bold">Total: <span className="text-primary">{formatCurrency(selectedCustomer?.total)}</span></p><Button variant="outline" onClick={() => setSelectedCustomerName(null)}>Fechar</Button></div></DialogFooter>
-                </DialogContent>
-            </Dialog>
-
-            <Dialog open={!!itemToChangeDate} onOpenChange={(open) => !open && setItemToChangeDate(null)}>
-                <DialogContent onInteractOutside={(e) => e.preventDefault()}>
-                    <DialogHeader><DialogTitle>Alterar Data do Pedido</DialogTitle></DialogHeader>
-                    <div className="py-4 flex flex-col items-center bg-muted/30 rounded-md">
-                        <DatePicker date={newItemDate} setDate={setNewItemDate} />
-                    </div>
-                    <DialogFooter><Button variant="outline" onClick={() => setItemToChangeDate(null)}>Cancelar</Button><Button onClick={confirmChangeItemDate} disabled={isUpdatingItemDate}>{isUpdatingItemDate && <Loader2 className="animate-spin mr-2"/>}Confirmar</Button></DialogFooter>
+                    <DialogFooter><Button variant="outline" onClick={() => setSelectedCustomerName(null)}>Fechar</Button></DialogFooter>
                 </DialogContent>
             </Dialog>
 
             {isLoading ? <div className="flex justify-center p-12"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div> : customerData.length > 0 ? (
                 <div className="rounded-md border overflow-hidden">
                     <table className="w-full text-sm">
-                        <thead className="bg-muted/50 border-b"><tr><th className="text-left p-4 font-medium">Cliente (IA de Unificação)</th><th className="text-center p-4 font-medium">Pedidos</th><th className="text-right p-4 font-medium">Total</th><th className="w-10"></th></tr></thead>
+                        <thead className="bg-muted/50 border-b"><tr><th className="text-left p-4 font-medium">Cliente (Unificação IA)</th><th className="text-center p-4 font-medium">Pedidos</th><th className="text-right p-4 font-medium">Total</th><th className="w-10"></th></tr></thead>
                         <tbody className="divide-y">
                             {customerData.map((cust) => (
                                 <tr key={cust.name} className="hover:bg-muted/30 cursor-pointer group" onClick={() => setSelectedCustomerName(cust.name)}>
@@ -515,10 +449,6 @@ export default function ReportsPage() {
   const [globalDate, setGlobalDate] = useState<Date>(new Date());
   
   const [reportToDelete, setReportToDelete] = useState<DailyReport | null>(null);
-  const [reportToEditDate, setReportToEditDate] = useState<DailyReport | null>(null);
-  const [newReportDate, setNewReportDate] = useState<Date | undefined>();
-  const [isUpdatingDate, setIsUpdatingDate] = useState(false);
-
   const [archivedItemToDelete, setArchivedItemToDelete] = useState<Item | null>(null);
   const [archivedItemToEdit, setArchivedItemToEdit] = useState<Item | null>(null);
   const [editArchivedInput, setEditArchivedInput] = useState('');
@@ -572,117 +502,6 @@ export default function ReportsPage() {
     }
   }, [archivedItemToEdit]);
 
-  const handleGenerateAIReport = async () => {
-      setIsGeneratingAI(true);
-      try {
-          let periodLabel = "";
-          let filteredReports: DailyReport[] = [];
-          let startDate: Date, endDate: Date;
-          
-          if (aiScope === 'week') {
-              startDate = startOfWeek(globalDate, { locale: ptBR });
-              endDate = endOfWeek(globalDate, { locale: ptBR });
-              periodLabel = `Semana de ${format(startDate, 'dd/MM')} a ${format(endDate, 'dd/MM/yyyy')}`;
-              filteredReports = allReports.filter(r => isWithinInterval(parseISO(r.reportDate), { start: startDate, end: endDate }));
-          } else if (aiScope === 'month') {
-              startDate = startOfMonth(globalDate);
-              endDate = endOfMonth(globalDate);
-              periodLabel = safeFormat(globalDate, 'MMMM yyyy', { locale: ptBR });
-              filteredReports = monthlyReports;
-          } else {
-              startDate = startOfYear(globalDate);
-              endDate = endOfYear(globalDate);
-              periodLabel = `Ano ${globalDate.getFullYear()}`;
-              filteredReports = allReports.filter(r => parseISO(r.reportDate).getFullYear() === globalDate.getFullYear());
-          }
-          
-          if (filteredReports.length === 0) {
-              toast({ variant: 'destructive', title: "Dados insuficientes", description: "Não há vendas registadas para este período." });
-              setIsGeneratingAI(false); return;
-          }
-
-          const consolidatedSales = filteredReports.reduce((acc, r) => {
-              acc.total += r.totalGeral; acc.rua += r.totalVendasRua + r.totalFiadoRua; acc.salao += r.totalVendasSalao + r.totalFiadoSalao;
-              acc.fiado += r.totalFiado; acc.taxas += r.totalTaxas; mergeCounts(acc.items, r.contagemTotal); return acc;
-          }, { total: 0, rua: 0, salao: 0, fiado: 0, taxas: 0, items: {} as Record<string, number> });
-
-          const startISO = startDate.toISOString(); const endISO = endDate.toISOString();
-          const startStr = format(startDate, 'yyyy-MM-dd'); const endStr = format(endDate, 'yyyy-MM-dd');
-
-          const entSnap = await getDocs(query(collection(firestore!, 'entradas_mercadorias'), where('data', '>=', startISO), where('data', '<=', endISO)));
-          const consolidatedExpenses = entSnap.docs.reduce((acc, d) => {
-              const e = d.data() as EntradaMercadoria; acc.total += e.valorTotal; acc.items[e.produtoNome] = (acc.items[e.produtoNome] || 0) + e.valorTotal; return acc;
-          }, { total: 0, items: {} as Record<string, number> });
-
-          const contasSnap = await getDocs(query(collection(firestore!, 'contas_a_pagar'), where('dataVencimento', '>=', startStr), where('dataVencimento', '<=', endStr)));
-          const financialStats = contasSnap.docs.reduce((acc, d) => {
-              const c = d.data() as ContaAPagar; if (c.estaPaga) acc.pago += c.valor; else acc.pendente += c.valor; return acc;
-          }, { pago: 0, pendente: 0 });
-
-          let staffStats = { total: 0, vales: 0, extras: 0 };
-          const funcSnap = await getDocs(collection(firestore!, 'funcionarios'));
-          for (const fDoc of funcSnap.docs) {
-              const lSnap = await getDocs(query(collection(fDoc.ref, 'lancamentos'), where('data', '>=', startISO), where('data', '<=', endISO)));
-              lSnap.forEach(lDoc => {
-                  const l = lDoc.data() as FuncionarioLancamentoFinanceiro; staffStats.total += l.valor;
-                  if (l.tipo === 'vale') staffStats.vales += l.valor; if (l.tipo === 'hora_extra') staffStats.extras += l.valor;
-              });
-          }
-
-          const report = await generateManagementReport({
-              periodLabel,
-              salesData: consolidatedSales,
-              expenseData: consolidatedExpenses,
-              staffData: staffStats,
-              financialStats: financialStats
-          });
-
-          setAiReport(report);
-          toast({ title: "Análise IA Concluída!", description: "Dados unificados e analisados com sucesso." });
-      } catch (error) {
-          console.error(error);
-          toast({ variant: 'destructive', title: "Erro na IA", description: "Não foi possível gerar a análise." });
-      } finally {
-          setIsGeneratingAI(false);
-      }
-  };
-
-  const weeklySummaries = useMemo(() => {
-      const stats: Record<string, { week: number, count: number, start: Date, end: Date, data: any }> = {};
-      allReports.filter(r => parseISO(r.reportDate).getFullYear() === globalDate.getFullYear()).forEach(r => {
-          const d = parseISO(r.reportDate); const weekNum = getWeek(d, { locale: ptBR }); const key = `W${weekNum}`;
-          if (!stats[key]) stats[key] = { week: weekNum, count: 0, start: startOfWeek(d, { locale: ptBR }), end: endOfWeek(d, { locale: ptBR }), data: { totalGeral: 0, totalAVista: 0, totalVendasSalao: 0, totalVendasRua: 0, totalFiado: 0, totalFiadoSalao: 0, totalFiadoRua: 0, totalTaxas: 0, totalEntregas: 0, totalItens: 0, totalPedidos: 0, totalBomboniereSalao: 0, totalBomboniereRua: 0, contagemTotal: {}, contagemRua: {} } };
-          stats[key].count++; const dRef = stats[key].data;
-          dRef.totalGeral += r.totalGeral || 0; dRef.totalAVista += r.totalAVista || 0; dRef.totalVendasSalao += r.totalVendasSalao || 0; dRef.totalVendasRua += r.totalVendasRua || 0; dRef.totalFiado += r.totalFiado || 0; dRef.totalFiadoSalao += r.totalFiadoSalao || 0; dRef.totalFiadoRua += r.totalFiadoRua || 0; dRef.totalTaxas += r.totalTaxas || 0; dRef.totalEntregas += r.totalEntregas || 0; dRef.totalItens += r.totalItens || 0; dRef.totalPedidos += r.totalPedidos || 0; dRef.totalBomboniereSalao += r.totalBomboniereSalao || 0; dRef.totalBomboniereRua += r.totalBomboniereRua || 0;
-          mergeCounts(dRef.contagemTotal, r.contagemTotal); mergeCounts(dRef.contagemRua, r.contagemRua);
-      });
-      return Object.values(stats).sort((a,b) => b.week - a.week);
-  }, [allReports, globalDate]);
-
-  const monthlySummaries = useMemo(() => {
-      const stats: Record<number, { month: number, count: number, data: any }> = {};
-      allReports.filter(r => parseISO(r.reportDate).getFullYear() === globalDate.getFullYear()).forEach(r => {
-          const d = parseISO(r.reportDate); const m = d.getMonth();
-          if (!stats[m]) stats[m] = { month: m, count: 0, data: { totalGeral: 0, totalAVista: 0, totalVendasSalao: 0, totalVendasRua: 0, totalFiado: 0, totalFiadoSalao: 0, totalFiadoRua: 0, totalTaxas: 0, totalEntregas: 0, totalItens: 0, totalPedidos: 0, totalBomboniereSalao: 0, totalBomboniereRua: 0, contagemTotal: {}, contagemRua: {} } };
-          stats[m].count++; const dRef = stats[m].data;
-          dRef.totalGeral += r.totalGeral || 0; dRef.totalAVista += r.totalAVista || 0; dRef.totalVendasSalao += r.totalVendasSalao || 0; dRef.totalVendasRua += r.totalVendasRua || 0; dRef.totalFiado += r.totalFiado || 0; dRef.totalFiadoSalao += r.totalFiadoSalao || 0; dRef.totalFiadoRua += r.totalFiadoRua || 0; dRef.totalTaxas += r.totalTaxas || 0; dRef.totalEntregas += r.totalEntregas || 0; dRef.totalItens += r.totalItens || 0; dRef.totalPedidos += r.totalPedidos || 0; dRef.totalBomboniereSalao += r.totalBomboniereSalao || 0; dRef.totalBomboniereRua += r.totalBomboniereRua || 0;
-          mergeCounts(dRef.contagemTotal, r.contagemTotal); mergeCounts(dRef.contagemRua, r.contagemRua);
-      });
-      return Object.values(stats).sort((a,b) => b.month - a.month);
-  }, [allReports, globalDate]);
-
-  const annualSummaries = useMemo(() => {
-      const stats: Record<number, { year: number, count: number, data: any }> = {};
-      allReports.forEach(r => {
-          const d = parseISO(r.reportDate); const y = d.getFullYear();
-          if (!stats[y]) stats[y] = { year: y, count: 0, data: { totalGeral: 0, totalAVista: 0, totalVendasSalao: 0, totalVendasRua: 0, totalFiado: 0, totalFiadoSalao: 0, totalFiadoRua: 0, totalTaxas: 0, totalEntregas: 0, totalItens: 0, totalPedidos: 0, totalBomboniereSalao: 0, totalBomboniereRua: 0, contagemTotal: {}, contagemRua: {} } };
-          stats[y].count++; const dRef = stats[y].data;
-          dRef.totalGeral += r.totalGeral || 0; dRef.totalAVista += r.totalAVista || 0; dRef.totalVendasSalao += r.totalVendasSalao || 0; dRef.totalVendasRua += r.totalVendasRua || 0; dRef.totalFiado += r.totalFiado || 0; dRef.totalFiadoSalao += r.totalFiadoSalao || 0; dRef.totalFiadoRua += r.totalFiadoRua || 0; dRef.totalTaxas += r.totalTaxas || 0; dRef.totalEntregas += r.totalEntregas || 0; dRef.totalItens += r.totalItens || 0; dRef.totalPedidos += r.totalPedidos || 0; dRef.totalBomboniereSalao += r.totalBomboniereSalao || 0; dRef.totalBomboniereRua += r.totalBomboniereRua || 0;
-          mergeCounts(dRef.contagemTotal, r.contagemTotal); mergeCounts(dRef.contagemRua, r.contagemRua);
-      });
-      return Object.values(stats).sort((a,b) => b.year - a.year);
-  }, [allReports]);
-
   const recalculateReport = async (reportDate: string) => {
     if (!firestore || !user?.uid) return;
     try {
@@ -733,8 +552,8 @@ export default function ReportsPage() {
             if (consumedParts[i]) continue; let bestMatch = null; let bestMatchEndIndex = -1;
             for (let j = parts.length; j > i; j--) { const potentialName = parts.slice(i, j).join(' ').toLowerCase(); if (bomboniereItemsByName[potentialName]) { bestMatch = bomboniereItemsByName[potentialName]; bestMatchEndIndex = j; break; } }
             if (bestMatch) {
-                let bomboniereQty = 1; if (i > 0 && !consumedParts[i - 1] && isNumericStr(parts[i - 1])) { bomboniereQty = parseInt(parts[i - 1], 10); consumedParts[i - 1] = true; }
-                let priceToUse = bestMatch.price; if (bestMatchEndIndex < parts.length && !consumedParts[bestMatchEndIndex] && isNumericStr(parts[bestMatchEndIndex])) { priceToUse = parseFloat(bestMatchEndIndex < parts.length ? parts[bestMatchEndIndex].replace(',', '.') : '0'); consumedParts[bestMatchEndIndex] = true; }
+                let bomboniereQty = 1; if (i > 0 && !consumedParts[i - 1] && !isNaN(parseFloat(parts[i-1]))) { bomboniereQty = parseInt(parts[i - 1], 10); consumedParts[i - 1] = true; }
+                let priceToUse = bestMatch.price; if (bestMatchEndIndex < parts.length && !consumedParts[bestMatchEndIndex] && !isNaN(parseFloat(parts[bestMatchEndIndex]))) { priceToUse = parseFloat(parts[bestMatchEndIndex].replace(',', '.')); consumedParts[bestMatchEndIndex] = true; }
                 processedBomboniereItems.push({ id: bestMatch.id, name: bestMatch.name, quantity: bomboniereQty, price: priceToUse }); totalPrice += priceToUse * bomboniereQty; totalQuantity += bomboniereQty;
                 for (let k = i; k < bestMatchEndIndex; k++) consumedParts[k] = true; i = bestMatchEndIndex - 1;
             }
@@ -743,18 +562,18 @@ export default function ReportsPage() {
             if (consumedParts[i]) continue; const part = parts[i];
             if (part.toUpperCase() === 'KG') {
                 consumedParts[i] = true; let nextIndex = i + 1;
-                while(nextIndex < parts.length && !consumedParts[nextIndex] && isNumericStr(parts[nextIndex])) { const price = parseFloat(parts[nextIndex].replace(',', '.')); individualPrices.push(price); totalPrice += price; totalQuantity++; consumedParts[nextIndex] = true; nextIndex++; }
+                while(nextIndex < parts.length && !consumedParts[nextIndex] && !isNaN(parseFloat(parts[nextIndex]))) { const price = parseFloat(parts[nextIndex].replace(',', '.')); individualPrices.push(price); totalPrice += price; totalQuantity++; consumedParts[nextIndex] = true; nextIndex++; }
                 i = nextIndex - 1; continue;
             }
             if (part.toUpperCase() === 'TX') {
-                if (i + 1 < parts.length && !consumedParts[i+1]) { let feePart = parts[i + 1]; if (feePart.toLowerCase().startsWith('d')) { addFeeToTotal = false; feePart = feePart.substring(1); } if (isNumericStr(feePart)) { customDeliveryFee = parseFloat(feePart.replace(',', '.')); consumedParts[i] = true; consumedParts[i+1] = true; i++; } }
+                if (i + 1 < parts.length && !consumedParts[i+1]) { let feePart = parts[i + 1]; if (feePart.toLowerCase().startsWith('d')) { addFeeToTotal = false; feePart = feePart.substring(1); } if (!isNaN(parseFloat(feePart))) { customDeliveryFee = parseFloat(feePart.replace(',', '.')); consumedParts[i] = true; consumedParts[i+1] = true; i++; } }
                 continue;
             }
             let qty = 1; let itemNamePart = part; const qtyMatch = part.match(/^(\d+)([a-zA-Z\s]+)/);
             if (qtyMatch) { qty = parseInt(qtyMatch[1], 10); itemNamePart = qtyMatch[2]; }
             const isPredefined = predefinedPrices[itemNamePart.toUpperCase()];
             if (isPredefined) {
-                consumedParts[i] = true; let priceToUse = isPredefined; if (i + 1 < parts.length && !consumedParts[i + 1] && isNumericStr(parts[i + 1])) { priceToUse = parseFloat(parts[i + 1].replace(',', '.')); consumedParts[i + 1] = true; i++; }
+                consumedParts[i] = true; let priceToUse = isPredefined; if (i + 1 < parts.length && !consumedParts[i + 1] && !isNaN(parseFloat(parts[i+1]))) { priceToUse = parseFloat(parts[i + 1].replace(',', '.')); consumedParts[i + 1] = true; i++; }
                 for (let j = 0; j < qty; j++) { predefinedItems.push({ name: itemNamePart.toUpperCase(), price: priceToUse }); totalPrice += priceToUse; }
                 totalQuantity += qty; continue;
             }
@@ -772,19 +591,6 @@ export default function ReportsPage() {
         await batch.commit(); await recalculateReport(newDateStr); if (currentItem?.reportDate && currentItem.reportDate !== newDateStr) await recalculateReport(currentItem.reportDate);
         toast({ title: 'Atualizado com sucesso' }); setArchivedItemToEdit(null); setActiveReportDateForAdd(null);
     } catch (e) { console.error(e); toast({ variant: 'destructive', title: 'Erro ao salvar' }); } finally { setIsProcessingEdit(false); }
-  };
-
-  const isNumericStr = (str: string) => !isNaN(parseFloat(str.replace(',', '.'))) && /^[0-9,.]+$/.test(str);
-
-  const confirmEditDate = async () => {
-    if (!firestore || !reportToEditDate || !newReportDate) return;
-    setIsUpdatingDate(true); const oldD = reportToEditDate.reportDate; const newD = format(newReportDate, 'yyyy-MM-dd');
-    try {
-        const batch = writeBatch(firestore); batch.update(doc(firestore, "daily_reports", reportToEditDate.id!), { reportDate: newD });
-        const snapshot = await getDocs(query(collection(firestore, 'order_items'), where('reportDate', '==', oldD)));
-        snapshot.forEach(d => { const data = d.data() as Item; const orig = data.timestamp?.toDate ? data.timestamp.toDate() : new Date(data.timestamp); const upd = new Date(newReportDate); upd.setHours(orig.getHours(), orig.getMinutes(), orig.getSeconds(), orig.getMilliseconds()); batch.update(d.ref, { reportDate: newD, timestamp: Timestamp.fromDate(upd) }); });
-        await batch.commit(); toast({ title: "Data alterada e pedidos sincronizados." });
-    } catch (e) { console.error(e); } finally { setIsUpdatingDate(false); setReportToEditDate(null); }
   };
 
   if (isUserLoading || isLoadingReports) return <div className="flex h-64 items-center justify-center"><Loader2 className="h-12 w-12 animate-spin text-primary" /></div>;
@@ -815,7 +621,7 @@ export default function ReportsPage() {
       </AlertDialog>
 
       <Dialog open={!!archivedItemToEdit || !!activeReportDateForAdd} onOpenChange={(open) => { if(!open) { setArchivedItemToEdit(null); setActiveReportDateForAdd(null); } }}>
-        <DialogContent className="max-w-md" onInteractOutside={(e) => e.preventDefault()}>
+        <DialogContent className="max-w-md">
             <DialogHeader><DialogTitle>{archivedItemToEdit ? 'Editar' : 'Novo'} Lançamento</DialogTitle></DialogHeader>
             <div className="py-4 space-y-6">
                 <div className="space-y-3"><Label className="flex items-center gap-2 text-primary"><ListOrdered className="h-4 w-4"/> Comando do Pedido</Label><div className="flex gap-2"><Input value={editArchivedInput} onChange={(e) => setEditArchivedInput(e.target.value)} className="h-12 text-lg font-medium" placeholder="Ex: M P coca-lata" /><Button variant="outline" onClick={() => setIsBomboniereModalOpen(true)} className="h-12 shrink-0"><Plus className="h-4 w-4 mr-2"/>Outros</Button></div></div>
@@ -828,19 +634,11 @@ export default function ReportsPage() {
         </DialogContent>
       </Dialog>
 
-      <Dialog open={!!reportToEditDate} onOpenChange={(open) => !open && setReportToEditDate(null)}>
-        <DialogContent onInteractOutside={(e) => e.preventDefault()}>
-            <DialogHeader><DialogTitle>Alterar Data do Relatório</DialogTitle></DialogHeader>
-            <div className="py-4 flex flex-col items-center bg-muted/30 rounded-md"><DatePicker date={newReportDate} setDate={setNewReportDate} /></div>
-            <DialogFooter><Button variant="outline" onClick={() => setReportToEditDate(null)}>Cancelar</Button><Button onClick={confirmEditDate} disabled={isUpdatingDate}>{isUpdatingDate && <Loader2 className="animate-spin mr-2"/>}Confirmar</Button></DialogFooter>
-        </DialogContent>
-      </Dialog>
-
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
           <Card className="bg-primary/10 border-primary/20"><CardHeader className="p-4 pb-2"><CardTitle className="text-xs uppercase text-muted-foreground flex items-center gap-2"><CalendarCheck className="h-3 w-3"/>Hoje</CardTitle></CardHeader><CardContent className="p-4 pt-0"><p className="text-2xl font-bold">{formatCurrency(dashboardStats.today)}</p></CardContent></Card>
-          <Card><CardHeader className="p-4 pb-2"><CardTitle className="text-xs uppercase text-muted-foreground flex items-center gap-2"><BarChart3 className="h-3 w-3"/>Semana</CardTitle></CardHeader><CardContent className="p-4 pt-0"><p className="text-2xl font-bold">{formatCurrency(dashboardStats.week)}</p></CardContent>
-          <Card><CardHeader className="p-4 pb-2"><CardTitle className="text-xs uppercase text-muted-foreground flex items-center gap-2"><TrendingUp className="h-3 w-3"/>Mês</CardTitle></CardHeader><CardContent className="p-4 pt-0"><p className="text-2xl font-bold text-primary">{formatCurrency(dashboardStats.month)}</p></CardContent>
-          <Card><CardHeader className="p-4 pb-2"><CardTitle className="text-xs uppercase text-muted-foreground flex items-center gap-2"><History className="h-3 w-3"/>Ano</CardTitle></CardHeader><CardContent className="p-4 pt-0"><p className="text-2xl font-bold">{formatCurrency(dashboardStats.year)}</p></CardContent>
+          <Card><CardHeader className="p-4 pb-2"><CardTitle className="text-xs uppercase text-muted-foreground flex items-center gap-2"><BarChart3 className="h-3 w-3"/>Semana</CardTitle></CardHeader><CardContent className="p-4 pt-0"><p className="text-2xl font-bold">{formatCurrency(dashboardStats.week)}</p></CardContent></Card>
+          <Card><CardHeader className="p-4 pb-2"><CardTitle className="text-xs uppercase text-muted-foreground flex items-center gap-2"><TrendingUp className="h-3 w-3"/>Mês</CardTitle></CardHeader><CardContent className="p-4 pt-0"><p className="text-2xl font-bold text-primary">{formatCurrency(dashboardStats.month)}</p></CardContent></Card>
+          <Card><CardHeader className="p-4 pb-2"><CardTitle className="text-xs uppercase text-muted-foreground flex items-center gap-2"><History className="h-3 w-3"/>Ano</CardTitle></CardHeader><CardContent className="p-4 pt-0"><p className="text-2xl font-bold">{formatCurrency(dashboardStats.year)}</p></CardContent></Card>
       </div>
 
       <Card className="mb-8">
@@ -860,43 +658,35 @@ export default function ReportsPage() {
                 <Card className="border-primary/30 bg-primary/5">
                     <AccordionTrigger className="text-lg p-6 hover:no-underline"><div className="flex items-center gap-3"><Sparkles className="h-6 w-6 text-primary animate-pulse"/><span>Consultoria de Gestão (IA)</span></div></AccordionTrigger>
                     <AccordionContent className="p-6 pt-0">
-                        <div className="space-y-6">
+                        <div className="text-center py-10 space-y-6">
                             {!aiReport && !isGeneratingAI && (
-                                <div className="text-center py-10 space-y-6">
+                                <div className="space-y-6">
                                     <div className="bg-primary/10 w-16 h-16 rounded-full flex items-center justify-center mx-auto"><Zap className="h-8 w-8 text-primary" /></div>
-                                    <div className="max-w-md mx-auto space-y-2"><h3 className="font-bold text-lg">Pronto para o "Maxi Mode"?</h3><p className="text-sm text-muted-foreground">Analise vendas, compras, funcionários e finanças com unificação inteligente de itens similares.</p></div>
-                                    <div className="flex flex-col sm:flex-row items-center justify-center gap-4"><div className="flex flex-col items-start gap-1"><Label className="text-xs text-muted-foreground ml-1">Análise</Label><Select value={aiScope} onValueChange={(v: any) => setAiScope(v)}><SelectTrigger className="w-40 h-10"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="week">Semanal</SelectItem><SelectItem value="month">Mensal</SelectItem><SelectItem value="year">Anual</SelectItem></SelectContent></Select></div><Button onClick={handleGenerateAIReport} className="mt-5 sm:mt-5"><Sparkles className="mr-2 h-4 w-4" />Gerar Relatório Estratégico</Button></div>
+                                    <div className="max-w-md mx-auto space-y-2"><h3 className="font-bold text-lg">Pronto para o "Maxi Mode"?</h3><p className="text-sm text-muted-foreground">Analise vendas, compras e finanças com unificação inteligente.</p></div>
+                                    <Button onClick={async () => {
+                                        setIsGeneratingAI(true);
+                                        try {
+                                            const filteredReports = aiScope === 'month' ? monthlyReports : allReports;
+                                            if (filteredReports.length === 0) { throw new Error("Sem dados."); }
+                                            const sales = filteredReports.reduce((acc, r) => { acc.total += r.totalGeral; acc.fiado += r.totalFiado; mergeCounts(acc.items, r.contagemTotal); return acc; }, { total: 0, fiado: 0, items: {} as Record<string, number> });
+                                            const report = await generateManagementReport({ periodLabel: safeFormat(globalDate, 'MMMM yyyy', { locale: ptBR }), salesData: sales, expenseData: { total: 0, items: {} } });
+                                            setAiReport(report);
+                                        } catch (e) { toast({ variant: 'destructive', title: "Erro na IA" }); } finally { setIsGeneratingAI(false); }
+                                    }}><Sparkles className="mr-2 h-4 w-4" />Gerar Análise do Mês</Button>
                                 </div>
                             )}
-                            {isGeneratingAI && (
-                                <div className="text-center py-20 space-y-6"><Loader2 className="h-12 w-12 animate-spin text-primary mx-auto" /><div className="space-y-2"><p className="font-medium animate-pulse">A Mirinha IA está a cruzar todos os dados...</p><p className="text-xs text-muted-foreground">Consolidando vendas, romaneios e pessoal ({aiScope}).</p></div></div>
-                            )}
                             {aiReport && (
-                                <div className="animate-in fade-in slide-in-from-bottom-4 duration-700 space-y-8">
-                                    <div className="flex flex-col md:flex-row gap-6 items-start">
-                                        <div className="flex-1 space-y-4"><div className="flex items-center gap-2 text-primary font-black uppercase text-xs tracking-widest"><TrendingUp className="h-4 w-4" /> Resumo Estratégico</div><p className="text-sm leading-relaxed text-foreground/90 italic border-l-4 border-primary/20 pl-4 py-1">"{aiReport.summary}"</p></div>
-                                        <Card className="w-full md:w-64 bg-background"><CardHeader className="p-4 pb-2 text-center"><CardTitle className="text-xs uppercase text-muted-foreground">Eficiência</CardTitle></CardHeader><CardContent className="p-4 pt-0 text-center"><div className="text-4xl font-black text-primary mb-2">{aiReport.efficiencyScore}%</div><Progress value={aiReport.efficiencyScore} className="h-2" /></CardContent></Card>
-                                    </div>
-                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                        <div className="space-y-4"><h4 className="font-bold flex items-center gap-2 text-sm uppercase text-muted-foreground border-b pb-2"><Trophy className="h-4 w-4 text-yellow-500"/> Ranking Unificado</h4><div className="space-y-2">{aiReport.topSellingItems.map((item, i) => (<div key={i} className="flex justify-between items-center bg-muted/30 p-2 rounded-md border border-border/50"><div className="flex flex-col"><span className="text-sm font-bold uppercase">{item.name}</span><span className="text-[0.6rem] text-muted-foreground uppercase font-medium">{item.category}</span></div><Badge variant="outline" className="bg-background">{item.count} un.</Badge></div>))}</div></div>
-                                        <div className="space-y-4"><h4 className="font-bold flex items-center gap-2 text-sm uppercase text-muted-foreground border-b pb-2"><TrendingDown className="h-4 w-4 text-destructive"/> Maiores Gastos</h4><div className="space-y-2">{aiReport.mainExpenses.map((item, i) => (<div key={i} className="flex justify-between items-center bg-muted/30 p-2 rounded-md border border-border/50"><span className="text-sm font-bold uppercase truncate pr-4">{item.name}</span><span className="text-sm font-mono font-black text-destructive">{formatCurrency(item.totalValue)}</span></div>))}</div></div>
-                                    </div>
-                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                        <div className="bg-blue-500/5 p-4 rounded-lg border border-blue-500/20"><h4 className="font-bold flex items-center gap-2 text-xs uppercase text-blue-400 mb-2"><UsersIcon className="h-4 w-4"/> Análise de Pessoal</h4><p className="text-xs leading-relaxed">{aiReport.staffAnalysis}</p></div>
-                                        <div className="bg-green-500/5 p-4 rounded-lg border border-green-500/20"><h4 className="font-bold flex items-center gap-2 text-xs uppercase text-green-400 mb-2"><DollarSign className="h-4 w-4"/> Visão de Lucro</h4><p className="text-xs leading-relaxed">{aiReport.profitabilityInsight}</p></div>
-                                    </div>
-                                    <div className="bg-primary/10 p-6 rounded-lg border border-primary/20 space-y-4"><h4 className="font-black flex items-center gap-2 text-sm uppercase text-primary tracking-tighter"><AlertCircle className="h-5 w-5"/> Plano de Ação</h4><p className="text-sm whitespace-pre-wrap text-foreground/80 leading-relaxed font-medium">{aiReport.strategicAdvice}</p></div>
-                                    <div className="flex justify-center gap-4"><Button variant="outline" size="sm" onClick={() => setAiReport(null)} className="text-muted-foreground">Limpar / Mudar Período</Button></div>
+                                <div className="text-left space-y-6">
+                                    <p className="text-sm italic border-l-4 border-primary/20 pl-4">"{aiReport.summary}"</p>
+                                    <div className="bg-primary/10 p-4 rounded-md"><h4 className="font-bold text-xs uppercase text-primary mb-2">Plano de Ação</h4><p className="text-sm">{aiReport.strategicAdvice}</p></div>
+                                    <Button variant="outline" size="sm" onClick={() => setAiReport(null)}>Limpar</Button>
                                 </div>
                             )}
                         </div>
                     </AccordionContent>
                 </Card>
             </AccordionItem>
-            <AccordionItem value="diario"><Card><AccordionTrigger className="text-lg p-6 hover:no-underline"><div className="flex items-center gap-3"><CalendarDays className="h-6 w-6 text-primary"/><span>Relatórios Diários</span></div></AccordionTrigger><AccordionContent className="p-6 pt-0">{monthlyReports.length > 0 ? (<Accordion type="single" collapsible className="space-y-2">{monthlyReports.map(report => (<AccordionItem key={report.id} value={report.id!} className="border rounded-md px-4 hover:bg-muted/10"><AccordionTrigger className="hover:no-underline py-4"><div className="flex items-center justify-between w-full pr-4"><div className="flex items-center gap-4"><div className="text-center bg-background border rounded-md p-1 min-w-[50px]"><p className="text-xl font-bold leading-none">{safeFormat(parseISO(report.reportDate), 'dd')}</p><p className="text-[0.5rem] uppercase font-bold text-muted-foreground mt-1">{safeFormat(parseISO(report.reportDate), 'MMM', { locale: ptBR })}</p></div><div className="text-left"><p className="font-semibold capitalize text-sm">{safeFormat(parseISO(report.reportDate), "EEEE", { locale: ptBR })}</p><p className="text-[0.65rem] text-muted-foreground">{report.totalPedidos} pedidos</p></div></div><p className="text-base font-bold text-primary">{formatCurrency(report.totalGeral)}</p></div></AccordionTrigger><AccordionContent className="pt-2"><div className="flex justify-end gap-2 mb-4 px-4"><Button variant="outline" size="sm" onClick={() => { setReportToEditDate(report); setNewReportDate(parseISO(report.reportDate)); }}><CalendarDays className="h-4 w-4 mr-2" /> Alterar Data</Button><Button variant="outline" size="sm" className="text-destructive border-destructive/30" onClick={() => setReportToDelete(report)}><Trash2 className="h-4 w-4 mr-2" /> Excluir</Button></div><ReportDetail report={report} onEditItem={setArchivedItemToEdit} onDeleteItem={setArchivedItemToDelete} onAddItem={(d) => { setActiveReportDateForAdd(d); setEditArchivedDate(parseISO(d)); }} /></AccordionContent></AccordionItem>))}</Accordion>) : <p className="text-center py-10 text-muted-foreground">Sem relatórios este mês.</p>}</AccordionContent></Card></AccordionItem>
-            <AccordionItem value="semanal"><Card><AccordionTrigger className="text-lg p-6 hover:no-underline"><div className="flex items-center gap-3"><BarChart3 className="h-6 w-6 text-primary"/><span>Resumo Semanal</span></div></AccordionTrigger><AccordionContent className="p-6 pt-0">{weeklySummaries.length > 0 ? (<Accordion type="single" collapsible className="space-y-2">{weeklySummaries.map((s) => (<AccordionItem key={s.week} value={String(s.week)} className="border rounded-md px-4 hover:bg-muted/10"><AccordionTrigger className="hover:no-underline py-4"><div className="flex items-center justify-between w-full pr-4"><div className="flex items-center gap-3"><div className="bg-primary/10 text-primary p-2 rounded-md"><BarChart3 className="h-4 w-4" /></div><div className="text-left"><p className="font-bold text-sm">Semana {s.week}</p><p className="text-[0.65rem] text-muted-foreground">{format(s.start, 'dd/MM')} a {format(s.end, 'dd/MM')}</p></div></div><p className="text-base font-bold text-primary">{formatCurrency(s.data.totalGeral)}</p></div></AccordionTrigger><AccordionContent className="pt-2"><SummaryDisplay data={s.data} title={`RESUMO SEMANA ${s.week}`} /></AccordionContent></AccordionItem>))}</Accordion>) : <p className="text-center py-10 text-muted-foreground">Sem dados para este período.</p>}</AccordionContent></Card></AccordionItem>
-            <AccordionItem value="mensal"><Card><AccordionTrigger className="text-lg p-6 hover:no-underline"><div className="flex items-center gap-3"><TrendingUp className="h-6 w-6 text-primary"/><span>Resumo Mensal</span></div></AccordionTrigger><AccordionContent className="p-6 pt-0">{monthlySummaries.length > 0 ? (<Accordion type="single" collapsible className="space-y-2">{monthlySummaries.map((s) => (<AccordionItem key={s.month} value={String(s.month)} className="border rounded-md px-4 hover:bg-muted/10"><AccordionTrigger className="hover:no-underline py-4"><div className="flex items-center justify-between w-full pr-4"><div className="flex items-center gap-3"><div className="bg-primary/10 text-primary p-2 rounded-md"><TrendingUp className="h-4 w-4" /></div><p className="font-bold text-sm capitalize">{format(new Date(2000, s.month), 'MMMM', { locale: ptBR })}</p></div><p className="text-base font-bold text-primary">{formatCurrency(s.data.totalGeral)}</p></div></AccordionTrigger><AccordionContent className="pt-2"><SummaryDisplay data={s.data} title={`RESUMO MENSAL - ${format(new Date(2000, s.month), 'MMMM', { locale: ptBR })}`} /></AccordionContent></AccordionItem>))}</Accordion>) : <p className="text-center py-10 text-muted-foreground">Sem dados para este ano.</p>}</AccordionContent></Card></AccordionItem>
-            <AccordionItem value="anual"><Card><AccordionTrigger className="text-lg p-6 hover:no-underline"><div className="flex items-center gap-3"><History className="h-6 w-6 text-primary"/><span>Resumo Anual</span></div></AccordionTrigger><AccordionContent className="p-6 pt-0">{annualSummaries.length > 0 ? (<Accordion type="single" collapsible className="space-y-2">{annualSummaries.map((s) => (<AccordionItem key={s.year} value={String(s.year)} className="border rounded-md px-4 hover:bg-muted/10"><AccordionTrigger className="hover:no-underline py-4"><div className="flex items-center justify-between w-full pr-4"><div className="flex items-center gap-3"><div className="bg-primary/10 text-primary p-2 rounded-md"><History className="h-4 w-4" /></div><p className="font-bold text-sm">{s.year}</p></div><p className="text-base font-bold text-primary">{formatCurrency(s.data.totalGeral)}</p></div></AccordionTrigger><AccordionContent className="pt-2"><SummaryDisplay data={s.data} title={`RESUMO ANUAL - ${s.year}`} /></AccordionContent></AccordionItem>))}</Accordion>) : <p className="text-center py-10 text-muted-foreground">Sem dados registados.</p>}</AccordionContent></Card></AccordionItem>
+            <AccordionItem value="diario"><Card><AccordionTrigger className="text-lg p-6 hover:no-underline"><div className="flex items-center gap-3"><CalendarDays className="h-6 w-6 text-primary"/><span>Relatórios Diários</span></div></AccordionTrigger><AccordionContent className="p-6 pt-0">{monthlyReports.length > 0 ? (<Accordion type="single" collapsible className="space-y-2">{monthlyReports.map(report => (<AccordionItem key={report.id} value={report.id!} className="border rounded-md px-4 hover:bg-muted/10"><AccordionTrigger className="hover:no-underline py-4"><div className="flex items-center justify-between w-full pr-4"><div className="flex items-center gap-4"><div className="text-center bg-background border rounded-md p-1 min-w-[50px]"><p className="text-xl font-bold leading-none">{safeFormat(parseISO(report.reportDate), 'dd')}</p><p className="text-[0.5rem] uppercase font-bold text-muted-foreground mt-1">{safeFormat(parseISO(report.reportDate), 'MMM', { locale: ptBR })}</p></div><div className="text-left"><p className="font-semibold capitalize text-sm">{safeFormat(parseISO(report.reportDate), "EEEE", { locale: ptBR })}</p><p className="text-[0.65rem] text-muted-foreground">{report.totalPedidos} pedidos</p></div></div><p className="text-base font-bold text-primary">{formatCurrency(report.totalGeral)}</p></div></AccordionTrigger><AccordionContent className="pt-2"><div className="flex justify-end gap-2 mb-4 px-4"><Button variant="outline" size="sm" className="text-destructive border-destructive/30" onClick={() => setReportToDelete(report)}><Trash2 className="h-4 w-4 mr-2" /> Excluir</Button></div><ReportDetail report={report} onEditItem={setArchivedItemToEdit} onDeleteItem={setArchivedItemToDelete} onAddItem={(d) => { setActiveReportDateForAdd(d); setEditArchivedDate(parseISO(d)); }} /></AccordionContent></AccordionItem>))}</Accordion>) : <p className="text-center py-10 text-muted-foreground">Sem relatórios este mês.</p>}</AccordionContent></Card></AccordionItem>
             <AccordionItem value="clientes"><Card><AccordionTrigger className="text-lg p-6 hover:no-underline"><div className="flex items-center gap-3"><User className="h-6 w-6 text-primary"/><span>Consumo por Cliente (IA)</span></div></AccordionTrigger><AccordionContent className="p-6 pt-0"><CustomerReportsSection globalDate={globalDate} onEditItem={setArchivedItemToEdit} onDeleteItem={setArchivedItemToDelete} recalculateFn={recalculateReport}/></AccordionContent></Card></AccordionItem>
         </Accordion>
       </main>
