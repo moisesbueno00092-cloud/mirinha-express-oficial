@@ -5,15 +5,16 @@ import { useCollection, useFirestore } from '@/firebase';
 import { collection, query, orderBy, writeBatch, doc } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import type { Fornecedor, BomboniereItem } from '@/types';
-import { parseRomaneio } from '@/ai/flows/parse-romaneio-flow';
+import { parseRomaneio, testAiConnection } from '@/ai/flows/parse-romaneio-flow';
 
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
-import { Loader2, Trash2, Upload, FileImage, ClipboardList, CheckCircle2 } from 'lucide-react';
+import { Loader2, Trash2, Upload, FileImage, ClipboardList, CheckCircle2, Zap, ZapOff } from 'lucide-react';
 import { ScrollArea } from '../ui/scroll-area';
 import { format as formatDateFn } from 'date-fns';
 import { DatePicker } from '../ui/date-picker';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
+import { cn } from '@/lib/utils';
 
 interface LancamentoProduto {
     id: string;
@@ -23,15 +24,12 @@ interface LancamentoProduto {
     precoUnitario: number;
 }
 
-/**
- * Comprime a imagem de forma agressiva para evitar erros de quota (429) e memória.
- */
 const compressImage = (dataUri: string): Promise<string> => {
     return new Promise((resolve) => {
         const img = new Image();
         img.onload = () => {
             const canvas = document.createElement('canvas');
-            const MAX_WIDTH = 1000; // Reduzido para economizar tokens
+            const MAX_WIDTH = 1000; 
             let width = img.width;
             let height = img.height;
             if (width > MAX_WIDTH) {
@@ -41,7 +39,6 @@ const compressImage = (dataUri: string): Promise<string> => {
             canvas.width = width;
             canvas.height = height;
             const ctx = canvas.getContext('2d');
-            // Alta compressão (0.6) para garantir que o ficheiro seja minúsculo
             ctx?.drawImage(img, 0, 0, width, height);
             resolve(canvas.toDataURL('image/jpeg', 0.6));
         };
@@ -58,6 +55,8 @@ export default function MercadoriasPanel() {
     const [produtosLancados, setProdutosLancados] = useState<LancamentoProduto[]>([]);
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [isParsingRomaneio, setIsParsingRomaneio] = useState(false);
+    const [isTestingConnection, setIsTestingConnection] = useState(false);
+    const [aiStatus, setAiStatus] = useState<'idle' | 'online' | 'offline'>('idle');
     
     const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -65,6 +64,20 @@ export default function MercadoriasPanel() {
     const { data: fornecedores } = useCollection<Fornecedor>(fornecedoresQuery);
     const bomboniereItemsQuery = useMemo(() => firestore ? query(collection(firestore, 'bomboniere_items')) : null, [firestore]);
     const { data: bomboniereItems } = useCollection<BomboniereItem>(bomboniereItemsQuery);
+
+    const handleCheckStatus = async () => {
+        setIsTestingConnection(true);
+        const result = await testAiConnection();
+        setIsTestingConnection(false);
+        
+        if (result.success) {
+            setAiStatus('online');
+            toast({ title: 'IA Conectada', description: result.message });
+        } else {
+            setAiStatus('offline');
+            toast({ variant: 'destructive', title: 'Erro na IA', description: result.message });
+        }
+    };
 
     const processPhoto = async (dataUri: string) => {
         setIsParsingRomaneio(true);
@@ -170,6 +183,27 @@ export default function MercadoriasPanel() {
         <div className="space-y-6">
             <input type="file" ref={fileInputRef} className="hidden" accept="image/jpeg,image/png" onChange={handleFileChange} />
 
+            <div className="flex justify-between items-center bg-muted/20 p-3 rounded-xl border border-border/50">
+                <div className="flex items-center gap-2">
+                    <div className={cn("w-2 h-2 rounded-full animate-pulse", 
+                        aiStatus === 'online' ? 'bg-green-500' : aiStatus === 'offline' ? 'bg-red-500' : 'bg-gray-500'
+                    )} />
+                    <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+                        Status da IA: {aiStatus === 'online' ? 'Online' : aiStatus === 'offline' ? 'Indisponível' : 'Pronto'}
+                    </span>
+                </div>
+                <Button 
+                    variant="ghost" 
+                    size="sm" 
+                    className="h-8 gap-2 text-[0.65rem] font-bold" 
+                    onClick={handleCheckStatus}
+                    disabled={isTestingConnection}
+                >
+                    {isTestingConnection ? <Loader2 className="h-3 w-3 animate-spin" /> : <Zap className="h-3 w-3" />}
+                    VERIFICAR CONEXÃO
+                </Button>
+            </div>
+
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-2">
                     <Label className="text-muted-foreground uppercase text-[0.65rem] font-bold">Fornecedor</Label>
@@ -192,7 +226,7 @@ export default function MercadoriasPanel() {
                 </div>
                 <div className="space-y-2">
                     <h3 className="font-black text-2xl text-foreground">Enviar Romaneio (JPG)</h3>
-                    <p className="text-muted-foreground max-w-sm mx-auto text-sm">Escolha uma foto do seu computador para captar os dados automaticamente.</p>
+                    <p className="text-muted-foreground max-w-sm mx-auto text-sm">A IA usará o modelo 8B para captar os dados com rapidez.</p>
                 </div>
                 <Button 
                     size="lg" 
@@ -201,7 +235,7 @@ export default function MercadoriasPanel() {
                     disabled={isParsingRomaneio}
                 >
                     {isParsingRomaneio ? <Loader2 className="h-7 w-7 animate-spin"/> : <Upload className="h-7 w-7"/>}
-                    {isParsingRomaneio ? 'Lendo Imagem...' : 'Escolher Ficheiro'}
+                    {isParsingRomaneio ? 'Extraindo Dados...' : 'Escolher Ficheiro'}
                 </Button>
             </div>
 
