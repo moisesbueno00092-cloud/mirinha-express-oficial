@@ -25,8 +25,9 @@ interface LancamentoProduto {
 }
 
 /**
- * Comprime a imagem no navegador para garantir que seja leve e nítida para OCR.
- * Resolve o erro de payload grande e acelera o processamento da IA.
+ * Otimiza a imagem antes do envio para a IA.
+ * Reduz dimensões e qualidade para garantir que o ficheiro fique leve (evitando o erro de 1MB),
+ * mas mantém a nitidez necessária para o OCR.
  */
 const compressImage = (dataUri: string): Promise<string> => {
     return new Promise((resolve) => {
@@ -46,6 +47,7 @@ const compressImage = (dataUri: string): Promise<string> => {
             canvas.height = height;
             const ctx = canvas.getContext('2d');
             ctx?.drawImage(img, 0, 0, width, height);
+            // Qualidade 0.7 é o equilíbrio ideal entre peso e leitura de texto
             resolve(canvas.toDataURL('image/jpeg', 0.7));
         };
         img.src = dataUri;
@@ -69,6 +71,9 @@ export default function MercadoriasPanel() {
     const bomboniereItemsQuery = useMemo(() => firestore ? query(collection(firestore, 'bomboniere_items')) : null, [firestore]);
     const { data: bomboniereItems } = useCollection<BomboniereItem>(bomboniereItemsQuery);
 
+    /**
+     * Processa a foto selecionada: comprime localmente e envia para a IA.
+     */
     const processPhoto = async (dataUri: string) => {
         setIsParsingRomaneio(true);
         try {
@@ -87,10 +92,16 @@ export default function MercadoriasPanel() {
                 toast({ title: "Extração Concluída", description: `${output.items.length} itens encontrados no romaneio.` });
             }
 
+            // Tenta associar automaticamente o fornecedor pelo nome extraído
             if (output?.fornecedorNome && fornecedores) {
-                const matched = fornecedores.find(f => f.nome.toLowerCase().includes(output.fornecedorNome!.toLowerCase()));
+                const matched = fornecedores.find(f => 
+                    f.nome.toLowerCase().includes(output.fornecedorNome!.toLowerCase()) ||
+                    output.fornecedorNome!.toLowerCase().includes(f.nome.toLowerCase())
+                );
                 if (matched) setFornecedorId(matched.id);
             }
+
+            // Tenta associar automaticamente a data de vencimento
             if (output?.dataVencimento) {
                 try {
                     const [y, m, d] = output.dataVencimento.split('-').map(Number);
@@ -98,8 +109,12 @@ export default function MercadoriasPanel() {
                 } catch {}
             }
         } catch (e: any) {
-            console.error(e);
-            toast({ variant: 'destructive', title: 'Erro de Extração', description: e.message });
+            console.error("Erro no processamento:", e);
+            toast({ 
+                variant: 'destructive', 
+                title: 'Falha na Extração', 
+                description: e.message || 'Verifique a sua conexão ou imagem.' 
+            });
         } finally {
             setIsParsingRomaneio(false);
         }
@@ -145,9 +160,14 @@ export default function MercadoriasPanel() {
                     romaneioId
                 });
                 
-                const matched = bomboniereItems?.find(bi => p.produtoNome.toLowerCase().startsWith(bi.name.toLowerCase().split('(')[0].trim()));
+                // Atualização automática de stock se o nome for similar
+                const matched = bomboniereItems?.find(bi => 
+                    p.produtoNome.toLowerCase().startsWith(bi.name.toLowerCase().split('(')[0].trim())
+                );
                 if (matched) {
-                    batch.update(doc(firestore, 'bomboniere_items', matched.id), { estoque: matched.estoque + p.quantity });
+                    batch.update(doc(firestore, 'bomboniere_items', matched.id), { 
+                        estoque: matched.estoque + p.quantidade 
+                    });
                 }
             }
 
@@ -157,7 +177,7 @@ export default function MercadoriasPanel() {
             setFornecedorId(undefined);
             setDataVencimento(undefined);
         } catch (e) {
-            toast({ variant: 'destructive', title: 'Erro ao Salvar' });
+            toast({ variant: 'destructive', title: 'Erro ao Salvar', description: 'Não foi possível gravar os dados.' });
         } finally {
             setIsSubmitting(false);
         }
@@ -191,13 +211,14 @@ export default function MercadoriasPanel() {
                 </div>
             </div>
 
+            {/* Área de Seleção de Ficheiro */}
             <div className="bg-primary/5 border-2 border-dashed border-primary/30 rounded-2xl p-10 text-center space-y-5">
                 <div className="bg-primary/10 p-5 rounded-full w-20 h-20 flex items-center justify-center mx-auto">
                     <FileImage className="h-10 w-10 text-primary" />
                 </div>
                 <div>
                     <h3 className="font-black text-xl text-foreground">Entrada por Imagem JPG</h3>
-                    <p className="text-sm text-muted-foreground max-w-sm mx-auto">Selecione uma foto do romaneio no seu PC para a IA extrair os dados automaticamente.</p>
+                    <p className="text-sm text-muted-foreground max-w-sm mx-auto">Escolha uma foto do romaneio guardada no seu computador para extração automática.</p>
                 </div>
                 <Button 
                     size="lg" 
@@ -206,14 +227,15 @@ export default function MercadoriasPanel() {
                     disabled={isParsingRomaneio}
                 >
                     {isParsingRomaneio ? <Loader2 className="h-6 w-6 animate-spin"/> : <Upload className="h-6 w-6"/>}
-                    {isParsingRomaneio ? 'Analisando Romaneio...' : 'Escolher Imagem (JPG/PNG)'}
+                    {isParsingRomaneio ? 'A Analisar Nota...' : 'Escolher Imagem (JPG/PNG)'}
                 </Button>
             </div>
 
+            {/* Lista de Resultados da IA */}
             {produtosLancados.length > 0 && (
                 <div className="border rounded-2xl overflow-hidden bg-card shadow-xl">
                     <div className="bg-muted/50 px-6 py-4 text-[0.7rem] font-black uppercase flex justify-between items-center border-b">
-                        <span className="flex items-center gap-2 text-primary"><ClipboardList className="h-4 w-4"/> Itens Identificados</span>
+                        <span className="flex items-center gap-2 text-primary"><ClipboardList className="h-4 w-4"/> Itens Identificados pela IA</span>
                         <span className="text-foreground text-base">Total: {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(totalCompra)}</span>
                     </div>
                     <ScrollArea className="h-72">
