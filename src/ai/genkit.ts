@@ -5,8 +5,8 @@ import {config} from 'dotenv';
 config();
 
 /**
- * Configuração do Genkit forçando a API v1 para evitar erros de endpoint v1beta.
- * Isso garante que o modelo gemini-1.5-flash seja encontrado corretamente.
+ * Configuração do Genkit forçando a API v1 para garantir estabilidade.
+ * A v1 é a rota estável que evita o erro 404 do endpoint v1beta.
  */
 export const ai = genkit({
   plugins: [

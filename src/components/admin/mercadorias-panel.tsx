@@ -25,15 +25,15 @@ interface LancamentoProduto {
 }
 
 /**
- * Comprime a imagem no navegador para garantir que seja menor que 1MB.
- * Isso resolve o erro "Body exceeded 1 MB" e acelera a IA.
+ * Comprime a imagem no navegador para garantir que seja leve e nítida para OCR.
+ * Resolve o erro de payload grande e acelera o processamento da IA.
  */
 const compressImage = (dataUri: string): Promise<string> => {
     return new Promise((resolve) => {
         const img = new Image();
         img.onload = () => {
             const canvas = document.createElement('canvas');
-            const MAX_WIDTH = 1200; // Resolução ideal para OCR
+            const MAX_WIDTH = 1200; 
             let width = img.width;
             let height = img.height;
             
@@ -46,7 +46,6 @@ const compressImage = (dataUri: string): Promise<string> => {
             canvas.height = height;
             const ctx = canvas.getContext('2d');
             ctx?.drawImage(img, 0, 0, width, height);
-            // Qualidade 0.7 para manter nitidez dos textos
             resolve(canvas.toDataURL('image/jpeg', 0.7));
         };
         img.src = dataUri;
@@ -73,7 +72,6 @@ export default function MercadoriasPanel() {
     const processPhoto = async (dataUri: string) => {
         setIsParsingRomaneio(true);
         try {
-            // Compressão local antes de enviar para o servidor
             const compressed = await compressImage(dataUri);
             const output = await parseRomaneio({ romaneioPhoto: compressed });
             
@@ -113,7 +111,7 @@ export default function MercadoriasPanel() {
         const reader = new FileReader();
         reader.onload = (event) => processPhoto(event.target?.result as string);
         reader.readAsDataURL(file);
-        e.target.value = ''; // Limpar input para permitir nova seleção do mesmo ficheiro
+        e.target.value = ''; 
     };
 
     const handleRegisterEntry = async () => {
@@ -126,7 +124,6 @@ export default function MercadoriasPanel() {
             const estaPaga = !dataVencimento;
             const vencimento = dataVencimento || new Date();
 
-            // 1. Criar a Conta a Pagar
             batch.set(doc(collection(firestore, 'contas_a_pagar')), {
                 descricao: `Compra via Romaneio IA`,
                 fornecedorId: finalFornecedorId,
@@ -136,7 +133,6 @@ export default function MercadoriasPanel() {
                 romaneioId
             });
 
-            // 2. Criar o histórico de entradas e atualizar estoque
             for (const p of produtosLancados) {
                 batch.set(doc(collection(firestore, 'entradas_mercadorias')), {
                     produtoNome: p.produtoNome,
@@ -149,10 +145,9 @@ export default function MercadoriasPanel() {
                     romaneioId
                 });
                 
-                // Atualizar estoque se for item de bomboniere
                 const matched = bomboniereItems?.find(bi => p.produtoNome.toLowerCase().startsWith(bi.name.toLowerCase().split('(')[0].trim()));
                 if (matched) {
-                    batch.update(doc(firestore, 'bomboniere_items', matched.id), { estoque: matched.estoque + p.quantidade });
+                    batch.update(doc(firestore, 'bomboniere_items', matched.id), { estoque: matched.estoque + p.quantity });
                 }
             }
 
@@ -202,7 +197,7 @@ export default function MercadoriasPanel() {
                 </div>
                 <div>
                     <h3 className="font-black text-xl text-foreground">Entrada por Imagem JPG</h3>
-                    <p className="text-sm text-muted-foreground max-w-sm mx-auto">Carregue uma foto do romaneio do seu computador para que a IA extraia os dados automaticamente.</p>
+                    <p className="text-sm text-muted-foreground max-w-sm mx-auto">Selecione uma foto do romaneio no seu PC para a IA extrair os dados automaticamente.</p>
                 </div>
                 <Button 
                     size="lg" 
@@ -218,7 +213,7 @@ export default function MercadoriasPanel() {
             {produtosLancados.length > 0 && (
                 <div className="border rounded-2xl overflow-hidden bg-card shadow-xl">
                     <div className="bg-muted/50 px-6 py-4 text-[0.7rem] font-black uppercase flex justify-between items-center border-b">
-                        <span className="flex items-center gap-2 text-primary"><ClipboardList className="h-4 w-4"/> Itens Identificados pela IA</span>
+                        <span className="flex items-center gap-2 text-primary"><ClipboardList className="h-4 w-4"/> Itens Identificados</span>
                         <span className="text-foreground text-base">Total: {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(totalCompra)}</span>
                     </div>
                     <ScrollArea className="h-72">
