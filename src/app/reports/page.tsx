@@ -22,21 +22,16 @@ import {
     endOfMonth, 
     startOfWeek,
     endOfWeek,
-    startOfYear,
-    endOfYear,
     isWithinInterval,
     setYear,
     setMonth,
     isValid,
-    getWeek,
 } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
-import { Badge } from '@/components/ui/badge';
-import { Progress } from '@/components/ui/progress';
 import { 
     Loader2, 
     Trash2, 
@@ -52,14 +47,9 @@ import {
     BarChart3,
     History,
     Sparkles,
-    Trophy,
-    AlertCircle,
-    TrendingDown,
     Zap,
     Save,
-    Clock,
-    DollarSign,
-    Users as UsersIcon
+    Clock
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import {
@@ -78,7 +68,7 @@ import {
     DialogFooter,
     DialogHeader,
     DialogTitle,
-} from "@/components/ui/dialog";
+} from "@/dialog";
 import {
   Accordion,
   AccordionContent,
@@ -91,16 +81,12 @@ import type {
     BomboniereItem, 
     Item, 
     Group,
-    EntradaMercadoria,
     PredefinedItem,
-    SelectedBomboniereItem,
-    ContaAPagar,
-    FuncionarioLancamentoFinanceiro
+    SelectedBomboniereItem
 } from '@/types';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import ItemList from '@/components/item-list';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { WhatsAppIcon } from '@/components/ui/icons/whatsapp-icon';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import usePersistentState from '@/hooks/use-persistent-state';
@@ -289,7 +275,6 @@ const CustomerReportsSection = ({
     recalculateFn: (d: string) => Promise<void>
 }) => {
     const firestore = useFirestore();
-    const { toast } = useToast();
     const [selectedCustomerName, setSelectedCustomerName] = useState<string | null>(null);
     
     const orderItemsQuery = useMemo(() => {
@@ -463,7 +448,7 @@ export default function ReportsPage() {
 
   const [isGeneratingAI, setIsGeneratingAI] = useState(false);
   const [aiReport, setAiReport] = useState<ManagementReportOutput | null>(null);
-  const [aiScope, setAiScope] = useState<'week' | 'month' | 'year'>('month');
+  const [aiScope] = useState<'month' | 'year'>('month');
   
   const reportsQ = useMemo(() => firestore ? query(collection(firestore, 'daily_reports')) : null, [firestore]);
   const { data: allReportsRaw, isLoading: isLoadingReports } = useCollection<DailyReport>(reportsQ);

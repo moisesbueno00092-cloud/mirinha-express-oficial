@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useState, useMemo, useRef, useEffect } from 'react';
+import { useState, useMemo, useRef } from 'react';
 import { useCollection, useFirestore } from '@/firebase';
 import { collection, query, orderBy, writeBatch, doc } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
@@ -11,12 +11,11 @@ import { parseRomaneio } from '@/ai/flows/parse-romaneio-flow';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Loader2, Video, FileImage, Trash2, Save } from 'lucide-react';
+import { Loader2, FileImage, Trash2, Save, Upload } from 'lucide-react';
 import { ScrollArea } from '../ui/scroll-area';
 import { format as formatDateFn, addDays } from 'date-fns';
 import { DatePicker } from '../ui/date-picker';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
-import CameraCaptureSheet from './camera-capture-sheet';
 
 interface LancamentoProduto {
     id: number;
@@ -81,7 +80,6 @@ export default function MercadoriasPanel() {
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [isParsingRomaneio, setIsParsingRomaneio] = useState(false);
     const [lancamentoInput, setLancamentoInput] = useState('');
-    const [isCameraSheetOpen, setIsCameraSheetOpen] = useState(false);
     
     const lancamentoInputRef = useRef<HTMLInputElement>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);
@@ -174,7 +172,6 @@ export default function MercadoriasPanel() {
             toast({ variant: 'destructive', title: 'Erro na leitura', description: 'Não foi possível extrair os dados da imagem.' }); 
         } finally { 
             setIsParsingRomaneio(false); 
-            setIsCameraSheetOpen(false); 
         }
     };
 
@@ -188,7 +185,6 @@ export default function MercadoriasPanel() {
             processPhoto(dataUri);
         };
         reader.readAsDataURL(file);
-        // Reset input value to allow the same file to be selected again
         e.target.value = '';
     };
 
@@ -200,14 +196,6 @@ export default function MercadoriasPanel() {
 
     return (
         <div className="space-y-6">
-            <CameraCaptureSheet 
-                isOpen={isCameraSheetOpen} 
-                onClose={() => setIsCameraSheetOpen(false)} 
-                onCapture={(dataUri) => dataUri && processPhoto(dataUri)} 
-                isProcessing={isParsingRomaneio} 
-            />
-            
-            {/* Input de ficheiro escondido */}
             <input 
                 type="file" 
                 ref={fileInputRef} 
@@ -237,8 +225,8 @@ export default function MercadoriasPanel() {
             </div>
 
             <div className="space-y-2">
-                <Label>Lançar Manual ou IA</Label>
-                <div className="flex gap-2">
+                <Label>Lançamento Manual ou por Ficheiro (IA)</Label>
+                <div className="flex flex-col sm:flex-row gap-2">
                     <div className="relative flex-grow">
                         <Input 
                             ref={lancamentoInputRef} 
@@ -247,6 +235,7 @@ export default function MercadoriasPanel() {
                             onChange={(e) => setLancamentoInput(e.target.value)} 
                             onKeyDown={(e) => e.key === 'Enter' && handleAddProduto()} 
                             disabled={isParsingRomaneio}
+                            className="h-10"
                         />
                         {isParsingRomaneio && (
                             <div className="absolute inset-y-0 right-3 flex items-center">
@@ -256,24 +245,15 @@ export default function MercadoriasPanel() {
                     </div>
                     <Button 
                         variant="outline" 
-                        size="icon"
-                        onClick={() => setIsCameraSheetOpen(true)} 
-                        disabled={isParsingRomaneio}
-                        title="Tirar foto"
-                    >
-                        <Video className="h-4 w-4 text-primary"/>
-                    </Button>
-                    <Button 
-                        variant="outline" 
-                        size="icon"
+                        className="gap-2 h-10 border-blue-500/50 hover:bg-blue-500/10 text-blue-500"
                         onClick={() => fileInputRef.current?.click()} 
                         disabled={isParsingRomaneio}
-                        title="Carregar imagem do PC"
                     >
-                        <FileImage className="h-4 w-4 text-blue-500"/>
+                        {isParsingRomaneio ? <Loader2 className="h-4 w-4 animate-spin"/> : <FileImage className="h-4 w-4"/>}
+                        <span>Carregar Romaneio (PC)</span>
                     </Button>
                 </div>
-                <p className="text-[0.65rem] text-muted-foreground italic">Dica: Enter no campo vazio finaliza o registo.</p>
+                <p className="text-[0.65rem] text-muted-foreground italic">Dica: Digite "produto valor" e Enter. Enter no campo vazio finaliza o registo.</p>
             </div>
 
             {produtosLancados.length > 0 && (
@@ -310,7 +290,7 @@ export default function MercadoriasPanel() {
 
             <div className="flex justify-between items-center pt-2">
                 <div className="flex flex-col">
-                    <span className="text-[0.65rem] text-muted-foreground uppercase font-bold">Valor do Romaneio</span>
+                    <span className="text-[0.65rem] text-muted-foreground uppercase font-bold">Valor Total Calculado</span>
                     <span className="font-black text-2xl text-primary">{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(totalCompra)}</span>
                 </div>
                 <Button 
