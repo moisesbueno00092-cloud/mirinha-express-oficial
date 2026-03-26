@@ -22,15 +22,14 @@ const ParseRomaneioOutputSchema = z.object({
 export type ParseRomaneioOutput = z.infer<typeof ParseRomaneioOutputSchema>;
 
 /**
- * Processa a imagem do romaneio usando Gemini 1.5 Flash.
- * Referência de modelo estabilizada para evitar erros 404.
+ * Processa a imagem do romaneio usando o modelo estável gemini-1.5-flash.
  */
 export async function parseRomaneio(input: { romaneioPhoto: string }): Promise<ParseRomaneioOutput> {
   try {
     const response = await ai.generate({
       model: 'gemini-1.5-flash',
       prompt: [
-        { text: `Você é um especialista em ler romaneios e notas fiscais de hortifruti e mercadorias no Brasil.
+        { text: `Você é um especialista em ler romaneios e notas fiscais de mercadorias no Brasil.
         Sua tarefa é extrair:
         1. O nome do fornecedor.
         2. A data de vencimento (formato YYYY-MM-DD).
@@ -50,9 +49,11 @@ export async function parseRomaneio(input: { romaneioPhoto: string }): Promise<P
 
     return response.output;
   } catch (error: any) {
-    console.error("Erro na extração do romaneio:", error);
+    // Exibe o erro original completo no console conforme solicitado para diagnóstico
+    console.error("DEBUG - Erro original completo capturado no catch:", error);
+    
     if (error.message?.includes('404')) {
-       throw new Error("Erro de conexão com o serviço de IA. O modelo solicitado não foi encontrado.");
+       throw new Error("Erro de conexão com a IA (Modelo não encontrado ou região não suportada).");
     }
     throw new Error(`Erro de Processamento: ${error.message}`);
   }
