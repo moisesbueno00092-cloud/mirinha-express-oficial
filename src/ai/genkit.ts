@@ -1,4 +1,3 @@
-
 import {genkit} from 'genkit';
 import {googleAI} from '@genkit-ai/google-genai';
 import {config} from 'dotenv';
@@ -7,7 +6,7 @@ config();
 
 /**
  * Configuração central do Genkit otimizada para o Restaurante da Mirinha.
- * Utiliza o modelo gemini-1.5-flash para leitura rápida de documentos.
+ * Utiliza o modelo gemini-1.5-flash de forma estável para leitura de documentos.
  */
 export const ai = genkit({
   plugins: [

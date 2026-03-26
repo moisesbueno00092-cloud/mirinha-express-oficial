@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useMemo, useRef } from 'react';
@@ -142,7 +141,7 @@ export default function MercadoriasPanel() {
     const processPhoto = async (dataUri: string) => {
         setIsParsingRomaneio(true);
         try {
-            // Compressão no navegador antes de enviar para o servidor
+            // Compressão no navegador antes de enviar para o servidor para resolver o erro de 1MB
             const compressed = await compressImage(dataUri);
             const output = await parseRomaneio({ romaneioPhoto: compressed });
             
@@ -172,7 +171,7 @@ export default function MercadoriasPanel() {
             }
         } catch (e: any) { 
             console.error("Erro ao processar romaneio:", e);
-            toast({ variant: 'destructive', title: 'Erro de Extração', description: 'Não foi possível ler os dados. Tente uma imagem mais nítida do JPG.' }); 
+            toast({ variant: 'destructive', title: 'Erro de Extração', description: 'Não foi possível ler os dados. Certifique-se que a imagem é nítida.' }); 
         } finally { 
             setIsParsingRomaneio(false); 
         }
@@ -230,7 +229,7 @@ export default function MercadoriasPanel() {
                 </div>
                 <div>
                     <h3 className="font-bold text-lg">Enviar Romaneio JPG</h3>
-                    <p className="text-sm text-muted-foreground">Selecione uma imagem da memória do seu PC para extrair produtos e preços automaticamente.</p>
+                    <p className="text-sm text-muted-foreground">Selecione uma imagem do computador para extrair dados automaticamente.</p>
                 </div>
                 <Button 
                     size="lg"
@@ -239,7 +238,7 @@ export default function MercadoriasPanel() {
                     disabled={isParsingRomaneio}
                 >
                     {isParsingRomaneio ? <Loader2 className="h-6 w-6 animate-spin"/> : <Upload className="h-6 w-6"/>}
-                    {isParsingRomaneio ? 'A Analisar Imagem...' : 'Escolher Imagem (JPG/PNG)'}
+                    {isParsingRomaneio ? 'Analisando Imagem...' : 'Escolher Imagem (JPG/PNG)'}
                 </Button>
             </div>
 

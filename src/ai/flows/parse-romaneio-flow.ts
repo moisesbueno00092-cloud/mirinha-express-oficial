@@ -1,4 +1,3 @@
-
 'use server';
 
 /**
@@ -43,7 +42,7 @@ const parseRomaneioPrompt = ai.definePrompt({
   input: {schema: ParseRomaneioInputSchema},
   output: {schema: ParseRomaneioOutputSchema},
   prompt: `Você é um assistente especializado em ler romaneios e notas fiscais brasileiras.
-Sua tarefa é analisar a imagem JPG fornecida e extrair os produtos, quantidades e valores totais de cada linha.
+Sua tarefa é analisar a imagem fornecida e extrair os produtos, quantidades e valores totais de cada linha.
 
 Identifique:
 1. Nome do Fornecedor (Emitente).
@@ -67,6 +66,7 @@ const parseRomaneioFlow = ai.defineFlow(
   },
   async (input) => {
     try {
+      // Forçamos o uso do modelo estável para evitar erros 404
       const { output } = await parseRomaneioPrompt(input);
       if (!output) throw new Error("A IA não conseguiu ler os dados desta imagem.");
       return output;
