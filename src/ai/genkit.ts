@@ -5,9 +5,7 @@ import {config} from 'dotenv';
 config();
 
 /**
- * Configuração centralizada do Genkit.
- * Removemos o modelo padrão global para evitar erros de resolução de endpoint
- * e garantir que cada fluxo use a referência mais estável.
+ * Configuração simplificada do Genkit para evitar erros de resolução de endpoint.
  */
 export const ai = genkit({
   plugins: [

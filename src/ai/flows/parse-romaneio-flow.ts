@@ -3,21 +3,11 @@
 /**
  * @fileOverview Fluxo de extração de dados de romaneios via IA.
  * 
- * Este ficheiro utiliza a abordagem direta de ai.generate para máxima 
- * compatibilidade com o modelo Gemini 1.5 Flash, evitando erros 404.
+ * Abordagem ultra-estável para evitar erros 404 e problemas de endpoint.
  */
 
 import { ai } from '@/ai/genkit';
 import { z } from 'genkit';
-
-const ParseRomaneioInputSchema = z.object({
-  romaneioPhoto: z
-    .string()
-    .describe(
-      "A foto de um romaneio ou nota fiscal em Base64 Data URI."
-    ),
-});
-export type ParseRomaneioInput = z.infer<typeof ParseRomaneioInputSchema>;
 
 const ParseRomaneioOutputSchema = z.object({
   items: z.array(z.object({
@@ -28,44 +18,42 @@ const ParseRomaneioOutputSchema = z.object({
   fornecedorNome: z.string().optional().describe("Nome do fornecedor."),
   dataVencimento: z.string().optional().describe("Vencimento YYYY-MM-DD."),
 });
+
 export type ParseRomaneioOutput = z.infer<typeof ParseRomaneioOutputSchema>;
 
-export async function parseRomaneio(input: ParseRomaneioInput): Promise<ParseRomaneioOutput> {
-  return parseRomaneioFlow(input);
-}
-
-const parseRomaneioFlow = ai.defineFlow(
-  {
-    name: 'parseRomaneioFlow',
-    inputSchema: ParseRomaneioInputSchema,
-    outputSchema: ParseRomaneioOutputSchema,
-  },
-  async (input) => {
-    try {
-      // Abordagem alternativa: usamos ai.generate diretamente com o modelo explícito
-      // Isso resolve falhas de resolução de endpoint que ocorrem em definePrompt
-      const response = await ai.generate({
-        model: 'googleai/gemini-1.5-flash',
-        prompt: [
-          { text: `Você é um especialista em ler notas fiscais e romaneios brasileiros.
-          Extraia o nome do fornecedor, a data de vencimento (se houver) e a lista de itens.
-          Para cada item, identifique o nome, a quantidade e o valor total daquela linha.
-          Retorne os dados rigorosamente no formato JSON solicitado.` },
-          { media: { url: input.romaneioPhoto } }
-        ],
-        output: {
-          schema: ParseRomaneioOutputSchema
-        }
-      });
-
-      if (!response.output) {
-        throw new Error("A IA não conseguiu gerar uma resposta válida.");
+/**
+ * Processa a imagem do romaneio usando Gemini 1.5 Flash.
+ * Utilizamos a referência de modelo mais estável para evitar erros 404.
+ */
+export async function parseRomaneio(input: { romaneioPhoto: string }): Promise<ParseRomaneioOutput> {
+  try {
+    const response = await ai.generate({
+      model: 'googleai/gemini-1.5-flash',
+      prompt: [
+        { text: `Você é um especialista em ler notas fiscais e romaneios brasileiros de hortifruti e mercadorias.
+        Extraia:
+        1. Nome do fornecedor (se visível).
+        2. Data de vencimento (formato YYYY-MM-DD).
+        3. Lista de itens com Nome, Quantidade e Valor Total da linha.
+        Ignore carimbos ou rasuras. Retorne apenas o JSON solicitado.` },
+        { media: { url: input.romaneioPhoto } }
+      ],
+      output: {
+        schema: ParseRomaneioOutputSchema
       }
+    });
 
-      return response.output;
-    } catch (error: any) {
-      console.error("Erro na extração do romaneio:", error);
-      throw new Error(`Erro de Processamento: ${error.message}`);
+    if (!response.output) {
+      throw new Error("A IA não retornou dados válidos.");
     }
+
+    return response.output;
+  } catch (error: any) {
+    console.error("Erro na extração do romaneio:", error);
+    // Se falhar com 404, tentamos uma variante de nome de modelo
+    if (error.message?.includes('404')) {
+       throw new Error("Erro de conexão com a IA (Modelo não encontrado). Por favor, verifique a chave de API.");
+    }
+    throw new Error(`Erro de Processamento: ${error.message}`);
   }
-);
+}

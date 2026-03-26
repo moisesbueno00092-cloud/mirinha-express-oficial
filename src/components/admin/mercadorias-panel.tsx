@@ -10,12 +10,11 @@ import { parseRomaneio } from '@/ai/flows/parse-romaneio-flow';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Loader2, Trash2, Save, Upload, FileImage, ClipboardList, AlertCircle } from 'lucide-react';
+import { Loader2, Trash2, Save, Upload, FileImage, ClipboardList, CheckCircle2 } from 'lucide-react';
 import { ScrollArea } from '../ui/scroll-area';
 import { format as formatDateFn } from 'date-fns';
 import { DatePicker } from '../ui/date-picker';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
-import { Alert, AlertDescription, AlertTitle } from '../ui/alert';
 
 interface LancamentoProduto {
     id: string;
@@ -26,15 +25,15 @@ interface LancamentoProduto {
 }
 
 /**
- * Comprime a imagem no cliente para garantir que o upload seja leve (< 1MB)
- * e compatível com a IA, mantendo a nitidez necessária.
+ * Comprime a imagem no navegador para < 1MB.
+ * Isso evita o erro "Body exceeded 1 MB" e acelera a IA.
  */
 const compressImage = (dataUri: string): Promise<string> => {
     return new Promise((resolve) => {
         const img = new Image();
         img.onload = () => {
             const canvas = document.createElement('canvas');
-            const MAX_WIDTH = 1200; 
+            const MAX_WIDTH = 1000; // Resolução suficiente para OCR
             let width = img.width;
             let height = img.height;
             
@@ -47,7 +46,8 @@ const compressImage = (dataUri: string): Promise<string> => {
             canvas.height = height;
             const ctx = canvas.getContext('2d');
             ctx?.drawImage(img, 0, 0, width, height);
-            resolve(canvas.toDataURL('image/jpeg', 0.7));
+            // Qualidade 0.6 é o equilíbrio ideal entre peso e nitidez
+            resolve(canvas.toDataURL('image/jpeg', 0.6));
         };
         img.src = dataUri;
     });
@@ -85,7 +85,7 @@ export default function MercadoriasPanel() {
                     precoUnitario: it.valorTotal / (it.quantidade || 1) 
                 }));
                 setProdutosLancados(prev => [...prev, ...newItems]);
-                toast({ title: "Extração Concluída", description: `${output.items.length} itens encontrados.` });
+                toast({ title: "Dados Extraídos", description: `${output.items.length} produtos identificados.` });
             }
 
             if (output?.fornecedorNome && fornecedores) {
@@ -100,7 +100,7 @@ export default function MercadoriasPanel() {
             }
         } catch (e: any) {
             console.error(e);
-            toast({ variant: 'destructive', title: 'Erro na IA', description: 'Não foi possível ler a imagem. Tente uma foto mais nítida.' });
+            toast({ variant: 'destructive', title: 'Falha na Extração', description: e.message });
         } finally {
             setIsParsingRomaneio(false);
         }
@@ -112,7 +112,7 @@ export default function MercadoriasPanel() {
         const reader = new FileReader();
         reader.onload = (event) => processPhoto(event.target?.result as string);
         reader.readAsDataURL(file);
-        e.target.value = '';
+        e.target.value = ''; // Reset input
     };
 
     const handleRegisterEntry = async () => {
@@ -126,7 +126,7 @@ export default function MercadoriasPanel() {
             const vencimento = dataVencimento || new Date();
 
             batch.set(doc(collection(firestore, 'contas_a_pagar')), {
-                descricao: `Compra Mercadorias (via IA)`,
+                descricao: `Compra de Mercadorias (via Romaneio JPG)`,
                 fornecedorId: finalFornecedorId,
                 valor: produtosLancados.reduce((acc, p) => acc + p.preco, 0),
                 dataVencimento: formatDateFn(vencimento, 'yyyy-MM-dd'),
@@ -153,12 +153,12 @@ export default function MercadoriasPanel() {
             }
 
             await batch.commit();
-            toast({ title: 'Sucesso!', description: 'Lançamento criado com sucesso.' });
+            toast({ title: 'Sucesso!', description: 'Lançamento financeiro e histórico criados.' });
             setProdutosLancados([]);
             setFornecedorId(undefined);
             setDataVencimento(undefined);
         } catch (e) {
-            toast({ variant: 'destructive', title: 'Erro ao salvar' });
+            toast({ variant: 'destructive', title: 'Erro ao Salvar' });
         } finally {
             setIsSubmitting(false);
         }
@@ -172,68 +172,67 @@ export default function MercadoriasPanel() {
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-2">
-                    <Label>Fornecedor</Label>
+                    <Label className="text-muted-foreground uppercase text-[0.65rem] font-bold">Fornecedor</Label>
                     <Select value={fornecedorId} onValueChange={setFornecedorId}>
-                        <SelectTrigger><SelectValue placeholder="Selecione o fornecedor" /></SelectTrigger>
+                        <SelectTrigger className="h-12"><SelectValue placeholder="Selecione o fornecedor" /></SelectTrigger>
                         <SelectContent>{fornecedores?.map(f => (<SelectItem key={f.id} value={f.id}>{f.nome}</SelectItem>))}</SelectContent>
                     </Select>
                 </div>
                 <div className="space-y-2">
-                    <Label>Vencimento (Vazio = Pago hoje)</Label>
+                    <Label className="text-muted-foreground uppercase text-[0.65rem] font-bold">Vencimento (Vazio = Pago Hoje)</Label>
                     <DatePicker date={dataVencimento} setDate={setDataVencimento} />
                 </div>
             </div>
 
-            <div className="bg-primary/5 border-2 border-dashed border-primary/30 rounded-xl p-8 text-center space-y-4">
-                <div className="bg-primary/10 p-4 rounded-full w-16 h-16 flex items-center justify-center mx-auto">
-                    <FileImage className="h-8 w-8 text-primary" />
+            <div className="bg-primary/5 border-2 border-dashed border-primary/30 rounded-2xl p-10 text-center space-y-5">
+                <div className="bg-primary/10 p-5 rounded-full w-20 h-20 flex items-center justify-center mx-auto">
+                    <FileImage className="h-10 w-10 text-primary" />
                 </div>
                 <div>
-                    <h3 className="font-bold text-lg">Enviar Romaneio (JPG da memória do PC)</h3>
-                    <p className="text-sm text-muted-foreground">Escolha uma foto ou imagem da nota guardada no seu computador.</p>
+                    <h3 className="font-black text-xl text-foreground">Carregar Romaneio JPG</h3>
+                    <p className="text-sm text-muted-foreground max-w-sm mx-auto">Escolha uma foto da nota fiscal guardada no seu computador para extrair os produtos automaticamente.</p>
                 </div>
                 <Button 
                     size="lg" 
-                    className="w-full sm:w-auto h-14 gap-3 text-lg font-bold px-10" 
+                    className="w-full sm:w-auto h-16 gap-3 text-lg font-black px-12 rounded-xl shadow-lg" 
                     onClick={() => fileInputRef.current?.click()} 
                     disabled={isParsingRomaneio}
                 >
                     {isParsingRomaneio ? <Loader2 className="h-6 w-6 animate-spin"/> : <Upload className="h-6 w-6"/>}
-                    {isParsingRomaneio ? 'A Processar...' : 'Escolher Imagem (JPG/PNG)'}
+                    {isParsingRomaneio ? 'Analisando Imagem...' : 'Escolher Imagem (JPG/PNG)'}
                 </Button>
             </div>
 
             {produtosLancados.length > 0 && (
-                <div className="border rounded-xl overflow-hidden shadow-sm">
-                    <div className="bg-muted/50 px-4 py-3 text-[0.7rem] font-bold uppercase flex justify-between items-center border-b">
-                        <span className="flex items-center gap-2 text-primary"><ClipboardList className="h-4 w-4"/> Conferência de Itens</span>
-                        <span className="text-foreground text-sm">Total: {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(totalCompra)}</span>
+                <div className="border rounded-2xl overflow-hidden bg-card shadow-xl">
+                    <div className="bg-muted/50 px-6 py-4 text-[0.7rem] font-black uppercase flex justify-between items-center border-b">
+                        <span className="flex items-center gap-2 text-primary"><ClipboardList className="h-4 w-4"/> Conferência de Itens da IA</span>
+                        <span className="text-foreground text-base">Total: {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(totalCompra)}</span>
                     </div>
-                    <ScrollArea className="h-64">
+                    <ScrollArea className="h-72">
                         <div className="divide-y">
                             {produtosLancados.map(p => (
-                                <div key={p.id} className="flex justify-between items-center p-4 hover:bg-muted/30">
+                                <div key={p.id} className="flex justify-between items-center p-5 hover:bg-muted/30 transition-colors">
                                     <div className="flex flex-col">
-                                        <span className="font-semibold uppercase text-sm">{p.produtoNome}</span>
-                                        <span className="text-[0.65rem] text-muted-foreground">{p.quantidade} un x {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(p.precoUnitario)}</span>
+                                        <span className="font-bold uppercase text-sm leading-tight">{p.produtoNome}</span>
+                                        <span className="text-[0.65rem] text-muted-foreground mt-1">
+                                            {p.quantidade.toLocaleString('pt-BR')} un x {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(p.precoUnitario)}
+                                        </span>
                                     </div>
-                                    <div className="flex items-center gap-4">
-                                        <span className="font-mono font-bold text-primary">{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(p.preco)}</span>
-                                        <Button variant="ghost" size="icon" className="text-destructive/50 hover:text-destructive" onClick={() => setProdutosLancados(prev => prev.filter(item => item.id !== p.id))}><Trash2 className="h-4 w-4" /></Button>
+                                    <div className="flex items-center gap-5">
+                                        <span className="font-mono font-black text-primary text-base">{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(p.preco)}</span>
+                                        <Button variant="ghost" size="icon" className="h-10 w-10 text-destructive/40 hover:text-destructive hover:bg-destructive/10 rounded-full" onClick={() => setProdutosLancados(prev => prev.filter(item => item.id !== p.id))}><Trash2 className="h-5 w-5" /></Button>
                                     </div>
                                 </div>
                             ))}
                         </div>
                     </ScrollArea>
-                </div>
-            )}
-
-            {produtosLancados.length > 0 && (
-                <div className="flex justify-end pt-4">
-                    <Button onClick={handleRegisterEntry} disabled={isSubmitting} className="h-14 px-10 text-lg font-bold gap-2">
-                        {isSubmitting ? <Loader2 className="animate-spin h-5 w-5" /> : <Save className="h-5 w-5" />}
-                        Confirmar e Criar Lançamento
-                    </Button>
+                    <div className="p-6 bg-muted/20 border-t flex justify-end">
+                        <Button onClick={handleRegisterEntry} disabled={isSubmitting} className="h-14 px-12 text-lg font-black gap-3 rounded-xl">
+                            {isSubmitting ? <Loader2 className="animate-spin h-6 w-6" /> : <CheckCircle2 className="h-6 w-6" />}
+                            Confirmar Tudo e Criar Lançamento
+                        </Button>
+                    </div>
                 </div>
             )}
         </div>
