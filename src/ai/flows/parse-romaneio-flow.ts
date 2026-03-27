@@ -1,10 +1,10 @@
 'use server';
 
 /**
- * @fileOverview Fluxo de extração de dados de romaneios utilizando Genkit 1.x.
+ * @fileOverview Fluxo de extração de dados de romaneios utilizando Genkit 1.x e Gemini 1.5 Flash.
  */
 
-import { ai } from '@/ai/genkit';
+import { ai, gemini15Flash } from '@/ai/genkit';
 import { z } from 'genkit';
 
 const ParseRomaneioOutputSchema = z.object({
@@ -20,12 +20,12 @@ const ParseRomaneioOutputSchema = z.object({
 export type ParseRomaneioOutput = z.infer<typeof ParseRomaneioOutputSchema>;
 
 /**
- * Testa a conexão com a IA utilizando o modelo estável via string.
+ * Testa a conexão com a IA utilizando a referência oficial do modelo.
  */
 export async function testAiConnection(): Promise<{ success: boolean; message: string }> {
   try {
     const response = await ai.generate({
-      model: 'googleai/gemini-1.5-flash',
+      model: gemini15Flash,
       prompt: 'Responda apenas "IA ATIVA".',
     });
 
@@ -39,7 +39,7 @@ export async function testAiConnection(): Promise<{ success: boolean; message: s
     if (error.message?.includes('404')) {
         return { 
             success: false, 
-            message: 'Erro 404: Modelo não encontrado. Verifique se ativou a API no Google AI Studio.' 
+            message: 'Erro 404: Modelo não encontrado. Verifique se a sua chave de API tem acesso ao Gemini 1.5 Flash na região da Vercel.' 
         };
     }
     
@@ -52,12 +52,12 @@ export async function testAiConnection(): Promise<{ success: boolean; message: s
 }
 
 /**
- * Extrai dados do romaneio via visão computacional.
+ * Extrai dados do romaneio via visão computacional utilizando o modelo oficial.
  */
 export async function parseRomaneio(input: { romaneioPhoto: string }): Promise<ParseRomaneioOutput> {
   try {
     const { output } = await ai.generate({
-      model: 'googleai/gemini-1.5-flash',
+      model: gemini15Flash,
       prompt: [
         { text: `Você é um assistente especializado em romaneios de restaurante. 
         Analise a imagem e extraia os seguintes dados em JSON:

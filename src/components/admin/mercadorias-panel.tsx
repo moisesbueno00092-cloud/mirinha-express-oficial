@@ -208,57 +208,44 @@ export default function MercadoriasPanel() {
                     disabled={isTestingConnection}
                 >
                     {isTestingConnection ? <Loader2 className="h-3 w-3 animate-spin text-primary" /> : <Zap className="h-3 w-3 text-primary" />}
-                    TESTAR LIGAÇÃO
+                    TESTAR
                 </Button>
             </div>
 
-            {aiStatus === 'offline' && (
-                <div className="bg-destructive/10 border border-destructive/20 p-2 rounded-lg flex items-start gap-2">
-                    <AlertCircle className="h-4 w-4 text-destructive shrink-0 mt-0.5" />
-                    <div className="space-y-0.5">
-                        <p className="text-[0.65rem] font-bold text-destructive">A IA não está a responder.</p>
-                        <p className="text-[0.6rem] text-muted-foreground leading-tight">
-                            Verifique se a variável <code className="bg-background px-1 rounded">NEXT_PUBLIC_GEMINI_API_KEY</code> está configurada corretamente na Vercel.
-                        </p>
-                    </div>
-                </div>
-            )}
-
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                 <div className="space-y-1">
-                    <Label className="text-muted-foreground uppercase text-[0.6rem] font-bold tracking-widest">Fornecedor</Label>
+                    <Label className="text-muted-foreground uppercase text-[0.6rem] font-bold tracking-widest leading-none">Fornecedor</Label>
                     <Select value={fornecedorId} onValueChange={setFornecedorId}>
-                        <SelectTrigger className="h-9 rounded-md"><SelectValue placeholder="Selecione..." /></SelectTrigger>
+                        <SelectTrigger className="h-8 rounded-md text-xs"><SelectValue placeholder="Selecione..." /></SelectTrigger>
                         <SelectContent>
                             {fornecedores?.map(f => (<SelectItem key={f.id} value={f.id}>{f.nome}</SelectItem>))}
                         </SelectContent>
                     </Select>
                 </div>
                 <div className="space-y-1">
-                    <Label className="text-muted-foreground uppercase text-[0.6rem] font-bold tracking-widest">Data de Vencimento</Label>
-                    <DatePicker date={dataVencimento} setDate={setDataVencimento} />
+                    <Label className="text-muted-foreground uppercase text-[0.6rem] font-bold tracking-widest leading-none">Vencimento</Label>
+                    <div className="h-8"><DatePicker date={dataVencimento} setDate={setDataVencimento} /></div>
                 </div>
             </div>
 
             <div 
-                className="bg-primary/5 border-2 border-dashed border-primary/20 rounded-xl p-4 text-center space-y-2 transition-all hover:bg-primary/10 hover:border-primary/40 group cursor-pointer" 
+                className="bg-primary/5 border-2 border-dashed border-primary/20 rounded-lg p-2 text-center space-y-1 transition-all hover:bg-primary/10 hover:border-primary/40 group cursor-pointer" 
                 onClick={() => fileInputRef.current?.click()}
             >
-                <div className="bg-primary/10 p-2 rounded-full w-10 h-10 flex items-center justify-center mx-auto group-hover:scale-110 transition-transform">
-                    <FileImage className="h-5 w-5 text-primary" />
-                </div>
-                <div className="space-y-0.5">
-                    <h3 className="font-bold text-sm text-foreground">Carregar Romaneio</h3>
-                    <p className="text-muted-foreground text-[0.6rem] uppercase font-medium">Selecione JPG ou PNG</p>
-                </div>
-                <Button 
-                    size="sm" 
-                    className="w-full sm:w-auto h-8 gap-2 text-xs font-black px-6 rounded-md shadow-md" 
-                    disabled={isParsingRomaneio}
-                >
-                    {isParsingRomaneio ? <Loader2 className="h-3 w-3 animate-spin"/> : <Upload className="h-3 w-3"/>}
-                    {isParsingRomaneio ? 'Analisando...' : 'Escolher Ficheiro'}
-                </Button>
+                {isParsingRomaneio ? (
+                    <div className="flex flex-col items-center py-1">
+                        <Loader2 className="h-4 w-4 animate-spin text-primary mb-1" />
+                        <span className="text-[0.6rem] font-black uppercase text-primary">Analisando Imagem...</span>
+                    </div>
+                ) : (
+                    <>
+                        <div className="flex items-center justify-center gap-2">
+                            <FileImage className="h-4 w-4 text-primary" />
+                            <span className="font-bold text-xs">Carregar Romaneio</span>
+                        </div>
+                        <p className="text-[0.55rem] text-muted-foreground uppercase font-medium">JPG ou PNG (Até 50MB)</p>
+                    </>
+                )}
             </div>
 
             {produtosLancados.length > 0 && (

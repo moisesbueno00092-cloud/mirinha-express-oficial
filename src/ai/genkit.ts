@@ -1,9 +1,9 @@
 import {genkit} from 'genkit';
-import {googleAI} from '@genkit-ai/google-genai';
+import {googleAI, gemini15Flash} from '@genkit-ai/google-genai';
 
 /**
  * Configuração central do Genkit otimizada para Vercel.
- * Utiliza a chave de API pública ou privada para garantir autenticação em produção.
+ * Exporta o modelo gemini15Flash explicitamente para garantir resolução correta de endpoints.
  */
 export const ai = genkit({
   plugins: [
@@ -12,3 +12,5 @@ export const ai = genkit({
     }),
   ],
 });
+
+export { gemini15Flash };
