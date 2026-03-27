@@ -2,7 +2,7 @@
 
 /**
  * @fileOverview Fluxo de extração de dados de romaneios com lógica de resiliência.
- * Tenta múltiplos identificadores de modelo para evitar o erro 404 na Vercel.
+ * Tenta múltiplos identificadores de modelo para evitar o erro 404.
  */
 
 import { ai } from '@/ai/genkit';
@@ -20,12 +20,12 @@ const ParseRomaneioOutputSchema = z.object({
 
 export type ParseRomaneioOutput = z.infer<typeof ParseRomaneioOutputSchema>;
 
-// Lista de modelos a tentar em ordem de preferência. 
-// Gemini 1.5 Flash 8B é o mais eficiente para tarefas curtas na Vercel.
+// Lista de modelos a tentar. Removido o prefixo em alguns para testar compatibilidade direta.
 const MODELS_TO_TRY = [
-  'googleai/gemini-1.5-flash-8b',
+  'gemini-1.5-flash',
   'googleai/gemini-1.5-flash',
-  'googleai/gemini-1.5-pro'
+  'gemini-1.5-flash-latest',
+  'gemini-1.5-pro'
 ];
 
 export async function testAiConnection(): Promise<{ success: boolean; message: string }> {
@@ -42,7 +42,7 @@ export async function testAiConnection(): Promise<{ success: boolean; message: s
       console.warn(`Tentativa com ${modelId} falhou:`, e.message);
     }
   }
-  return { success: false, message: 'Nenhum modelo da Google respondeu. Verifique a sua API Key e se a API Generative Language está ativa no seu projeto do Google Cloud.' };
+  return { success: false, message: 'Nenhum modelo respondeu. Verifique a API Key no Google AI Studio.' };
 }
 
 export async function parseRomaneio(input: { romaneioPhoto: string }): Promise<ParseRomaneioOutput> {
@@ -70,15 +70,14 @@ export async function parseRomaneio(input: { romaneioPhoto: string }): Promise<P
       lastError = error;
       console.error(`Erro ao processar com ${modelId}:`, error.message);
       
-      // Se o erro for 404, tentamos o próximo modelo da lista
-      if (error.message?.includes('404')) {
+      // Se o erro for 404 ou não encontrado, tentamos o próximo modelo
+      if (error.message?.includes('404') || error.message?.toLowerCase().includes('not found')) {
           continue;
       }
       
-      // Para outros erros (ex: quota 429), interrompemos para evitar loop inútil
       break;
     }
   }
 
-  throw new Error(`Falha na IA: ${lastError?.message || 'A Google não respondeu. Certifique-se que a API Generative Language está ativa.'}`);
+  throw new Error(`Falha na IA: ${lastError?.message || 'A Google não respondeu corretamente.'}`);
 }

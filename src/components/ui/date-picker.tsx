@@ -21,7 +21,7 @@ interface DatePickerProps {
 
 /**
  * Componente DatePicker otimizado para funcionar dentro de Dialogs e Modais.
- * Utiliza o estado modal do Popover para garantir foco e interação.
+ * Utiliza o estado modal do Popover para garantir prioridade de clique.
  */
 export function DatePicker({ date, setDate }: DatePickerProps) {
   const [open, setOpen] = React.useState(false);
@@ -55,6 +55,7 @@ export function DatePicker({ date, setDate }: DatePickerProps) {
         className="w-auto p-0 z-[1000]" 
         align="start"
         side="bottom"
+        onInteractOutside={(e) => e.preventDefault()}
       >
         <Calendar
           mode="single"
