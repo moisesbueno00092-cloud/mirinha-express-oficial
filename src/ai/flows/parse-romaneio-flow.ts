@@ -2,7 +2,7 @@
 
 /**
  * @fileOverview Fluxo de extração de dados de romaneios utilizando Gemini 1.5 Flash.
- * Otimizado para estabilidade utilizando identificadores de modelo estáveis.
+ * Utiliza identificadores de modelo estáveis para evitar erros 404.
  */
 
 import { ai } from '@/ai/genkit';
@@ -66,7 +66,7 @@ export async function parseRomaneio(input: { romaneioPhoto: string }): Promise<P
     
     let userMessage = error.message;
     if (error.message?.includes('404')) {
-      userMessage = 'Modelo Gemini 1.5 Flash não encontrado ou desativado na sua região. Tente novamente ou use o teste de conexão.';
+      userMessage = 'O modelo Gemini 1.5 Flash não está disponível no momento. Verifique a sua chave de API ou região.';
     } else if (error.message?.includes('429')) {
       userMessage = 'Limite de requisições excedido. Tente novamente em alguns segundos.';
     }
