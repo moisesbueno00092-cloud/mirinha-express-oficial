@@ -8,7 +8,7 @@ import type { Fornecedor, BomboniereItem } from '@/types';
 import { parseRomaneio, testAiConnection } from '@/ai/flows/parse-romaneio-flow';
 
 import { Button } from '@/components/ui/button';
-import { Loader2, Trash2, ClipboardList, CheckCircle2, Zap, Upload } from 'lucide-react';
+import { Loader2, Trash2, ClipboardList, CheckCircle2, Zap, Upload, CalendarIcon } from 'lucide-react';
 import { ScrollArea } from '../ui/scroll-area';
 import { format as formatDateFn } from 'date-fns';
 import { DatePicker } from '../ui/date-picker';
@@ -27,7 +27,7 @@ const compressImage = (dataUri: string): Promise<string> => {
         const img = new Image();
         img.onload = () => {
             const canvas = document.createElement('canvas');
-            const MAX_SIZE = 800; // Reduzido para maior rapidez na Vercel
+            const MAX_SIZE = 800; 
             let width = img.width;
             let height = img.height;
             if (width > height) {
@@ -39,7 +39,7 @@ const compressImage = (dataUri: string): Promise<string> => {
             canvas.height = height;
             const ctx = canvas.getContext('2d');
             if (ctx) { ctx.drawImage(img, 0, 0, width, height); }
-            resolve(canvas.toDataURL('image/jpeg', 0.5)); // Qualidade menor para payload leve
+            resolve(canvas.toDataURL('image/jpeg', 0.5));
         };
         img.src = dataUri;
     });
@@ -69,7 +69,7 @@ export default function MercadoriasPanel() {
         setIsTestingConnection(false);
         toast({ 
             variant: result.success ? 'default' : 'destructive',
-            title: result.success ? 'IA Conectada' : 'Falha na IA', 
+            title: result.success ? 'IA Pronta' : 'Falha na IA', 
             description: result.message 
         });
     };
@@ -89,7 +89,7 @@ export default function MercadoriasPanel() {
                     precoUnitario: it.quantidade > 0 ? it.valorTotal / it.quantidade : it.valorTotal
                 }));
                 setProdutosLancados(newItems);
-                toast({ title: "Dados Extraídos", description: `${output.items.length} itens encontrados.` });
+                toast({ title: "Extração Concluída", description: `${output.items.length} produtos detetados.` });
             }
 
             if (output?.fornecedorNome && fornecedores) {
@@ -102,7 +102,7 @@ export default function MercadoriasPanel() {
                 setDataVencimento(new Date(y, m - 1, d));
             }
         } catch (e: any) {
-            toast({ variant: 'destructive', title: 'Erro de Processamento', description: e.message });
+            toast({ variant: 'destructive', title: 'Erro IA', description: e.message });
         } finally {
             setIsParsingRomaneio(false);
         }
@@ -150,12 +150,12 @@ export default function MercadoriasPanel() {
                 
                 const matched = bomboniereItems?.find(bi => p.produtoNome.toLowerCase().startsWith(bi.name.toLowerCase().split('(')[0].trim()));
                 if (matched) {
-                    batch.update(doc(firestore, 'bomboniere_items', matched.id), { estoque: matched.estoque + p.quantity });
+                    batch.update(doc(firestore, 'bomboniere_items', matched.id), { estoque: matched.estoque + p.quantidade });
                 }
             }
 
             await batch.commit();
-            toast({ title: 'Sucesso', description: 'Entrada registada.' });
+            toast({ title: 'Sucesso', description: 'Entrada registada e estoque atualizado.' });
             setProdutosLancados([]);
             setFornecedorId(undefined);
             setDataVencimento(undefined);
@@ -167,75 +167,75 @@ export default function MercadoriasPanel() {
     };
 
     return (
-        <div className="space-y-2">
+        <div className="space-y-3">
             <input type="file" ref={fileInputRef} className="hidden" accept="image/jpeg,image/png" onChange={handleFileChange} />
 
-            {/* Micro Barra de Ferramentas */}
-            <div className="flex flex-wrap items-center gap-1.5 bg-muted/10 p-1 rounded-md border border-border/40">
+            {/* Barra Nano - Ocupa mínimo espaço vertical */}
+            <div className="flex items-center gap-2 bg-muted/20 p-1.5 rounded-lg border border-border/50 h-11">
                 <Button 
                     variant="default" 
                     size="sm" 
-                    className="h-7 text-[0.6rem] font-bold uppercase tracking-tighter gap-1 shrink-0 px-2"
+                    className="h-8 text-[0.65rem] font-bold uppercase gap-1.5 shrink-0 px-3 bg-primary/90 hover:bg-primary"
                     onClick={() => fileInputRef.current?.click()}
                     disabled={isParsingRomaneio}
                 >
-                    {isParsingRomaneio ? <Loader2 className="h-3 w-3 animate-spin" /> : <Upload className="h-3 w-3" />}
+                    {isParsingRomaneio ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Upload className="h-3.5 w-3.5" />}
                     JPG
                 </Button>
 
-                <div className="flex-grow min-w-[100px]">
+                <div className="flex-grow">
                     <Select value={fornecedorId} onValueChange={setFornecedorId}>
-                        <SelectTrigger className="h-7 text-[0.65rem] bg-background border-none shadow-none"><SelectValue placeholder="Fornecedor..." /></SelectTrigger>
+                        <SelectTrigger className="h-8 text-[0.7rem] bg-background border-none shadow-none focus:ring-0"><SelectValue placeholder="Fornecedor..." /></SelectTrigger>
                         <SelectContent>{fornecedores?.map(f => (<SelectItem key={f.id} value={f.id} className="text-xs">{f.nome}</SelectItem>))}</SelectContent>
                     </Select>
                 </div>
 
-                <div className="w-[120px] shrink-0 h-7 flex items-center bg-background rounded-sm border-none">
+                <div className="w-[110px] shrink-0 h-8 flex items-center bg-background rounded-md px-1 border border-transparent hover:border-border transition-colors">
                     <DatePicker date={dataVencimento} setDate={setDataVencimento} />
                 </div>
 
                 <Button 
                     variant="ghost" 
                     size="icon" 
-                    className="h-7 w-7 hover:bg-primary/10 text-primary shrink-0" 
+                    className="h-8 w-8 hover:bg-primary/10 text-primary shrink-0 transition-all active:scale-95" 
                     onClick={handleCheckStatus} 
                     disabled={isTestingConnection || isParsingRomaneio}
                 >
-                    {isTestingConnection ? <Loader2 className="h-3 w-3 animate-spin" /> : <Zap className="h-3.5 w-3.5" />}
+                    {isTestingConnection ? <Loader2 className="h-4 w-4 animate-spin" /> : <Zap className="h-4 w-4" />}
                 </Button>
             </div>
 
-            {/* Lista Compacta de Itens Extraídos */}
+            {/* Itens Extraídos - Compacto */}
             {produtosLancados.length > 0 && (
-                <div className="border border-primary/20 rounded-md overflow-hidden bg-card/30 animate-in fade-in slide-in-from-top-1 duration-200">
-                    <div className="bg-primary/5 px-2 py-1 flex justify-between items-center border-b border-primary/10">
-                        <span className="flex items-center gap-1.5 text-primary font-bold uppercase text-[0.55rem] tracking-tight">
-                            <ClipboardList className="h-3 w-3"/> Extraído por IA
+                <div className="border border-primary/30 rounded-lg overflow-hidden bg-card/40 animate-in fade-in zoom-in-95 duration-200 shadow-sm">
+                    <div className="bg-primary/10 px-3 py-1.5 flex justify-between items-center border-b border-primary/20">
+                        <span className="flex items-center gap-2 text-primary font-black uppercase text-[0.6rem] tracking-wider">
+                            <ClipboardList className="h-3.5 w-3.5"/> Extraído via IA
                         </span>
-                        <span className="text-foreground font-bold text-xs">
+                        <span className="text-foreground font-black text-xs tabular-nums">
                             {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(produtosLancados.reduce((acc, p) => acc + p.preco, 0))}
                         </span>
                     </div>
-                    <ScrollArea className="h-28">
-                        <div className="divide-y divide-border/20">
+                    <ScrollArea className="h-32">
+                        <div className="divide-y divide-border/30">
                             {produtosLancados.map(p => (
-                                <div key={p.id} className="flex justify-between items-center px-2 py-1 hover:bg-primary/5">
+                                <div key={p.id} className="flex justify-between items-center px-3 py-1.5 hover:bg-primary/5 transition-colors">
                                     <div className="flex flex-col min-w-0">
-                                        <span className="font-bold uppercase text-[0.6rem] truncate">{p.produtoNome}</span>
-                                        <span className="text-[0.5rem] text-muted-foreground font-medium">{p.quantidade} un · {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(p.precoUnitario)}</span>
+                                        <span className="font-bold uppercase text-[0.65rem] truncate leading-tight">{p.produtoNome}</span>
+                                        <span className="text-[0.55rem] text-muted-foreground font-semibold uppercase">{p.quantidade} un · {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(p.precoUnitario)}</span>
                                     </div>
-                                    <div className="flex items-center gap-2">
-                                        <span className="font-mono font-bold text-primary text-[0.65rem]">{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(p.preco)}</span>
-                                        <Button variant="ghost" size="icon" className="h-5 w-5 text-destructive/30 hover:text-destructive" onClick={() => setProdutosLancados(prev => prev.filter(item => item.id !== p.id))}><Trash2 className="h-3 w-3" /></Button>
+                                    <div className="flex items-center gap-2.5">
+                                        <span className="font-mono font-bold text-primary text-[0.7rem] tabular-nums">{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(p.preco)}</span>
+                                        <Button variant="ghost" size="icon" className="h-6 w-6 text-destructive/40 hover:text-destructive hover:bg-destructive/10" onClick={() => setProdutosLancados(prev => prev.filter(item => item.id !== p.id))}><Trash2 className="h-3.5 w-3.5" /></Button>
                                     </div>
                                 </div>
                             ))}
                         </div>
                     </ScrollArea>
-                    <div className="p-1.5 bg-primary/5 flex justify-end">
-                        <Button onClick={handleRegisterEntry} disabled={isSubmitting} className="h-7 px-4 text-[0.65rem] font-bold gap-1.5">
-                            {isSubmitting ? <Loader2 className="animate-spin h-3 w-3" /> : <CheckCircle2 className="h-3 w-3" />}
-                            Gravar Entrada
+                    <div className="p-2 bg-primary/5 border-t border-primary/10 flex justify-end">
+                        <Button onClick={handleRegisterEntry} disabled={isSubmitting} size="sm" className="h-8 px-5 text-[0.7rem] font-black gap-2 shadow-lg active:scale-95 transition-all">
+                            {isSubmitting ? <Loader2 className="animate-spin h-3.5 w-3.5" /> : <CheckCircle2 className="h-3.5 w-3.5" />}
+                            CONFIRMAR ENTRADA
                         </Button>
                     </div>
                 </div>

@@ -21,10 +21,9 @@ const ParseRomaneioOutputSchema = z.object({
 export type ParseRomaneioOutput = z.infer<typeof ParseRomaneioOutputSchema>;
 
 /**
- * Identificador do modelo otimizado para evitar erro 404.
- * O sufixo -latest garante a resolução correta no endpoint v1beta.
+ * Identificador do modelo universal para evitar erro 404 na Vercel.
  */
-const STABLE_MODEL = 'googleai/gemini-1.5-flash-latest';
+const STABLE_MODEL = 'googleai/gemini-1.5-flash';
 
 /**
  * Testa a conexão com a IA utilizando o modelo padrão.
@@ -33,25 +32,29 @@ export async function testAiConnection(): Promise<{ success: boolean; message: s
   try {
     const response = await ai.generate({
       model: STABLE_MODEL,
-      prompt: 'Responda apenas "CONECTADO".',
+      prompt: 'Responda apenas "OK".',
     });
 
-    if (response.text?.includes('CONECTADO')) {
-      return { success: true, message: 'Ligação estabelecida com sucesso!' };
+    if (response.text?.includes('OK')) {
+      return { success: true, message: 'IA conectada com sucesso!' };
     }
-    return { success: false, message: 'Resposta inesperada da IA.' };
+    return { success: false, message: 'A IA respondeu mas o formato foi inesperado.' };
   } catch (error: any) {
     console.error("ERRO TESTE CONEXÃO:", error);
     
     if (error.message?.includes('404')) {
         return { 
             success: false, 
-            message: 'Erro 404: Modelo não encontrado. Vá ao Google AI Studio e verifique se a "Generative Language API" está ativa para esta chave.' 
+            message: 'Erro 404: Modelo não encontrado. Vá ao Google AI Studio e ative a "Generative Language API" para esta chave.' 
         };
     }
     
     if (error.message?.includes('429')) {
-        return { success: false, message: 'Limite de quota excedido (429). Aguarde 60 segundos.' };
+        return { success: false, message: 'Limite de uso atingido (429). Tente novamente em breve.' };
+    }
+
+    if (error.message?.includes('403') || error.message?.includes('PERMISSION_DENIED')) {
+        return { success: false, message: 'Erro 403: Chave de API inválida ou sem permissão para o Gemini 1.5 Flash.' };
     }
 
     return { success: false, message: `Erro Técnico: ${error.message}` };
@@ -83,22 +86,18 @@ export async function parseRomaneio(input: { romaneioPhoto: string }): Promise<P
       }
     });
 
-    if (!output) throw new Error("A IA não conseguiu extrair dados da imagem.");
+    if (!output) throw new Error("Não foi possível processar os dados desta imagem.");
     return output;
 
   } catch (error: any) {
     console.error("ERRO PROCESSAMENTO IA:", error);
     
     if (error.message?.includes('404')) {
-        throw new Error("Modelo não encontrado (404). Verifique a ativação da API Generative Language no seu painel Google Cloud.");
+        throw new Error("Modelo Gemini 1.5 Flash não encontrado (404). Verifique se a API Generative Language está ativa no console da Google.");
     }
 
     if (error.message?.includes('429')) {
-        throw new Error("Quota da IA excedida. Tente novamente em um minuto.");
-    }
-    
-    if (error.message?.includes('403') || error.message?.includes('PERMISSION_DENIED')) {
-        throw new Error("Acesso Negado: Verifique se a sua chave API é válida.");
+        throw new Error("Muitos pedidos seguidos. Aguarde um momento.");
     }
     
     throw new Error(`Falha na IA: ${error.message}`);
