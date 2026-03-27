@@ -20,22 +20,21 @@ interface DatePickerProps {
 }
 
 /**
- * Componente DatePicker robusto que garante a propagação imediata da data selecionada.
- * Utiliza popover com alto Z-index para não quebrar o layout de diálogos.
+ * Componente DatePicker otimizado para funcionar dentro de Dialogs e Modais.
+ * Utiliza o estado modal do Popover para garantir foco e interação.
  */
 export function DatePicker({ date, setDate }: DatePickerProps) {
   const [open, setOpen] = React.useState(false);
 
   const handleSelect = (selectedDate: Date | undefined) => {
-    // Permitimos setDate(undefined) para limpar a data se necessário
     setDate(selectedDate);
-    if (selectedDate && isValid(selectedDate)) {
+    if (selectedDate) {
       setOpen(false);
     }
   };
 
   return (
-    <Popover open={open} onOpenChange={setOpen}>
+    <Popover open={open} onOpenChange={setOpen} modal={true}>
       <PopoverTrigger asChild>
         <Button
           variant={"outline"}
@@ -45,13 +44,17 @@ export function DatePicker({ date, setDate }: DatePickerProps) {
           )}
         >
           <CalendarIcon className="mr-2 h-4 w-4" />
-          {date && isValid(date) ? format(date, "PPP", { locale: ptBR }) : <span>Selecione uma data</span>}
+          {date && isValid(date) ? (
+            format(date, "PPP", { locale: ptBR })
+          ) : (
+            <span>Selecionar data</span>
+          )}
         </Button>
       </PopoverTrigger>
       <PopoverContent 
-        className="w-auto p-0 z-[300]" 
+        className="w-auto p-0 z-[500]" 
         align="start"
-        onInteractOutside={() => setOpen(false)}
+        side="bottom"
       >
         <Calendar
           mode="single"

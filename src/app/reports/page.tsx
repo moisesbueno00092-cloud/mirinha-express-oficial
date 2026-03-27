@@ -462,7 +462,7 @@ export default function ReportsPage() {
   const { user, isUserLoading } = useUser();
   const [globalDate, setGlobalDate] = useState<Date>(() => {
       const d = new Date();
-      d.setDate(1); // Evita problemas de rollover ao iniciar o estado
+      d.setDate(1); 
       return d;
   });
   
@@ -673,7 +673,7 @@ export default function ReportsPage() {
                     value={String(globalDate.getMonth())} 
                     onValueChange={(v) => {
                         const d = new Date(globalDate);
-                        d.setDate(1); // Crucial: evita bugs de rollover (ex: 31 Jan -> Fev vira Março)
+                        d.setDate(1); 
                         d.setMonth(parseInt(v));
                         setGlobalDate(d);
                     }}
