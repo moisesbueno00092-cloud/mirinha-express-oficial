@@ -3,7 +3,7 @@ import {googleAI} from '@genkit-ai/google-genai';
 
 /**
  * Configuração central do Genkit otimizada para produção e Vercel.
- * Define o Gemini 1.5 Flash como modelo padrão para evitar erros 404 (Pro not found).
+ * Define o Gemini 1.5 Flash qualificado como modelo padrão para evitar erros 404.
  */
 export const ai = genkit({
   plugins: [

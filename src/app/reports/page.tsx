@@ -117,10 +117,10 @@ const safeFormat = (dateInput: any, formatStr: string, options?: any) => {
 
 function getLevenshteinDistance(a: string, b: string): number {
     const matrix = Array.from({ length: a.length + 1 }, () => Array(b.length + 1).fill(0));
-    for (let i = 0; i <= a.length; i++) matrix[i][0] = i;
-    for (let j = 0; j <= b.length; j++) matrix[0][j] = j;
-    for (let i = 1; i <= a.length; i++) {
-        for (let j = 1; j <= b.length; j++) {
+    for (i = 0; i <= a.length; i++) matrix[i][0] = i;
+    for (j = 0; j <= b.length; j++) matrix[0][j] = j;
+    for (i = 1; i <= a.length; i++) {
+        for (j = 1; j <= b.length; j++) {
             const cost = a[i - 1] === b[j - 1] ? 0 : 1;
             matrix[i][j] = Math.min(matrix[i - 1][j] + 1, matrix[i][j - 1] + 1, matrix[i - 1][j - 1] + cost);
         }
@@ -450,7 +450,7 @@ const ReportDetail = ({ report, onEditItem, onDeleteItem, onAddItem }: { report:
             <SummaryDisplay data={report} />
             <div className="border-t pt-4">
                 <div className="flex justify-between items-center mb-4"><h4 className="font-bold flex items-center gap-2 text-xs uppercase text-muted-foreground tracking-widest"><ListOrdered className="h-4 w-4"/>Pedidos do Dia</h4><Button variant="outline" size="sm" onClick={() => onAddItem(report.reportDate)}><Plus className="h-4 w-4 mr-1"/>Novo</Button></div>
-                {isLoading ? <Loader2 className="h-8 w-8 animate-spin mx-auto" /> : <div className="rounded-md border"><ItemList items={sortedItems} isLoading={false} onEdit={onEditItem} onDelete={(id) => { const it = sortedItems.find(id === i.id); if(it) onDeleteItem(it); }} /></div>}
+                {isLoading ? <Loader2 className="h-8 w-8 animate-spin mx-auto" /> : <div className="rounded-md border"><ItemList items={sortedItems} isLoading={false} onEdit={onEditItem} onDelete={(id) => { const it = sortedItems.find(i => i.id === id); if(it) onDeleteItem(it); }} /></div>}
             </div>
         </div>
     );

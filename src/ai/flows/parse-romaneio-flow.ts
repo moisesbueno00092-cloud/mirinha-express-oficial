@@ -2,7 +2,7 @@
 
 /**
  * @fileOverview Fluxo de extração de dados de romaneios com lógica de resiliência.
- * Utiliza identificadores de modelo altamente estáveis para evitar o erro 404 na Vercel.
+ * Utiliza identificadores de modelo qualificados para evitar o erro 404 na Vercel.
  */
 
 import { ai } from '@/ai/genkit';
@@ -20,11 +20,10 @@ const ParseRomaneioOutputSchema = z.object({
 
 export type ParseRomaneioOutput = z.infer<typeof ParseRomaneioOutputSchema>;
 
-// Lista de modelos estáveis em ordem de preferência.
+// Identificadores de modelo qualificados para o plugin googleAI no Genkit 1.x
 const MODELS_TO_TRY = [
   'googleai/gemini-1.5-flash',
-  'googleai/gemini-1.5-flash-latest',
-  'gemini-1.5-flash'
+  'googleai/gemini-1.5-flash-latest'
 ];
 
 export async function testAiConnection(): Promise<{ success: boolean; message: string }> {
@@ -41,7 +40,7 @@ export async function testAiConnection(): Promise<{ success: boolean; message: s
       console.warn(`Tentativa com ${modelId} falhou:`, e.message);
     }
   }
-  return { success: false, message: 'Nenhum modelo Flash respondeu. Verifique a API Key.' };
+  return { success: false, message: 'Falha na conexão com Gemini. Verifique a API Key.' };
 }
 
 export async function parseRomaneio(input: { romaneioPhoto: string }): Promise<ParseRomaneioOutput> {
@@ -77,5 +76,5 @@ export async function parseRomaneio(input: { romaneioPhoto: string }): Promise<P
     }
   }
 
-  throw new Error(`IA Indisponível (404): ${lastError?.message || 'Erro de conexão.'}`);
+  throw new Error(`IA Indisponível: ${lastError?.message || 'Erro de conexão com o modelo.'}`);
 }
