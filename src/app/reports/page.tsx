@@ -65,7 +65,7 @@ import {
     DialogFooter,
     DialogHeader,
     DialogTitle,
-} from "@/Dialog";
+} from "@/components/ui/dialog";
 import {
   Accordion,
   AccordionContent,
