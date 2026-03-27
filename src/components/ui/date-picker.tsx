@@ -54,7 +54,7 @@ export function DatePicker({ date, setDate, disabled }: DatePickerProps) {
         </Button>
       </PopoverTrigger>
       <PopoverContent 
-        className="w-auto p-0 z-[9999]" 
+        className="w-auto p-0 z-[10000]" 
         align="start"
         side="bottom"
         sideOffset={4}
