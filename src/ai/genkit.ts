@@ -2,13 +2,13 @@ import {genkit} from 'genkit';
 import {googleAI} from '@genkit-ai/google-genai';
 
 /**
- * Configuração central do Genkit.
- * Exporta o plugin separadamente para que possamos referenciar modelos de forma estável.
+ * Configuração central do Genkit otimizada para Vercel.
+ * Utiliza a chave de API pública ou privada para garantir autenticação em produção.
  */
-export const googleAIPlugin = googleAI({
-  apiKey: process.env.GEMINI_API_KEY || process.env.NEXT_PUBLIC_GEMINI_API_KEY,
-});
-
 export const ai = genkit({
-  plugins: [googleAIPlugin],
+  plugins: [
+    googleAI({
+      apiKey: process.env.GEMINI_API_KEY || process.env.NEXT_PUBLIC_GEMINI_API_KEY,
+    }),
+  ],
 });

@@ -188,7 +188,7 @@ export default function MercadoriasPanel() {
     };
 
     return (
-        <div className="space-y-6">
+        <div className="space-y-4">
             <input type="file" ref={fileInputRef} className="hidden" accept="image/jpeg,image/png" onChange={handleFileChange} />
 
             <div className="flex justify-between items-center bg-muted/20 p-2 rounded-lg border border-border/50">
@@ -213,81 +213,81 @@ export default function MercadoriasPanel() {
             </div>
 
             {aiStatus === 'offline' && (
-                <div className="bg-destructive/10 border border-destructive/20 p-3 rounded-lg flex items-start gap-3">
-                    <AlertCircle className="h-5 w-5 text-destructive shrink-0 mt-0.5" />
-                    <div className="space-y-1">
-                        <p className="text-xs font-bold text-destructive">A IA não está a responder.</p>
-                        <p className="text-[0.65rem] text-muted-foreground leading-relaxed">
-                            Certifique-se de que a variável <code className="bg-background px-1 rounded">NEXT_PUBLIC_GEMINI_API_KEY</code> está configurada corretamente na Vercel.
+                <div className="bg-destructive/10 border border-destructive/20 p-2 rounded-lg flex items-start gap-2">
+                    <AlertCircle className="h-4 w-4 text-destructive shrink-0 mt-0.5" />
+                    <div className="space-y-0.5">
+                        <p className="text-[0.65rem] font-bold text-destructive">A IA não está a responder.</p>
+                        <p className="text-[0.6rem] text-muted-foreground leading-tight">
+                            Verifique se a variável <code className="bg-background px-1 rounded">NEXT_PUBLIC_GEMINI_API_KEY</code> está configurada corretamente na Vercel.
                         </p>
                     </div>
                 </div>
             )}
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="space-y-1.5">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <div className="space-y-1">
                     <Label className="text-muted-foreground uppercase text-[0.6rem] font-bold tracking-widest">Fornecedor</Label>
                     <Select value={fornecedorId} onValueChange={setFornecedorId}>
-                        <SelectTrigger className="h-10 rounded-lg"><SelectValue placeholder="Selecione..." /></SelectTrigger>
+                        <SelectTrigger className="h-9 rounded-md"><SelectValue placeholder="Selecione..." /></SelectTrigger>
                         <SelectContent>
                             {fornecedores?.map(f => (<SelectItem key={f.id} value={f.id}>{f.nome}</SelectItem>))}
                         </SelectContent>
                     </Select>
                 </div>
-                <div className="space-y-1.5">
+                <div className="space-y-1">
                     <Label className="text-muted-foreground uppercase text-[0.6rem] font-bold tracking-widest">Data de Vencimento</Label>
                     <DatePicker date={dataVencimento} setDate={setDataVencimento} />
                 </div>
             </div>
 
             <div 
-                className="bg-primary/5 border-2 border-dashed border-primary/20 rounded-2xl p-6 text-center space-y-4 transition-all hover:bg-primary/10 hover:border-primary/40 group cursor-pointer" 
+                className="bg-primary/5 border-2 border-dashed border-primary/20 rounded-xl p-4 text-center space-y-2 transition-all hover:bg-primary/10 hover:border-primary/40 group cursor-pointer" 
                 onClick={() => fileInputRef.current?.click()}
             >
-                <div className="bg-primary/10 p-3 rounded-full w-12 h-12 flex items-center justify-center mx-auto group-hover:scale-110 transition-transform">
-                    <FileImage className="h-6 w-6 text-primary" />
+                <div className="bg-primary/10 p-2 rounded-full w-10 h-10 flex items-center justify-center mx-auto group-hover:scale-110 transition-transform">
+                    <FileImage className="h-5 w-5 text-primary" />
                 </div>
-                <div className="space-y-1">
-                    <h3 className="font-bold text-lg text-foreground">Carregar Romaneio</h3>
-                    <p className="text-muted-foreground max-w-sm mx-auto text-[0.7rem] uppercase tracking-tight font-medium">Selecione uma imagem JPG ou PNG</p>
+                <div className="space-y-0.5">
+                    <h3 className="font-bold text-sm text-foreground">Carregar Romaneio</h3>
+                    <p className="text-muted-foreground text-[0.6rem] uppercase font-medium">Selecione JPG ou PNG</p>
                 </div>
                 <Button 
                     size="sm" 
-                    className="w-full sm:w-auto h-10 gap-2 text-sm font-black px-8 rounded-lg shadow-lg hover:translate-y-[-1px] transition-all" 
+                    className="w-full sm:w-auto h-8 gap-2 text-xs font-black px-6 rounded-md shadow-md" 
                     disabled={isParsingRomaneio}
                 >
-                    {isParsingRomaneio ? <Loader2 className="h-4 w-4 animate-spin"/> : <Upload className="h-4 w-4"/>}
+                    {isParsingRomaneio ? <Loader2 className="h-3 w-3 animate-spin"/> : <Upload className="h-3 w-3"/>}
                     {isParsingRomaneio ? 'Analisando...' : 'Escolher Ficheiro'}
                 </Button>
             </div>
 
             {produtosLancados.length > 0 && (
-                <div className="border border-border/50 rounded-2xl overflow-hidden bg-card/50 shadow-xl backdrop-blur-sm">
-                    <div className="bg-muted/30 px-6 py-3 flex justify-between items-center border-b border-border/50">
-                        <span className="flex items-center gap-2 text-primary font-black uppercase text-[0.65rem] tracking-widest"><ClipboardList className="h-4 w-4"/> Itens Extraídos</span>
-                        <span className="text-foreground font-black text-sm">{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(produtosLancados.reduce((acc, p) => acc + p.preco, 0))}</span>
+                <div className="border border-border/50 rounded-xl overflow-hidden bg-card/50 shadow-lg backdrop-blur-sm">
+                    <div className="bg-muted/30 px-4 py-2 flex justify-between items-center border-b border-border/50">
+                        <span className="flex items-center gap-2 text-primary font-black uppercase text-[0.6rem] tracking-widest"><ClipboardList className="h-3.5 w-3.5"/> Itens Extraídos</span>
+                        <span className="text-foreground font-black text-xs">{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(produtosLancados.reduce((acc, p) => acc + p.preco, 0))}</span>
                     </div>
-                    <ScrollArea className="h-60">
+                    <ScrollArea className="h-48">
                         <div className="divide-y divide-border/30">
                             {produtosLancados.map(p => (
-                                <div key={p.id} className="flex justify-between items-center px-6 py-4 hover:bg-primary/5 transition-colors">
+                                <div key={p.id} className="flex justify-between items-center px-4 py-3 hover:bg-primary/5 transition-colors">
                                     <div className="flex flex-col gap-0.5">
-                                        <span className="font-bold uppercase text-xs leading-none">{p.produtoNome}</span>
-                                        <span className="text-[0.6rem] text-muted-foreground font-medium uppercase tracking-tight">
-                                            {p.quantidade.toLocaleString('pt-BR')} un · {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(p.precoUnitario)}
+                                        <span className="font-bold uppercase text-[0.65rem] leading-none">{p.produtoNome}</span>
+                                        <span className="text-[0.55rem] text-muted-foreground font-medium uppercase tracking-tight">
+                                            {p.quantity.toLocaleString('pt-BR')} un · {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(p.precoUnitario)}
                                         </span>
                                     </div>
-                                    <div className="flex items-center gap-4">
-                                        <span className="font-mono font-black text-primary text-sm">{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(p.preco)}</span>
-                                        <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive/30 hover:text-destructive" onClick={() => setProdutosLancados(prev => prev.filter(item => item.id !== p.id))}><Trash2 className="h-4 w-4" /></Button>
+                                    <div className="flex items-center gap-3">
+                                        <span className="font-mono font-black text-primary text-xs">{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(p.preco)}</span>
+                                        <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive/30 hover:text-destructive" onClick={() => setProdutosLancados(prev => prev.filter(item => item.id !== p.id))}><Trash2 className="h-3.5 w-3.5" /></Button>
                                     </div>
                                 </div>
                             ))}
                         </div>
                     </ScrollArea>
-                    <div className="p-4 bg-muted/10 border-t border-border/50 flex justify-end">
-                        <Button onClick={handleRegisterEntry} disabled={isSubmitting} className="h-10 px-8 text-sm font-black gap-2 rounded-lg shadow-lg">
-                            {isSubmitting ? <Loader2 className="animate-spin h-4 w-4" /> : <CheckCircle2 className="h-4 w-4" />}
+                    <div className="p-3 bg-muted/10 border-t border-border/50 flex justify-end">
+                        <Button onClick={handleRegisterEntry} disabled={isSubmitting} className="h-8 px-6 text-xs font-black gap-2 rounded-md shadow-md">
+                            {isSubmitting ? <Loader2 className="animate-spin h-3.5 w-3.5" /> : <CheckCircle2 className="h-3.5 w-3.5" />}
                             Confirmar Lançamento
                         </Button>
                     </div>

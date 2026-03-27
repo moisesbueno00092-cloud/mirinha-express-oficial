@@ -1,10 +1,10 @@
 'use server';
 
 /**
- * @fileOverview Fluxo de extração de dados de romaneios otimizado para Vercel.
+ * @fileOverview Fluxo de extração de dados de romaneios utilizando Genkit 1.x.
  */
 
-import { ai, googleAIPlugin } from '@/ai/genkit';
+import { ai } from '@/ai/genkit';
 import { z } from 'genkit';
 
 const ParseRomaneioOutputSchema = z.object({
@@ -20,12 +20,12 @@ const ParseRomaneioOutputSchema = z.object({
 export type ParseRomaneioOutput = z.infer<typeof ParseRomaneioOutputSchema>;
 
 /**
- * Testa a conexão com a IA utilizando a referência direta do plugin.
+ * Testa a conexão com a IA utilizando o modelo estável via string.
  */
 export async function testAiConnection(): Promise<{ success: boolean; message: string }> {
   try {
     const response = await ai.generate({
-      model: googleAIPlugin.model('gemini-1.5-flash'),
+      model: 'googleai/gemini-1.5-flash',
       prompt: 'Responda apenas "IA ATIVA".',
     });
 
@@ -34,17 +34,17 @@ export async function testAiConnection(): Promise<{ success: boolean; message: s
     }
     return { success: false, message: 'A IA respondeu, mas o conteúdo foi inesperado.' };
   } catch (error: any) {
-    console.error("ERRO TESTE CONEXÃO VERCEL:", error);
+    console.error("ERRO TESTE CONEXÃO:", error);
     
-    if (error.message?.includes('404') || error.message?.includes('not found')) {
+    if (error.message?.includes('404')) {
         return { 
             success: false, 
-            message: 'Erro 404: Modelo não encontrado. Verifique se ativou a "Generative Language API" no Google Cloud ou se a sua chave de API tem permissões para o modelo Flash 1.5.' 
+            message: 'Erro 404: Modelo não encontrado. Verifique se ativou a API no Google AI Studio.' 
         };
     }
     
     if (error.message?.includes('429')) {
-        return { success: false, message: 'Limite de quota excedido. Aguarde alguns segundos.' };
+        return { success: false, message: 'Limite de quota excedido (429). Aguarde alguns segundos.' };
     }
 
     return { success: false, message: `Erro de ligação: ${error.message}` };
@@ -52,12 +52,12 @@ export async function testAiConnection(): Promise<{ success: boolean; message: s
 }
 
 /**
- * Extrai dados do romaneio via IA utilizando a referência estável do modelo Flash.
+ * Extrai dados do romaneio via visão computacional.
  */
 export async function parseRomaneio(input: { romaneioPhoto: string }): Promise<ParseRomaneioOutput> {
   try {
     const { output } = await ai.generate({
-      model: googleAIPlugin.model('gemini-1.5-flash'),
+      model: 'googleai/gemini-1.5-flash',
       prompt: [
         { text: `Você é um assistente especializado em romaneios de restaurante. 
         Analise a imagem e extraia os seguintes dados em JSON:
@@ -84,6 +84,10 @@ export async function parseRomaneio(input: { romaneioPhoto: string }): Promise<P
     
     if (error.message?.includes('404')) {
         throw new Error("Modelo não encontrado. Certifique-se que a sua chave de API suporta o Gemini 1.5 Flash.");
+    }
+
+    if (error.message?.includes('429')) {
+        throw new Error("Quota excedida. Por favor, tente novamente em 30 segundos.");
     }
     
     throw new Error(`Falha ao ler imagem: ${error.message}`);
