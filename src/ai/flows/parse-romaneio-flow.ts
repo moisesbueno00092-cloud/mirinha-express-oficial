@@ -2,7 +2,7 @@
 
 /**
  * @fileOverview Fluxo de extração de dados de romaneios com lógica de resiliência.
- * Tenta múltiplos identificadores de modelo para evitar o erro 404.
+ * Tenta identificadores de modelo estáveis para evitar o erro 404 na Vercel.
  */
 
 import { ai } from '@/ai/genkit';
@@ -20,12 +20,11 @@ const ParseRomaneioOutputSchema = z.object({
 
 export type ParseRomaneioOutput = z.infer<typeof ParseRomaneioOutputSchema>;
 
-// Lista de modelos a tentar. Removido o prefixo em alguns para testar compatibilidade direta.
+// Lista de modelos estáveis. O Gemini 1.5 Flash é o mais disponível globalmente.
 const MODELS_TO_TRY = [
-  'gemini-1.5-flash',
   'googleai/gemini-1.5-flash',
-  'gemini-1.5-flash-latest',
-  'gemini-1.5-pro'
+  'gemini-1.5-flash',
+  'googleai/gemini-1.5-flash-latest'
 ];
 
 export async function testAiConnection(): Promise<{ success: boolean; message: string }> {
@@ -42,7 +41,7 @@ export async function testAiConnection(): Promise<{ success: boolean; message: s
       console.warn(`Tentativa com ${modelId} falhou:`, e.message);
     }
   }
-  return { success: false, message: 'Nenhum modelo respondeu. Verifique a API Key no Google AI Studio.' };
+  return { success: false, message: 'Nenhum modelo Flash respondeu. Verifique a API Key no Google AI Studio.' };
 }
 
 export async function parseRomaneio(input: { romaneioPhoto: string }): Promise<ParseRomaneioOutput> {
@@ -79,5 +78,5 @@ export async function parseRomaneio(input: { romaneioPhoto: string }): Promise<P
     }
   }
 
-  throw new Error(`Falha na IA: ${lastError?.message || 'A Google não respondeu corretamente.'}`);
+  throw new Error(`IA Indisponível: ${lastError?.message || 'Erro de conexão com o modelo Flash.'}`);
 }
