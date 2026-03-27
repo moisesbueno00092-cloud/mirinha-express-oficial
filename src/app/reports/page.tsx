@@ -22,8 +22,6 @@ import {
     startOfWeek,
     endOfWeek,
     isWithinInterval,
-    setYear,
-    setMonth,
     isValid,
 } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -67,7 +65,7 @@ import {
     DialogFooter,
     DialogHeader,
     DialogTitle,
-} from "@/components/ui/dialog";
+} from "@/Dialog";
 import {
   Accordion,
   AccordionContent,
@@ -462,7 +460,11 @@ export default function ReportsPage() {
   const firestore = useFirestore();
   const { toast } = useToast();
   const { user, isUserLoading } = useUser();
-  const [globalDate, setGlobalDate] = useState<Date>(new Date());
+  const [globalDate, setGlobalDate] = useState<Date>(() => {
+      const d = new Date();
+      d.setDate(1); // Evita problemas de rollover ao iniciar o estado
+      return d;
+  });
   
   const [reportToDelete, setReportToDelete] = useState<DailyReport | null>(null);
   const [archivedItemToDelete, setArchivedItemToDelete] = useState<Item | null>(null);
@@ -614,6 +616,9 @@ export default function ReportsPage() {
 
   if (isUserLoading || isLoadingReports) return <div className="flex h-64 items-center justify-center"><Loader2 className="h-12 w-12 animate-spin text-primary" /></div>;
 
+  const currentYear = new Date().getFullYear();
+  const yearOptions = Array.from({length: 5}, (_, i) => currentYear - 2 + i);
+
   return (
     <>
       <BomboniereModal isOpen={isBomboniereModalOpen} onClose={() => setIsBomboniereModalOpen(false)} onAddItems={(items) => setEditArchivedInput(prev => `${prev} ${items.map(i => `${i.quantity} ${i.name}`).join(' ')}`)} bomboniereItems={bomboniereItems || []} />
@@ -668,7 +673,7 @@ export default function ReportsPage() {
                     value={String(globalDate.getMonth())} 
                     onValueChange={(v) => {
                         const d = new Date(globalDate);
-                        d.setDate(1); // Evita rollover (ex: 31 Jan -> 31 Fev -> 2 Mar)
+                        d.setDate(1); // Crucial: evita bugs de rollover (ex: 31 Jan -> Fev vira Março)
                         d.setMonth(parseInt(v));
                         setGlobalDate(d);
                     }}
@@ -686,7 +691,7 @@ export default function ReportsPage() {
                     }}
                   >
                     <SelectTrigger className="w-[100px]"><SelectValue /></SelectTrigger>
-                    <SelectContent>{[2024, 2025].map(y => <SelectItem key={y} value={String(y)}>{y}</SelectItem>)}</SelectContent>
+                    <SelectContent>{yearOptions.map(y => <SelectItem key={y} value={String(y)}>{y}</SelectItem>)}</SelectContent>
                   </Select>
               </div>
               <p className="text-sm font-semibold text-muted-foreground capitalize">{safeFormat(globalDate, 'MMMM yyyy', { locale: ptBR })}</p>

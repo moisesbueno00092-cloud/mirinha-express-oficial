@@ -27,8 +27,9 @@ export function DatePicker({ date, setDate }: DatePickerProps) {
   const [open, setOpen] = React.useState(false);
 
   const handleSelect = (selectedDate: Date | undefined) => {
+    // Permitimos setDate(undefined) para limpar a data se necessário
+    setDate(selectedDate);
     if (selectedDate && isValid(selectedDate)) {
-      setDate(selectedDate);
       setOpen(false);
     }
   };
@@ -48,12 +49,9 @@ export function DatePicker({ date, setDate }: DatePickerProps) {
         </Button>
       </PopoverTrigger>
       <PopoverContent 
-        className="w-auto p-0 z-[200]" 
+        className="w-auto p-0 z-[300]" 
         align="start"
-        onInteractOutside={(e) => {
-            // Permite fechar ao clicar fora, mas evita problemas em modais
-            setOpen(false);
-        }}
+        onInteractOutside={() => setOpen(false)}
       >
         <Calendar
           mode="single"
