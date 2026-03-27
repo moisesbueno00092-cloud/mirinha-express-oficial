@@ -17,13 +17,14 @@ import {
 interface DatePickerProps {
     date: Date | undefined;
     setDate: (date: Date | undefined) => void;
+    disabled?: boolean;
 }
 
 /**
  * Componente DatePicker otimizado para funcionar dentro de Dialogs e Modais.
  * Utiliza o estado modal do Popover para garantir prioridade de clique e z-index elevado.
  */
-export function DatePicker({ date, setDate }: DatePickerProps) {
+export function DatePicker({ date, setDate, disabled }: DatePickerProps) {
   const [open, setOpen] = React.useState(false);
 
   const handleSelect = (selectedDate: Date | undefined) => {
@@ -38,8 +39,9 @@ export function DatePicker({ date, setDate }: DatePickerProps) {
       <PopoverTrigger asChild>
         <Button
           variant={"outline"}
+          disabled={disabled}
           className={cn(
-            "w-full justify-start text-left font-normal h-10 bg-background border-input relative z-10",
+            "w-full justify-start text-left font-normal h-10 bg-background border-input relative z-[10]",
             !date && "text-muted-foreground"
           )}
         >
@@ -52,7 +54,7 @@ export function DatePicker({ date, setDate }: DatePickerProps) {
         </Button>
       </PopoverTrigger>
       <PopoverContent 
-        className="w-auto p-0 z-[9999]" 
+        className="w-auto p-0 z-[10000]" 
         align="start"
         side="bottom"
         sideOffset={4}

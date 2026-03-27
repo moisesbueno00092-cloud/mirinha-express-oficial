@@ -117,10 +117,10 @@ const safeFormat = (dateInput: any, formatStr: string, options?: any) => {
 
 function getLevenshteinDistance(a: string, b: string): number {
     const matrix = Array.from({ length: a.length + 1 }, () => Array(b.length + 1).fill(0));
-    for (i = 0; i <= a.length; i++) matrix[i][0] = i;
-    for (j = 0; j <= b.length; j++) matrix[0][j] = j;
-    for (i = 1; i <= a.length; i++) {
-        for (j = 1; j <= b.length; j++) {
+    for (let i = 0; i <= a.length; i++) matrix[i][0] = i;
+    for (let j = 0; j <= b.length; j++) matrix[0][j] = j;
+    for (let i = 1; i <= a.length; i++) {
+        for (let j = 1; j <= b.length; j++) {
             const cost = a[i - 1] === b[j - 1] ? 0 : 1;
             matrix[i][j] = Math.min(matrix[i - 1][j] + 1, matrix[i][j - 1] + 1, matrix[i - 1][j - 1] + cost);
         }
@@ -594,7 +594,7 @@ export default function ReportsPage() {
             if (qtyMatch) { qty = parseInt(qtyMatch[1], 10); itemNamePart = qtyMatch[2]; }
             const isPredefined = predefinedPrices[itemNamePart.toUpperCase()];
             if (isPredefined) {
-                consumedParts[i] = true; let priceToUse = isPredefined; if (i + 1 < parts.length && !consumedParts[i + 1] && !isNaN(parseFloat(parts[i+1]))) { priceToUse = parseFloat(parts[i + 1].replace(',', '.')); consumedParts[i + 1] = true; i++; }
+                consumedParts[i] = true; let priceToUse = isPredefined; if (i + 1 < parts.length && !consumedParts[i + 1] && !isNaN(parseFloat(parts[i+1]))) { priceToUse = parseFloat(input.price).replace(',', '.'); consumedParts[i + 1] = true; i++; }
                 for (let j = 0; j < qty; j++) { predefinedItems.push({ name: itemNamePart.toUpperCase(), price: priceToUse }); totalPrice += priceToUse; }
                 totalQuantity += qty; continue;
             }
