@@ -41,7 +41,7 @@ export function DatePicker({ date, setDate, disabled }: DatePickerProps) {
           variant={"outline"}
           disabled={disabled}
           className={cn(
-            "w-full justify-start text-left font-normal h-10 bg-background border-input relative z-[10]",
+            "w-full justify-start text-left font-normal h-10 bg-background border-input relative",
             !date && "text-muted-foreground"
           )}
         >
@@ -54,7 +54,7 @@ export function DatePicker({ date, setDate, disabled }: DatePickerProps) {
         </Button>
       </PopoverTrigger>
       <PopoverContent 
-        className="w-auto p-0 z-[10000]" 
+        className="w-auto p-0 z-[9999]" 
         align="start"
         side="bottom"
         sideOffset={4}

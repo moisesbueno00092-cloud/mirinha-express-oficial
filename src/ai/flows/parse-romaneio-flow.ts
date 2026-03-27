@@ -1,8 +1,8 @@
 'use server';
 
 /**
- * @fileOverview Fluxo de extração de dados de romaneios com lógica de resiliência.
- * Utiliza identificadores de modelo estáveis para evitar o erro 404 na Vercel.
+ * @fileOverview Fluxo de extração de dados de romaneios utilizando Gemini 1.5 Flash.
+ * Otimizado para estabilidade e rapidez, evitando erros 404 na Vercel.
  */
 
 import { ai } from '@/ai/genkit';
@@ -20,62 +20,57 @@ const ParseRomaneioOutputSchema = z.object({
 
 export type ParseRomaneioOutput = z.infer<typeof ParseRomaneioOutputSchema>;
 
-// Identificadores de modelo qualificados e estáveis para evitar o erro 404
-const MODELS_TO_TRY = [
-  'googleai/gemini-1.5-flash',
-  'googleai/gemini-1.5-flash-8b',
-  'googleai/gemini-1.5-pro'
-];
-
+/**
+ * Função simples para testar a ligação com a IA.
+ */
 export async function testAiConnection(): Promise<{ success: boolean; message: string }> {
-  for (const modelId of MODELS_TO_TRY) {
-    try {
-      const response = await ai.generate({
-        model: modelId as any,
-        prompt: 'Responda apenas "OK".',
-      });
-      if (response.text?.includes('OK')) {
-        return { success: true, message: `Conectado com sucesso via ${modelId}` };
-      }
-    } catch (e: any) {
-      console.warn(`Tentativa com ${modelId} falhou:`, e.message);
+  try {
+    const response = await ai.generate({
+      model: 'googleai/gemini-1.5-flash',
+      prompt: 'Responda apenas "OK".',
+    });
+    if (response.text?.includes('OK')) {
+      return { success: true, message: `Conectado com sucesso via Gemini 1.5 Flash` };
     }
+    return { success: false, message: 'Resposta inesperada da IA.' };
+  } catch (e: any) {
+    console.error('Erro no teste de conexão:', e.message);
+    return { success: false, message: `Falha na conexão: ${e.message}` };
   }
-  return { success: false, message: 'Falha na conexão com Gemini. Verifique a API Key.' };
 }
 
+/**
+ * Analisa a foto de um romaneio e extrai os dados estruturados.
+ */
 export async function parseRomaneio(input: { romaneioPhoto: string }): Promise<ParseRomaneioOutput> {
-  let lastError = null;
+  try {
+    const { output } = await ai.generate({
+      model: 'googleai/gemini-1.5-flash',
+      prompt: [
+        { text: `Você é um assistente especializado em romaneios de restaurante. 
+        Extraia os dados da imagem para JSON:
+        1. fornecedorNome: Nome da empresa.
+        2. dataVencimento: Data de pagamento (formato YYYY-MM-DD). Se não encontrar, deixe vazio.
+        3. items: lista com produtoNome, quantidade e valorTotal.
+        Ignore carimbos, assinaturas ou rasuras.` },
+        { media: { url: input.romaneioPhoto, contentType: 'image/jpeg' } }
+      ],
+      output: { schema: ParseRomaneioOutputSchema },
+      config: { temperature: 0.1 }
+    });
 
-  for (const modelId of MODELS_TO_TRY) {
-    try {
-      const { output } = await ai.generate({
-        model: modelId as any,
-        prompt: [
-          { text: `Você é um assistente especializado em romaneios de restaurante. 
-          Extraia os dados da imagem para JSON:
-          1. fornecedorNome: Nome da empresa.
-          2. dataVencimento: Data de pagamento (YYYY-MM-DD).
-          3. items: lista com produtoNome, quantidade e valorTotal.
-          Ignore carimbos ou rasuras.` },
-          { media: { url: input.romaneioPhoto, contentType: 'image/jpeg' } }
-        ],
-        output: { schema: ParseRomaneioOutputSchema },
-        config: { temperature: 0.1 }
-      });
-
-      if (output) return output;
-    } catch (error: any) {
-      lastError = error;
-      console.error(`Erro ao processar com ${modelId}:`, error.message);
-      
-      // Se o erro for 404, tentamos o próximo modelo da lista
-      if (error.message?.includes('404') || error.message?.toLowerCase().includes('not found')) {
-          continue;
-      }
-      break;
+    if (output) return output;
+    throw new Error('A IA não conseguiu extrair dados válidos da imagem.');
+  } catch (error: any) {
+    console.error(`Erro ao processar romaneio:`, error.message);
+    
+    let userMessage = error.message;
+    if (error.message?.includes('404')) {
+      userMessage = 'Modelo Gemini 1.5 Flash não encontrado ou desativado na sua região.';
+    } else if (error.message?.includes('429')) {
+      userMessage = 'Limite de requisições excedido. Tente novamente em alguns segundos.';
     }
-  }
 
-  throw new Error(`IA Indisponível: ${lastError?.message || 'Erro de conexão com o modelo.'}`);
+    throw new Error(`IA Indisponível: ${userMessage}`);
+  }
 }
