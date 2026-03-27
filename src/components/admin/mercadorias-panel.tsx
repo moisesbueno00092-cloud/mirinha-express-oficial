@@ -25,7 +25,7 @@ interface LancamentoProduto {
 }
 
 /**
- * Otimiza a imagem no cliente para garantir que o envio à Vercel seja rápido.
+ * Otimiza a imagem no cliente para garantir que o envio seja rápido e económico.
  */
 const compressImage = (dataUri: string): Promise<string> => {
     return new Promise((resolve) => {
@@ -229,22 +229,19 @@ export default function MercadoriasPanel() {
             </div>
 
             <div 
-                className="bg-primary/5 border-2 border-dashed border-primary/20 rounded-lg p-2 text-center space-y-1 transition-all hover:bg-primary/10 hover:border-primary/40 group cursor-pointer" 
+                className="bg-primary/5 border-2 border-dashed border-primary/20 rounded-lg p-2 text-center transition-all hover:bg-primary/10 hover:border-primary/40 group cursor-pointer" 
                 onClick={() => fileInputRef.current?.click()}
             >
                 {isParsingRomaneio ? (
-                    <div className="flex flex-col items-center py-1">
-                        <Loader2 className="h-4 w-4 animate-spin text-primary mb-1" />
-                        <span className="text-[0.6rem] font-black uppercase text-primary">Analisando Imagem...</span>
+                    <div className="flex items-center justify-center gap-2 py-1">
+                        <Loader2 className="h-4 w-4 animate-spin text-primary" />
+                        <span className="text-[0.65rem] font-black uppercase text-primary">Analisando...</span>
                     </div>
                 ) : (
-                    <>
-                        <div className="flex items-center justify-center gap-2">
-                            <FileImage className="h-4 w-4 text-primary" />
-                            <span className="font-bold text-xs">Carregar Romaneio</span>
-                        </div>
-                        <p className="text-[0.55rem] text-muted-foreground uppercase font-medium">JPG ou PNG (Até 50MB)</p>
-                    </>
+                    <div className="flex items-center justify-center gap-2 py-1">
+                        <FileImage className="h-4 w-4 text-primary" />
+                        <span className="font-bold text-xs">Carregar Romaneio</span>
+                    </div>
                 )}
             </div>
 
