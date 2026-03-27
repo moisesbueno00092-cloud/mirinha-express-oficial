@@ -1,3 +1,4 @@
+
 'use server';
 
 /**
@@ -22,6 +23,7 @@ export type ParseRomaneioOutput = z.infer<typeof ParseRomaneioOutputSchema>;
 
 /**
  * Identificador do modelo universal para evitar erro 404 na Vercel.
+ * Alguns ambientes da Vercel requerem o identificador completo.
  */
 const STABLE_MODEL = 'googleai/gemini-1.5-flash';
 
@@ -93,7 +95,7 @@ export async function parseRomaneio(input: { romaneioPhoto: string }): Promise<P
     console.error("ERRO PROCESSAMENTO IA:", error);
     
     if (error.message?.includes('404')) {
-        throw new Error("Modelo Gemini 1.5 Flash não encontrado (404). Verifique se a API Generative Language está ativa no console da Google.");
+        throw new Error("Modelo não encontrado (404). Verifique se a API 'Generative Language' está ativa no Google AI Studio.");
     }
 
     if (error.message?.includes('429')) {

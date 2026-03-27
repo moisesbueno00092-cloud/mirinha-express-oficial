@@ -94,6 +94,7 @@ import BomboniereModal from '@/components/bomboniere-modal';
 import { DatePicker } from '@/components/ui/date-picker';
 import { PREDEFINED_PRICES } from '@/lib/constants';
 import { generateManagementReport, type ManagementReportOutput } from '@/ai/flows/generate-management-report';
+import { WhatsAppIcon } from '@/components/ui/icons/whatsapp-icon';
 
 const formatCurrency = (value: number | undefined | null) => {
     return new Intl.NumberFormat("pt-BR", {
@@ -117,10 +118,6 @@ const safeFormat = (dateInput: any, formatStr: string, options?: any) => {
     return format(d, formatStr, options);
 };
 
-/**
- * Algoritmo de Similaridade Inteligente (IA)
- * Permite fundir nomes como "Lucinea" e "Lucineia" automaticamente no relatório mensal.
- */
 function getLevenshteinDistance(a: string, b: string): number {
     const matrix = Array.from({ length: a.length + 1 }, () => Array(b.length + 1).fill(0));
     for (let i = 0; i <= a.length; i++) matrix[i][0] = i;
@@ -307,7 +304,6 @@ const CustomerReportsSection = ({
             }
         });
 
-        // Algoritmo de Unificação Inteligente (Levenshtein + Normalização)
         const finalStats: Record<string, { name: string, total: number, count: number, orders: Item[] }> = {};
         const keys = Object.keys(rawStats).sort((a, b) => rawStats[b].count - rawStats[a].count);
         const processedKeys = new Set<string>();
@@ -354,6 +350,26 @@ const CustomerReportsSection = ({
         return customerData.find(c => normalizeKey(c.name) === key) || null;
     }, [customerData, selectedCustomerName]);
 
+    const handleWhatsAppShare = () => {
+        if (!selectedCustomer) return;
+        
+        const dateStr = format(globalDate, 'MMMM yyyy', { locale: ptBR });
+        let message = `*Restaurante da Mirinha*\n`;
+        message += `*Histórico de Consumo - ${dateStr}*\n`;
+        message += `*Cliente:* ${selectedCustomer.name}\n\n`;
+        
+        selectedCustomer.orders.forEach(order => {
+            const d = order.timestamp?.toDate ? order.timestamp.toDate() : new Date(order.timestamp);
+            const day = format(d, 'dd/MM');
+            message += `• ${day}: ${order.name} - _${formatCurrency(order.total)}_\n`;
+        });
+        
+        message += `\n*TOTAL: ${formatCurrency(selectedCustomer.total)}*`;
+        
+        const encodedMessage = encodeURIComponent(message);
+        window.open(`https://wa.me/?text=${encodedMessage}`, '_blank');
+    };
+
     return (
         <div className="space-y-6">
             <Dialog open={!!selectedCustomerName} onOpenChange={(open) => !open && setSelectedCustomerName(null)}>
@@ -380,7 +396,22 @@ const CustomerReportsSection = ({
                             ))}
                         </div>
                     </ScrollArea>
-                    <DialogFooter><Button variant="outline" onClick={() => setSelectedCustomerName(null)}>Fechar</Button></DialogFooter>
+                    <DialogFooter className="flex flex-col sm:flex-row justify-between items-center gap-4 border-t pt-4">
+                        <div className="text-lg font-black text-primary">
+                            Total: {formatCurrency(selectedCustomer?.total)}
+                        </div>
+                        <div className="flex gap-2 w-full sm:w-auto">
+                            <Button 
+                                variant="outline" 
+                                className="flex-1 sm:flex-none border-green-500 text-green-500 hover:bg-green-500/10 font-bold" 
+                                onClick={handleWhatsAppShare}
+                            >
+                                <WhatsAppIcon className="mr-2 h-4 w-4" />
+                                WhatsApp
+                            </Button>
+                            <Button variant="outline" className="flex-1 sm:flex-none" onClick={() => setSelectedCustomerName(null)}>Fechar</Button>
+                        </div>
+                    </DialogFooter>
                 </DialogContent>
             </Dialog>
 
@@ -609,7 +640,7 @@ export default function ReportsPage() {
         <DialogContent className="max-w-md">
             <DialogHeader><DialogTitle>{archivedItemToEdit ? 'Editar' : 'Novo'} Lançamento</DialogTitle></DialogHeader>
             <div className="py-4 space-y-6">
-                <div className="space-y-3"><Label className="flex items-center gap-2 text-primary"><ListOrdered className="h-4 w-4"/> Comando do Pedido</Label><div className="flex gap-2"><Input value={editArchivedInput} onChange={(e) => setEditArchivedInput(e.target.value)} className="h-12 text-lg font-medium" placeholder="Ex: M P coca-lata" /><Button variant="outline" onClick={() => setIsBomboniereModalOpen(true)} className="h-12 shrink-0"><Plus className="h-4 w-4 mr-2"/>Outros</Button></div></div>
+                <div className="space-y-3"><Label className="flex items-center gap-2 text-primary"><ListOrdered className="h-4 w-4"/> Comando do Pedido</Label><div className="flex gap-2"><Input value={editArchivedInput} onChange={(e) => editArchivedInput(e.target.value)} className="h-12 text-lg font-medium" placeholder="Ex: M P coca-lata" /><Button variant="outline" onClick={() => setIsBomboniereModalOpen(true)} className="h-12 shrink-0"><Plus className="h-4 w-4 mr-2"/>Outros</Button></div></div>
                 <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
                     <div className="space-y-3"><Label className="flex items-center gap-2 text-primary"><CalendarIcon className="h-4 w-4"/> Data</Label><DatePicker date={editArchivedDate} setDate={setEditArchivedDate} /></div>
                     <div className="space-y-3"><Label className="flex items-center gap-2 text-primary"><Clock className="h-4 w-4"/> Hora</Label><Input type="time" value={editArchivedTime} onChange={(e) => setEditArchivedTime(e.target.value)} className="h-10 text-lg" /></div>
