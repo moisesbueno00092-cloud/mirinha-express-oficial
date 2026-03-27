@@ -52,7 +52,7 @@ export function DatePicker({ date, setDate }: DatePickerProps) {
         </Button>
       </PopoverTrigger>
       <PopoverContent 
-        className="w-auto p-0 z-[500]" 
+        className="w-auto p-0 z-[1000]" 
         align="start"
         side="bottom"
       >
