@@ -2,7 +2,7 @@
 
 /**
  * @fileOverview Fluxo de extração de dados de romaneios utilizando Gemini 1.5 Flash.
- * Modelo configurado para máxima compatibilidade e estabilidade em produção.
+ * Configurado para máxima compatibilidade em ambientes de produção como Vercel.
  */
 
 import { ai } from '@/ai/genkit';
@@ -20,8 +20,11 @@ const ParseRomaneioOutputSchema = z.object({
 
 export type ParseRomaneioOutput = z.infer<typeof ParseRomaneioOutputSchema>;
 
-// Identificador universal e mais estável do modelo Gemini 1.5 Flash
-const STABLE_MODEL = 'googleai/gemini-1.5-flash';
+/**
+ * Identificador do modelo otimizado para evitar erro 404.
+ * O sufixo -latest garante a resolução correta no endpoint v1beta.
+ */
+const STABLE_MODEL = 'googleai/gemini-1.5-flash-latest';
 
 /**
  * Testa a conexão com a IA utilizando o modelo padrão.
@@ -43,15 +46,15 @@ export async function testAiConnection(): Promise<{ success: boolean; message: s
     if (error.message?.includes('404')) {
         return { 
             success: false, 
-            message: 'Erro 404: Modelo não encontrado. Verifique se a API "Generative Language" está ativa no seu Google AI Studio.' 
+            message: 'Erro 404: Modelo não encontrado. Vá ao Google AI Studio e verifique se a "Generative Language API" está ativa para esta chave.' 
         };
     }
     
     if (error.message?.includes('429')) {
-        return { success: false, message: 'Limite de quota excedido. Aguarde 60 segundos.' };
+        return { success: false, message: 'Limite de quota excedido (429). Aguarde 60 segundos.' };
     }
 
-    return { success: false, message: `Erro: ${error.message}` };
+    return { success: false, message: `Erro Técnico: ${error.message}` };
   }
 }
 
@@ -87,7 +90,7 @@ export async function parseRomaneio(input: { romaneioPhoto: string }): Promise<P
     console.error("ERRO PROCESSAMENTO IA:", error);
     
     if (error.message?.includes('404')) {
-        throw new Error("Modelo Gemini 1.5 Flash não encontrado. Verifique se a API 'Generative Language' está ativa no seu painel Google Cloud/AI Studio.");
+        throw new Error("Modelo não encontrado (404). Verifique a ativação da API Generative Language no seu painel Google Cloud.");
     }
 
     if (error.message?.includes('429')) {
@@ -95,7 +98,7 @@ export async function parseRomaneio(input: { romaneioPhoto: string }): Promise<P
     }
     
     if (error.message?.includes('403') || error.message?.includes('PERMISSION_DENIED')) {
-        throw new Error("Acesso Negado: Verifique se a sua Chave de API é válida e tem permissões para o modelo Flash.");
+        throw new Error("Acesso Negado: Verifique se a sua chave API é válida.");
     }
     
     throw new Error(`Falha na IA: ${error.message}`);
