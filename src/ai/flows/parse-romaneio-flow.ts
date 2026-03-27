@@ -20,10 +20,11 @@ const ParseRomaneioOutputSchema = z.object({
 
 export type ParseRomaneioOutput = z.infer<typeof ParseRomaneioOutputSchema>;
 
-// Lista de modelos a tentar em ordem de preferência
+// Lista de modelos a tentar em ordem de preferência. 
+// Gemini 1.5 Flash 8B é o mais eficiente para tarefas curtas na Vercel.
 const MODELS_TO_TRY = [
+  'googleai/gemini-1.5-flash-8b',
   'googleai/gemini-1.5-flash',
-  'googleai/gemini-1.5-flash-latest',
   'googleai/gemini-1.5-pro'
 ];
 
@@ -41,7 +42,7 @@ export async function testAiConnection(): Promise<{ success: boolean; message: s
       console.warn(`Tentativa com ${modelId} falhou:`, e.message);
     }
   }
-  return { success: false, message: 'Nenhum modelo da Google respondeu. Verifique a sua API Key e se a API Generative Language está ativa.' };
+  return { success: false, message: 'Nenhum modelo da Google respondeu. Verifique a sua API Key e se a API Generative Language está ativa no seu projeto do Google Cloud.' };
 }
 
 export async function parseRomaneio(input: { romaneioPhoto: string }): Promise<ParseRomaneioOutput> {
@@ -68,9 +69,16 @@ export async function parseRomaneio(input: { romaneioPhoto: string }): Promise<P
     } catch (error: any) {
       lastError = error;
       console.error(`Erro ao processar com ${modelId}:`, error.message);
-      if (!error.message?.includes('404')) break; // Se não for 404, o problema pode ser outro (ex: quota), não adianta tentar outro modelo.
+      
+      // Se o erro for 404, tentamos o próximo modelo da lista
+      if (error.message?.includes('404')) {
+          continue;
+      }
+      
+      // Para outros erros (ex: quota 429), interrompemos para evitar loop inútil
+      break;
     }
   }
 
-  throw new Error(`Falha na IA: ${lastError?.message || 'Erro desconhecido'}`);
+  throw new Error(`Falha na IA: ${lastError?.message || 'A Google não respondeu. Certifique-se que a API Generative Language está ativa.'}`);
 }

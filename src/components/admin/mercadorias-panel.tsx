@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo, useRef } from 'react';
+import { useState, useMemo, useRef, useEffect, useCallback } from 'react';
 import { useCollection, useFirestore } from '@/firebase';
 import { collection, query, orderBy, writeBatch, doc } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
@@ -8,7 +8,7 @@ import type { Fornecedor, BomboniereItem } from '@/types';
 import { parseRomaneio, testAiConnection } from '@/ai/flows/parse-romaneio-flow';
 
 import { Button } from '@/components/ui/button';
-import { Loader2, Trash2, ClipboardList, CheckCircle2, Zap, Upload, FileText, X, ImageIcon } from 'lucide-react';
+import { Loader2, Trash2, ClipboardList, CheckCircle2, Zap, X, ImageIcon, FileText } from 'lucide-react';
 import { ScrollArea } from '../ui/scroll-area';
 import { format as formatDateFn } from 'date-fns';
 import { DatePicker } from '../ui/date-picker';
@@ -75,20 +75,10 @@ export default function MercadoriasPanel() {
         setIsParsing(false);
     };
 
-    const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        const file = e.target.files?.[0];
-        if (!file) return;
-        const reader = new FileReader();
-        reader.onload = (event) => setPreviewUri(event.target?.result as string);
-        reader.readAsDataURL(file);
-        e.target.value = ''; 
-    };
-
-    const runAnalysis = async () => {
-        if (!previewUri) return;
+    const runAnalysis = useCallback(async (uri: string) => {
         setIsParsing(true);
         try {
-            const compressed = await compressImage(previewUri);
+            const compressed = await compressImage(uri);
             const output = await parseRomaneio({ romaneioPhoto: compressed });
             
             if (output?.items?.length > 0) {
@@ -111,12 +101,26 @@ export default function MercadoriasPanel() {
                 const [y, m, d] = output.dataVencimento.split('-').map(Number);
                 setDataVencimento(new Date(y, m - 1, d));
             }
-            toast({ title: "Análise concluída!" });
+            toast({ title: "Extração concluída com sucesso!" });
         } catch (e: any) {
-            toast({ variant: 'destructive', title: 'Erro na IA', description: e.message });
+            toast({ variant: 'destructive', title: 'Falha na IA', description: e.message });
         } finally {
             setIsParsing(false);
         }
+    }, [fornecedores, toast]);
+
+    const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = (event) => {
+            const uri = event.target?.result as string;
+            setPreviewUri(uri);
+            // Inicia análise automática assim que o preview estiver pronto
+            runAnalysis(uri);
+        };
+        reader.readAsDataURL(file);
+        e.target.value = ''; 
     };
 
     const handleConfirmAll = async () => {
@@ -188,7 +192,7 @@ export default function MercadoriasPanel() {
                 <DialogContent className="max-w-4xl max-h-[90vh] flex flex-col p-0 overflow-hidden">
                     <DialogHeader className="p-6 border-b">
                         <DialogTitle className="flex items-center gap-2"><ClipboardList className="text-primary"/> Assistente de Importação de Romaneio</DialogTitle>
-                        <DialogDescription>Carregue uma foto da nota fiscal ou romaneio para extração automática.</DialogDescription>
+                        <DialogDescription>Selecione um romaneio e a IA extrairá os dados automaticamente.</DialogDescription>
                     </DialogHeader>
 
                     <div className="flex-grow overflow-hidden flex flex-col md:flex-row">
@@ -197,9 +201,17 @@ export default function MercadoriasPanel() {
                             {previewUri ? (
                                 <div className="relative w-full h-full min-h-[300px] rounded-lg overflow-hidden border shadow-inner bg-black/5">
                                     <Image src={previewUri} alt="Preview" fill className="object-contain" />
-                                    <Button variant="destructive" size="icon" className="absolute top-2 right-2 h-8 w-8 rounded-full" onClick={() => setPreviewUri(null)}>
-                                        <X className="h-4 w-4" />
-                                    </Button>
+                                    {isParsing && (
+                                        <div className="absolute inset-0 bg-black/40 flex flex-col items-center justify-center gap-3 backdrop-blur-[2px]">
+                                            <Loader2 className="h-10 w-10 animate-spin text-white" />
+                                            <span className="text-white font-bold text-sm">IA Analisando...</span>
+                                        </div>
+                                    )}
+                                    {!isParsing && (
+                                        <Button variant="destructive" size="icon" className="absolute top-2 right-2 h-8 w-8 rounded-full" onClick={() => setPreviewUri(null)}>
+                                            <X className="h-4 w-4" />
+                                        </Button>
+                                    )}
                                 </div>
                             ) : (
                                 <div 
@@ -207,14 +219,9 @@ export default function MercadoriasPanel() {
                                     onClick={() => fileInputRef.current?.click()}
                                 >
                                     <ImageIcon className="h-12 w-12 text-muted-foreground/50 mb-2" />
-                                    <p className="text-sm font-medium text-muted-foreground">Clique para carregar JPG</p>
+                                    <p className="text-sm font-medium text-muted-foreground">Clique para selecionar foto</p>
                                     <input type="file" ref={fileInputRef} className="hidden" accept="image/*" onChange={handleFileChange} />
                                 </div>
-                            )}
-                            {previewUri && !produtosLancados.length && (
-                                <Button onClick={runAnalysis} disabled={isParsing} className="mt-4 w-full h-12 text-lg">
-                                    {isParsing ? <><Loader2 className="mr-2 h-5 w-5 animate-spin" /> Analisando...</> : <><Zap className="mr-2 h-5 w-5" /> Iniciar Extração IA</>}
-                                </Button>
                             )}
                         </div>
 
@@ -229,7 +236,7 @@ export default function MercadoriasPanel() {
                                     </Select>
                                 </div>
                                 <div className="space-y-1.5">
-                                    <span className="text-[0.65rem] font-bold uppercase text-muted-foreground">Vencimento</span>
+                                    <span className="text-[0.65rem] font-bold uppercase text-muted-foreground">Data Vencimento</span>
                                     <DatePicker date={dataVencimento} setDate={setDataVencimento} />
                                 </div>
                             </div>
@@ -258,8 +265,8 @@ export default function MercadoriasPanel() {
                                             ))}
                                         </div>
                                     ) : (
-                                        <div className="h-40 flex items-center justify-center text-muted-foreground/50 text-xs italic">
-                                            {isParsing ? "Extraindo dados..." : "Nenhum dado extraído ainda."}
+                                        <div className="h-40 flex items-center justify-center text-muted-foreground/50 text-xs italic p-4 text-center">
+                                            {isParsing ? "Extraindo dados da imagem..." : "Aguardando seleção de imagem para extração."}
                                         </div>
                                     )}
                                 </ScrollArea>
