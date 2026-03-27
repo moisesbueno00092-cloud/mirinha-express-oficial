@@ -2,7 +2,7 @@ import {genkit} from 'genkit';
 import {googleAI} from '@genkit-ai/google-genai';
 
 /**
- * Configuração central do Genkit otimizada para produção e Vercel.
+ * Configuração central do Genkit otimizada para produção.
  * Utiliza identificadores de modelo qualificados e estáveis.
  */
 export const ai = genkit({

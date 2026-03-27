@@ -2,7 +2,7 @@
 
 /**
  * @fileOverview Fluxo de extração de dados de romaneios utilizando Gemini 1.5 Flash.
- * Otimizado para estabilidade utilizando identificadores de modelo qualificados.
+ * Otimizado para estabilidade utilizando identificadores de modelo estáveis.
  */
 
 import { ai } from '@/ai/genkit';

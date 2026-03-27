@@ -598,7 +598,6 @@ export default function ReportsPage() {
             const isPredefined = predefinedPrices[itemNamePart.toUpperCase()];
             if (isPredefined) {
                 consumedParts[i] = true; let priceToUse = isPredefined; 
-                // Note: editArchivedInput doesn't have currentItem.price available directly here in this simplified logic, using standard price.
                 for (let j = 0; j < qty; j++) { predefinedItems.push({ name: itemNamePart.toUpperCase(), price: priceToUse }); totalPrice += priceToUse; }
                 totalQuantity += qty; continue;
             }
