@@ -9,7 +9,7 @@ import { parseRomaneio, testAiConnection } from '@/ai/flows/parse-romaneio-flow'
 
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
-import { Loader2, Trash2, FileImage, ClipboardList, CheckCircle2, Zap, Upload } from 'lucide-react';
+import { Loader2, Trash2, ClipboardList, CheckCircle2, Zap, Upload, FileImage } from 'lucide-react';
 import { ScrollArea } from '../ui/scroll-area';
 import { format as formatDateFn } from 'date-fns';
 import { DatePicker } from '../ui/date-picker';
@@ -174,73 +174,87 @@ export default function MercadoriasPanel() {
         <div className="space-y-4">
             <input type="file" ref={fileInputRef} className="hidden" accept="image/jpeg,image/png" onChange={handleFileChange} />
 
-            <div className="flex flex-wrap gap-2 items-center justify-between">
-                <div className="flex items-center gap-2 bg-muted/30 px-3 py-1.5 rounded-full border border-border/50">
-                    <div className={cn("w-2 h-2 rounded-full", aiStatus === 'online' ? 'bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.6)]' : aiStatus === 'offline' ? 'bg-red-500' : 'bg-gray-500')} />
-                    <span className="text-[0.6rem] font-black uppercase tracking-widest text-muted-foreground">IA STATUS</span>
-                    <Button variant="ghost" size="icon" className="h-4 w-4 ml-1" onClick={handleCheckStatus} disabled={isTestingConnection}>
-                        {isTestingConnection ? <Loader2 className="h-3 w-3 animate-spin" /> : <Zap className="h-3 w-3 text-primary" />}
-                    </Button>
+            {/* Barra de Ferramentas Compacta */}
+            <div className="flex items-center gap-2 bg-muted/20 p-1.5 rounded-md border border-border/50">
+                <Button 
+                    variant="outline" 
+                    size="sm" 
+                    className="h-8 text-[0.7rem] font-black uppercase tracking-tighter gap-2 bg-background shrink-0"
+                    onClick={() => fileInputRef.current?.click()}
+                    disabled={isParsingRomaneio}
+                >
+                    {isParsingRomaneio ? <Loader2 className="h-3 w-3 animate-spin" /> : <Upload className="h-3 w-3" />}
+                    {isParsingRomaneio ? "Analisando" : "Carregar JPG"}
+                </Button>
+
+                <div className="flex-grow flex items-center justify-center gap-2 px-2 border-x border-border/50 overflow-hidden">
+                    <div className={cn(
+                        "w-1.5 h-1.5 rounded-full shrink-0", 
+                        aiStatus === 'online' ? 'bg-green-500 shadow-[0_0_5px_rgba(34,197,94,0.8)]' : 
+                        aiStatus === 'offline' ? 'bg-red-500' : 'bg-muted-foreground/30'
+                    )} />
+                    <span className="text-[0.6rem] font-bold text-muted-foreground uppercase tracking-widest truncate">
+                        {aiStatus === 'online' ? 'Conectado' : aiStatus === 'offline' ? 'Erro IA' : 'IA Status'}
+                    </span>
                 </div>
 
-                <div 
-                    className="flex-grow max-w-[280px] bg-primary/5 border border-dashed border-primary/30 rounded-md py-1.5 px-4 text-center cursor-pointer hover:bg-primary/10 transition-all group" 
-                    onClick={() => fileInputRef.current?.click()}
+                <Button 
+                    variant="ghost" 
+                    size="icon" 
+                    className="h-8 w-8 hover:bg-primary/10 text-primary" 
+                    onClick={handleCheckStatus} 
+                    disabled={isTestingConnection}
                 >
-                    {isParsingRomaneio ? (
-                        <div className="flex items-center justify-center gap-2">
-                            <Loader2 className="h-3.5 w-3.5 animate-spin text-primary" />
-                            <span className="text-[0.65rem] font-black uppercase text-primary">Analisando...</span>
-                        </div>
-                    ) : (
-                        <div className="flex items-center justify-center gap-2">
-                            <Upload className="h-3.5 w-3.5 text-primary" />
-                            <span className="font-bold text-[0.7rem] uppercase">Carregar Romaneio JPG</span>
-                        </div>
-                    )}
-                </div>
+                    {isTestingConnection ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Zap className="h-3.5 w-3.5" />}
+                </Button>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            {/* Configurações da Entrada */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 bg-muted/10 p-2 rounded-md border border-dashed border-border/50">
                 <div className="space-y-1">
-                    <Label className="text-muted-foreground uppercase text-[0.6rem] font-bold tracking-widest">Fornecedor</Label>
+                    <Label className="text-muted-foreground uppercase text-[0.55rem] font-black tracking-widest ml-1">Fornecedor</Label>
                     <Select value={fornecedorId} onValueChange={setFornecedorId}>
-                        <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Selecione..." /></SelectTrigger>
+                        <SelectTrigger className="h-7 text-[0.7rem] bg-background"><SelectValue placeholder="Selecione..." /></SelectTrigger>
                         <SelectContent>{fornecedores?.map(f => (<SelectItem key={f.id} value={f.id}>{f.nome}</SelectItem>))}</SelectContent>
                     </Select>
                 </div>
                 <div className="space-y-1">
-                    <Label className="text-muted-foreground uppercase text-[0.6rem] font-bold tracking-widest">Vencimento</Label>
-                    <div className="h-8"><DatePicker date={dataVencimento} setDate={setDataVencimento} /></div>
+                    <Label className="text-muted-foreground uppercase text-[0.55rem] font-black tracking-widest ml-1">Vencimento (Vazio = Pago)</Label>
+                    <div className="h-7"><DatePicker date={dataVencimento} setDate={setDataVencimento} /></div>
                 </div>
             </div>
 
+            {/* Lista de Itens Extraídos */}
             {produtosLancados.length > 0 && (
-                <div className="border border-border/50 rounded-lg overflow-hidden bg-card/50 shadow-md">
-                    <div className="bg-muted/30 px-4 py-2 flex justify-between items-center border-b border-border/50">
-                        <span className="flex items-center gap-2 text-primary font-black uppercase text-[0.6rem] tracking-widest"><ClipboardList className="h-3.5 w-3.5"/> Itens Extraídos</span>
-                        <span className="text-foreground font-black text-xs">{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(produtosLancados.reduce((acc, p) => acc + p.preco, 0))}</span>
+                <div className="border border-primary/20 rounded-md overflow-hidden bg-card/50 shadow-sm animate-in fade-in slide-in-from-top-2 duration-300">
+                    <div className="bg-primary/5 px-3 py-1.5 flex justify-between items-center border-b border-primary/10">
+                        <span className="flex items-center gap-2 text-primary font-black uppercase text-[0.6rem] tracking-widest">
+                            <ClipboardList className="h-3 w-3"/> Itens do Romaneio
+                        </span>
+                        <span className="text-foreground font-black text-xs">
+                            {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(produtosLancados.reduce((acc, p) => acc + p.preco, 0))}
+                        </span>
                     </div>
-                    <ScrollArea className="h-40">
-                        <div className="divide-y divide-border/30">
+                    <ScrollArea className="h-32">
+                        <div className="divide-y divide-border/20">
                             {produtosLancados.map(p => (
-                                <div key={p.id} className="flex justify-between items-center px-4 py-2 hover:bg-primary/5">
+                                <div key={p.id} className="flex justify-between items-center px-3 py-1.5 hover:bg-primary/5 transition-colors">
                                     <div className="flex flex-col">
-                                        <span className="font-bold uppercase text-[0.6rem] leading-none">{p.produtoNome}</span>
+                                        <span className="font-bold uppercase text-[0.6rem] leading-none mb-0.5">{p.produtoNome}</span>
                                         <span className="text-[0.5rem] text-muted-foreground font-medium uppercase">{p.quantity} un · {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(p.precoUnitario)}</span>
                                     </div>
                                     <div className="flex items-center gap-2">
                                         <span className="font-mono font-black text-primary text-xs">{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(p.preco)}</span>
-                                        <Button variant="ghost" size="icon" className="h-6 w-6 text-destructive/30 hover:text-destructive" onClick={() => setProdutosLancados(prev => prev.filter(item => item.id !== p.id))}><Trash2 className="h-3 w-3" /></Button>
+                                        <Button variant="ghost" size="icon" className="h-5 w-5 text-destructive/20 hover:text-destructive hover:bg-destructive/10" onClick={() => setProdutosLancados(prev => prev.filter(item => item.id !== p.id))}><Trash2 className="h-3 w-3" /></Button>
                                     </div>
                                 </div>
                             ))}
                         </div>
                     </ScrollArea>
-                    <div className="p-2 bg-muted/10 border-t border-border/50 flex justify-end">
+                    <div className="p-1.5 bg-primary/5 border-t border-primary/10 flex justify-end">
                         <Button onClick={handleRegisterEntry} disabled={isSubmitting} className="h-7 px-4 text-[0.65rem] font-black gap-2">
                             {isSubmitting ? <Loader2 className="animate-spin h-3 w-3" /> : <CheckCircle2 className="h-3 w-3" />}
-                            Confirmar
+                            Confirmar Lançamento
                         </Button>
                     </div>
                 </div>

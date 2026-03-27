@@ -1,8 +1,8 @@
 'use server';
 
 /**
- * @fileOverview Fluxo de extração de dados de romaneios utilizando Gemini 1.5 Flash 8B.
- * Este modelo é otimizado para evitar erros 404 e falhas de pré-condição na Vercel.
+ * @fileOverview Fluxo de extração de dados de romaneios utilizando Gemini 1.5 Flash.
+ * Modelo configurado para máxima compatibilidade e estabilidade em produção.
  */
 
 import { ai } from '@/ai/genkit';
@@ -20,11 +20,11 @@ const ParseRomaneioOutputSchema = z.object({
 
 export type ParseRomaneioOutput = z.infer<typeof ParseRomaneioOutputSchema>;
 
-// Modelo ultra-estável para evitar erro 404 em produção
-const STABLE_MODEL = 'googleai/gemini-1.5-flash-8b';
+// Identificador oficial e mais estável do modelo Flash 1.5
+const STABLE_MODEL = 'googleai/gemini-1.5-flash';
 
 /**
- * Testa a conexão com a IA utilizando o modelo de alta eficiência.
+ * Testa a conexão com a IA utilizando o modelo padrão.
  */
 export async function testAiConnection(): Promise<{ success: boolean; message: string }> {
   try {
@@ -34,7 +34,7 @@ export async function testAiConnection(): Promise<{ success: boolean; message: s
     });
 
     if (response.text?.includes('CONECTADO')) {
-      return { success: true, message: 'Ligação estabelecida com sucesso via Gemini 1.5 Flash 8B!' };
+      return { success: true, message: 'Ligação estabelecida com sucesso!' };
     }
     return { success: false, message: 'Resposta inesperada da IA.' };
   } catch (error: any) {
@@ -43,7 +43,7 @@ export async function testAiConnection(): Promise<{ success: boolean; message: s
     if (error.message?.includes('404')) {
         return { 
             success: false, 
-            message: 'Erro 404: Modelo não encontrado. Verifique se a API "Generative Language" está ativa no seu projeto Google Cloud.' 
+            message: 'Erro 404: Modelo não encontrado. Verifique se a API "Generative Language" está ativa no seu Google AI Studio.' 
         };
     }
     
@@ -87,7 +87,7 @@ export async function parseRomaneio(input: { romaneioPhoto: string }): Promise<P
     console.error("ERRO PROCESSAMENTO:", error);
     
     if (error.message?.includes('404')) {
-        throw new Error("Modelo 8B não encontrado. Verifique a ativação da API Generative Language.");
+        throw new Error("Modelo não encontrado. Certifique-se que a API 'Generative Language' está ativa na sua chave de API.");
     }
 
     if (error.message?.includes('429')) {
