@@ -770,8 +770,9 @@ function LancheTrackerPageContent() {
       <div className="container mx-auto max-w-4xl p-2 sm:p-4 lg:p-8 pb-36">
         <header className="relative mb-6 flex h-20 items-center justify-center">
           <div className="flex flex-col items-center">
-            <MirinhaLogo className="w-64 sm:w-80 h-auto text-primary" />
-            <p className="text-muted-foreground -mt-2 text-sm sm:text-base">Controle de Pedidos</p>
+            <h1 className="text-3xl font-bold text-red-500 tracking-tight text-center sm:text-4xl pr-8 sm:pr-0">
+              Mirinha Express - Sistema de Pedidos
+            </h1>
           </div>
           <div className="absolute right-0 flex items-center gap-2">
             <Button variant="outline" onClick={() => router.push('/reports')}>
