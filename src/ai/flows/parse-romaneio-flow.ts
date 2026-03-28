@@ -23,7 +23,8 @@ export type ParseRomaneioOutput = z.infer<typeof ParseRomaneioOutputSchema>;
  * Testa a conexão com a IA utilizando os modelos disponíveis.
  */
 export async function testAiConnection(): Promise<{ success: boolean; message: string }> {
-  const models = ['googleai/gemini-1.5-flash', 'googleai/gemini-1.5-flash-8b', 'googleai/gemini-1.5-pro'];
+  // Modelos qualificados com o prefixo do provedor para garantir o registro correto no Genkit
+  const models = ['googleai/gemini-1.5-flash', 'googleai/gemini-1.5-flash-8b'];
   let lastError = '';
 
   for (const model of models) {
@@ -45,10 +46,10 @@ export async function testAiConnection(): Promise<{ success: boolean; message: s
 }
 
 /**
- * Analisa a foto de um romaneio tentando múltiplos modelos em caso de erro 404.
+ * Analisa a foto de um romaneio tentando múltiplos modelos para evitar erro 404 regional.
  */
 export async function parseRomaneio(input: { romaneioPhoto: string }): Promise<ParseRomaneioOutput> {
-  const models = ['googleai/gemini-1.5-flash', 'googleai/gemini-1.5-flash-8b', 'googleai/gemini-1.5-pro'];
+  const models = ['googleai/gemini-1.5-flash', 'googleai/gemini-1.5-flash-8b'];
   let lastError: any = null;
 
   for (const modelName of models) {
@@ -72,7 +73,6 @@ export async function parseRomaneio(input: { romaneioPhoto: string }): Promise<P
     } catch (error: any) {
       lastError = error;
       console.error(`Erro no modelo ${modelName}:`, error.message);
-      // Se não for erro 404 ou 429, talvez nem valha a pena tentar os outros, mas vamos tentar por segurança
     }
   }
 

@@ -694,7 +694,7 @@ export default function ReportsPage() {
                     }}
                   >
                     <SelectTrigger className="w-[100px]"><SelectValue /></SelectTrigger>
-                    <SelectContent>{yearOptions.map(y => <SelectItem key={y} value={String(y)}>{y}</SelectItem>)}</SelectContent>
+                    <SelectContent>{yearOptions.map(year => <SelectItem key={year} value={String(year)}>{year}</SelectItem>)}</SelectContent>
                   </Select>
               </div>
               <p className="text-sm font-semibold text-muted-foreground capitalize">{safeFormat(globalDate, 'MMMM yyyy', { locale: ptBR })}</p>
