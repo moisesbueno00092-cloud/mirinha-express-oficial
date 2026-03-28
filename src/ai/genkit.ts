@@ -3,7 +3,7 @@ import {googleAI} from '@genkit-ai/google-genai';
 
 /**
  * Configuração central do Genkit otimizada para produção.
- * Utiliza o modelo Gemini 1.5 Flash estável.
+ * Utiliza o modelo Gemini 1.5 Flash como padrão mas permite fallbacks.
  */
 export const ai = genkit({
   plugins: [
