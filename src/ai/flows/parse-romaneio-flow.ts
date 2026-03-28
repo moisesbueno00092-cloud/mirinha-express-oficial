@@ -26,7 +26,7 @@ export type ParseRomaneioOutput = z.infer<typeof ParseRomaneioOutputSchema>;
 export async function testAiConnection(): Promise<{ success: boolean; message: string }> {
   try {
     const response = await ai.generate({
-      model: 'googleai/gemini-1.5-flash',
+      model: 'googleai/gemini-2.5-flash',
       prompt: 'Responda apenas "CONECTADO".',
     });
     if (response.text?.includes('CONECTADO')) {
@@ -47,7 +47,7 @@ export async function parseRomaneio(input: { romaneioPhoto: string }): Promise<P
 
   try {
     const { output } = await ai.generate({
-      model: 'googleai/gemini-1.5-flash',
+      model: 'googleai/gemini-2.5-flash',
       prompt: [
         { text: `Você é um assistente especializado em romaneios de restaurante. 
         Extraia os dados da imagem para JSON:
