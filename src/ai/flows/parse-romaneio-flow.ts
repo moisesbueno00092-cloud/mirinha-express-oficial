@@ -1,72 +1,79 @@
 'use server';
 
-/**
- * @fileOverview Fluxo de extração de dados de romaneios com máxima resiliência regional.
- * Utiliza o identificador qualificado estável googleai/gemini-1.5-flash.
- */
-
 import { ai } from '@/ai/genkit';
 import { z } from 'genkit';
-
-const ParseRomaneioOutputSchema = z.object({
-  items: z.array(z.object({
-    produtoNome: z.string(),
-    quantidade: z.number(),
-    valorTotal: z.number(),
-  })),
-  fornecedorNome: z.string().optional(),
-  dataVencimento: z.string().optional(),
-});
-
-export type ParseRomaneioOutput = z.infer<typeof ParseRomaneioOutputSchema>;
+import { addDays, format } from 'date-fns';
 
 /**
- * Testa a conexão com a IA utilizando identificadores estáveis.
+ * SCHEMA INTERNO (NÃO EXPORTADO)
+ * Exportando constantes não-assíncronas em arquivos 'use server' causa erro de build no Next.js 15.
  */
-export async function testAiConnection(): Promise<{ success: boolean; message: string }> {
-  try {
-    const response = await ai.generate({
-      model: 'googleai/gemini-2.5-flash',
-      prompt: 'Responda apenas "CONECTADO".',
-    });
-    if (response.text?.includes('CONECTADO')) {
-      return { success: true, message: 'IA conectada com sucesso via Gemini 1.5 Flash.' };
-    }
-    return { success: false, message: 'Resposta inesperada da IA.' };
-  } catch (e: any) {
-    console.warn('Falha no teste de conexão IA:', e.message);
-    return { success: false, message: `IA Indisponível: ${e.message}` };
-  }
+const ParseRomaneioOutputSchema = z.object({
+  fornecedor: z.string().describe('Nome do fornecedor ou empresa emissora.'),
+  dataVencimento: z.string().describe('Data de vencimento no formato ISO (YYYY-MM-DD).'),
+  itens: z.array(z.object({
+    nome: z.string().describe('Nome descritivo do produto.'),
+    quantidade: z.number().describe('Quantidade numérica.'),
+    valorTotal: z.number().describe('Valor total do item (Quantidade * Preço Unitário).'),
+  })).describe('Lista completa de produtos extraídos.'),
+});
+
+type ParseRomaneioOutput = z.infer<typeof ParseRomaneioOutputSchema>;
+
+/**
+ * Interface de resposta (INTERNAL USE ONLY)
+ */
+interface ParseRomaneioResponse {
+  data?: ParseRomaneioOutput;
+  error?: string;
 }
 
 /**
- * Analisa a foto de um romaneio utilizando o modelo estável Gemini 1.5 Flash.
+ * Função principal de extração de Romaneios via IA.
+ * Utiliza o modelo Gemini 2.0 Flash para visão computacional.
  */
-export async function parseRomaneio(input: { romaneioPhoto: string }): Promise<ParseRomaneioOutput> {
-  let lastError: any = null;
+export async function parseRomaneio(input: { romaneioPhoto: string }): Promise<ParseRomaneioResponse> {
+  const apiKey = process.env.GEMINI_API_KEY;
+
+  if (!apiKey) {
+    console.error('[ParseRomaneio] Erro: GEMINI_API_KEY não configurada no ambiente.');
+    return { error: 'Chave da API (GEMINI_API_KEY) não encontrada nas variáveis de ambiente da Vercel.' };
+  }
+
+  const today = new Date();
+  const defaultDueDate = format(addDays(today, 30), 'yyyy-MM-dd');
 
   try {
     const { output } = await ai.generate({
-      model: 'googleai/gemini-2.5-flash',
-      prompt: [
-        { text: `Você é um assistente especializado em romaneios de restaurante. 
-        Extraia os dados da imagem para JSON:
-        1. fornecedorNome: Nome da empresa.
-        2. dataVencimento: Data de pagamento (formato YYYY-MM-DD). Se não encontrar, deixe vazio.
-        3. items: lista com produtoNome, quantidade e valorTotal.
-        Ignore carimbos, assinaturas ou rasuras.` },
-        { media: { url: input.romaneioPhoto, contentType: 'image/jpeg' } }
-      ],
+      model: 'googleai/gemini-2.0-flash',
       output: { schema: ParseRomaneioOutputSchema },
-      config: { temperature: 0.1 }
+      prompt: [
+        { media: { url: input.romaneioPhoto, contentType: 'image/jpeg' } },
+        { text: `Extraia os dados deste romaneio com precisão absoluta.
+        
+        REGRAS CRÍTICAS:
+        1. Se a Data de Vencimento não estiver visível ou legível na imagem, use OBRIGATORIAMENTE a data: ${defaultDueDate} (+30 dias de hoje).
+        2. Extraia TODOS os itens com quantidade e valor total.
+        3. O retorno deve ser um JSON válido seguindo estritamente o schema fornecido.
+        4. O papel pode estar girado ou com baixa luminosidade.` },
+      ],
     });
 
-    if (output) return output;
-    throw new Error('A IA não retornou dados válidos.');
-  } catch (error: any) {
-    console.warn('Erro na extração do romaneio:', error.message);
-    lastError = error;
-  }
+    if (!output) {
+      return { error: 'O modelo Gemini não retornou dados válidos para esta imagem.' };
+    }
 
-  throw new Error(`IA Indisponível: O modelo Gemini 1.5 Flash não está a responder corretamente na sua região. Tente novamente. Detalhe: ${lastError?.message || 'Erro desconhecido'}`);
+    return { data: output };
+  } catch (error: any) {
+    console.error('[ParseRomaneio] Erro Crítico:', error.message);
+    
+    let userFriendlyError = error.message;
+    if (error.message.includes('429') || error.message.includes('quota')) {
+      userFriendlyError = 'Limite de uso da IA atingido. Tente novamente em alguns minutos.';
+    } else if (error.message.includes('fetch failed')) {
+      userFriendlyError = 'Falha de conexão com os servidores da Google AI.';
+    }
+
+    return { error: `Erro na IA: ${userFriendlyError}` };
+  }
 }

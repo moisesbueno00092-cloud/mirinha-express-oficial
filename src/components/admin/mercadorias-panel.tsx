@@ -5,10 +5,10 @@ import { useCollection, useFirestore } from '@/firebase';
 import { collection, query, orderBy, writeBatch, doc } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import type { Fornecedor, BomboniereItem } from '@/types';
-import { parseRomaneio, testAiConnection } from '@/ai/flows/parse-romaneio-flow';
+import { parseRomaneio } from '@/ai/flows/parse-romaneio-flow';
 
 import { Button } from '@/components/ui/button';
-import { Loader2, Trash2, ClipboardList, CheckCircle2, Zap, X, ImageIcon, FileText } from 'lucide-react';
+import { Loader2, Trash2, ClipboardList, CheckCircle2, X, ImageIcon, FileText } from 'lucide-react';
 import { ScrollArea } from '../ui/scroll-area';
 import { format as formatDateFn } from 'date-fns';
 import { DatePicker } from '../ui/date-picker';
@@ -30,7 +30,7 @@ const compressImage = (dataUri: string): Promise<string> => {
         img.onerror = () => reject(new Error('Falha ao carregar imagem para compressão'));
         img.onload = () => {
             const canvas = document.createElement('canvas');
-            const MAX_SIZE = 1024; 
+            const MAX_SIZE = 2048; 
             let width = img.width;
             let height = img.height;
             if (width > height) {
@@ -42,7 +42,7 @@ const compressImage = (dataUri: string): Promise<string> => {
             canvas.height = height;
             const ctx = canvas.getContext('2d');
             if (ctx) { ctx.drawImage(img, 0, 0, width, height); }
-            resolve(canvas.toDataURL('image/jpeg', 0.6));
+            resolve(canvas.toDataURL('image/jpeg', 0.8));
         };
         img.src = dataUri;
     });
@@ -59,7 +59,6 @@ export default function MercadoriasPanel() {
     const [produtosLancados, setProdutosLancados] = useState<LancamentoProduto[]>([]);
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [isParsing, setIsParsing] = useState(false);
-    const [isTesting, setIsTesting] = useState(false);
     
     const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -80,12 +79,25 @@ export default function MercadoriasPanel() {
         setIsParsing(true);
         try {
             const compressed = await compressImage(uri);
-            const output = await parseRomaneio({ romaneioPhoto: compressed });
+            // Chama a Server Action que agora retorna { data, error }
+            const response = await parseRomaneio({ romaneioPhoto: compressed });
             
-            if (output?.items?.length > 0) {
-                const newItems = output.items.map((it: any) => ({ 
+            if (response.error) {
+                toast({ 
+                    variant: 'destructive', 
+                    title: 'Falha na IA', 
+                    description: response.error 
+                });
+                setIsParsing(false);
+                return;
+            }
+
+            const output = response.data;
+
+            if (output?.itens && output.itens.length > 0) {
+                const newItems = output.itens.map((it: any) => ({ 
                     id: Math.random().toString(36).substr(2, 9), 
-                    produtoNome: it.produtoNome, 
+                    produtoNome: it.nome, 
                     preco: it.valorTotal, 
                     quantidade: it.quantidade, 
                     precoUnitario: it.quantidade > 0 ? it.valorTotal / it.quantidade : it.valorTotal
@@ -93,8 +105,10 @@ export default function MercadoriasPanel() {
                 setProdutosLancados(newItems);
             }
 
-            if (output?.fornecedorNome && fornecedores) {
-                const matched = fornecedores.find(f => f.nome.toLowerCase().includes(output.fornecedorNome!.toLowerCase()));
+            if (output?.fornecedor && fornecedores) {
+                const matched = fornecedores.find(f => 
+                    f.nome.toLowerCase().includes(output.fornecedor.toLowerCase())
+                );
                 if (matched) setFornecedorId(matched.id);
             }
 
@@ -102,10 +116,15 @@ export default function MercadoriasPanel() {
                 const [y, m, d] = output.dataVencimento.split('-').map(Number);
                 setDataVencimento(new Date(y, m - 1, d));
             }
-            toast({ title: "Extração concluída!" });
+            
+            toast({ title: "Extração concluída!", description: "Dados processados com sucesso pelo Gemini 2.0." });
         } catch (e: any) {
             console.error("Analysis Error:", e);
-            toast({ variant: 'destructive', title: 'Falha na IA', description: e.message || 'Verifique se a chave da API está ativa.' });
+            toast({ 
+                variant: 'destructive', 
+                title: 'Erro de Comunicação', 
+                description: 'Não foi possível completar a requisição. Verifique o tamanho da imagem.' 
+            });
         } finally {
             setIsParsing(false);
         }
@@ -179,14 +198,7 @@ export default function MercadoriasPanel() {
                     <FileText className="h-4 w-4" />
                     Romaneio IA
                 </Button>
-                <Button variant="ghost" size="icon" onClick={async () => {
-                    setIsTesting(true);
-                    const res = await testAiConnection();
-                    setIsTesting(false);
-                    toast({ title: res.success ? "Conexão OK" : "Falha na IA", description: res.message });
-                }}>
-                    {isTesting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Zap className="h-4 w-4 text-primary" />}
-                </Button>
+
             </div>
 
             <Dialog open={isModalOpen} onOpenChange={(open) => { if(!open) reset(); setIsModalOpen(open); }}>

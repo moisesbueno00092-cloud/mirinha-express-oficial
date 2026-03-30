@@ -5,6 +5,9 @@ const nextConfig: NextConfig = {
   serverActions: {
     bodySizeLimit: '50mb',
   },
+  experimental: {
+    serverExternalPackages: ['@genkit-ai/google-genai'],
+  },
   typescript: {
     ignoreBuildErrors: true,
   },

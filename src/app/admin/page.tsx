@@ -198,6 +198,8 @@ function AdminPageContent() {
 }
 
 
+export const maxDuration = 60;
+
 export default function AdminPage() {
     return (
         <AdminPageContent />
